@@ -3,6 +3,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Knight.Domain\Knight.Domain.csproj" />
     <ProjectReference Include="..\Knight.Application\Knight.Application.csproj" />
+    <ProjectReference Include="..\..\modules\AccessControl\AccessControl.csproj" />
+    <ProjectReference Include="..\..\modules\Customers\Customers.csproj" />
+    <ProjectReference Include="..\..\modules\Stores\Stores.csproj" />
     <ProjectReference Include="..\..\modules\Identity\Identity.csproj" />
     <ProjectReference Include="..\..\modules\Tenancy\Tenancy.csproj" />
     <ProjectReference Include="..\..\modules\FeatureManagement\FeatureManagement.csproj" />
@@ -18,6 +21,7 @@
 
   <ItemGroup>
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.11" />

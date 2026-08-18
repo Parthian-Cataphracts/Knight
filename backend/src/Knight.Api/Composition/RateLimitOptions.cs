@@ -27,5 +27,15 @@ public sealed class RateLimitOptions
 
     public int CheckoutSubmitPermitLimit { get; init; } = 20;
 
+    /// <summary>Requests per window for authenticated control-plane (dashboard) traffic.</summary>
+    public int ControlPlanePermitLimit { get; init; } = 200;
+
+    /// <summary>
+    /// Requests per window for control-plane login and refresh. Kept low on
+    /// purpose: it is the account-lockout rule's partner, throttling a source
+    /// rather than an account (docs/authentication.md section 1).
+    /// </summary>
+    public int ControlPlaneLoginPermitLimit { get; init; } = 10;
+
     public int WindowSeconds { get; init; } = 60;
 }
