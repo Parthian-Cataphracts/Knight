@@ -126,10 +126,16 @@ is self-hosted; no external font CDN.
 
 ## 8. Design source
 
-Visual design is being explored in Stitch
-(`https://stitch.withgoogle.com/projects/10363262931731977567`). Stitch output
-is treated as a **visual reference only** — generated markup is not copied into
-the codebase; components are implemented against the design system above.
+The visual design is the **Aegis Command** system, exported from the Stitch
+project `Knight Super Admin Control Plane`
+(`https://stitch.withgoogle.com/projects/10363262931731977567`) and committed
+verbatim to [`design-system.md`](design-system.md). That file is the source of
+truth for colour, typography, spacing, elevation, shape and component
+behaviour.
+
+Stitch's generated markup is a **visual reference only** — it is never copied
+into the codebase. Components are implemented against the token set in
+`src/styles/theme.css`, which carries the exported palette unchanged.
 
 ## 9. Feature delivery in the UI
 
@@ -158,7 +164,26 @@ Required surfaces:
 - **Failure visibility**: an entitled-but-failed feature is surfaced on the
   dashboard overview, never buried in a detail tab.
 
-## 10. Definition of done for a screen
+## 11. Deviations from the Stitch export
+
+The export is followed except where it conflicts with a rule elsewhere in these
+docs. Each deviation is deliberate:
+
+| Export | Implementation | Reason |
+|---|---|---|
+| Tailwind, fonts and Material Symbols from CDNs | npm packages, self-hosted fonts, `lucide-react` | No external requests; the design system itself specifies Lucide |
+| Hanken Grotesk for Persian text | Vazirmatn Variable first, Hanken Grotesk as Latin fallback | Hanken Grotesk has no Persian coverage; the export's own typography notes call for Vazirmatn |
+| Dark mode only in the screens | Dark default plus a light palette | The design system documents a light mode; `data-theme` switches both |
+| "Tenant" as one concept | Customers and Stores as separate destinations | Matches `domain-model.md`; one customer may own several stores |
+| Feature Catalog as a flag list (status, tenant count) | Feature **registry** (versions, manifest, publish/yank) plus a separate **Installations & Jobs** area | A feature is a versioned deployable package, and entitlement is not installation ([`adr/0014`](adr/0014-features-as-deployable-packages.md)) |
+| "Jobs & Backups" limited to DB sync and backups | Generalised job model covering installs, upgrades, rollbacks, provisioning and backups | One job pipeline serves all lifecycle work (`feature-delivery.md` §7) |
+
+Screens the export does not yet contain, and which must be designed before
+their phase starts: store detail with credentials and rotation, per-store
+feature installation state, install preview with dependency plan, live job
+progress, error groups, and incident timeline.
+
+## 12. Definition of done for a screen
 
 Implemented · typed · loading/empty/error states · RTL and LTR verified ·
 mobile and desktop verified · permission-aware · tested (component test, plus

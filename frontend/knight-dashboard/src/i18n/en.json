@@ -1,0 +1,87 @@
+{
+  "app": {
+    "name": "Knight Admin",
+    "tagline": "Control plane for independent stores"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "customers": "Customers",
+    "stores": "Stores",
+    "features": "Features",
+    "installations": "Installations & Jobs",
+    "plans": "Plans & Subscriptions",
+    "billing": "Billing",
+    "infrastructure": "Infrastructure",
+    "monitoring": "Monitoring",
+    "errors": "Errors",
+    "incidents": "Incidents",
+    "logs": "Logs",
+    "reports": "Reports",
+    "access": "Users & Access",
+    "audit": "Audit log",
+    "settings": "Settings",
+    "sectionOperations": "Operations",
+    "sectionService": "Service management",
+    "sectionInfra": "Infrastructure",
+    "sectionGovernance": "Governance"
+  },
+  "common": {
+    "search": "Search",
+    "logout": "Sign out",
+    "theme": "Toggle theme",
+    "language": "Language",
+    "menu": "Menu",
+    "close": "Close",
+    "retry": "Retry",
+    "loading": "Loading…",
+    "errorTitle": "Could not load data",
+    "comingSoon": "This area is not implemented yet.",
+    "comingSoonHint": "It arrives in a later phase — see TODO.md.",
+    "refresh": "Refresh"
+  },
+  "auth": {
+    "title": "Sign in to Knight",
+    "subtitle": "Use your platform administrator account.",
+    "email": "Work email",
+    "password": "Password",
+    "remember": "Remember me",
+    "forgot": "Forgot password?",
+    "submit": "Sign in",
+    "secure": "Encrypted connection",
+    "support": "Platform support",
+    "docs": "Security documentation",
+    "failed": "Sign-in failed"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Platform status at a glance.",
+    "activeCustomers": "Active customers",
+    "suspended": "Suspended",
+    "connectedStores": "Connected stores",
+    "openAlerts": "Open alerts",
+    "runningJobs": "Running jobs",
+    "failedInstalls": "Failed installations",
+    "entitledNotInstalled": "Entitled, not installed",
+    "services": "Service health",
+    "resources": "Server resources",
+    "cpu": "CPU",
+    "memory": "Memory",
+    "disk": "Disk",
+    "alerts": "System alerts",
+    "activity": "Recent activity",
+    "featureDelivery": "Feature delivery",
+    "noAlerts": "No open alerts.",
+    "viewAll": "View all"
+  },
+  "health": {
+    "Healthy": "Healthy",
+    "Degraded": "Degraded",
+    "Offline": "Offline",
+    "Unknown": "Unknown"
+  },
+  "severity": {
+    "critical": "Critical",
+    "warning": "Warning",
+    "info": "Info"
+  }
+}

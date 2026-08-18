@@ -1,0 +1,218 @@
+@import "tailwindcss";
+
+/*
+  Aegis Command design tokens — see docs/design-system.md.
+  Dark is the default mode (long-duration monitoring); light is derived from the
+  design system's light-mode guidance (neutral grays, white elevated surfaces,
+  deep indigo #4f46e5).
+*/
+
+@theme {
+  --font-sans: "Vazirmatn Variable", "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --text-display: 3rem;
+  --text-display--line-height: 3.5rem;
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 700;
+  --text-headline: 2rem;
+  --text-headline--line-height: 2.5rem;
+  --text-headline--font-weight: 600;
+  --text-title: 1.25rem;
+  --text-title--line-height: 1.75rem;
+  --text-title--font-weight: 600;
+  --text-body: 1rem;
+  --text-body--line-height: 1.625rem;
+  --text-body-sm: 0.875rem;
+  --text-body-sm--line-height: 1.375rem;
+  --text-label: 0.75rem;
+  --text-label--line-height: 1rem;
+  --text-label--letter-spacing: 0.05em;
+  --text-label--font-weight: 500;
+  --text-code: 0.8125rem;
+  --text-code--line-height: 1.125rem;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+
+  --color-surface: var(--surface);
+  --color-surface-dim: var(--surface-dim);
+  --color-surface-bright: var(--surface-bright);
+  --color-surface-lowest: var(--surface-container-lowest);
+  --color-surface-low: var(--surface-container-low);
+  --color-surface-container: var(--surface-container);
+  --color-surface-high: var(--surface-container-high);
+  --color-surface-highest: var(--surface-container-highest);
+  --color-surface-variant: var(--surface-variant);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary-container: var(--on-primary-container);
+  --color-secondary: var(--secondary);
+  --color-on-secondary: var(--on-secondary);
+  --color-secondary-container: var(--secondary-container);
+  --color-on-secondary-container: var(--on-secondary-container);
+  --color-tertiary: var(--tertiary);
+  --color-on-tertiary: var(--on-tertiary);
+  --color-tertiary-container: var(--tertiary-container);
+  --color-error: var(--error);
+  --color-on-error: var(--on-error);
+  --color-error-container: var(--error-container);
+  --color-on-error-container: var(--on-error-container);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+}
+
+/* Dark — the exported Aegis Command palette, verbatim. */
+:root,
+:root[data-theme="dark"] {
+  --surface: #13131b;
+  --surface-dim: #13131b;
+  --surface-bright: #393841;
+  --surface-container-lowest: #0d0d15;
+  --surface-container-low: #1b1b23;
+  --surface-container: #1f1f27;
+  --surface-container-high: #292932;
+  --surface-container-highest: #34343d;
+  --surface-variant: #34343d;
+  --on-surface: #e4e1ed;
+  --on-surface-variant: #c7c4d7;
+  --outline: #908fa0;
+  --outline-variant: #464554;
+  --primary: #c0c1ff;
+  --on-primary: #1000a9;
+  --primary-container: #8083ff;
+  --on-primary-container: #0d0096;
+  --secondary: #b9c8de;
+  --on-secondary: #233143;
+  --secondary-container: #39485a;
+  --on-secondary-container: #a7b6cc;
+  --tertiary: #ffb783;
+  --on-tertiary: #4f2500;
+  --tertiary-container: #d97721;
+  --error: #ffb4ab;
+  --on-error: #690005;
+  --error-container: #93000a;
+  --on-error-container: #ffdad6;
+  --success: #7bdca0;
+  --warning: #ffb783;
+  --info: #90c8ff;
+  --edge-highlight: rgb(255 255 255 / 0.05);
+  --shadow-ambient: 0 12px 32px -12px rgb(15 23 42 / 0.55);
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --surface: #f9fafb;
+  --surface-dim: #eceef2;
+  --surface-bright: #ffffff;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f4f5f8;
+  --surface-container: #eef0f4;
+  --surface-container-high: #e6e8ee;
+  --surface-container-highest: #dee1e9;
+  --surface-variant: #e2e4ec;
+  --on-surface: #14161d;
+  --on-surface-variant: #454a56;
+  --outline: #6c7180;
+  --outline-variant: #c7cad5;
+  --primary: #4f46e5;
+  --on-primary: #ffffff;
+  --primary-container: #e0e0ff;
+  --on-primary-container: #1a17a8;
+  --secondary: #475569;
+  --on-secondary: #ffffff;
+  --secondary-container: #dbe4f1;
+  --on-secondary-container: #24303f;
+  --tertiary: #b45309;
+  --on-tertiary: #ffffff;
+  --tertiary-container: #ffe2c7;
+  --error: #ba1a1a;
+  --on-error: #ffffff;
+  --error-container: #ffdad6;
+  --on-error-container: #410002;
+  --success: #15803d;
+  --warning: #b45309;
+  --info: #1d4ed8;
+  --edge-highlight: rgb(15 23 42 / 0.05);
+  --shadow-ambient: 0 12px 32px -14px rgb(15 23 42 / 0.2);
+  color-scheme: light;
+}
+
+@layer base {
+  * {
+    border-color: var(--outline-variant);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--surface);
+    color: var(--on-surface);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Persian needs more leading than the Latin metrics of the export. */
+  :root[lang="fa"] body {
+    line-height: 1.75;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--outline-variant);
+    border-radius: 9999px;
+  }
+}
+
+@utility label-caps {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  line-height: var(--text-label--line-height);
+  letter-spacing: var(--text-label--letter-spacing);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+/* Level 1 surface: tonal step + hairline border + top-light edge (dark mode). */
+@utility card-surface {
+  background-color: var(--surface-container);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 1px 0 0 var(--edge-highlight);
+}
+
+@utility elevated {
+  box-shadow: var(--shadow-ambient);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-18** (revision 2 — feature-delivery correction)
+Last updated: **2026-08-18** (revision 3 — dashboard scaffold implemented)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -13,7 +13,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 |---|---|
 | **Current phase** | **Phase 0 — Discovery & Architecture (complete, awaiting validation)** |
 | **Next phase** | Phase 1 — Pivot Stage A/B: control-plane core |
-| **Overall progress** | ~12% (analysis + architecture done, including the feature-delivery correction; reusable backend infrastructure exists; control-plane domain, feature registry/delivery, store template, agent, and frontend are all greenfield) |
+| **Overall progress** | ~15% (analysis + architecture done, including the feature-delivery correction; reusable backend infrastructure exists; control-plane domain, feature registry/delivery, store template, agent, and frontend are all greenfield) |
 | **Blocking decisions** | 11 open questions in [`docs/risks.md`](docs/risks.md) §3 |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -30,7 +30,7 @@ Phase 3    Store integration              ░░░░░░░░░░   0%
 Phase 3.5  Feature registry & delivery    ░░░░░░░░░░   0%   ← new in revision 2
 Phase 4    Servers, agents, monitoring    ░░░░░░░░░░   0%
 Phase 5    Errors & incidents             ░░░░░░░░░░   0%
-Phase 6    Frontend dashboard             ░░░░░░░░░░   0%
+Phase 6    Frontend dashboard             ██░░░░░░░░  15%
 Phase 7    Observability                  ░░░░░░░░░░   0%
 Phase 8    Business-domain port to Django ░░░░░░░░░░   0%
 Phase 9    Provisioning & professional infra ░░░░░░░   0%
@@ -265,18 +265,24 @@ uninstalled — with no manual per-store work at any point.
 ## Phase 6 — Frontend dashboard
 
 **Scaffold**
-- [ ] `frontend/knight-dashboard/` (Vite + React + strict TS)
-- [ ] Tailwind + shadcn/ui, theme tokens, light/dark
-- [ ] RTL foundation: `dir` switching, logical-property lint rule, self-hosted Vazirmatn
-- [ ] i18next with `fa` (default) and `en`
-- [ ] API client + TanStack Query + type generation from OpenAPI
-- [ ] App shell: sidebar/rail/drawer, responsive layouts, error boundaries
+- [x] `frontend/knight-dashboard/` (Vite + React 19 + strict TS)
+- [x] Aegis Command tokens from `docs/design-system.md`, dark default + light palette
+- [x] RTL foundation: `dir`/`lang`/`data-theme` switching, logical properties, self-hosted Vazirmatn + JetBrains Mono
+- [x] i18next with `fa` (default) and `en`
+- [x] API client (correlation id, ProblemDetails, 401 handling) + TanStack Query
+- [x] Development fixtures behind `VITE_USE_MOCKS` until the API exists
+- [x] App shell: sidebar / collapsed rail / mobile drawer, responsive, permission-aware nav
+- [x] UI primitives: Card, Button, TextField, StatusChip, Meter, loading/error/empty blocks
+- [ ] shadcn/ui adoption for the heavier primitives (dialog, dropdown, table)
+- [ ] Type generation from OpenAPI (blocked until the API exists)
+- [ ] Error boundaries per route
 - [ ] SignalR client, notification centre, and a reusable **job progress** component
-- [ ] Vitest + Testing Library + Playwright harness
+- [ ] Logical-property ESLint rule
+- [ ] Vitest + Testing Library + Playwright harness (Vitest configured, no suites yet)
 
 **Screens** (each: loading/empty/error · RTL+LTR · mobile+desktop · permission-aware · tested)
-- [ ] Login (+ MFA)
-- [ ] Dashboard overview (status tiles, charts, incidents, failed installations)
+- [x] Login (MFA step still to add)
+- [x] Dashboard overview (status tiles, service health, resources, alerts, activity, delivery summary)
 - [ ] Customers: list, detail, lifecycle actions
 - [ ] Stores: list, detail, register, credentials, health, deployments
 - [ ] **Store → Features tab**: entitlement vs installation, version, health, actions
