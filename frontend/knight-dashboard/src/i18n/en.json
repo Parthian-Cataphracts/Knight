@@ -37,7 +37,15 @@
     "errorTitle": "Could not load data",
     "comingSoon": "This area is not implemented yet.",
     "comingSoonHint": "It arrives in a later phase — see TODO.md.",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "all": "All",
+    "status": "Status",
+    "edit": "Edit",
+    "yes": "Yes",
+    "no": "No",
+    "noResults": "Nothing found.",
+    "identifier": "Identifier",
+    "correlationId": "Correlation id"
   },
   "auth": {
     "title": "Sign in to Knight",
@@ -83,5 +91,338 @@
     "critical": "Critical",
     "warning": "Warning",
     "info": "Info"
+  },
+  "customers": {
+    "subtitle": "Businesses whose stores KNIGHT manages.",
+    "name": "Customer",
+    "plan": "Plan",
+    "stores": "Stores",
+    "createdAt": "Created",
+    "create": "New customer",
+    "suspend": "Suspend"
+  },
+  "customerStatus": {
+    "Active": "Active",
+    "Prospect": "Prospect",
+    "Suspended": "Suspended",
+    "Archived": "Archived"
+  },
+  "planKey": {
+    "basic": "Basic",
+    "custom": "Custom",
+    "professional": "Professional"
+  },
+  "environment": {
+    "Production": "Production",
+    "Staging": "Staging",
+    "Development": "Development"
+  },
+  "hosting": {
+    "SharedManaged": "Shared (managed)",
+    "DedicatedManaged": "Dedicated (managed)",
+    "CustomerManaged": "Customer managed"
+  },
+  "integrationStatus": {
+    "Connected": "Connected",
+    "Degraded": "Degraded",
+    "Pending": "Pending",
+    "Disconnected": "Disconnected",
+    "NotRegistered": "Not registered"
+  },
+  "stores": {
+    "subtitle": "Independent Django stores under KNIGHT management.",
+    "domain": "Domain",
+    "environment": "Environment",
+    "integration": "Integration",
+    "version": "Version",
+    "hosting": "Hosting",
+    "features": "Features",
+    "lastSeen": "Last seen",
+    "register": "Register store",
+    "rotate": "Rotate secret",
+    "issueCredentials": "Issue credentials",
+    "installedFeatures": "Installed features"
+  },
+  "features": {
+    "subtitle": "Central registry of versioned, deployable features.",
+    "name": "Feature",
+    "latestVersion": "Latest version",
+    "entitled": "Entitled",
+    "installed": "Installed",
+    "plans": "Plans",
+    "create": "New feature",
+    "publish": "Publish version",
+    "yank": "Yank version",
+    "versions": "Versions",
+    "noVersions": "No versions published yet.",
+    "optional": "Optional",
+    "dedicatedOnly": "Requires dedicated infrastructure",
+    "compatibleWith": "Compatible store versions",
+    "migrations": "Migrations",
+    "reversible": "reversible",
+    "irreversible": "irreversible",
+    "dependencies": "Dependencies",
+    "publishedAt": "Published",
+    "publishWarning": "Publishing ships executable code to every entitled store."
+  },
+  "featureStatus": {
+    "Published": "Published",
+    "Draft": "Draft",
+    "Deprecated": "Deprecated",
+    "Withdrawn": "Withdrawn"
+  },
+  "versionStatus": {
+    "Published": "Published",
+    "Draft": "Draft",
+    "Yanked": "Yanked"
+  },
+  "installations": {
+    "subtitle": "Per-store installation state and the jobs that change it.",
+    "tabInstallations": "Installations",
+    "tabJobs": "Jobs",
+    "store": "Store",
+    "feature": "Feature",
+    "entitlement": "Entitlement",
+    "installation": "Installation",
+    "entitled": "Entitled",
+    "notEntitled": "Not entitled",
+    "version": "Version",
+    "lastChange": "Last change",
+    "notInstalledShort": "not installed",
+    "install": "Install",
+    "disable": "Disable",
+    "enabled": "Enabled",
+    "installedVersion": "Installed version",
+    "desiredVersion": "Target version",
+    "health": "Health",
+    "manualIntervention": "Automatic rollback stopped; manual intervention required."
+  },
+  "installationState": {
+    "NotInstalled": "Not installed",
+    "Pending": "Pending",
+    "Installing": "Installing",
+    "Installed": "Installed",
+    "Updating": "Updating",
+    "RollingBack": "Rolling back",
+    "Failed": "Failed",
+    "Disabled": "Disabled",
+    "Uninstalling": "Uninstalling"
+  },
+  "jobType": {
+    "Install": "Install",
+    "Upgrade": "Upgrade",
+    "ApplyConfiguration": "Apply configuration",
+    "Enable": "Enable",
+    "Disable": "Disable",
+    "Uninstall": "Uninstall",
+    "Rollback": "Rollback",
+    "HealthCheck": "Health check",
+    "Provision": "Provision",
+    "Backup": "Backup"
+  },
+  "jobStatus": {
+    "Queued": "Queued",
+    "Claimed": "Claimed",
+    "Running": "Running",
+    "Succeeded": "Succeeded",
+    "Failed": "Failed",
+    "Cancelled": "Cancelled",
+    "TimedOut": "Timed out"
+  },
+  "stepStatus": {
+    "Pending": "Pending",
+    "Running": "Running",
+    "Succeeded": "Succeeded",
+    "Failed": "Failed",
+    "Skipped": "Skipped"
+  },
+  "rollbackOutcome": {
+    "Succeeded": "Rolled back",
+    "ManualInterventionRequired": "Manual intervention required",
+    "None": "—"
+  },
+  "jobs": {
+    "type": "Type",
+    "target": "Target",
+    "progress": "Progress",
+    "queuedAt": "Queued",
+    "store": "Store",
+    "steps": "Steps",
+    "noSteps": "No step detail recorded.",
+    "errorCode": "Error code",
+    "rollback": "Rollback",
+    "retry": "Retry",
+    "cancel": "Cancel job"
+  },
+  "plans": {
+    "subtitle": "Plans, entitlement matrix and customer subscriptions.",
+    "create": "New plan",
+    "edit": "Edit plan",
+    "free": "Free",
+    "perMonth": "month",
+    "customers": "customers",
+    "matrix": "Entitlement matrix",
+    "feature": "Feature",
+    "subscriptions": "Subscriptions",
+    "pricingNote": "Prices are computed from the plan and selected features; never hard-coded."
+  },
+  "subscriptions": {
+    "customer": "Customer",
+    "plan": "Plan",
+    "optionalFeatures": "Optional features",
+    "monthlyTotal": "Monthly total",
+    "periodEnd": "Period ends"
+  },
+  "subscriptionStatus": {
+    "Active": "Active",
+    "Trial": "Trial",
+    "PastDue": "Past due",
+    "Suspended": "Suspended",
+    "Cancelled": "Cancelled"
+  },
+  "billing": {
+    "subtitle": "Invoices issued to customers.",
+    "number": "Number",
+    "customer": "Customer",
+    "period": "Period",
+    "total": "Total",
+    "issuedAt": "Issued",
+    "currency": "IRT"
+  },
+  "invoiceStatus": {
+    "Draft": "Draft",
+    "Issued": "Issued",
+    "Paid": "Paid",
+    "Void": "Void",
+    "Overdue": "Overdue"
+  },
+  "infrastructure": {
+    "subtitle": "Platform services and the servers hosting stores.",
+    "platformServices": "Platform services",
+    "servers": "Servers",
+    "server": "Server",
+    "ip": "IP address",
+    "load": "Load (CPU/RAM/Disk)",
+    "stores": "Stores",
+    "agent": "Agent",
+    "uptime": "Uptime",
+    "agentNote": "The agent only reports and runs typed jobs; it has no shell and executes no arbitrary commands."
+  },
+  "monitoring": {
+    "subtitle": "Store health and the active alert rules.",
+    "store": "Store",
+    "reachability": "Reachability",
+    "installedFeatures": "Installed features",
+    "storeHealth": "Store health",
+    "alertRules": "Alert rules"
+  },
+  "errors": {
+    "subtitle": "Errors grouped by fingerprint.",
+    "group": "Error group",
+    "store": "Store",
+    "endpoint": "Endpoint",
+    "occurrences": "Occurrences",
+    "lastSeen": "Last seen",
+    "firstSeen": "First seen",
+    "firstSeenVersion": "First seen in",
+    "ignore": "Ignore",
+    "resolve": "Resolve"
+  },
+  "errorStatus": {
+    "New": "New",
+    "Acknowledged": "Acknowledged",
+    "Resolved": "Resolved",
+    "Ignored": "Ignored"
+  },
+  "incidents": {
+    "subtitle": "Open incidents and their history.",
+    "reference": "Reference",
+    "title": "Title",
+    "severity": "Severity",
+    "scope": "Scope",
+    "openedAt": "Opened",
+    "resolvedAt": "Resolved"
+  },
+  "incidentStatus": {
+    "Open": "Open",
+    "Investigating": "Investigating",
+    "Mitigated": "Mitigated",
+    "Resolved": "Resolved"
+  },
+  "logs": {
+    "subtitle": "Structured log stream from stores and services.",
+    "searchPlaceholder": "Search message text"
+  },
+  "logLevel": {
+    "Debug": "Debug",
+    "Information": "Info",
+    "Warning": "Warning",
+    "Error": "Error",
+    "Critical": "Critical"
+  },
+  "audit": {
+    "subtitle": "Every sensitive operation with actor, result and correlation id.",
+    "timestamp": "Timestamp",
+    "actor": "Actor",
+    "action": "Action",
+    "target": "Target",
+    "customer": "Customer",
+    "result": "Result",
+    "ip": "IP",
+    "export": "Export CSV"
+  },
+  "actorType": {
+    "User": "User",
+    "System": "System",
+    "Store": "Store",
+    "Agent": "Agent"
+  },
+  "auditResult": {
+    "Success": "Success",
+    "Failure": "Failure"
+  },
+  "access": {
+    "subtitle": "Users, roles and permission scope.",
+    "users": "Users",
+    "roles": "Roles",
+    "user": "User",
+    "role": "Role",
+    "scope": "Scope",
+    "platform": "Platform",
+    "customer": "Customer",
+    "rolesColumn": "Roles",
+    "mfa": "MFA",
+    "permissions": "Permissions",
+    "userCount": "Users",
+    "system": "System",
+    "lastSeen": "Last seen",
+    "invite": "Invite user"
+  },
+  "userStatus": {
+    "Active": "Active",
+    "Suspended": "Suspended"
+  },
+  "reports": {
+    "subtitle": "Aggregate platform reports.",
+    "updated": "Updated"
+  },
+  "settings": {
+    "subtitle": "Display settings and environment information.",
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "theme_dark": "Dark",
+    "theme_light": "Light",
+    "language": "Language",
+    "account": "Account",
+    "name": "Name",
+    "roles": "Roles",
+    "scope": "Scope",
+    "permissions": "Permissions",
+    "environment": "Runtime",
+    "apiBaseUrl": "API base URL",
+    "mockMode": "Fixture mode",
+    "mockOn": "On",
+    "mockOff": "Off",
+    "mockNote": "Data comes from local fixtures, not a real API."
   }
 }

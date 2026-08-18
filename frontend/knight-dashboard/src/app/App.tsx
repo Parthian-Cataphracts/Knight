@@ -9,8 +9,7 @@ import { useUiStore } from "@/store/ui";
 import { DIRECTION } from "@/i18n";
 import { AppLayout } from "@/layouts/AppLayout";
 import { RequireAuth } from "./RequireAuth";
-import { DashboardPage } from "@/features/dashboard/pages/DashboardPage";
-import { PlaceholderPage } from "@/features/shared/PlaceholderPage";
+import { featureRoutes } from "./routes";
 
 /** Keeps <html lang/dir/data-theme> in sync with the UI store. */
 function DocumentSettings() {
@@ -28,24 +27,6 @@ function DocumentSettings() {
 
   return null;
 }
-
-const PLACEHOLDER_ROUTES: [path: string, titleKey: string][] = [
-  ["/customers", "nav.customers"],
-  ["/stores", "nav.stores"],
-  ["/features", "nav.features"],
-  ["/installations", "nav.installations"],
-  ["/plans", "nav.plans"],
-  ["/billing", "nav.billing"],
-  ["/infrastructure", "nav.infrastructure"],
-  ["/monitoring", "nav.monitoring"],
-  ["/errors", "nav.errors"],
-  ["/incidents", "nav.incidents"],
-  ["/logs", "nav.logs"],
-  ["/reports", "nav.reports"],
-  ["/access", "nav.access"],
-  ["/audit", "nav.audit"],
-  ["/settings", "nav.settings"],
-];
 
 export function App() {
   const signOut = useAuthStore((state) => state.signOut);
@@ -66,10 +47,7 @@ export function App() {
               </RequireAuth>
             }
           >
-            <Route path="/" element={<DashboardPage />} />
-            {PLACEHOLDER_ROUTES.map(([path, titleKey]) => (
-              <Route key={path} path={path} element={<PlaceholderPage titleKey={titleKey} />} />
-            ))}
+            {featureRoutes()}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
