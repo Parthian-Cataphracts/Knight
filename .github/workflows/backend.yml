@@ -1,0 +1,46 @@
+name: Backend
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      # Full history: a secret is just as compromised when it is only in an
+      # earlier commit of the branch as when it is in the tip.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan for committed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-and-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore backend/Knight.slnx
+
+      - name: Build
+        run: dotnet build backend/Knight.slnx --configuration Release --no-restore
+
+      - name: Test
+        # Docker is available on this runner, so the PostgreSQL-backed suites
+        # are mandatory here: a silently skipped isolation suite must never be
+        # mistaken for a passing one (docs/adr/0005).
+        env:
+          REQUIRE_POSTGRES_TESTS: '1'
+        run: dotnet test backend/Knight.slnx --configuration Release --no-build --verbosity normal

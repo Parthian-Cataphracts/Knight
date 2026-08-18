@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-18** (revision 5 — dashboard complete against the design)
+Last updated: **2026-08-18** (revision 6 — phase 1 control-plane core complete)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,9 +11,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 0 — Discovery & Architecture (complete, awaiting validation)** |
-| **Next phase** | Phase 1 — Pivot Stage A/B: control-plane core |
-| **Overall progress** | ~25% (analysis + architecture done, including the feature-delivery correction; reusable backend infrastructure exists; control-plane domain, feature registry/delivery, store template, agent, and frontend are all greenfield) |
+| **Current phase** | **Phase 1 — Control-plane core (complete)** |
+| **Next phase** | Phase 2 — Plans, subscriptions, entitlements, billing |
+| **Overall progress** | ~35% (architecture and the control-plane core are done; feature registry/delivery, store template, agent and the dashboard's write paths remain greenfield) |
 | **Blocking decisions** | 11 open questions in [`docs/risks.md`](docs/risks.md) §3 |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -24,7 +24,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 ```
 Phase 0    Discovery & architecture       ██████████ 100%
-Phase 1    Control-plane core             ░░░░░░░░░░   0%
+Phase 1    Control-plane core             ██████████ 100%
 Phase 2    Plans, subscriptions, entitlements ░░░░░░   0%
 Phase 3    Store integration              ░░░░░░░░░░   0%
 Phase 3.5  Feature registry & delivery    ░░░░░░░░░░   0%   ← new in revision 2
@@ -51,7 +51,7 @@ These exist and work today; see [`docs/current-state-analysis.md`](docs/current-
 - [x] `FeatureManagement`: feature **flags** per tenant (becomes entitlements; the registry/delivery model is new code)
 - [x] Per-module audit recorders
 - [x] EF Core persistence, repositories, migrations, health checks, caching, storage abstraction
-- [x] 97 test files: unit, integration (PostgreSQL-backed isolation suite), architecture
+- [x] Unit, integration (PostgreSQL-backed isolation suite) and architecture suites
 - [x] OpenAPI + Scalar in Development
 - [x] Docker Compose local infrastructure (PostgreSQL, Redis)
 - [x] 9 ADRs for the previous product
@@ -86,37 +86,45 @@ These exist and work today; see [`docs/current-state-analysis.md`](docs/current-
 
 ---
 
-## Phase 1 — Control-plane core
+## Phase 1 — Control-plane core ✅
 
 **Exit criteria:** a platform admin can log in, create a customer, register a
-store, and issue store credentials, with isolation tests passing.
+store, and issue store credentials, with isolation tests passing. Covered
+end to end by `ControlPlaneCustomerAndStoreTests` and the release-blocking
+`ControlPlaneIsolationTests`.
 
 ### Architecture
-- [ ] Create `Knight.ControlPlane` DbContext separate from the legacy `PlatformDbContext`
-- [ ] Move stray docs from `backend/docs/` into `docs/`
-- [ ] Extend architecture tests: no control-plane module may reference a frozen store module
+- [x] `ControlPlaneDbContext` on its own `control` schema, separate from the legacy `PlatformDbContext` ([`adr/0018`](docs/adr/0018-separate-control-plane-context-and-access-module.md))
+- [x] Move stray docs from `backend/docs/` into `docs/`
+- [x] Architecture tests: no control-plane module may reference a frozen store module, Infrastructure, the API, or a sibling module
 
 ### Backend
-- [ ] `Customers` module: aggregate, lifecycle, repository, service
-- [ ] `Stores` module: aggregate, slug/domain normalisation, lifecycle, environment, reported store version
-- [ ] `StoreCredential`: generation, hashing, rotation with grace window, revocation
-- [ ] Reshape `Identity` for `customerId` scoping and the `principal_type` claim
-- [ ] `AccessControl`: roles, permissions (including the feature/installation permission split), seeded system roles
-- [ ] Customer isolation as a persistence-level global filter
-- [ ] Central `AuditLog` write path + query endpoint
-- [ ] Endpoints: `/api/v1/auth/*`, `/api/v1/customers/*`, `/api/v1/stores/*`, `/api/v1/audit-logs`
-- [ ] EF Core migrations for the control-plane schema
+- [x] `Customers` module: aggregate, lifecycle, repository, service
+- [x] `Stores` module: aggregate, slug/domain normalisation, lifecycle, environment, reported store version
+- [x] `StoreCredential`: generation, hashing, rotation with grace window, revocation
+- [x] `AccessControl` module for control-plane identity: accounts scoped to at most one customer, sessions with rotation and reuse detection, `principal_type` claim
+- [x] `AccessControl`: roles, permissions (including the feature/installation permission split), seeded system roles
+- [x] Customer isolation as a persistence-level global filter, failing closed
+- [x] Central `AuditLog` write path (with credential redaction) + query endpoint
+- [x] Endpoints: `/api/v1/auth/*`, `/api/v1/customers/*`, `/api/v1/stores/*`, `/api/v1/audit-logs`
+- [x] EF Core migrations for the control-plane schema
+- [ ] Account and role management endpoints (`/api/v1/users`, `/api/v1/roles`) — the model and seeded roles exist; the dashboard write paths land with phase 6's remaining work
+
+> The legacy `Identity` module was left untouched rather than reshaped: it
+> serves the frozen store-side modules until phase 8 removes them, and the
+> control plane needed a different model, not a modified one.
 
 ### Security
-- [ ] MFA (TOTP) for platform `SuperAdmin`/`Admin`
-- [ ] Login lockout + `auth` rate-limit policy tuning
-- [ ] Secret-scanning step in CI
+- [x] MFA (TOTP, RFC 6238) for platform `SuperAdmin`/`Admin`, enforced at the authorization layer
+- [x] Login lockout + dedicated `auth-control-plane` and `control-plane` rate-limit policies
+- [x] Secret-scanning step in CI (`.github/workflows/backend.yml`, gitleaks)
 
 ### Testing
-- [ ] Unit tests for every customer/store invariant and transition
-- [ ] Integration tests for all new endpoints (happy, validation, authz)
-- [ ] Isolation tests: Customer A vs Customer B for customer, store, credential, audit
-- [ ] Principal-type tests: user/store/agent token cross-access rejected
+- [x] Unit tests for every customer/store/account/session invariant and transition
+- [x] TOTP verified against RFC 6238's published vectors
+- [x] Integration tests for all new endpoints (happy, validation, authz)
+- [x] Isolation tests: Customer A vs Customer B for customer, store, credential, audit
+- [x] Principal-type tests: a legacy tenant token cannot reach the dashboard API, and a dashboard token cannot reach the legacy platform API
 
 ---
 

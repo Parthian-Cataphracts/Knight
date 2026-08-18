@@ -1,0 +1,39 @@
+# Secret-scanning configuration for the CI step in .github/workflows/backend.yml.
+#
+# The default rule set is kept in full and only narrowed where a match is
+# provably not a secret. Every allowlist entry below names something that is
+# either a published test vector or a placeholder that exists precisely because
+# the real value must come from the secret store at runtime.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "knight-connection-string-password"
+description = "Password embedded in a PostgreSQL connection string"
+regex = '''(?i)(Host=[^;"']+;.*Password=)(?!platform\b)([^;"'\s]{6,})'''
+tags = ["knight", "database"]
+
+[allowlist]
+description = "Values that cannot be secrets"
+
+paths = [
+  # Local development compose files use platform/platform against a container
+  # that is never reachable from outside the developer's machine.
+  '''infrastructure/docker/docker-compose\.yml''',
+]
+
+regexes = [
+  # The RFC 6238 test secret, published in the standard itself.
+  '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''',
+
+  # Test-only signing key used by the integration fixture.
+  '''integration-test-signing-key-at-least-32-characters-long''',
+
+  # The structurally valid hash of a value nobody knows, used to keep the
+  # unknown-account login path as expensive as the known-account one.
+  '''210000\.A+={0,2}\.A+={0,2}''',
+
+  # Local development credentials for containers bound to localhost only.
+  '''(Username|Password)=platform''',
+]

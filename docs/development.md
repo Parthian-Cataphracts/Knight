@@ -19,12 +19,27 @@ cd infrastructure/docker && docker compose up -d
 cd backend && dotnet restore && dotnet build
 ```
 
+Bring the control-plane schema up and create the first administrator. The API
+host deliberately does not migrate itself — that is a deployment step
+([`adr/0018`](adr/0018-separate-control-plane-context-and-access-module.md)) —
+and the password is typed in, never passed as an argument or read from
+configuration:
+
+```bash
+CONTROL_PLANE_DB_CONNECTION_STRING="Host=localhost;Database=platform;Username=platform;Password=platform" dotnet run --project backend/tools/Knight.Bootstrap -- --control-plane --email admin@example.com
+```
+
 ```bash
 dotnet run --project backend/src/Knight.Api
 ```
 
 Development-only: OpenAPI at `/openapi/v1.json`, API reference at `/scalar`,
 health at `/health/live` and `/health/ready`.
+
+The account holds `SuperAdmin`, which requires a second factor, so its first
+sign-in returns `mfa_enrollment_required` and can reach nothing but
+`POST /api/v1/auth/mfa/enroll` and `/confirm` until MFA is enrolled
+([`authentication.md`](authentication.md) §1).
 
 ```bash
 cd backend && dotnet test
