@@ -3,6 +3,7 @@
     <Project Path="modules/Catalog/Catalog.csproj" />
     <Project Path="modules/Checkout/Checkout.csproj" />
     <Project Path="modules/Customer/Customer.csproj" />
+    <Project Path="modules/Customers/Customers.csproj" />
     <Project Path="modules/Delivery/Delivery.csproj" />
     <Project Path="modules/FeatureManagement/FeatureManagement.csproj" />
     <Project Path="modules/Fulfillment/Fulfillment.csproj" />
@@ -10,6 +11,7 @@
     <Project Path="modules/Ordering/Ordering.csproj" />
     <Project Path="modules/Payment/Payment.csproj" />
     <Project Path="modules/Promotions/Promotions.csproj" />
+    <Project Path="modules/Stores/Stores.csproj" />
     <Project Path="modules/Tenancy/Tenancy.csproj" />
   </Folder>
   <Folder Name="/src/">
