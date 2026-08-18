@@ -66,16 +66,17 @@ src/
 
 ## Status
 
-All sixteen navigation destinations are implemented and read from the API
-client: Dashboard, Customers, Stores, Features, Installations & Jobs, Plans &
-Subscriptions, Billing, Infrastructure, Monitoring, Errors, Incidents, Logs,
-Reports, Users & Access, Audit log and Settings.
+Every screen in the design is implemented and reads through the API client:
+Dashboard, Customers (list, detail, create), Stores (list, detail with domains,
+credentials and deployments), Features registry, Installations & Jobs with
+install preview, Plans & Subscriptions, Billing, Infrastructure, Monitoring,
+Alerts, Errors with event samples, Incidents with timeline, Logs, Reports,
+Users & Access, Audit log and Settings. Sign-in includes the second-factor step.
 
 Every screen is verified in fa/RTL and en/LTR, at mobile and desktop widths,
 with no horizontal page scroll.
 
-What is deliberately still missing (it needs the API, not more UI): create and
-edit forms, the install preview dialog with the dependency plan, the
-subscription change flow with live pricing, server metric charts, error event
-samples, the incident timeline, and the MFA step. Tracked under phase 6 in
-[`TODO.md`](../../TODO.md).
+What remains needs the API rather than more UI: persisting form submissions,
+the subscription change flow with live pricing from `/subscriptions/quote`, and
+live job progress over SignalR instead of a one-shot fetch. Test suites are
+also still to be written. Tracked under phase 6 in [`TODO.md`](../../TODO.md).
