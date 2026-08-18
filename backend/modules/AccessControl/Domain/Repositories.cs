@@ -16,6 +16,14 @@ public interface IControlPlaneUserRepository
     /// </summary>
     Task<ControlPlaneUser?> FindForAuthenticationAsync(string normalizedEmail, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Resolves an account by id for authentication. Like the lookup above this
+    /// runs before any scope exists — a refresh request carries no established
+    /// customer — so it is not customer-filtered. The caller must already hold
+    /// proof of identity, such as an unconsumed refresh token.
+    /// </summary>
+    Task<ControlPlaneUser?> FindForAuthenticationByIdAsync(Guid id, CancellationToken cancellationToken);
+
     Task<bool> ExistsWithEmailAsync(string normalizedEmail, CancellationToken cancellationToken);
 
     Task<(IReadOnlyCollection<ControlPlaneUser> Items, long TotalCount)> ListAsync(
