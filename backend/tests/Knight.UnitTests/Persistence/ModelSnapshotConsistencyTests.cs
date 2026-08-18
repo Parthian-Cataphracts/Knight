@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Knight.Infrastructure.ControlPlane;
 using Knight.Infrastructure.Persistence;
 
 namespace Knight.UnitTests.Persistence;
@@ -28,6 +29,18 @@ public sealed class ModelSnapshotConsistencyTests
         Assert.False(
             context.Database.HasPendingModelChanges(),
             "The EF model no longer matches the committed migrations/ModelSnapshot. " +
+            "Add a corrective migration (do not edit historical migrations) so the " +
+            "PostgreSQL schema and the model agree.");
+    }
+
+    [Fact]
+    public void ControlPlaneModel_HasNoPendingChanges_AgainstCommittedMigrations()
+    {
+        using var context = new ControlPlaneDesignTimeFactory().CreateDbContext([]);
+
+        Assert.False(
+            context.Database.HasPendingModelChanges(),
+            "The control-plane EF model no longer matches its committed migrations/ModelSnapshot. " +
             "Add a corrective migration (do not edit historical migrations) so the " +
             "PostgreSQL schema and the model agree.");
     }
