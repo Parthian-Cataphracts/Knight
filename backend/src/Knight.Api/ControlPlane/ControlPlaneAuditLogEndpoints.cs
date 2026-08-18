@@ -1,5 +1,6 @@
 using AccessControl;
 using AccessControl.Domain;
+using Knight.Application.Abstractions.ControlPlane;
 using Knight.Contracts.Common;
 using Knight.Contracts.ControlPlane;
 
@@ -28,23 +29,45 @@ public static class ControlPlaneAuditLogEndpoints
             DateTimeOffset? from,
             DateTimeOffset? to,
             IAuditLogQueryService service,
+            ILabelReader labels,
             CancellationToken cancellationToken) =>
         {
             var result = await service.QueryAsync(
                 new AuditLogQuery(page ?? 1, pageSize ?? 25, actorId, targetType, action, from, to),
                 cancellationToken);
 
+            var names = await labels.CustomerNamesAsync(
+                result.Items.Where(entry => entry.CustomerId is not null)
+                    .Select(entry => entry.CustomerId!.Value)
+                    .Distinct()
+                    .ToArray(),
+                cancellationToken);
+
             return Results.Ok(PagedResponse<AuditLogResponse>.Create(
-                result.Items.Select(ToResponse).ToArray(),
+                result.Items.Select(entry => ToResponse(entry, names)).ToArray(),
                 result.Page,
                 result.PageSize,
                 result.TotalCount));
         }).RequirePermission(ControlPlanePermissions.AuditView);
     }
 
-    private static AuditLogResponse ToResponse(AuditLogEntryView entry) => new()
+    private static AuditLogResponse ToResponse(AuditLogEntryView entry, IReadOnlyDictionary<Guid, string> customerNames) => new()
     {
         Id = entry.Id,
+        CustomerName = entry.CustomerId is { } customerId ? customerNames.GetValueOrDefault(customerId) : null,
+
+        // Automated work has no account behind it, so the actor type stands in
+        // rather than leaving the column blank.
+        Actor = string.IsNullOrWhiteSpace(entry.ActorDisplay) ? entry.ActorType : entry.ActorDisplay,
+        Target = entry.TargetId is null ? entry.TargetType : $"{entry.TargetType} {entry.TargetId}",
+
+        // The action name carries the outcome: a rejected attempt is recorded
+        // under its own action rather than as a flag on the successful one.
+        Result = entry.Action.EndsWith("failed", StringComparison.OrdinalIgnoreCase)
+            || entry.Action.EndsWith("rejected", StringComparison.OrdinalIgnoreCase)
+            || entry.Action.Contains("lockout", StringComparison.OrdinalIgnoreCase)
+                ? "Failure"
+                : "Success",
         ActorType = entry.ActorType,
         ActorUserId = entry.ActorUserId,
         ActorDisplay = entry.ActorDisplay,

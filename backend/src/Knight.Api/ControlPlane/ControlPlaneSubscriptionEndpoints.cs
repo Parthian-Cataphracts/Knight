@@ -1,4 +1,5 @@
 using AccessControl.Domain;
+using Knight.Application.Abstractions.ControlPlane;
 using Knight.Contracts.Common;
 using Knight.Contracts.ControlPlane;
 using Subscriptions;
@@ -28,6 +29,7 @@ public static class ControlPlaneSubscriptionEndpoints
             Guid? customerId,
             string? status,
             ISubscriptionService service,
+            ILabelReader labels,
             CancellationToken cancellationToken) =>
         {
             if (!TryParseStatus(status, out var parsedStatus))
@@ -39,57 +41,94 @@ public static class ControlPlaneSubscriptionEndpoints
                 new SubscriptionListQuery(page ?? 1, pageSize ?? 25, customerId, parsedStatus),
                 cancellationToken);
 
+            var names = await labels.CustomerNamesAsync(
+                result.Items.Select(subscription => subscription.CustomerId).Distinct().ToArray(),
+                cancellationToken);
+
+            var plans = await labels.PlanNamesAsync(
+                result.Items.Select(subscription => subscription.PlanId).Distinct().ToArray(),
+                cancellationToken);
+
             return Results.Ok(PagedResponse<SubscriptionResponse>.Create(
-                result.Items.Select(ToResponse).ToArray(),
+                result.Items.Select(subscription => ToResponse(subscription, names, plans)).ToArray(),
                 result.Page,
                 result.PageSize,
                 result.TotalCount));
         }).RequirePermission(ControlPlanePermissions.SubscriptionView);
 
-        group.MapGet("/{id:guid}", async (Guid id, ISubscriptionService service, CancellationToken cancellationToken) =>
+        group.MapGet("/{id:guid}", async (
+            Guid id,
+            ISubscriptionService service,
+            ILabelReader labels,
+            CancellationToken cancellationToken) =>
         {
             var subscription = await service.GetAsync(id, cancellationToken);
-            return subscription is null ? Results.NotFound() : Results.Ok(ToResponse(subscription));
+            return subscription is null
+                ? Results.NotFound()
+                : Results.Ok(await DescribeAsync(subscription, labels, cancellationToken));
         }).RequirePermission(ControlPlanePermissions.SubscriptionView);
 
         group.MapPost("/", async (
             CreateSubscriptionRequest request,
             ISubscriptionService service,
+            ILabelReader labels,
             CancellationToken cancellationToken) =>
         {
             var subscription = await service.StartAsync(
                 new StartSubscriptionInput(request.CustomerId, request.PlanId, request.FeatureIds, request.AsTrial),
                 cancellationToken);
 
-            return Results.Created($"/api/v1/subscriptions/{subscription.Id}", ToResponse(subscription));
+            return Results.Created(
+                $"/api/v1/subscriptions/{subscription.Id}",
+                await DescribeAsync(subscription, labels, cancellationToken));
         }).RequirePermission(ControlPlanePermissions.SubscriptionManage);
 
         group.MapPatch("/{id:guid}", async (
             Guid id,
             ChangePlanRequest request,
             ISubscriptionService service,
+            ILabelReader labels,
             CancellationToken cancellationToken) =>
-            Results.Ok(ToResponse(await service.ChangePlanAsync(id, request.PlanId, cancellationToken))))
+            Results.Ok(await DescribeAsync(
+                await service.ChangePlanAsync(id, request.PlanId, cancellationToken),
+                labels,
+                cancellationToken)))
             .RequirePermission(ControlPlanePermissions.SubscriptionManage);
 
         group.MapPut("/{id:guid}/features", async (
             Guid id,
             SetSubscriptionFeaturesRequest request,
             ISubscriptionService service,
+            ILabelReader labels,
             CancellationToken cancellationToken) =>
-            Results.Ok(ToResponse(await service.SetFeaturesAsync(id, request.FeatureIds, cancellationToken))))
+            Results.Ok(await DescribeAsync(
+                await service.SetFeaturesAsync(id, request.FeatureIds, cancellationToken),
+                labels,
+                cancellationToken)))
             .RequirePermission(ControlPlanePermissions.SubscriptionManage);
 
-        group.MapPost("/{id:guid}/cancel", async (Guid id, ISubscriptionService service, CancellationToken cancellationToken) =>
-            Results.Ok(ToResponse(await service.CancelAsync(id, cancellationToken))))
+        group.MapPost("/{id:guid}/cancel", async (
+            Guid id,
+            ISubscriptionService service,
+            ILabelReader labels,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await DescribeAsync(await service.CancelAsync(id, cancellationToken), labels, cancellationToken)))
             .RequirePermission(ControlPlanePermissions.SubscriptionManage);
 
-        group.MapPost("/{id:guid}/suspend", async (Guid id, ISubscriptionService service, CancellationToken cancellationToken) =>
-            Results.Ok(ToResponse(await service.SuspendAsync(id, cancellationToken))))
+        group.MapPost("/{id:guid}/suspend", async (
+            Guid id,
+            ISubscriptionService service,
+            ILabelReader labels,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await DescribeAsync(await service.SuspendAsync(id, cancellationToken), labels, cancellationToken)))
             .RequirePermission(ControlPlanePermissions.SubscriptionManage);
 
-        group.MapPost("/{id:guid}/activate", async (Guid id, ISubscriptionService service, CancellationToken cancellationToken) =>
-            Results.Ok(ToResponse(await service.ActivateAsync(id, cancellationToken))))
+        group.MapPost("/{id:guid}/activate", async (
+            Guid id,
+            ISubscriptionService service,
+            ILabelReader labels,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await DescribeAsync(await service.ActivateAsync(id, cancellationToken), labels, cancellationToken)))
             .RequirePermission(ControlPlanePermissions.SubscriptionManage);
 
         group.MapPost("/quote", async (
@@ -131,10 +170,17 @@ public static class ControlPlaneSubscriptionEndpoints
             bool? includeInactive,
             IEntitlementService service,
             CancellationToken cancellationToken) =>
-            Results.Ok((await service.ResolveForCustomerAsync(customerId, includeInactive ?? false, cancellationToken))
+        {
+            var entitlements = (await service.ResolveForCustomerAsync(customerId, includeInactive ?? false, cancellationToken))
                 .Select(ToResponse)
-                .ToArray()))
-            .RequirePermission(ControlPlanePermissions.FeatureView);
+                .ToArray();
+
+            return Results.Ok(PagedResponse<EntitlementResponse>.Create(
+                entitlements,
+                1,
+                entitlements.Length,
+                entitlements.Length));
+        }).RequirePermission(ControlPlanePermissions.FeatureView);
 
         // Side-effect free: this is the question the install-preview dialog asks
         // before it offers a button.
@@ -217,11 +263,30 @@ public static class ControlPlaneSubscriptionEndpoints
         IsActive = view.IsActive,
     };
 
-    internal static SubscriptionResponse ToResponse(Subscription subscription) => new()
+    /// <summary>Resolves the labels for one subscription returned on its own.</summary>
+    private static async Task<SubscriptionResponse> DescribeAsync(
+        Subscription subscription,
+        ILabelReader labels,
+        CancellationToken cancellationToken)
+    {
+        var names = await labels.CustomerNamesAsync([subscription.CustomerId], cancellationToken);
+        var plans = await labels.PlanNamesAsync([subscription.PlanId], cancellationToken);
+
+        return ToResponse(subscription, names, plans);
+    }
+
+    internal static SubscriptionResponse ToResponse(
+        Subscription subscription,
+        IReadOnlyDictionary<Guid, string> customerNames,
+        IReadOnlyDictionary<Guid, (string Key, string Name)> plans) => new()
     {
         Id = subscription.Id,
         CustomerId = subscription.CustomerId,
+        CustomerName = customerNames.GetValueOrDefault(subscription.CustomerId) ?? string.Empty,
         PlanId = subscription.PlanId,
+        PlanKey = plans.TryGetValue(subscription.PlanId, out var plan) ? plan.Key : string.Empty,
+        PlanName = plans.TryGetValue(subscription.PlanId, out var named) ? named.Name : string.Empty,
+        OptionalFeatures = subscription.EnabledFeatureIds.Count,
         Status = subscription.Status.ToString(),
         StartedAt = subscription.StartedAt,
         CurrentPeriodStart = subscription.CurrentPeriodStart,

@@ -1,4 +1,5 @@
 using AccessControl.Domain;
+using Knight.Application.Abstractions.ControlPlane;
 using Knight.Application.Abstractions.Time;
 using Knight.Contracts.Common;
 using Knight.Contracts.ControlPlane;
@@ -31,6 +32,7 @@ public static class ControlPlaneStoreEndpoints
             string? environment,
             string? status,
             IStoreManagementService service,
+            ILabelReader labels,
             IDateTimeProvider clock,
             CancellationToken cancellationToken) =>
         {
@@ -48,8 +50,13 @@ public static class ControlPlaneStoreEndpoints
                 new StoreListQuery(page ?? 1, pageSize ?? 25, customerId, parsedEnvironment, parsedStatus),
                 cancellationToken);
 
+            // The owning customer's name is resolved for the whole page at once.
+            var names = await labels.CustomerNamesAsync(
+                result.Items.Select(store => store.CustomerId).Distinct().ToArray(),
+                cancellationToken);
+
             return Results.Ok(PagedResponse<StoreResponse>.Create(
-                result.Items.Select(store => ToResponse(store, clock.UtcNow)).ToArray(),
+                result.Items.Select(store => ToResponse(store, clock.UtcNow, names.GetValueOrDefault(store.CustomerId))).ToArray(),
                 result.Page,
                 result.PageSize,
                 result.TotalCount));
@@ -58,11 +65,18 @@ public static class ControlPlaneStoreEndpoints
         group.MapGet("/{id:guid}", async (
             Guid id,
             IStoreManagementService service,
+            ILabelReader labels,
             IDateTimeProvider clock,
             CancellationToken cancellationToken) =>
         {
             var store = await service.GetAsync(id, cancellationToken);
-            return store is null ? Results.NotFound() : Results.Ok(ToResponse(store, clock.UtcNow));
+            if (store is null)
+            {
+                return Results.NotFound();
+            }
+
+            var names = await labels.CustomerNamesAsync([store.CustomerId], cancellationToken);
+            return Results.Ok(ToResponse(store, clock.UtcNow, names.GetValueOrDefault(store.CustomerId)));
         }).RequirePermission(ControlPlanePermissions.StoreView);
 
         group.MapPost("/", async (
@@ -166,10 +180,19 @@ public static class ControlPlaneStoreEndpoints
         ExpiresAt = issued.ExpiresAt,
     };
 
-    internal static StoreResponse ToResponse(Store store, DateTimeOffset now) => new()
+    /// <summary>
+    /// <paramref name="customerName"/> is null only where the caller had no
+    /// reason to resolve it; the id is always present, so the response stays
+    /// usable either way.
+    /// </summary>
+    internal static StoreResponse ToResponse(Store store, DateTimeOffset now, string? customerName = null) => new()
     {
         Id = store.Id,
         CustomerId = store.CustomerId,
+        CustomerName = customerName ?? string.Empty,
+
+        // Installed features are counted by the delivery engine (phase 3.5).
+        InstalledFeatureCount = null,
         Name = store.Name,
         Slug = store.Slug,
         PrimaryDomain = store.PrimaryDomain,

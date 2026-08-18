@@ -70,6 +70,9 @@ public sealed record StoreResponse
 
     public required Guid CustomerId { get; init; }
 
+    /// <summary>The owning customer's name, so a store list reads without a second call per row.</summary>
+    public required string CustomerName { get; init; }
+
     public required string Name { get; init; }
 
     public required string Slug { get; init; }
@@ -89,6 +92,13 @@ public sealed record StoreResponse
     public DateTimeOffset? LastSeenAt { get; init; }
 
     public Guid? ServerId { get; init; }
+
+    /// <summary>
+    /// Null until feature delivery exists (phase 3.5). Zero would claim the
+    /// store has nothing installed, which is a different statement from "not
+    /// knowable yet".
+    /// </summary>
+    public int? InstalledFeatureCount { get; init; }
 
     public required IReadOnlyCollection<StoreCredentialResponse> Credentials { get; init; }
 

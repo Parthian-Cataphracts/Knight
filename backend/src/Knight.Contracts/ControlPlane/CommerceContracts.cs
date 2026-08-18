@@ -46,6 +46,24 @@ public sealed record FeatureResponse
     /// <summary>Draft, Published, Deprecated or Withdrawn.</summary>
     public required string Status { get; init; }
 
+    /// <summary>Keys of the plans that offer this feature, included or optional.</summary>
+    public required IReadOnlyCollection<string> Plans { get; init; }
+
+    /// <summary>How many customers currently hold an active entitlement for it.</summary>
+    public required int EntitledCount { get; init; }
+
+    /// <summary>
+    /// Null until the registry exists: a feature identity is sellable long
+    /// before any version of it has been published (phase 3.5).
+    /// </summary>
+    public string? LatestVersion { get; init; }
+
+    /// <summary>
+    /// Null until delivery exists. Zero would read as "installed nowhere",
+    /// which is a different claim from "not knowable yet".
+    /// </summary>
+    public int? InstallCount { get; init; }
+
     public required DateTimeOffset CreatedAt { get; init; }
 
     public DateTimeOffset? UpdatedAt { get; init; }
@@ -99,6 +117,11 @@ public sealed record PlanFeatureResponse
 {
     public required Guid FeatureId { get; init; }
 
+    /// <summary>The feature's slug and name, so a plan can be read without a second call per row.</summary>
+    public required string FeatureSlug { get; init; }
+
+    public required string FeatureName { get; init; }
+
     public required bool IsIncluded { get; init; }
 
     public required bool IsCustomerToggleable { get; init; }
@@ -125,6 +148,15 @@ public sealed record PlanResponse
     public required int SortOrder { get; init; }
 
     public required IReadOnlyCollection<PlanFeatureResponse> Features { get; init; }
+
+    /// <summary>Slugs the plan grants outright, derived from <see cref="Features"/> so every client groups them the same way.</summary>
+    public required IReadOnlyCollection<string> IncludedFeatures { get; init; }
+
+    /// <summary>Slugs the customer may switch on for themselves.</summary>
+    public required IReadOnlyCollection<string> OptionalFeatures { get; init; }
+
+    /// <summary>How many customers are on this plan right now, cancelled subscriptions excluded.</summary>
+    public required int CustomerCount { get; init; }
 
     public required DateTimeOffset CreatedAt { get; init; }
 
@@ -203,7 +235,13 @@ public sealed record SubscriptionResponse
 
     public required Guid CustomerId { get; init; }
 
+    public required string CustomerName { get; init; }
+
     public required Guid PlanId { get; init; }
+
+    public required string PlanKey { get; init; }
+
+    public required string PlanName { get; init; }
 
     /// <summary>Trial, Active, PastDue, Suspended or Cancelled.</summary>
     public required string Status { get; init; }
@@ -217,6 +255,9 @@ public sealed record SubscriptionResponse
     public DateTimeOffset? CancelledAt { get; init; }
 
     public required IReadOnlyCollection<SubscriptionFeatureResponse> Features { get; init; }
+
+    /// <summary>How many optional features the customer has switched on.</summary>
+    public required int OptionalFeatures { get; init; }
 }
 
 public sealed record QuoteRequestBody
@@ -367,6 +408,8 @@ public sealed record InvoiceResponse
 
     public required Guid CustomerId { get; init; }
 
+    public required string CustomerName { get; init; }
+
     public Guid? SubscriptionId { get; init; }
 
     /// <summary>Assigned at issue time; null while the invoice is a draft.</summary>
@@ -400,4 +443,120 @@ public sealed record InvoiceResponse
     public required IReadOnlyCollection<InvoiceLineResponse> Lines { get; init; }
 
     public required IReadOnlyCollection<PaymentResponse> Payments { get; init; }
+}
+
+// --- Access and overview -------------------------------------------------
+
+public sealed record AccountResponse
+{
+    public required Guid Id { get; init; }
+
+    public required string Email { get; init; }
+
+    public required string DisplayName { get; init; }
+
+    /// <summary>Null for platform staff.</summary>
+    public Guid? CustomerId { get; init; }
+
+    public string? CustomerName { get; init; }
+
+    /// <summary>Platform or Customer, derived from whether the account belongs to a customer.</summary>
+    public required string Scope { get; init; }
+
+    public required IReadOnlyCollection<string> Roles { get; init; }
+
+    public required string Status { get; init; }
+
+    public required bool MfaEnabled { get; init; }
+
+    public DateTimeOffset? LastLoginAt { get; init; }
+
+    public required DateTimeOffset CreatedAt { get; init; }
+}
+
+public sealed record RoleResponse
+{
+    public required Guid Id { get; init; }
+
+    public required string Name { get; init; }
+
+    public string? Description { get; init; }
+
+    /// <summary>Platform or Customer.</summary>
+    public required string Scope { get; init; }
+
+    public required bool IsSystem { get; init; }
+
+    public Guid? CustomerId { get; init; }
+
+    public required IReadOnlyCollection<string> Permissions { get; init; }
+
+    public required int PermissionCount { get; init; }
+
+    /// <summary>How many accounts hold this role.</summary>
+    public required int UserCount { get; init; }
+}
+
+public sealed record CustomerCountsResponse
+{
+    public required int Total { get; init; }
+    public required int Active { get; init; }
+    public required int Suspended { get; init; }
+    public required int Prospect { get; init; }
+    public required int Archived { get; init; }
+}
+
+public sealed record StoreCountsResponse
+{
+    public required int Total { get; init; }
+    public required int Connected { get; init; }
+    public required int Degraded { get; init; }
+    public required int Disconnected { get; init; }
+    public required int NotRegistered { get; init; }
+}
+
+public sealed record SubscriptionCountsResponse
+{
+    public required int Total { get; init; }
+    public required int Active { get; init; }
+    public required int Trial { get; init; }
+    public required int PastDue { get; init; }
+    public required int Suspended { get; init; }
+    public required int ActiveEntitlements { get; init; }
+}
+
+public sealed record BillingCountsResponse
+{
+    public required int Draft { get; init; }
+    public required int Issued { get; init; }
+    public required int Overdue { get; init; }
+    public required int Paid { get; init; }
+    public required decimal OutstandingTotal { get; init; }
+
+    /// <summary>Null when nothing is outstanding, or when more than one currency is.</summary>
+    public string? Currency { get; init; }
+}
+
+public sealed record ActivityResponse
+{
+    public required Guid Id { get; init; }
+    public required string Action { get; init; }
+    public required string TargetType { get; init; }
+    public string? TargetId { get; init; }
+    public string? Actor { get; init; }
+    public required DateTimeOffset OccurredAt { get; init; }
+}
+
+/// <summary>
+/// The dashboard's landing figures. Subsystems that do not exist yet — server
+/// metrics, alerts, feature delivery — are absent rather than reported as zeros
+/// that would look like real measurements.
+/// </summary>
+public sealed record OverviewResponse
+{
+    public required CustomerCountsResponse Customers { get; init; }
+    public required StoreCountsResponse Stores { get; init; }
+    public required SubscriptionCountsResponse Subscriptions { get; init; }
+    public required BillingCountsResponse Billing { get; init; }
+    public required IReadOnlyCollection<ActivityResponse> RecentActivity { get; init; }
 }

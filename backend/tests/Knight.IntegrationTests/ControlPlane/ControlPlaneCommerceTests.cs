@@ -89,12 +89,12 @@ public sealed class ControlPlaneCommerceTests
         if (!_fixture.IsAvailable) return;
 
         var client = await PlatformClientAsync();
-        var plans = await (await client.GetAsync("/api/v1/plans")).Content.ReadFromJsonAsync<PlanBody[]>();
+        var plans = await (await client.GetAsync("/api/v1/plans")).Content.ReadFromJsonAsync<PagedBody<PlanBody>>();
 
         // Basic, Custom and Professional are seeded from data, not code.
-        Assert.Contains(plans!, plan => plan.Key == "basic");
-        Assert.Contains(plans!, plan => plan.Key == "custom");
-        Assert.Contains(plans!, plan => plan.Key == "professional");
+        Assert.Contains(plans!.Items, plan => plan.Key == "basic");
+        Assert.Contains(plans!.Items, plan => plan.Key == "custom");
+        Assert.Contains(plans!.Items, plan => plan.Key == "professional");
     }
 
     [Fact]
@@ -150,9 +150,9 @@ public sealed class ControlPlaneCommerceTests
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
 
         var entitlements = await (await client.GetAsync($"/api/v1/customers/{customerId}/entitlements"))
-            .Content.ReadFromJsonAsync<EntitlementBody[]>();
+            .Content.ReadFromJsonAsync<PagedBody<EntitlementBody>>();
 
-        var entitlement = Assert.Single(entitlements!);
+        var entitlement = Assert.Single(entitlements!.Items);
         Assert.Equal(featureId, entitlement.FeatureId);
         Assert.Equal("Plan", entitlement.Source);
         Assert.True(entitlement.IsActive);
@@ -253,9 +253,9 @@ public sealed class ControlPlaneCommerceTests
         await client.PatchAsJsonAsync($"/api/v1/subscriptions/{subscription!.Id}", new { planId = secondPlan });
 
         var active = await (await client.GetAsync($"/api/v1/customers/{customerId}/entitlements"))
-            .Content.ReadFromJsonAsync<EntitlementBody[]>();
+            .Content.ReadFromJsonAsync<PagedBody<EntitlementBody>>();
 
-        Assert.Empty(active!);
+        Assert.Empty(active!.Items);
     }
 
     [Fact]
@@ -275,15 +275,15 @@ public sealed class ControlPlaneCommerceTests
         await client.PostAsync($"/api/v1/subscriptions/{subscription!.Id}/cancel", null);
 
         var active = await (await client.GetAsync($"/api/v1/customers/{customerId}/entitlements"))
-            .Content.ReadFromJsonAsync<EntitlementBody[]>();
+            .Content.ReadFromJsonAsync<PagedBody<EntitlementBody>>();
 
-        Assert.Empty(active!);
+        Assert.Empty(active!.Items);
 
         // The record survives revocation: what was held and when is billing evidence.
         var all = await (await client.GetAsync($"/api/v1/customers/{customerId}/entitlements?includeInactive=true"))
-            .Content.ReadFromJsonAsync<EntitlementBody[]>();
+            .Content.ReadFromJsonAsync<PagedBody<EntitlementBody>>();
 
-        Assert.Single(all!);
+        Assert.Single(all!.Items);
     }
 
     [Fact]
@@ -302,13 +302,13 @@ public sealed class ControlPlaneCommerceTests
 
         await client.PostAsync($"/api/v1/subscriptions/{subscription!.Id}/suspend", null);
         var suspended = await (await client.GetAsync($"/api/v1/customers/{customerId}/entitlements"))
-            .Content.ReadFromJsonAsync<EntitlementBody[]>();
-        Assert.Empty(suspended!);
+            .Content.ReadFromJsonAsync<PagedBody<EntitlementBody>>();
+        Assert.Empty(suspended!.Items);
 
         await client.PostAsync($"/api/v1/subscriptions/{subscription.Id}/activate", null);
         var restored = await (await client.GetAsync($"/api/v1/customers/{customerId}/entitlements"))
-            .Content.ReadFromJsonAsync<EntitlementBody[]>();
-        Assert.Single(restored!);
+            .Content.ReadFromJsonAsync<PagedBody<EntitlementBody>>();
+        Assert.Single(restored!.Items);
     }
 
     [Fact]
@@ -329,9 +329,9 @@ public sealed class ControlPlaneCommerceTests
         await client.PatchAsJsonAsync($"/api/v1/subscriptions/{subscription!.Id}", new { planId = otherPlan });
 
         var active = await (await client.GetAsync($"/api/v1/customers/{customerId}/entitlements"))
-            .Content.ReadFromJsonAsync<EntitlementBody[]>();
+            .Content.ReadFromJsonAsync<PagedBody<EntitlementBody>>();
 
-        var entitlement = Assert.Single(active!);
+        var entitlement = Assert.Single(active!.Items);
         Assert.Equal("Grant", entitlement.Source);
     }
 

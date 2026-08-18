@@ -1,30 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Building2,
-  Store,
-  AlertTriangle,
-  PlayCircle,
-  Server,
-  History,
-  PackageX,
-} from "lucide-react";
+import { Building2, Store, CreditCard, PackageCheck, History, Receipt } from "lucide-react";
 import { apiRequest } from "@/lib/api/client";
-import type { DashboardOverview, HealthState } from "@/lib/api/types";
+import { ApiError } from "@/lib/api/problem";
+import type { DashboardOverview } from "@/lib/api/types";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { StatusChip, type Tone } from "@/components/ui/StatusChip";
-import { Meter } from "@/components/ui/Meter";
 import { LoadingBlock, ErrorBlock, EmptyBlock } from "@/components/ui/StateBlock";
 import { formatNumber, formatRelative } from "@/lib/utils/format";
-
-const healthTone: Record<HealthState, Tone> = {
-  Healthy: "success",
-  Degraded: "warning",
-  Offline: "danger",
-  Unknown: "neutral",
-};
-
-const severityTone = { critical: "danger", warning: "warning", info: "info" } as const;
 
 function StatTile({
   label,
@@ -64,6 +47,12 @@ function StatTile({
   );
 }
 
+/**
+ * Reports what the control plane knows today: customers, stores, subscriptions,
+ * entitlements, billing and the audit trail. Monitoring, alerts and feature
+ * delivery arrive in later phases; their tiles are absent rather than showing
+ * zeros that would look like measurements.
+ */
 export function DashboardPage() {
   const { t } = useTranslation();
 
@@ -85,7 +74,11 @@ export function DashboardPage() {
         </Card>
       ) : query.isError ? (
         <Card>
-          <ErrorBlock message={(query.error as Error).message} onRetry={() => void query.refetch()} />
+          <ErrorBlock
+            message={(query.error as Error).message}
+            status={query.error instanceof ApiError ? query.error.status : undefined}
+            onRetry={() => void query.refetch()}
+          />
         </Card>
       ) : (
         <>
@@ -100,142 +93,73 @@ export function DashboardPage() {
               label={t("dashboard.connectedStores")}
               value={`${formatNumber(query.data.stores.connected)} / ${formatNumber(query.data.stores.total)}`}
               icon={Store}
+              tone={query.data.stores.disconnected > 0 ? "warning" : "success"}
+            />
+            <StatTile
+              label={t("dashboard.activeSubscriptions")}
+              value={formatNumber(query.data.subscriptions.active)}
+              hint={`${formatNumber(query.data.subscriptions.trial)} ${t("dashboard.onTrial")}`}
+              icon={CreditCard}
+            />
+            <StatTile
+              label={t("dashboard.activeEntitlements")}
+              value={formatNumber(query.data.subscriptions.activeEntitlements)}
+              icon={PackageCheck}
               tone="success"
             />
-            <StatTile
-              label={t("dashboard.openAlerts")}
-              value={formatNumber(query.data.alerts.open)}
-              icon={AlertTriangle}
-              tone={query.data.alerts.critical > 0 ? "danger" : "warning"}
-            />
-            <StatTile
-              label={t("dashboard.runningJobs")}
-              value={formatNumber(query.data.featureDelivery.runningJobs)}
-              icon={PlayCircle}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-            <Card className="xl:col-span-2">
-              <CardHeader title={t("dashboard.services")} icon={<Server className="size-5" />} />
-              <CardBody className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {query.data.services.map((service) => (
-                  <div
-                    key={service.name}
-                    className="flex items-center justify-between gap-3 rounded-md bg-surface-low px-4 py-3"
-                  >
-                    <span className="truncate text-body-sm text-on-surface">{service.name}</span>
-                    <span className="flex shrink-0 items-center gap-2">
-                      {service.latencyMs !== null ? (
-                        <span className="font-mono text-label text-on-surface-variant" dir="ltr">
-                          {service.latencyMs}ms
-                        </span>
-                      ) : null}
-                      <StatusChip tone={healthTone[service.state]}>
-                        {t(`health.${service.state}`)}
-                      </StatusChip>
-                    </span>
-                  </div>
-                ))}
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader title={t("dashboard.resources")} />
-              <CardBody className="flex flex-col gap-5">
-                <Meter label={t("dashboard.cpu")} value={query.data.resources.cpuPercent} />
-                <Meter
-                  label={t("dashboard.memory")}
-                  value={query.data.resources.memoryPercent}
-                  tone={query.data.resources.memoryPercent > 75 ? "warning" : "primary"}
-                />
-                <Meter label={t("dashboard.disk")} value={query.data.resources.diskPercent} />
-              </CardBody>
-            </Card>
           </div>
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
             <Card>
-              <CardHeader
-                title={t("dashboard.featureDelivery")}
-                icon={<PackageX className="size-5" />}
-              />
+              <CardHeader title={t("dashboard.billing")} icon={<Receipt className="size-5" />} />
               <CardBody className="flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-body-sm text-on-surface-variant">
-                    {t("dashboard.failedInstalls")}
-                  </span>
-                  <StatusChip
-                    tone={query.data.featureDelivery.failedInstallations > 0 ? "danger" : "success"}
-                  >
-                    {formatNumber(query.data.featureDelivery.failedInstallations)}
-                  </StatusChip>
+                  <span className="text-body-sm text-on-surface-variant">{t("dashboard.invoicesDraft")}</span>
+                  <StatusChip tone="neutral">{formatNumber(query.data.billing.draft)}</StatusChip>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-body-sm text-on-surface-variant">
-                    {t("dashboard.entitledNotInstalled")}
-                  </span>
-                  <StatusChip
-                    tone={
-                      query.data.featureDelivery.entitledNotInstalled > 0 ? "warning" : "success"
-                    }
-                  >
-                    {formatNumber(query.data.featureDelivery.entitledNotInstalled)}
-                  </StatusChip>
+                  <span className="text-body-sm text-on-surface-variant">{t("dashboard.invoicesIssued")}</span>
+                  <StatusChip tone="info">{formatNumber(query.data.billing.issued)}</StatusChip>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-body-sm text-on-surface-variant">
-                    {t("dashboard.runningJobs")}
-                  </span>
-                  <StatusChip tone="info">
-                    {formatNumber(query.data.featureDelivery.runningJobs)}
+                  <span className="text-body-sm text-on-surface-variant">{t("dashboard.invoicesOverdue")}</span>
+                  <StatusChip tone={query.data.billing.overdue > 0 ? "danger" : "success"}>
+                    {formatNumber(query.data.billing.overdue)}
                   </StatusChip>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-t border-outline-variant pt-3">
+                  <span className="text-body-sm text-on-surface-variant">{t("dashboard.outstanding")}</span>
+                  <span className="font-mono text-body-sm text-on-surface" dir="ltr">
+                    {formatNumber(query.data.billing.outstandingTotal)} {query.data.billing.currency ?? ""}
+                  </span>
                 </div>
               </CardBody>
             </Card>
 
-            <Card>
-              <CardHeader
-                title={t("dashboard.alerts")}
-                icon={<AlertTriangle className="size-5" />}
-              />
-              {query.data.openAlerts.length === 0 ? (
-                <EmptyBlock>{t("dashboard.noAlerts")}</EmptyBlock>
-              ) : (
-                <ul className="divide-y divide-outline-variant">
-                  {query.data.openAlerts.map((alert) => (
-                    <li key={alert.id} className="flex flex-col gap-1.5 px-5 py-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-body-sm font-medium text-on-surface">
-                          {alert.title}
-                        </span>
-                        <StatusChip tone={severityTone[alert.severity]}>
-                          {t(`severity.${alert.severity}`)}
-                        </StatusChip>
-                      </div>
-                      <p className="text-body-sm text-on-surface-variant">{alert.detail}</p>
-                      <time className="font-mono text-label text-on-surface-variant" dir="ltr">
-                        {formatRelative(alert.raisedAt)}
-                      </time>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
-
-            <Card>
+            <Card className="xl:col-span-2">
               <CardHeader title={t("dashboard.activity")} icon={<History className="size-5" />} />
-              <ul className="divide-y divide-outline-variant">
-                {query.data.recentActivity.map((entry) => (
-                  <li key={entry.id} className="flex flex-col gap-1 px-5 py-4">
-                    <span className="label-caps text-primary">{entry.action}</span>
-                    <span className="truncate text-body-sm text-on-surface">{entry.target}</span>
-                    <span className="text-body-sm text-on-surface-variant">
-                      {entry.actor} · {formatRelative(entry.occurredAt)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <CardBody className="flex flex-col">
+                {query.data.recentActivity.length === 0 ? (
+                  <EmptyBlock>{t("common.noResults")}</EmptyBlock>
+                ) : (
+                  <ul className="flex flex-col divide-y divide-outline-variant">
+                    {query.data.recentActivity.map((entry) => (
+                      <li key={entry.id} className="flex items-center justify-between gap-3 py-2.5">
+                        <span className="min-w-0">
+                          <span className="block truncate text-body-sm text-on-surface">{entry.action}</span>
+                          <span className="block truncate text-label text-on-surface-variant">
+                            {entry.targetType}
+                            {entry.actor ? ` · ${entry.actor}` : ""}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-label text-on-surface-variant">
+                          {formatRelative(entry.occurredAt)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardBody>
             </Card>
           </div>
         </>

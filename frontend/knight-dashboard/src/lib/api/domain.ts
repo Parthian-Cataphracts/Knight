@@ -50,8 +50,10 @@ export interface Feature {
   status: FeatureStatus;
   isOptional: boolean;
   requiresDedicatedInfrastructure: boolean;
+  /** Null until the feature registry exists (phase 3.5). */
   latestVersion: string | null;
-  installCount: number;
+  /** Null until delivery exists: "not knowable yet" is not the same as zero. */
+  installCount: number | null;
   entitledCount: number;
   plans: string[];
 }

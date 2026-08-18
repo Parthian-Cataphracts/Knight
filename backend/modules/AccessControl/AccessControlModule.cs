@@ -21,6 +21,7 @@ public static class AccessControlModule
         services.AddScoped<IControlPlaneAuthenticationService, ControlPlaneAuthenticationService>();
         services.AddScoped<Knight.Application.Abstractions.ControlPlane.IAuditTrail, AuditTrail>();
         services.AddScoped<IAuditLogQueryService, AuditLogQueryService>();
+        services.AddScoped<IAccessDirectory, AccessDirectory>();
         services.AddScoped<IControlPlaneAccessSeeder, ControlPlaneAccessSeeder>();
 
         return services;

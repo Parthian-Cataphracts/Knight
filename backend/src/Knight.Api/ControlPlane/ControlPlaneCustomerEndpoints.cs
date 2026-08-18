@@ -5,6 +5,7 @@ using Customers.Domain;
 // The legacy store-side module is also named Customer; the control-plane
 // aggregate is aliased so the bare name cannot resolve to that namespace.
 using ControlPlaneCustomer = Customers.Domain.Customer;
+using Knight.Application.Abstractions.ControlPlane;
 using Knight.Contracts.Common;
 using Knight.Contracts.ControlPlane;
 
@@ -31,6 +32,7 @@ public static class ControlPlaneCustomerEndpoints
             string? status,
             string? q,
             ICustomerManagementService service,
+            ICustomerDirectoryReader directory,
             CancellationToken cancellationToken) =>
         {
             if (!TryParseStatus(status, out var parsedStatus))
@@ -42,17 +44,33 @@ public static class ControlPlaneCustomerEndpoints
                 new CustomerListQuery(page ?? 1, pageSize ?? 25, parsedStatus, q),
                 cancellationToken);
 
+            // Store count and current plan are read once for the whole page
+            // rather than per row.
+            var summaries = await directory.SummariseAsync(
+                result.Items.Select(customer => customer.Id).ToArray(),
+                cancellationToken);
+
             return Results.Ok(PagedResponse<CustomerResponse>.Create(
-                result.Items.Select(ToResponse).ToArray(),
+                result.Items.Select(customer => ToResponse(customer, summaries.GetValueOrDefault(customer.Id))).ToArray(),
                 result.Page,
                 result.PageSize,
                 result.TotalCount));
         }).RequirePermission(ControlPlanePermissions.CustomerView);
 
-        group.MapGet("/{id:guid}", async (Guid id, ICustomerManagementService service, CancellationToken cancellationToken) =>
+        group.MapGet("/{id:guid}", async (
+            Guid id,
+            ICustomerManagementService service,
+            ICustomerDirectoryReader directory,
+            CancellationToken cancellationToken) =>
         {
             var customer = await service.GetAsync(id, cancellationToken);
-            return customer is null ? Results.NotFound() : Results.Ok(ToResponse(customer));
+            if (customer is null)
+            {
+                return Results.NotFound();
+            }
+
+            var summaries = await directory.SummariseAsync([customer.Id], cancellationToken);
+            return Results.Ok(ToResponse(customer, summaries.GetValueOrDefault(customer.Id)));
         }).RequirePermission(ControlPlanePermissions.CustomerView);
 
         group.MapPost("/", async (CreateCustomerRequest request, ICustomerManagementService service, CancellationToken cancellationToken) =>
@@ -108,8 +126,15 @@ public static class ControlPlaneCustomerEndpoints
     private static IResult ValidationProblem(string field, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [field] = [message] });
 
-    internal static CustomerResponse ToResponse(ControlPlaneCustomer customer) => new()
+    /// <summary>
+    /// <paramref name="summary"/> is null only when the caller had no reason to
+    /// read it — the counts then report zero and no plan, which is what a
+    /// customer with neither looks like anyway.
+    /// </summary>
+    internal static CustomerResponse ToResponse(ControlPlaneCustomer customer, CustomerSummary? summary = null) => new()
     {
+        StoreCount = summary?.StoreCount ?? 0,
+        PlanKey = summary?.PlanKey,
         Id = customer.Id,
         Name = customer.Name,
         LegalName = customer.LegalName,

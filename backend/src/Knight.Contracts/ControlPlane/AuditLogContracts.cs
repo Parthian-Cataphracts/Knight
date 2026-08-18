@@ -12,6 +12,22 @@ public sealed record AuditLogResponse
 
     public Guid? CustomerId { get; init; }
 
+    /// <summary>The customer the action concerned; null for platform-wide actions.</summary>
+    public string? CustomerName { get; init; }
+
+    /// <summary>Display form of the actor, falling back to the actor type for automated work.</summary>
+    public required string Actor { get; init; }
+
+    /// <summary>Target type and identifier as one readable string.</summary>
+    public required string Target { get; init; }
+
+    /// <summary>
+    /// Success or Failure. The audit trail records attempts as well as
+    /// outcomes — a rejected login is a fact worth keeping — and the action
+    /// name carries which one it was.
+    /// </summary>
+    public required string Result { get; init; }
+
     public required string Action { get; init; }
 
     public required string TargetType { get; init; }

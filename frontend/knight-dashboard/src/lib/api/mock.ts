@@ -12,51 +12,23 @@ const now = Date.now();
 const minutesAgo = (m: number) => new Date(now - m * 60_000).toISOString();
 
 const overview: DashboardOverview = {
-  customers: { active: 28, suspended: 2 },
-  stores: { total: 34, connected: 30, degraded: 3, disconnected: 1 },
-  alerts: { open: 4, critical: 1 },
-  services: [
-    { name: "Knight API", state: "Healthy", latencyMs: 14 },
-    { name: "PostgreSQL", state: "Healthy", latencyMs: 8 },
-    { name: "Redis", state: "Degraded", latencyMs: 145 },
-    { name: "Package Registry", state: "Healthy", latencyMs: 32 },
-  ],
-  resources: { cpuPercent: 42, memoryPercent: 78, diskPercent: 32 },
-  featureDelivery: { runningJobs: 3, failedInstallations: 2, entitledNotInstalled: 1 },
-  openAlerts: [
-    {
-      id: "alert-1",
-      severity: "critical",
-      title: "نصب قابلیت ناموفق بود",
-      detail: "cafe1.ir — Advanced Analytics 1.4.0",
-      raisedAt: minutesAgo(12),
-    },
-    {
-      id: "alert-2",
-      severity: "warning",
-      title: "Redis latency",
-      detail: "145ms average response time",
-      raisedAt: minutesAgo(48),
-    },
-    {
-      id: "alert-3",
-      severity: "warning",
-      title: "Entitled but not installed",
-      detail: "cafe2.ir — AI Reports 2.0.1",
-      raisedAt: minutesAgo(180),
-    },
-  ],
+  customers: { total: 30, active: 28, suspended: 2, prospect: 0, archived: 0 },
+  stores: { total: 34, connected: 30, degraded: 3, disconnected: 1, notRegistered: 0 },
+  subscriptions: { total: 30, active: 26, trial: 3, pastDue: 1, suspended: 0, activeEntitlements: 74 },
+  billing: { draft: 4, issued: 9, overdue: 1, paid: 51, outstandingTotal: 1840, currency: "EUR" },
   recentActivity: [
-    { id: "a1", action: "feature.installed", target: "cafe3.ir / Advanced Analytics 1.4.0", actor: "system", occurredAt: minutesAgo(9) },
-    { id: "a2", action: "subscription.changed", target: "cafe1.ir / Professional", actor: "Ali M.", occurredAt: minutesAgo(64) },
-    { id: "a3", action: "store.registered", target: "cafe4.ir", actor: "Sara R.", occurredAt: minutesAgo(190) },
-    { id: "a4", action: "feature.published", target: "AI Reports 2.0.1", actor: "Ali M.", occurredAt: minutesAgo(420) },
+    { id: "a1", action: "feature.published", targetType: "Feature", targetId: "f3", actor: "Ali M.", occurredAt: minutesAgo(9) },
+    { id: "a2", action: "subscription.plan_changed", targetType: "Subscription", targetId: "sub-1", actor: "Ali M.", occurredAt: minutesAgo(64) },
+    { id: "a3", action: "store.created", targetType: "Store", targetId: "s4", actor: "Sara R.", occurredAt: minutesAgo(190) },
+    { id: "a4", action: "entitlement.granted", targetType: "FeatureEntitlement", targetId: "e7", actor: "system", occurredAt: minutesAgo(420) },
   ],
 };
 
 const session: LoginResponse = {
+  status: "succeeded",
   accessToken: "development-token",
-  expiresIn: 900,
+  expiresAt: new Date(Date.now() + 900_000).toISOString(),
+  refreshToken: "development-refresh-token",
   user: {
     id: "00000000-0000-0000-0000-000000000001",
     email: "admin@knight.local",
@@ -84,6 +56,8 @@ const session: LoginResponse = {
       "user.view",
       "report.view",
     ],
+    mfaEnabled: true,
+    mfaSatisfied: true,
   },
 };
 
@@ -112,6 +86,8 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
     return json(session);
   }
 
+  // Mocks keep no cookie, so a restore attempt simply says "not signed in".
+  if (path === "/auth/refresh") return problem(401, "unauthorized", "No session to restore.");
   if (path === "/auth/me") return json(session.user);
   if (path === "/auth/logout") return new Response(null, { status: 204 });
   if (path === "/monitoring/overview") return json(overview);

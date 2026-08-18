@@ -109,7 +109,15 @@ builder.Services.AddCors(options =>
         var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
         policy.WithOrigins(allowedOrigins)
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+
+            // The dashboard sends its refresh-token cookie, so the browser
+            // requires this header on the preflight response; without it every
+            // credentialed call fails in the browser while succeeding from a
+            // test client, which is exactly the class of bug a server-side test
+            // cannot see. Safe because the origins are an explicit list — the
+            // browser itself forbids pairing credentials with a wildcard.
+            .AllowCredentials();
     });
 });
 
@@ -193,6 +201,7 @@ app.MapControlPlaneAuditLogEndpoints();
 app.MapControlPlanePlanEndpoints();
 app.MapControlPlaneSubscriptionEndpoints();
 app.MapControlPlaneBillingEndpoints();
+app.MapControlPlaneAccessEndpoints();
 
 app.MapPlatformHealthEndpoints();
 app.MapPlatformTenantEndpoints();

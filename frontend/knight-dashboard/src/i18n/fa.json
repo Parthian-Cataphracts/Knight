@@ -46,7 +46,9 @@
     "no": "خیر",
     "noResults": "موردی یافت نشد.",
     "identifier": "شناسه",
-    "correlationId": "شناسه همبستگی"
+    "correlationId": "شناسه همبستگی",
+    "notAvailableYet": "این بخش هنوز در دسترس نیست؛ در فازهای بعدی فعال می‌شود.",
+    "screenFailed": "نمایش این صفحه با خطا مواجه شد."
   },
   "auth": {
     "title": "ورود به پنل مدیریت",
@@ -63,7 +65,9 @@
     "mfaPrompt": "کد شش‌رقمی برنامه احرازکننده را وارد کنید.",
     "mfaCode": "کد یک‌بارمصرف",
     "verify": "تأیید و ورود",
-    "backToCredentials": "بازگشت"
+    "backToCredentials": "بازگشت",
+    "mfaEnrolPrompt": "برای این حساب ورود دومرحله‌ای الزامی است. کلید زیر را در برنامه احرازکننده ثبت کنید و سپس کد را وارد کنید.",
+    "copySecret": "کپی کلید"
   },
   "dashboard": {
     "title": "داشبورد",
@@ -84,7 +88,15 @@
     "activity": "فعالیت‌های اخیر",
     "featureDelivery": "تحویل قابلیت‌ها",
     "noAlerts": "هشدار بازی وجود ندارد.",
-    "viewAll": "مشاهده همه"
+    "viewAll": "مشاهده همه",
+    "activeSubscriptions": "اشتراک‌های فعال",
+    "onTrial": "در دوره آزمایشی",
+    "activeEntitlements": "حق‌دسترسی‌های فعال",
+    "billing": "صورتحساب",
+    "invoicesDraft": "پیش‌نویس",
+    "invoicesIssued": "صادرشده",
+    "invoicesOverdue": "سررسید گذشته",
+    "outstanding": "مانده پرداخت‌نشده"
   },
   "health": {
     "Healthy": "سالم",

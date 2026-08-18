@@ -8,6 +8,7 @@ using Knight.Infrastructure.ControlPlane.Seed;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Knight.Infrastructure.ControlPlane;
 
@@ -48,6 +49,11 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<IRoleRepository, ControlPlaneRoleRepository>();
         services.AddScoped<IUserSessionRepository, UserSessionRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+        services.AddScoped<IControlPlaneOverviewReader, ControlPlaneOverviewReader>();
+        services.AddScoped<ICustomerDirectoryReader, CustomerDirectoryReader>();
+        services.AddScoped<IPlanSubscriberReader, PlanSubscriberReader>();
+        services.AddScoped<IFeatureUsageReader, FeatureUsageReader>();
+        services.AddScoped<ILabelReader, LabelReader>();
 
         services.AddScoped<FeatureRegistry.Domain.IFeatureRepository, FeatureRepository>();
         services.AddScoped<Plans.Domain.IPlanRepository, PlanRepository>();
@@ -65,6 +71,14 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<ISubscriptionReader, SubscriptionReader>();
         services.AddScoped<IStoreHostingReader, StoreHostingReader>();
         services.AddScoped<IEntitlementEventPublisher, LoggingEntitlementEventPublisher>();
+
+        // The control plane's security primitives are adapters over the shared
+        // implementations, so those have to exist even in a host that wires
+        // nothing else — the bootstrap tool is exactly that host, and phase 8
+        // will make the API one too. TryAdd keeps the legacy registration
+        // authoritative wherever both are present.
+        services.TryAddSingleton<Identity.Abstractions.IPasswordHasher, Knight.Infrastructure.Security.Pbkdf2PasswordHasher>();
+        services.TryAddSingleton<Identity.Abstractions.IRefreshTokenGenerator, Knight.Infrastructure.Security.RefreshTokenGenerator>();
 
         services.AddSingleton<IControlPlanePasswordHasher, ControlPlanePasswordHasher>();
         services.AddSingleton<ISecureTokenFactory, SecureTokenFactory>();
