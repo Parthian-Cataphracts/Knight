@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-18** (revision 4 — all dashboard screens implemented)
+Last updated: **2026-08-18** (revision 5 — dashboard complete against the design)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -13,7 +13,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 |---|---|
 | **Current phase** | **Phase 0 — Discovery & Architecture (complete, awaiting validation)** |
 | **Next phase** | Phase 1 — Pivot Stage A/B: control-plane core |
-| **Overall progress** | ~22% (analysis + architecture done, including the feature-delivery correction; reusable backend infrastructure exists; control-plane domain, feature registry/delivery, store template, agent, and frontend are all greenfield) |
+| **Overall progress** | ~25% (analysis + architecture done, including the feature-delivery correction; reusable backend infrastructure exists; control-plane domain, feature registry/delivery, store template, agent, and frontend are all greenfield) |
 | **Blocking decisions** | 11 open questions in [`docs/risks.md`](docs/risks.md) §3 |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -30,7 +30,7 @@ Phase 3    Store integration              ░░░░░░░░░░   0%
 Phase 3.5  Feature registry & delivery    ░░░░░░░░░░   0%   ← new in revision 2
 Phase 4    Servers, agents, monitoring    ░░░░░░░░░░   0%
 Phase 5    Errors & incidents             ░░░░░░░░░░   0%
-Phase 6    Frontend dashboard             ███████░░░  70%
+Phase 6    Frontend dashboard             █████████░  90%
 Phase 7    Observability                  ░░░░░░░░░░   0%
 Phase 8    Business-domain port to Django ░░░░░░░░░░   0%
 Phase 9    Provisioning & professional infra ░░░░░░░   0%
@@ -297,13 +297,19 @@ uninstalled — with no manual per-store work at any point.
 - [x] Errors: grouped errors with status filters and detail drawer
 - [x] Incidents, Logs (filterable stream), Reports
 - [x] Users & Access (users and roles tabs), Audit log, Settings
-- [ ] Customer/store create and edit forms (write paths — need the API)
-- [ ] **Install preview dialog**: dependency plan, compatibility verdict, migration warnings
-- [ ] Subscription change flow with live price quote
-- [ ] Server metric charts over time
-- [ ] Error group event samples and stack traces
-- [ ] Incident detail timeline
-- [ ] MFA step on login
+- [x] Customer detail: overview, stores, entitlements, admins, billing, activity tabs
+- [x] Store detail: overview, features, domains, credentials, deployments, activity tabs
+- [x] Customer creation form with plan selection and provisioning summary
+- [x] System alerts: severity tiles, filters, detail with metric trend and log tail
+- [x] **Install preview dialog**: dependency plan, compatibility verdict, migration warnings, typed confirmation for irreversible migrations
+- [x] Server and store usage trend charts (inline SVG, direction-aware)
+- [x] Error group event samples with stack traces
+- [x] Incident detail timeline
+- [x] MFA step on login
+- [ ] Edit/save write paths for every form (blocked on the API)
+- [ ] Subscription change flow with live price quote (blocked on `/subscriptions/quote`)
+- [ ] Live job progress over SignalR (currently one-shot fetch)
+- [ ] Component and Playwright test suites
 
 ---
 
