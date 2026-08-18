@@ -1,0 +1,125 @@
+# KNIGHT Documentation Index
+
+> **Read this file first.** It tells you what KNIGHT is, what state the
+> repository is actually in, and which documents are authoritative.
+
+## What KNIGHT is
+
+KNIGHT is a **central control plane** operated by a web-design company to
+manage many **independent customer stores**. Each customer store is its own
+Django application, with its own domain, its own database, and its own
+deployment. KNIGHT manages, observes, bills, configures — and **delivers
+software to** — those stores. KNIGHT is **never** the business backend of a
+store.
+
+A **Feature** is versioned, deployable Django functionality: implemented once,
+packaged, registered in KNIGHT, and installed automatically into every store
+whose customer is entitled to it. It is **not** a boolean flag, and it is never
+re-implemented or hand-copied per customer
+([`feature-delivery.md`](feature-delivery.md)).
+
+```
+                         KNIGHT (ASP.NET Core + React dashboard)
+                                       |
+              +------------------------+------------------------+
+              v                        v                        v
+         Store A (Django)         Store B (Django)        Store C (Django)
+          cafe1.ir                 cafe2.ir                cafe3.ir
+          Server A                 Server A (shared)       Dedicated server
+```
+
+## Current repository state (2026-08-18)
+
+The repository currently contains a **different product** than the one
+specified above: a shared multi-tenant food-service SaaS written in .NET 10,
+where all tenants live in one PostgreSQL database and all business logic
+(catalog, ordering, payment, delivery) is inside KNIGHT itself.
+
+A decision was made to **pivot fully to the control-plane specification**
+(see [`adr/0010-pivot-to-control-plane.md`](adr/0010-pivot-to-control-plane.md)).
+Until the pivot lands, both realities exist side by side in this repo. Do not
+assume a document describes the target state unless it is listed as
+*authoritative* below.
+
+| | |
+|---|---|
+| **What exists and works** | .NET 10 modular monolith, 11 business modules, ~97 test files, EF Core migrations, Docker Compose infra |
+| **What does not exist at all** | Control-plane domain (Customers/Stores/Plans/Subscriptions/Servers/Monitoring/Errors/Incidents), **the Feature registry and delivery pipeline**, Django store template, feature packages, the agent, the entire frontend |
+| **Frontend** | Empty. Only `frontend/README.md` and `.gitkeep` files |
+
+Detailed inventory: [`current-state-analysis.md`](current-state-analysis.md).
+
+## Authoritative documents (target architecture)
+
+Read in this order:
+
+1. [`current-state-analysis.md`](current-state-analysis.md) — what is really in the repo today, file by file
+2. [`architecture.md`](architecture.md) — target system architecture, containers, modules, boundaries
+3. [`feature-delivery.md`](feature-delivery.md) — **the Feature registry, packaging, and installation pipeline** (read before anything about features)
+4. [`domain-model.md`](domain-model.md) — control-plane entities and relationships
+5. [`api-contracts.md`](api-contracts.md) — Dashboard↔KNIGHT, KNIGHT↔Store, Agent↔KNIGHT contracts
+6. [`store-integration.md`](store-integration.md) — the Django integration layer and its lifecycle
+7. [`store-provisioning.md`](store-provisioning.md) — from customer signup to a ready store
+8. [`authentication.md`](authentication.md) — human auth, store auth, agent auth
+9. [`authorization.md`](authorization.md) — roles, permissions, customer isolation
+10. [`frontend-architecture.md`](frontend-architecture.md) — React + Vite + TS dashboard, RTL, responsive
+11. [`observability.md`](observability.md) — logs, metrics, traces, correlation, errors, delivery visibility
+12. [`deployment.md`](deployment.md) — environments, feature delivery pipeline, config, secrets
+13. [`security-threat-model.md`](security-threat-model.md) — threats and required controls
+14. [`migration-plan.md`](migration-plan.md) — how to get from the current repo to the target
+15. [`risks.md`](risks.md) — open risks, contradictions, unresolved decisions
+16. [`development.md`](development.md) — how to run, test, and contribute
+
+Project status and remaining work: [`../TODO.md`](../TODO.md).
+
+## Legacy documents (previous product — NOT the target)
+
+These describe the shared multi-tenant food-service SaaS. They remain useful
+for understanding the existing code that the pivot has to migrate or retire,
+but they are **not** a description of KNIGHT's target architecture:
+
+- `architecture/platform-overview.md`
+- `architecture/multi-tenancy.md`
+- `architecture/authorization.md`
+- `architecture/repository-structure.md`
+- `architecture/catalog.md`
+- `architecture/customer.md`
+- `architecture/fulfillment-and-delivery.md`
+- `api/README.md`, `database/README.md`, `security/README.md`
+- `adr/0001` … `adr/0009` (superseded in part by `adr/0010`)
+
+## Architecture Decision Records
+
+| ADR | Title | Status |
+|---|---|---|
+| 0001–0009 | Previous product decisions | Partly superseded by 0010 |
+| [0010](adr/0010-pivot-to-control-plane.md) | Pivot from shared multi-tenant SaaS to control plane | Accepted |
+| [0011](adr/0011-react-vite-dashboard.md) | React + Vite + TypeScript for the KNIGHT dashboard | Accepted |
+| [0012](adr/0012-store-authentication-mechanism.md) | Store authentication via rotatable credentials + short-lived tokens | Proposed |
+| [0013](adr/0013-error-grouping-strategy.md) | Error fingerprinting and grouping strategy | Proposed |
+| [0014](adr/0014-features-as-deployable-packages.md) | **Features are versioned deployable Django packages, not flags** | Accepted |
+| [0015](adr/0015-feature-delivery-mechanism.md) | Delivery via agent-pulled typed jobs and signed artifacts | Accepted |
+| [0016](adr/0016-feature-migration-and-removal-policy.md) | Feature migration, rollback, and removal policy | Accepted |
+| [0017](adr/0017-feature-compatibility-and-dependencies.md) | Feature versioning, compatibility, dependency resolution | Accepted |
+
+**Revision note:** the first documentation revision treated a Feature as an
+entitlement flag. ADR 0014 corrects that. Where any older, un-updated document
+still implies "feature = flag", this correction wins.
+
+## Rules that must never be broken
+
+1. KNIGHT must never become the business backend of a customer store.
+2. Customer stores stay independently deployable.
+3. KNIGHT must never depend on a store's database schema, and never connects to a store database.
+4. Customer isolation is enforced server-side, always.
+5. The frontend is never the source of truth for authorization.
+6. Feature entitlement is enforced by backend systems (KNIGHT and the store).
+7. No secrets in source control, logs, or API responses.
+8. No microservice, broker, or orchestrator without a written justification —
+   and a Feature Package is **not** a microservice.
+9. A Feature is implemented once and delivered automatically; feature code is
+   never duplicated or hand-installed per customer.
+10. Entitlement (paid for) and installation (deployed and healthy) are separate
+    facts and are never collapsed into one boolean.
+11. KNIGHT delivers **signed, verified** artifacts through a fixed, typed job
+    vocabulary — never arbitrary code or commands.
