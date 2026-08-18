@@ -1,0 +1,56 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Node (future frontend projects)
+node_modules/
+dist/
+.next/
+out/
+.turbo/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment / secrets
+*.env
+.env.*
+!.env.example
+appsettings.*.local.json
+secrets.json
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.DotSettings.user
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+logs/
+*.log
+
+# Local infrastructure data
+infrastructure/docker/volumes/
+storage-data/
+
+# Misc
+*.tmp
+*.temp
+.cache/

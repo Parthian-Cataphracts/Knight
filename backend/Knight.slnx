@@ -1,0 +1,30 @@
+<Solution>
+  <Folder Name="/modules/">
+    <Project Path="modules/Catalog/Catalog.csproj" />
+    <Project Path="modules/Checkout/Checkout.csproj" />
+    <Project Path="modules/Customer/Customer.csproj" />
+    <Project Path="modules/Delivery/Delivery.csproj" />
+    <Project Path="modules/FeatureManagement/FeatureManagement.csproj" />
+    <Project Path="modules/Fulfillment/Fulfillment.csproj" />
+    <Project Path="modules/Identity/Identity.csproj" />
+    <Project Path="modules/Ordering/Ordering.csproj" />
+    <Project Path="modules/Payment/Payment.csproj" />
+    <Project Path="modules/Promotions/Promotions.csproj" />
+    <Project Path="modules/Tenancy/Tenancy.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Knight.Api/Knight.Api.csproj" />
+    <Project Path="src/Knight.Application/Knight.Application.csproj" />
+    <Project Path="src/Knight.Contracts/Knight.Contracts.csproj" />
+    <Project Path="src/Knight.Domain/Knight.Domain.csproj" />
+    <Project Path="src/Knight.Infrastructure/Knight.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Knight.ArchitectureTests/Knight.ArchitectureTests.csproj" />
+    <Project Path="tests/Knight.IntegrationTests/Knight.IntegrationTests.csproj" />
+    <Project Path="tests/Knight.UnitTests/Knight.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Knight.Bootstrap/Knight.Bootstrap.csproj" />
+  </Folder>
+</Solution>

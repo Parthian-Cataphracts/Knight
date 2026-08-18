@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Scalar.AspNetCore" Version="2.16.18" />
+    <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Knight.Application\Knight.Application.csproj" />
+    <ProjectReference Include="..\Knight.Infrastructure\Knight.Infrastructure.csproj" />
+    <ProjectReference Include="..\Knight.Contracts\Knight.Contracts.csproj" />
+    <ProjectReference Include="..\..\modules\Identity\Identity.csproj" />
+    <ProjectReference Include="..\..\modules\Tenancy\Tenancy.csproj" />
+    <ProjectReference Include="..\..\modules\FeatureManagement\FeatureManagement.csproj" />
+    <ProjectReference Include="..\..\modules\Catalog\Catalog.csproj" />
+    <ProjectReference Include="..\..\modules\Ordering\Ordering.csproj" />
+    <ProjectReference Include="..\..\modules\Customer\Customer.csproj" />
+    <ProjectReference Include="..\..\modules\Fulfillment\Fulfillment.csproj" />
+    <ProjectReference Include="..\..\modules\Delivery\Delivery.csproj" />
+    <ProjectReference Include="..\..\modules\Checkout\Checkout.csproj" />
+    <ProjectReference Include="..\..\modules\Payment\Payment.csproj" />
+    <ProjectReference Include="..\..\modules\Promotions\Promotions.csproj" />
+  </ItemGroup>
+
+</Project>

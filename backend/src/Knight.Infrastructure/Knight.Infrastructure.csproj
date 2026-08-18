@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Knight.Domain\Knight.Domain.csproj" />
+    <ProjectReference Include="..\Knight.Application\Knight.Application.csproj" />
+    <ProjectReference Include="..\..\modules\Identity\Identity.csproj" />
+    <ProjectReference Include="..\..\modules\Tenancy\Tenancy.csproj" />
+    <ProjectReference Include="..\..\modules\FeatureManagement\FeatureManagement.csproj" />
+    <ProjectReference Include="..\..\modules\Catalog\Catalog.csproj" />
+    <ProjectReference Include="..\..\modules\Ordering\Ordering.csproj" />
+    <ProjectReference Include="..\..\modules\Customer\Customer.csproj" />
+    <ProjectReference Include="..\..\modules\Fulfillment\Fulfillment.csproj" />
+    <ProjectReference Include="..\..\modules\Delivery\Delivery.csproj" />
+    <ProjectReference Include="..\..\modules\Checkout\Checkout.csproj" />
+    <ProjectReference Include="..\..\modules\Payment\Payment.csproj" />
+    <ProjectReference Include="..\..\modules\Promotions\Promotions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.11" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.22.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
