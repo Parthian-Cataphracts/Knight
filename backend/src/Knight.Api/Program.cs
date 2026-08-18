@@ -5,15 +5,19 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using AccessControl;
 using Knight.Api.Authorization;
 using Knight.Api.Composition;
+using Knight.Api.ControlPlane;
 using Knight.Api.Endpoints;
 using Knight.Api.Middleware;
 using Knight.Application;
+using Knight.Application.Abstractions.ControlPlane;
 using Knight.Application.Abstractions.Identity;
 using Knight.Application.Abstractions.Tenancy;
 using Knight.Application.Abstractions.Time;
 using Knight.Infrastructure;
+using Knight.Infrastructure.ControlPlane;
 using Knight.Infrastructure.HealthChecks;
 using Knight.Infrastructure.Security;
 using Scalar.AspNetCore;
@@ -42,6 +46,8 @@ builder.Services.AddOpenApi(options =>
 builder.Services.AddPlatformApplication();
 builder.Services.AddPlatformInfrastructure(builder.Configuration);
 builder.Services.AddPlatformModules(builder.Configuration);
+builder.Services.AddControlPlaneInfrastructure(builder.Configuration);
+builder.Services.AddControlPlaneModules(builder.Configuration);
 builder.Services.AddPlatformHealthChecks(builder.Configuration);
 builder.Services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
 
@@ -84,9 +90,17 @@ builder.Services
 // mere presence or absence of a tenant claim. See docs/architecture/authorization.md.
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("PlatformAdminOnly", policy => policy.RequireClaim("principal_type", "platform_admin"))
-    .AddPolicy("TenantUserOnly", policy => policy.RequireClaim("principal_type", "tenant_user"));
+    .AddPolicy("TenantUserOnly", policy => policy.RequireClaim("principal_type", "tenant_user"))
+
+    // Dashboard endpoints. A store or agent token carries a different
+    // principal_type and is rejected here, before any handler runs
+    // (docs/authentication.md section 4).
+    .AddPolicy(ControlPlaneAuthorizationExtensions.UserPolicy, policy => policy
+        .RequireAuthenticatedUser()
+        .RequireClaim(PrincipalTypes.ClaimType, PrincipalTypes.User));
 
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, ControlPlanePermissionHandler>();
 
 builder.Services.AddCors(options =>
 {
@@ -126,6 +140,8 @@ builder.Services.AddRateLimiter(options =>
         limiterOptions.QueueLimit = 0;
     });
 
+    options.AddPolicy("control-plane", PartitionByClientIp(rateLimitOptions.ControlPlanePermitLimit, window));
+    options.AddPolicy("auth-control-plane", PartitionByClientIp(rateLimitOptions.ControlPlaneLoginPermitLimit, window));
     options.AddPolicy("auth-platform-login", PartitionByClientIp(rateLimitOptions.PlatformLoginPermitLimit, window));
     options.AddPolicy("auth-tenant-login", PartitionByClientIp(rateLimitOptions.TenantLoginPermitLimit, window));
     options.AddPolicy("auth-refresh", PartitionByClientIp(rateLimitOptions.RefreshPermitLimit, window));
@@ -162,7 +178,18 @@ app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseMiddleware<TenantResolutionMiddleware>();
+
+// Runs after authentication, before authorization: the customer boundary must
+// be established from validated claims before any policy or handler queries
+// anything (docs/authorization.md section 3).
+app.UseMiddleware<ControlPlaneScopeMiddleware>();
+
 app.UseAuthorization();
+
+app.MapControlPlaneAuthEndpoints();
+app.MapControlPlaneCustomerEndpoints();
+app.MapControlPlaneStoreEndpoints();
+app.MapControlPlaneAuditLogEndpoints();
 
 app.MapPlatformHealthEndpoints();
 app.MapPlatformTenantEndpoints();
@@ -198,6 +225,7 @@ app.MapPlatformPromotionEndpoints();
 app.MapPlatformCouponEndpoints();
 
 app.Services.InitializePermissionCatalog();
+await app.Services.MigrateAndSeedControlPlaneAsync();
 
 app.Run();
 

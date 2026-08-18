@@ -1,0 +1,121 @@
+using System.Linq.Expressions;
+using System.Reflection;
+using AccessControl.Domain;
+using Knight.Application.Abstractions.ControlPlane;
+using Knight.Domain.Common;
+using Knight.Infrastructure.ControlPlane.Configurations;
+using Microsoft.EntityFrameworkCore;
+using Stores.Domain;
+
+// The legacy store-side module is also called Customer; aliasing keeps the two
+// unrelated concepts from being confused for one another in this file.
+using ControlPlaneCustomer = Customers.Domain.Customer;
+
+namespace Knight.Infrastructure.ControlPlane;
+
+/// <summary>
+/// The control plane's own EF Core context, deliberately separate from the
+/// legacy <c>PlatformDbContext</c>. KNIGHT manages stores; it is not a store's
+/// backend, and the two schemas have nothing to say to each other
+/// (docs/README.md, rules 1 and 3). Keeping them apart also means the frozen
+/// store-side tables can be dropped in phase 8 without touching a single
+/// control-plane migration.
+///
+/// Every entity implementing <see cref="ICustomerScoped"/> receives a global
+/// query filter derived from the request's <see cref="ICustomerScope"/>. The
+/// filter is the safety net described in docs/authorization.md section 3: a
+/// handler that forgets its own customer check still cannot return another
+/// customer's rows. It fails closed — an unresolved scope yields nothing, never
+/// everything.
+///
+/// The filter closes over the injected, request-scoped scope rather than over a
+/// constant. EF Core compiles the model once per context type but re-binds
+/// instance-member references to whichever instance is executing the query, so
+/// this stays correct across requests. The context is registered with
+/// AddDbContext (never pooled), so no instance outlives its request.
+/// </summary>
+public sealed class ControlPlaneDbContext : DbContext
+{
+    public const string SchemaName = "control";
+
+    private readonly ICustomerScope _scope;
+
+    public ControlPlaneDbContext(DbContextOptions<ControlPlaneDbContext> options, ICustomerScope scope)
+        : base(options)
+    {
+        _scope = scope;
+    }
+
+    public DbSet<ControlPlaneCustomer> Customers => Set<ControlPlaneCustomer>();
+
+    public DbSet<Store> Stores => Set<Store>();
+
+    public DbSet<StoreCredential> StoreCredentials => Set<StoreCredential>();
+
+    public DbSet<ControlPlaneUser> Users => Set<ControlPlaneUser>();
+
+    public DbSet<UserRoleAssignment> UserRoleAssignments => Set<UserRoleAssignment>();
+
+    public DbSet<Role> Roles => Set<Role>();
+
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+
+    public DbSet<UserSession> UserSessions => Set<UserSession>();
+
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.HasDefaultSchema(SchemaName);
+
+        // Applied explicitly rather than by assembly scan: this assembly also
+        // carries the legacy platform configurations, and the two models must
+        // not bleed into each other.
+        modelBuilder.ApplyConfiguration(new CustomerConfiguration());
+        modelBuilder.ApplyConfiguration(new StoreConfiguration());
+        modelBuilder.ApplyConfiguration(new StoreCredentialConfiguration());
+        modelBuilder.ApplyConfiguration(new ControlPlaneUserConfiguration());
+        modelBuilder.ApplyConfiguration(new UserRoleAssignmentConfiguration());
+        modelBuilder.ApplyConfiguration(new RoleConfiguration());
+        modelBuilder.ApplyConfiguration(new RolePermissionConfiguration());
+        modelBuilder.ApplyConfiguration(new UserSessionConfiguration());
+        modelBuilder.ApplyConfiguration(new AuditLogConfiguration());
+
+        ApplyCustomerIsolation(modelBuilder);
+    }
+
+    private void ApplyCustomerIsolation(ModelBuilder modelBuilder)
+    {
+        // The customer aggregate is scoped by its own identity rather than by a
+        // CustomerId column, so it gets its filter directly.
+        modelBuilder.Entity<ControlPlaneCustomer>().HasQueryFilter(customer =>
+            _scope.IsPlatformScope || (_scope.HasCustomer && customer.Id == _scope.CustomerId));
+
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (!typeof(ICustomerScoped).IsAssignableFrom(entityType.ClrType))
+            {
+                continue;
+            }
+
+            var filter = typeof(ControlPlaneDbContext)
+                .GetMethod(nameof(BuildCustomerFilter), BindingFlags.NonPublic | BindingFlags.Instance)!
+                .MakeGenericMethod(entityType.ClrType)
+                .Invoke(this, null);
+
+            entityType.SetQueryFilter((LambdaExpression)filter!);
+        }
+    }
+
+    // Invoked reflectively per customer-scoped entity type. A row with no
+    // customer is platform-owned and belongs to platform principals only: "no
+    // customer" must never be read as "any customer".
+    private LambdaExpression BuildCustomerFilter<TEntity>() where TEntity : class, ICustomerScoped
+    {
+        Expression<Func<TEntity, bool>> filter = entity =>
+            _scope.IsPlatformScope ||
+            (_scope.HasCustomer && entity.CustomerId == _scope.CustomerId);
+
+        return filter;
+    }
+}
