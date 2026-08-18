@@ -1,7 +1,11 @@
 using AccessControl;
+using Billing;
 using Customers;
+using FeatureRegistry;
+using Plans;
 using Knight.Application.Abstractions.ControlPlane;
 using Stores;
+using Subscriptions;
 
 namespace Knight.Api.ControlPlane;
 
@@ -17,6 +21,10 @@ public static class ControlPlaneComposition
         services.AddAccessControlModule(configuration);
         services.AddCustomersModule();
         services.AddStoresModule(configuration);
+        services.AddFeatureRegistryModule();
+        services.AddPlansModule();
+        services.AddSubscriptionsModule(configuration);
+        services.AddBillingModule(configuration);
 
         services.AddScoped<IControlPlanePrincipal, HttpControlPlanePrincipal>();
         services.AddScoped<IAuditContext, HttpAuditContext>();

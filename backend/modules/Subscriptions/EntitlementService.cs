@@ -207,6 +207,17 @@ internal sealed class EntitlementService : IEntitlementService
         var held = await _entitlements.ListForCustomerAsync(customerId, includeInactive: false, cancellationToken);
         var expected = await ResolveExpectedAsync(subscription, cancellationToken);
 
+        // Reconciliation grants and revokes on the customer's behalf, so it is
+        // audited exactly like a hand-made change: an entitlement that appeared
+        // or vanished without a trail is indistinguishable from a bug
+        // (docs/authorization.md section 7).
+        var descriptors = await _features.GetManyAsync(
+            held.Select(entitlement => entitlement.FeatureId).Concat(expected.Keys).Distinct().ToArray(),
+            cancellationToken);
+
+        string? SlugOf(Guid featureId) =>
+            descriptors.SingleOrDefault(descriptor => descriptor.FeatureId == featureId)?.Slug;
+
         // Revoke what the customer no longer holds, leaving manual grants be.
         foreach (var entitlement in held.Where(candidate =>
                      candidate.Source is not EntitlementSource.Grant &&
@@ -214,6 +225,7 @@ internal sealed class EntitlementService : IEntitlementService
                      !expected.ContainsKey(candidate.FeatureId)))
         {
             entitlement.Revoke(now, "subscription_no_longer_grants");
+            await AuditAsync("entitlement.revoked", entitlement, SlugOf(entitlement.FeatureId), cancellationToken);
             await _events.PublishAsync(
                 new FeatureEntitlementRevoked(customerId, entitlement.FeatureId, "subscription_no_longer_grants", now),
                 cancellationToken);
@@ -229,6 +241,7 @@ internal sealed class EntitlementService : IEntitlementService
 
             var entitlement = FeatureEntitlement.Grant(Guid.NewGuid(), customerId, featureId, source, now);
             await _entitlements.AddAsync(entitlement, cancellationToken);
+            await AuditAsync("entitlement.granted", entitlement, SlugOf(featureId), cancellationToken);
             await _events.PublishAsync(
                 new FeatureEntitlementGranted(customerId, featureId, source.ToString(), now),
                 cancellationToken);

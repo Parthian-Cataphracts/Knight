@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-18** (revision 6 — phase 1 control-plane core complete)
+Last updated: **2026-08-18** (revision 7 — phase 2 plans, entitlements and billing complete)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,10 +11,10 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 1 — Control-plane core (complete)** |
-| **Next phase** | Phase 2 — Plans, subscriptions, entitlements, billing |
-| **Overall progress** | ~35% (architecture and the control-plane core are done; feature registry/delivery, store template, agent and the dashboard's write paths remain greenfield) |
-| **Blocking decisions** | 11 open questions in [`docs/risks.md`](docs/risks.md) §3 |
+| **Current phase** | **Phase 2 — Plans, subscriptions, entitlements, billing (complete)** |
+| **Next phase** | Phase 3 — Store integration |
+| **Overall progress** | ~45% (the control plane can now answer who a customer is, what they run, and what they have paid for; feature delivery, the store template and the agent remain greenfield) |
+| **Blocking decisions** | 10 open questions in [`docs/risks.md`](docs/risks.md) §3 — R14 (billing scope) resolved as invoicing only |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
 > not a boolean flag ([`docs/adr/0014`](docs/adr/0014-features-as-deployable-packages.md)).
@@ -25,7 +25,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 ```
 Phase 0    Discovery & architecture       ██████████ 100%
 Phase 1    Control-plane core             ██████████ 100%
-Phase 2    Plans, subscriptions, entitlements ░░░░░░   0%
+Phase 2    Plans, subscriptions, entitlements ██████ 100%
 Phase 3    Store integration              ░░░░░░░░░░   0%
 Phase 3.5  Feature registry & delivery    ░░░░░░░░░░   0%   ← new in revision 2
 Phase 4    Servers, agents, monitoring    ░░░░░░░░░░   0%
@@ -128,23 +128,27 @@ end to end by `ControlPlaneCustomerAndStoreTests` and the release-blocking
 
 ---
 
-## Phase 2 — Plans, subscriptions, entitlements, billing
+## Phase 2 — Plans, subscriptions, entitlements, billing ✅
 
 **Exit criteria:** a subscription can be priced from data, and entitlements are
-computable, queryable, and clearly distinct from installations.
+computable, queryable, and clearly distinct from installations. Covered end to
+end by `ControlPlaneCommerceTests`.
 
-- [ ] `Plans` module: `Plan`, `PlanFeature` (with `pinnedVersionRange`), `FeaturePrice`
-- [ ] Seed Basic / Custom / Professional plans as **data**, not code
-- [ ] `Subscriptions` module: state machine, `SubscriptionFeature`, change/cancel flows
-- [ ] `FeatureEntitlement` as an explicit record (source, granted, expires, revoked)
-- [ ] Entitlement resolution service (customer → store → feature map)
-- [ ] Pricing calculator + `subscriptions/quote` preview endpoint
-- [ ] Rule: dedicated-infrastructure features blocked on shared hosting
-- [ ] Rule: non-toggleable features cannot be changed by customers
-- [ ] Entitlement change → emits `FeatureEntitlementGranted/Revoked` (consumed by delivery in 3.5)
-- [ ] `Billing`: `BillingAccount`, `Invoice`, `InvoiceLine`, `PaymentRecord`, invoice issuing
-- [ ] Tests: pricing matrix, entitlement resolution, unauthorised enablement, mid-period plan changes
-- [ ] `[!]` Decide billing scope: invoicing only vs payment processing (`risks.md` R14)
+- [x] `FeatureRegistry` module: the `Feature` identity and its commercial metadata — needed before any entitlement rule can be written (versions and artifacts remain phase 3.5)
+- [x] `Plans` module: `Plan`, `PlanFeature` (with `pinnedVersionRange`), `FeaturePrice` with time-boxed prices
+- [x] Seed Basic / Custom / Professional plans as **data**, not code (`ControlPlane/Seed/commercial-catalogue.json`, overridable with `Catalogue:SeedPath`)
+- [x] `Subscriptions` module: state machine, `SubscriptionFeature`, change/cancel flows
+- [x] `FeatureEntitlement` as an explicit record (source, granted, expires, revoked) — [`adr/0019`](docs/adr/0019-entitlement-as-an-explicit-record.md)
+- [x] Entitlement resolution and idempotent reconciliation, with manual grants deliberately outside its remit
+- [x] Pricing calculator + `subscriptions/quote` preview endpoint, side-effect free and sharing one code path with invoicing
+- [x] Rule: dedicated-infrastructure features blocked on shared hosting (including manual grants)
+- [x] Rule: non-toggleable features cannot be changed by customers
+- [x] Entitlement change → emits `FeatureEntitlementGranted/Revoked` (consumed by delivery in 3.5; logged until then)
+- [x] `Billing`: `BillingAccount`, `Invoice`, `InvoiceLine`, `PaymentRecord`, invoice issuing with gapless numbering
+- [x] Tests: pricing matrix, entitlement resolution and reconciliation, unauthorised enablement, plan changes, invoice lifecycle, isolation
+- [x] Billing scope decided: **invoicing only** — KNIGHT records invoices and observed payments and moves no money (`risks.md` R14)
+- [ ] A billing run that decides *when* to invoice and rolls the period forward — scheduled work, deferred to phase 9/10 rather than hidden inside issuing
+- [ ] Tax computation: the figure is settable on a draft, but KNIGHT does not calculate it (jurisdiction-specific, and wrong is a legal matter)
 
 ---
 

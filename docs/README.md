@@ -102,6 +102,7 @@ but they are **not** a description of KNIGHT's target architecture:
 | [0016](adr/0016-feature-migration-and-removal-policy.md) | Feature migration, rollback, and removal policy | Accepted |
 | [0017](adr/0017-feature-compatibility-and-dependencies.md) | Feature versioning, compatibility, dependency resolution | Accepted |
 | [0018](adr/0018-separate-control-plane-context-and-access-module.md) | Separate control-plane DbContext and access module | Accepted |
+| [0019](adr/0019-entitlement-as-an-explicit-record.md) | Entitlement as an explicit record, reconciled from the subscription | Accepted |
 
 **Revision note:** the first documentation revision treated a Feature as an
 entitlement flag. ADR 0014 corrects that. Where any older, un-updated document
