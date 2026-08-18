@@ -54,3 +54,7 @@ storage-data/
 *.tmp
 *.temp
 .cache/
+
+# Local spec drafts and prompt notes — not part of the product
+/first doc.txt
+/updated doc.txt
