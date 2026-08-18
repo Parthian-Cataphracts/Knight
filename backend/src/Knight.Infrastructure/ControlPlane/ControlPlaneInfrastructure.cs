@@ -1,6 +1,7 @@
 using AccessControl.Abstractions;
 using AccessControl.Domain;
 using Knight.Application.Abstractions.ControlPlane;
+using Knight.Infrastructure.ControlPlane.Adapters;
 using Knight.Infrastructure.ControlPlane.Repositories;
 using Knight.Infrastructure.ControlPlane.Security;
 using Microsoft.EntityFrameworkCore;
@@ -46,6 +47,23 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<IRoleRepository, ControlPlaneRoleRepository>();
         services.AddScoped<IUserSessionRepository, UserSessionRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+
+        services.AddScoped<FeatureRegistry.Domain.IFeatureRepository, FeatureRepository>();
+        services.AddScoped<Plans.Domain.IPlanRepository, PlanRepository>();
+        services.AddScoped<Plans.Domain.IFeaturePriceRepository, FeaturePriceRepository>();
+        services.AddScoped<Subscriptions.Domain.ISubscriptionRepository, SubscriptionRepository>();
+        services.AddScoped<Subscriptions.Domain.IFeatureEntitlementRepository, FeatureEntitlementRepository>();
+        services.AddScoped<Billing.Domain.IBillingAccountRepository, BillingAccountRepository>();
+        services.AddScoped<Billing.Domain.IInvoiceRepository, InvoiceRepository>();
+
+        // Ports that let one control-plane module read another's data without
+        // referencing it.
+        services.AddScoped<IPlanCatalogReader, PlanCatalogReader>();
+        services.AddScoped<IFeatureCatalogReader, FeatureCatalogReader>();
+        services.AddScoped<IPricingReader, PricingReader>();
+        services.AddScoped<ISubscriptionReader, SubscriptionReader>();
+        services.AddScoped<IStoreHostingReader, StoreHostingReader>();
+        services.AddScoped<IEntitlementEventPublisher, LoggingEntitlementEventPublisher>();
 
         services.AddSingleton<IControlPlanePasswordHasher, ControlPlanePasswordHasher>();
         services.AddSingleton<ISecureTokenFactory, SecureTokenFactory>();

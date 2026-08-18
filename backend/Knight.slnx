@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/modules/">
     <Project Path="modules/AccessControl/AccessControl.csproj" />
+    <Project Path="modules/Billing/Billing.csproj" />
     <Project Path="modules/Catalog/Catalog.csproj" />
     <Project Path="modules/Checkout/Checkout.csproj" />
     <Project Path="modules/Customer/Customer.csproj" />
@@ -12,6 +13,9 @@
     <Project Path="modules/Ordering/Ordering.csproj" />
     <Project Path="modules/Payment/Payment.csproj" />
     <Project Path="modules/Promotions/Promotions.csproj" />
+    <Project Path="modules/FeatureRegistry/FeatureRegistry.csproj" />
+    <Project Path="modules/Plans/Plans.csproj" />
+    <Project Path="modules/Subscriptions/Subscriptions.csproj" />
     <Project Path="modules/Stores/Stores.csproj" />
     <Project Path="modules/Tenancy/Tenancy.csproj" />
   </Folder>

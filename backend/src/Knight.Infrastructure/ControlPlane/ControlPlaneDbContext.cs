@@ -64,6 +64,20 @@ public sealed class ControlPlaneDbContext : DbContext
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    public DbSet<FeatureRegistry.Domain.Feature> Features => Set<FeatureRegistry.Domain.Feature>();
+
+    public DbSet<Plans.Domain.Plan> Plans => Set<Plans.Domain.Plan>();
+
+    public DbSet<Plans.Domain.FeaturePrice> FeaturePrices => Set<Plans.Domain.FeaturePrice>();
+
+    public DbSet<Subscriptions.Domain.Subscription> Subscriptions => Set<Subscriptions.Domain.Subscription>();
+
+    public DbSet<Subscriptions.Domain.FeatureEntitlement> FeatureEntitlements => Set<Subscriptions.Domain.FeatureEntitlement>();
+
+    public DbSet<Billing.Domain.BillingAccount> BillingAccounts => Set<Billing.Domain.BillingAccount>();
+
+    public DbSet<Billing.Domain.Invoice> Invoices => Set<Billing.Domain.Invoice>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(SchemaName);
@@ -80,6 +94,19 @@ public sealed class ControlPlaneDbContext : DbContext
         modelBuilder.ApplyConfiguration(new RolePermissionConfiguration());
         modelBuilder.ApplyConfiguration(new UserSessionConfiguration());
         modelBuilder.ApplyConfiguration(new AuditLogConfiguration());
+
+        modelBuilder.ApplyConfiguration(new FeatureConfiguration());
+        modelBuilder.ApplyConfiguration(new PlanConfiguration());
+        modelBuilder.ApplyConfiguration(new PlanFeatureConfiguration());
+        modelBuilder.ApplyConfiguration(new FeaturePriceConfiguration());
+        modelBuilder.ApplyConfiguration(new SubscriptionConfiguration());
+        modelBuilder.ApplyConfiguration(new SubscriptionFeatureConfiguration());
+        modelBuilder.ApplyConfiguration(new FeatureEntitlementConfiguration());
+        modelBuilder.ApplyConfiguration(new BillingAccountConfiguration());
+        modelBuilder.ApplyConfiguration(new InvoiceConfiguration());
+        modelBuilder.ApplyConfiguration(new InvoiceLineConfiguration());
+        modelBuilder.ApplyConfiguration(new PaymentRecordConfiguration());
+        modelBuilder.ApplyConfiguration(new InvoiceNumberSequenceConfiguration());
 
         ApplyCustomerIsolation(modelBuilder);
     }
