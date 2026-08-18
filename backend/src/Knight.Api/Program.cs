@@ -225,7 +225,6 @@ app.MapPlatformPromotionEndpoints();
 app.MapPlatformCouponEndpoints();
 
 app.Services.InitializePermissionCatalog();
-await app.Services.MigrateAndSeedControlPlaneAsync();
 
 app.Run();
 

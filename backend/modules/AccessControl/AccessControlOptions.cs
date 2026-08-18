@@ -23,23 +23,4 @@ public sealed class AccessControlOptions
 
     /// <summary>Shown in the authenticator app during enrolment.</summary>
     public string MfaIssuer { get; init; } = "KNIGHT";
-
-    /// <summary>
-    /// Bootstrap account created on first start when no platform staff exists.
-    /// Without it a fresh deployment has no way to sign in at all. The password
-    /// comes from the secret store, never from source, and is left unset in every
-    /// configuration file checked into the repository.
-    /// </summary>
-    public BootstrapAdminOptions? BootstrapAdmin { get; init; }
-}
-
-public sealed class BootstrapAdminOptions
-{
-    [Required]
-    public string Email { get; init; } = string.Empty;
-
-    [Required]
-    public string Password { get; init; } = string.Empty;
-
-    public string DisplayName { get; init; } = "Platform Administrator";
 }

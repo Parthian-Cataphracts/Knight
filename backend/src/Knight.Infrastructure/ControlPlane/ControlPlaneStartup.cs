@@ -6,9 +6,14 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Knight.Infrastructure.ControlPlane;
 
 /// <summary>
-/// Startup work for the control plane: bring the schema up to date, then seed
-/// the system roles and — on a database with no platform account at all — the
-/// bootstrap administrator.
+/// Deployment-time work for the control plane: bring the schema up to date and
+/// reconcile the system roles.
+///
+/// Deliberately not called from the API host. A running host that migrates its
+/// own database turns every restart into a schema change and fails to start at
+/// all when the database is briefly unreachable; migration is a deployment step,
+/// and Knight.Bootstrap is where it is invoked by hand
+/// (docs/deployment.md).
 /// </summary>
 public static class ControlPlaneStartup
 {

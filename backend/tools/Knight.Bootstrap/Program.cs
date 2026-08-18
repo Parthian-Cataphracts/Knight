@@ -18,8 +18,31 @@ using Knight.Infrastructure.Security;
 var email = ParseEmailArgument(args);
 if (email is null)
 {
-    Console.Error.WriteLine("Usage: Knight.Bootstrap --email <email>");
+    Console.Error.WriteLine("Usage: Knight.Bootstrap [--control-plane] --email <email>");
     return 1;
+}
+
+// The control plane has its own schema, its own account model and its own first
+// administrator; the legacy path below stays until the store-side modules are
+// removed in phase 8.
+var isControlPlane = args.Contains("--control-plane", StringComparer.Ordinal);
+
+if (isControlPlane)
+{
+    var controlPlanePassword = ReadPasswordWithConfirmation();
+    if (controlPlanePassword is null)
+    {
+        Console.Error.WriteLine("Passwords did not match. Aborting.");
+        return 1;
+    }
+
+    if (controlPlanePassword.Length is < 10 or > 128)
+    {
+        Console.Error.WriteLine("Password must be between 10 and 128 characters.");
+        return 1;
+    }
+
+    return await Knight.Bootstrap.ControlPlaneBootstrap.RunAsync(email, controlPlanePassword);
 }
 
 var connectionString = Environment.GetEnvironmentVariable("PLATFORM_DB_CONNECTION_STRING");

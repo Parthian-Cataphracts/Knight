@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Knight.Application.Abstractions.Tenancy;
+using Knight.Infrastructure.ControlPlane;
 using Knight.Infrastructure.Persistence;
 using Testcontainers.PostgreSql;
 using Xunit;
@@ -96,6 +97,11 @@ public sealed class PostgresApiFixture : IAsyncLifetime
         using var scope = Factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
         await context.Database.MigrateAsync();
+
+        // The host does not migrate itself — that is a deployment step — so the
+        // control-plane schema and its system roles are brought up here, the
+        // same way Knight.Bootstrap does it against a real database.
+        await Factory.Services.MigrateAndSeedControlPlaneAsync();
     }
 
     public async Task DisposeAsync()

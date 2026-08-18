@@ -116,7 +116,12 @@ public sealed class PlatformDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("platform");
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(PlatformDbContext).Assembly);
+        // Restricted to this context's own configurations: the assembly also
+        // carries the control-plane mappings, and an unfiltered scan would pull
+        // that unrelated model into this one.
+        modelBuilder.ApplyConfigurationsFromAssembly(
+            typeof(PlatformDbContext).Assembly,
+            type => type.Namespace == typeof(Configurations.TenantConfiguration).Namespace);
 
         ApplyTenantQueryFilters(modelBuilder);
     }
