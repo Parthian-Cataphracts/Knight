@@ -1,0 +1,2095 @@
+# KNIGHT
+
+## Central Control Plane for Independent Django-Based E-Commerce Stores
+
+**Document Type:** Master Architecture & Implementation Specification
+**Project Codename:** Knight
+**Primary Backend:** ASP.NET Core / .NET
+**Store Backend:** Django + Django REST Framework
+**Admin Frontend:** React + TypeScript
+**Architecture Style:** Distributed Control Plane + Independent Store Applications
+**Development Approach:** API-First, Modular, Testable, Production-Oriented
+
+---
+
+# 1. ROLE
+
+You are the principal software architect and senior full-stack engineer responsible for designing and implementing the KNIGHT platform.
+
+You must behave as an experienced software architect, not as a code generator.
+
+Your responsibility is to:
+
+1. Understand the business model before implementing anything.
+2. Preserve the architectural boundaries defined in this document.
+3. Avoid unnecessary complexity.
+4. Never introduce a technology merely because it is popular.
+5. Never turn every module into a microservice without a concrete reason.
+6. Never make architectural assumptions that contradict this document.
+7. Identify ambiguities and risks before implementation.
+8. Prefer maintainable, testable and extensible designs.
+9. Implement incrementally.
+10. After every meaningful phase, run tests, inspect the implementation, identify problems, fix them, and update the project TODO/documentation.
+
+Do not blindly follow this specification if you discover a genuine architectural contradiction. Instead:
+
+* identify the contradiction,
+* explain the impact,
+* propose alternatives,
+* select the safest option,
+* document the decision,
+* then continue.
+
+---
+
+# 2. BUSINESS CONTEXT
+
+KNIGHT is a central management and operations platform used by a web-design company to manage multiple independent customer stores.
+
+The company builds online stores for different customers.
+
+Every customer store is an independent application.
+
+Example:
+
+Customer A:
+
+```text
+cafe1.ir
+Django Backend
+PostgreSQL
+Redis
+Application Server
+```
+
+Customer B:
+
+```text
+cafe2.ir
+Django Backend
+PostgreSQL
+Redis
+Application Server
+```
+
+These stores are NOT tenants inside one shared Django application.
+
+They are independent applications with:
+
+* their own domain,
+* their own backend,
+* their own database,
+* their own application configuration,
+* potentially their own server.
+
+KNIGHT is not the business backend of these stores.
+
+KNIGHT is their central management and control platform.
+
+---
+
+# 3. CORE ARCHITECTURAL CONCEPT
+
+The most important architectural distinction is:
+
+```text
+KNIGHT = CONTROL PLANE
+
+CUSTOMER STORES = INDEPENDENT APPLICATIONS
+```
+
+Conceptually:
+
+```text
+                         KNIGHT
+                    ASP.NET CORE
+                  Central Control Plane
+                           |
+          +----------------+----------------+
+          |                |                |
+          v                v                v
+       Store A          Store B          Store C
+       Django           Django           Django
+       cafe1.ir         cafe2.ir         cafe3.ir
+          |                |                |
+       Server A         Server B       Dedicated Server
+```
+
+KNIGHT manages and observes these applications but does not own their business logic.
+
+---
+
+# 4. RESPONSIBILITY OF KNIGHT
+
+KNIGHT is responsible for:
+
+* Customer management
+* Store registration
+* Store lifecycle
+* Subscription management
+* Plan management
+* Feature management
+* Feature entitlements
+* Billing-related data
+* User management
+* Roles
+* Permissions
+* Monitoring
+* Server monitoring
+* Application health
+* Error aggregation
+* Incident management
+* Logs aggregation
+* Notifications
+* Audit logs
+* Deployment information
+* Version information
+* Store configuration metadata
+* Infrastructure metadata
+* Reporting
+* Administrative operations
+
+KNIGHT must NOT become the business backend of the stores.
+
+---
+
+# 5. RESPONSIBILITY OF CUSTOMER STORE
+
+Each Django store owns its own business domain.
+
+Depending on the store, this can include:
+
+* Products
+* Categories
+* Orders
+* Customers
+* Payments
+* Inventory
+* CMS
+* Menu
+* Restaurant-specific logic
+* Store-specific business rules
+* Store-specific integrations
+* Store-specific APIs
+
+KNIGHT must not directly manipulate the store's internal business database.
+
+---
+
+# 6. TECHNOLOGY STACK
+
+## 6.1 KNIGHT Backend
+
+Use:
+
+* ASP.NET Core
+* C#
+* PostgreSQL
+* Entity Framework Core
+* Redis where justified
+* REST API
+* SignalR for real-time dashboard events when justified
+* OpenTelemetry-compatible observability architecture
+* Docker
+
+Use modern stable .NET practices.
+
+Do not introduce obsolete APIs or deprecated patterns.
+
+---
+
+# 7. CUSTOMER STORE STACK
+
+Each store should use:
+
+* Python
+* Django
+* Django REST Framework
+* PostgreSQL
+* Redis where required
+* Docker where applicable
+
+Each store remains independently deployable.
+
+---
+
+# 8. FRONTEND
+
+The KNIGHT administrative dashboard must use:
+
+* React
+* TypeScript
+
+Recommended ecosystem:
+
+* React Router
+* TanStack Query
+* Zustand only where global client state is actually required
+* Tailwind CSS
+* shadcn/ui
+* a robust charting library when charts are required
+
+Do not create unnecessary global state.
+
+Server state should primarily be handled through TanStack Query or an equivalent server-state solution.
+
+---
+
+# 9. KNIGHT FRONTEND GOAL
+
+The frontend is an administrative control dashboard.
+
+It must eventually provide areas such as:
+
+```text
+Dashboard
+Customers
+Stores
+Plans
+Features
+Subscriptions
+Billing
+Servers
+Monitoring
+Errors
+Logs
+Incidents
+Reports
+Users
+Roles
+Permissions
+Audit Logs
+Settings
+```
+
+The frontend must be designed for extensibility.
+
+Avoid putting business logic directly into UI components.
+
+---
+
+# 10. SUBSCRIPTION MODEL
+
+KNIGHT has three main service tiers.
+
+## 10.1 BASIC
+
+Basic is the mandatory base plan.
+
+The customer receives a predefined set of features.
+
+The customer cannot arbitrarily modify the base plan.
+
+Example:
+
+```text
+Basic
+├── Store Management
+├── Basic Monitoring
+├── Error Reporting
+├── Basic Logs
+└── Basic Reports
+```
+
+The exact feature list must remain configurable through the KNIGHT domain model.
+
+Do not hard-code the feature list into frontend code.
+
+---
+
+# 11. CUSTOM / INTERMEDIATE PLAN
+
+The intermediate plan allows customers to select optional features.
+
+Example:
+
+```text
+Base Plan
++
+Advanced Analytics
++
+AI Error Analysis
++
+Extended Monitoring
++
+Advanced Reports
+```
+
+A customer may enable or disable optional features according to the business rules.
+
+Pricing must be calculated from the subscription configuration.
+
+Do NOT hard-code subscription pricing into controllers, services or frontend components.
+
+The model must support concepts such as:
+
+```text
+Plan
+Feature
+PlanFeature
+Subscription
+SubscriptionFeature
+FeaturePrice
+```
+
+The exact schema may be adjusted after architectural review.
+
+---
+
+# 12. PROFESSIONAL PLAN
+
+The professional plan is fundamentally different in infrastructure.
+
+The customer receives a dedicated environment/server.
+
+Example:
+
+```text
+Customer C
+    |
+    v
+Dedicated Server
+    |
+    +-- Django Application
+    +-- PostgreSQL
+    +-- Redis
+    +-- Worker
+    +-- Monitoring Agent
+```
+
+The dedicated server is physically/logically separated from the shared infrastructure.
+
+However, KNIGHT remains the central management and observability platform.
+
+KNIGHT must still be able to show:
+
+* Server status
+* Application health
+* CPU
+* Memory
+* Disk
+* Network
+* Application errors
+* Logs
+* Incidents
+* Alerts
+* Version
+* Deployment status
+* Backup status where supported
+
+---
+
+# 13. KNIGHT MUST NOT DEPEND ON SERVER LOCATION
+
+A customer application may be hosted:
+
+1. On company-managed infrastructure.
+2. On a shared infrastructure.
+3. On a dedicated server.
+4. Potentially on customer-controlled infrastructure in the future.
+
+KNIGHT must model infrastructure independently from the physical location of the server.
+
+Do not design the system around assumptions such as:
+
+```text
+all stores are on one server
+```
+
+or:
+
+```text
+KNIGHT can directly access every database
+```
+
+These assumptions are forbidden.
+
+---
+
+# 14. KNIGHT ↔ DJANGO COMMUNICATION
+
+KNIGHT must communicate with customer applications through explicit APIs/contracts.
+
+Do NOT directly connect KNIGHT to every store's PostgreSQL database.
+
+Do NOT make KNIGHT depend on Django's internal database schema.
+
+A store should expose a dedicated management/integration API.
+
+Conceptually:
+
+```text
+KNIGHT
+   |
+   | HTTPS
+   v
+Django Management API
+```
+
+Potential endpoints include:
+
+```text
+GET /api/knight/health
+GET /api/knight/version
+GET /api/knight/features
+POST /api/knight/errors
+POST /api/knight/events
+GET /api/knight/status
+```
+
+These endpoint names are examples, not mandatory final contracts.
+
+The final API contract must be designed carefully.
+
+---
+
+# 15. STORE INTEGRATION LAYER
+
+Each Django application should contain a dedicated KNIGHT integration layer.
+
+Do not scatter KNIGHT-specific code throughout the business domain.
+
+Recommended conceptual structure:
+
+```text
+store/
+├── apps/
+│   ├── products/
+│   ├── orders/
+│   ├── customers/
+│   └── ...
+│
+└── knight_integration/
+    ├── health/
+    ├── events/
+    ├── errors/
+    ├── features/
+    └── authentication/
+```
+
+The exact implementation may differ.
+
+The principle must remain:
+
+```text
+Business Logic ≠ KNIGHT Integration
+```
+
+---
+
+# 16. FEATURE ENTITLEMENTS
+
+Feature management is a core domain.
+
+Example:
+
+```text
+advanced_analytics = enabled
+ai_reports = enabled
+sms_notifications = disabled
+advanced_monitoring = enabled
+```
+
+KNIGHT is the source of truth for subscription entitlements.
+
+The Django application should obtain the effective feature configuration through a secure mechanism.
+
+The frontend must never be considered the authority for feature authorization.
+
+This is forbidden:
+
+```text
+Frontend says feature=true
+therefore backend allows it
+```
+
+The Django backend must enforce feature availability server-side.
+
+---
+
+# 17. SECURITY OF KNIGHT ↔ STORE COMMUNICATION
+
+Do not use a static shared secret embedded in source code.
+
+Design secure store registration and authentication.
+
+Possible mechanisms may include:
+
+* API credentials
+* Rotatable integration tokens
+* Signed requests
+* Short-lived tokens
+* Mutual authentication where justified
+
+The final mechanism must be selected based on the threat model.
+
+Secrets must never be committed to source control.
+
+---
+
+# 18. MONITORING
+
+KNIGHT must support monitoring of both:
+
+## Infrastructure
+
+* CPU
+* RAM
+* Disk
+* Network
+* Uptime
+* Process/service state
+* Docker state where applicable
+
+## Application
+
+* Health
+* Error rate
+* Response failures
+* Version
+* Dependency health
+* Database health
+* Redis health
+* Background worker health
+
+---
+
+# 19. AGENT
+
+A lightweight KNIGHT monitoring agent may be used for server-level information.
+
+Conceptually:
+
+```text
+KNIGHT
+   |
+   | Secure connection
+   v
+KNIGHT AGENT
+   |
+   +-- CPU
+   +-- RAM
+   +-- Disk
+   +-- Network
+   +-- Processes
+   +-- Docker
+   +-- System Health
+```
+
+The agent must have minimum privileges necessary.
+
+Do not design the agent as a general-purpose remote shell.
+
+Do not allow arbitrary command execution by default.
+
+---
+
+# 20. ERROR REPORTING
+
+Errors from stores must be observable through KNIGHT.
+
+Example:
+
+```text
+Customer:
+Cafe 1
+
+Application:
+Production
+
+Endpoint:
+/api/orders/
+
+Error:
+500 Internal Server Error
+
+Exception:
+IntegrityError
+
+Occurrences:
+37
+
+First Seen:
+2026-08-18 10:20
+
+Last Seen:
+2026-08-18 12:41
+```
+
+KNIGHT should support grouping similar errors.
+
+Possible grouping keys:
+
+* Exception type
+* Stack trace fingerprint
+* Endpoint
+* Application
+* Version
+
+Do not blindly store every error as a unique incident.
+
+Design an error aggregation strategy.
+
+---
+
+# 21. INCIDENT MANAGEMENT
+
+Errors and incidents are related but not identical.
+
+For example:
+
+```text
+100 identical errors
+```
+
+may represent:
+
+```text
+1 incident
+```
+
+The domain should support:
+
+```text
+Error
+ErrorGroup
+Incident
+IncidentEvent
+Alert
+```
+
+if justified by the final design.
+
+---
+
+# 22. LOG MANAGEMENT
+
+KNIGHT should eventually support centralized log visibility.
+
+Logs should contain structured metadata where possible:
+
+```text
+timestamp
+level
+service
+store
+server
+environment
+request_id
+trace_id
+message
+exception
+version
+```
+
+Avoid building a custom log-storage system unless there is a clear reason.
+
+The architecture should remain compatible with established observability tooling.
+
+---
+
+# 23. AUDIT LOG
+
+Every sensitive administrative action must be auditable.
+
+Examples:
+
+```text
+Admin X
+changed Customer Y
+from Basic
+to Professional
+```
+
+or:
+
+```text
+Admin X
+enabled Feature Z
+for Customer Y
+```
+
+Audit logs should capture appropriate metadata such as:
+
+* actor
+* action
+* target
+* timestamp
+* previous value where appropriate
+* new value where appropriate
+* request/correlation ID
+* IP information where appropriate
+
+Do not log secrets or sensitive credentials.
+
+---
+
+# 24. AUTHENTICATION
+
+KNIGHT requires proper authentication and authorization.
+
+The architecture must support:
+
+* User identity
+* Sessions/tokens
+* Roles
+* Permissions
+* Administrative access
+* Customer-level access
+
+Potential roles:
+
+```text
+SuperAdmin
+Admin
+Developer
+Support
+CustomerOwner
+CustomerStaff
+```
+
+These are examples and must remain configurable.
+
+---
+
+# 25. AUTHORIZATION
+
+Permissions should be granular.
+
+Examples:
+
+```text
+customer.view
+customer.create
+customer.update
+
+store.view
+store.manage
+
+server.view
+server.manage
+
+logs.view
+
+errors.view
+errors.manage
+
+billing.view
+billing.manage
+
+subscription.view
+subscription.manage
+```
+
+Do not rely only on frontend route protection.
+
+Every sensitive backend operation must perform authorization.
+
+---
+
+# 26. MULTI-TENANCY IN KNIGHT
+
+KNIGHT itself is a multi-customer system.
+
+A customer should only be able to access resources belonging to them.
+
+For example:
+
+```text
+Customer A
+    |
+    +-- Store A1
+    +-- Store A2
+
+Customer B
+    |
+    +-- Store B1
+```
+
+Customer A must never be able to access:
+
+```text
+Store B1
+Server B
+Logs B
+Errors B
+Subscription B
+```
+
+The backend must enforce isolation.
+
+Never rely only on UI filtering.
+
+---
+
+# 27. IMPORTANT DISTINCTION ABOUT MULTI-TENANCY
+
+Customer stores themselves are NOT necessarily multi-tenant applications.
+
+Knight is multi-tenant at the management/customer level.
+
+Each customer store is an independent application.
+
+Do not accidentally merge all stores into one Django tenant architecture.
+
+---
+
+# 28. REAL-TIME DASHBOARD
+
+Where real-time information is valuable, use SignalR or an equivalent mechanism.
+
+Example:
+
+```text
+Server goes offline
+        |
+        v
+Monitoring
+        |
+        v
+KNIGHT
+        |
+        v
+SignalR
+        |
+        v
+React Dashboard
+        |
+        v
+🔴 Server Offline
+```
+
+Do not use aggressive frontend polling when a push-based mechanism is clearly more appropriate.
+
+---
+
+# 29. API DESIGN
+
+All KNIGHT frontend communication must happen through APIs.
+
+Do not couple React directly to database logic.
+
+Use:
+
+```text
+React
+  |
+  v
+KNIGHT API
+  |
+  v
+Domain/Application Layer
+  |
+  v
+Infrastructure
+```
+
+Use DTOs.
+
+Do not expose database entities directly as public API contracts.
+
+API contracts must be versionable.
+
+---
+
+# 30. ARCHITECTURAL STYLE OF KNIGHT
+
+Initial architecture should be a modular monolith unless there is a concrete reason to separate a component.
+
+Suggested modules:
+
+```text
+Identity
+Customers
+Stores
+Plans
+Features
+Subscriptions
+Billing
+Servers
+Monitoring
+Errors
+Logs
+Incidents
+Notifications
+Audit
+Reports
+```
+
+These should have clear domain boundaries.
+
+DO NOT immediately create:
+
+```text
+15 microservices
+Kafka
+Service Mesh
+Kubernetes
+CQRS everywhere
+Event Sourcing everywhere
+```
+
+These technologies may be introduced later only when justified.
+
+---
+
+# 31. WHEN TO EXTRACT A MICROSERVICE
+
+A module may become an independent service only when one or more of these conditions exist:
+
+* Independent scaling requirement
+* Independent deployment requirement
+* Different availability requirements
+* Different technology requirements
+* Clear ownership boundary
+* High load
+* Failure isolation requirement
+* Independent lifecycle
+
+The mere existence of a module is NOT a reason to create a microservice.
+
+---
+
+# 32. EVENT-DRIVEN ARCHITECTURE
+
+The architecture should be compatible with events.
+
+Potential events:
+
+```text
+StoreRegistered
+SubscriptionChanged
+FeatureEnabled
+FeatureDisabled
+ServerOffline
+ServerRecovered
+ErrorDetected
+IncidentCreated
+IncidentResolved
+DeploymentCompleted
+BackupFailed
+```
+
+Do not introduce a message broker until there is a real asynchronous communication requirement.
+
+When a broker becomes necessary, design the event contracts carefully.
+
+---
+
+# 33. DATABASE PRINCIPLES
+
+KNIGHT should have its own PostgreSQL database.
+
+Each store should have its own database.
+
+Never make KNIGHT depend on store database schemas.
+
+Do not create cross-database foreign keys.
+
+Use IDs and explicit integration references.
+
+---
+
+# 34. STORE REGISTRATION
+
+A store should have a KNIGHT identity.
+
+Conceptually:
+
+```text
+Store
+├── id
+├── customer_id
+├── name
+├── domain
+├── environment
+├── application_version
+├── integration_status
+├── infrastructure_id
+└── metadata
+```
+
+The final schema should be designed during architecture phase.
+
+---
+
+# 35. ENVIRONMENTS
+
+The architecture should support:
+
+```text
+Development
+Staging
+Production
+```
+
+Do not mix environments.
+
+A production store must not accidentally communicate with development KNIGHT.
+
+Environment identity should be explicit.
+
+---
+
+# 36. OBSERVABILITY
+
+The system should be designed around:
+
+```text
+Logs
+Metrics
+Traces
+```
+
+Use correlation IDs.
+
+Where practical, support:
+
+```text
+request_id
+trace_id
+store_id
+server_id
+service
+environment
+version
+```
+
+This will allow a problem to be traced from:
+
+```text
+Customer
+→ Store
+→ Server
+→ Request
+→ Error
+→ Incident
+```
+
+---
+
+# 37. FRONTEND ARCHITECTURE
+
+Use feature-based organization.
+
+Example:
+
+```text
+src/
+├── app/
+├── features/
+│   ├── auth/
+│   ├── customers/
+│   ├── stores/
+│   ├── subscriptions/
+│   ├── billing/
+│   ├── monitoring/
+│   ├── servers/
+│   ├── errors/
+│   ├── logs/
+│   ├── incidents/
+│   └── reports/
+├── components/
+├── layouts/
+├── hooks/
+├── lib/
+└── types/
+```
+
+Avoid:
+
+```text
+one gigantic App.tsx
+```
+
+and avoid dumping unrelated logic into generic utility files.
+
+---
+
+# 38. UI REQUIREMENTS
+
+The UI should be:
+
+* Responsive
+* Professional
+* Fast
+* Accessible
+* Consistent
+* Component-driven
+
+Dashboard components should support:
+
+* Tables
+* Filters
+* Search
+* Pagination
+* Sorting
+* Charts
+* Status indicators
+* Error views
+* Detail pages
+* Forms
+* Confirmation dialogs
+* Notifications
+
+Do not overdesign the UI before core functionality exists.
+
+---
+
+# 39. API ERROR FORMAT
+
+KNIGHT APIs should have a consistent error contract.
+
+Do not return arbitrary error structures from every endpoint.
+
+The final implementation should define a standard structure containing appropriate information such as:
+
+```text
+code
+message
+details
+requestId
+validationErrors
+```
+
+Do not leak internal stack traces to clients.
+
+---
+
+# 40. VALIDATION
+
+Validate input at the API boundary.
+
+Validate business rules inside the appropriate application/domain layer.
+
+Do not depend on frontend validation for correctness.
+
+---
+
+# 41. TESTING
+
+Testing is mandatory.
+
+At minimum:
+
+## Backend
+
+* Unit tests
+* Integration tests
+* API tests
+* Authorization tests
+* Tenant isolation tests
+* Subscription tests
+* Feature entitlement tests
+
+## Frontend
+
+* Component tests where valuable
+* API integration behavior
+* Critical user-flow tests
+
+## Integration
+
+Test:
+
+```text
+KNIGHT ↔ Store
+KNIGHT ↔ Agent
+```
+
+where applicable.
+
+---
+
+# 42. CRITICAL SECURITY TESTS
+
+Explicitly test:
+
+```text
+Customer A cannot access Customer B
+```
+
+Also test:
+
+```text
+Customer cannot access admin APIs
+Customer cannot modify subscription without permission
+Customer cannot enable unauthorized feature
+Expired credentials cannot access management API
+Invalid store credentials are rejected
+```
+
+These are mandatory security properties.
+
+---
+
+# 43. DEPLOYMENT
+
+Development should be Docker-friendly.
+
+A reasonable initial development environment may contain:
+
+```text
+KNIGHT API
+KNIGHT PostgreSQL
+Redis
+React
+Django Store
+Store PostgreSQL
+Store Redis
+```
+
+Do not introduce Kubernetes during initial development unless there is an explicit requirement.
+
+---
+
+# 44. CI/CD
+
+The project should eventually support:
+
+```text
+Lint
+Build
+Test
+Security checks
+Docker build
+Migration validation
+Deployment
+```
+
+The exact CI/CD platform may be selected later.
+
+---
+
+# 45. CONFIGURATION
+
+Configuration must be environment-based.
+
+Never hard-code:
+
+* database passwords
+* API secrets
+* JWT secrets
+* integration credentials
+* production URLs
+* private keys
+
+Use:
+
+```text
+Development
+Staging
+Production
+```
+
+configuration separation.
+
+---
+
+# 46. SECRETS
+
+Never commit secrets.
+
+Never print secrets in logs.
+
+Never expose secrets through API responses.
+
+Integration credentials must be rotatable.
+
+---
+
+# 47. DOCUMENTATION
+
+The repository must contain documentation for:
+
+```text
+Architecture
+Local Development
+Environment Variables
+API
+Database
+Authentication
+Authorization
+Store Integration
+Deployment
+Monitoring
+Troubleshooting
+Testing
+```
+
+Update documentation when architecture changes.
+
+---
+
+# 48. PROJECT DOCUMENTATION FILES
+
+Maintain at minimum:
+
+```text
+README.md
+
+docs/
+├── architecture.md
+├── domain-model.md
+├── api-contracts.md
+├── store-integration.md
+├── authentication.md
+├── authorization.md
+├── deployment.md
+├── observability.md
+└── development.md
+```
+
+The exact organization may be changed if a better structure is justified.
+
+---
+
+# 49. TODO MANAGEMENT
+
+Maintain a project TODO document.
+
+Suggested:
+
+```text
+TODO.md
+```
+
+Every discovered task should be tracked.
+
+Use categories:
+
+```text
+[ ] Architecture
+[ ] Backend
+[ ] Frontend
+[ ] Store Integration
+[ ] Monitoring
+[ ] Security
+[ ] Testing
+[ ] Documentation
+[ ] Deployment
+[ ] Performance
+```
+
+After completing work, update the TODO.
+
+Do not leave completed tasks marked as incomplete.
+
+---
+
+# 50. DEVELOPMENT WORKFLOW
+
+Do NOT attempt to implement the entire project in one pass.
+
+Follow this sequence.
+
+## Phase 0 — Discovery
+
+Before writing production code:
+
+1. Analyze this specification.
+2. Inspect the repository.
+3. Identify existing code.
+4. Identify existing technologies.
+5. Identify conflicts.
+6. Identify missing decisions.
+7. Produce an architecture proposal.
+
+Do not start large-scale implementation before this phase.
+
+---
+
+# 51. PHASE 1 — ARCHITECTURE
+
+Produce:
+
+```text
+System Context
+Container Diagram
+Component Diagram
+Domain Boundaries
+Data Model
+API Boundaries
+Store Integration Contract
+Authentication Model
+Authorization Model
+Deployment Model
+Observability Model
+```
+
+Then review the architecture for:
+
+* overengineering
+* unnecessary microservices
+* coupling
+* security risks
+* scalability problems
+* data ownership problems
+
+---
+
+# 52. PHASE 2 — KNIGHT CORE
+
+Implement:
+
+```text
+Identity
+Users
+Roles
+Permissions
+Customers
+Stores
+```
+
+Only after architecture approval.
+
+---
+
+# 53. PHASE 3 — PLANS AND SUBSCRIPTIONS
+
+Implement:
+
+```text
+Plans
+Features
+Plan Features
+Subscriptions
+Feature Entitlements
+```
+
+Implement proper business rules.
+
+---
+
+# 54. PHASE 4 — STORE INTEGRATION
+
+Implement:
+
+```text
+Store Registration
+Store Authentication
+Health API
+Version API
+Feature Synchronization
+Error Reporting
+Event Reporting
+```
+
+Create a reference Django integration module.
+
+---
+
+# 55. PHASE 5 — MONITORING
+
+Implement:
+
+```text
+Servers
+Agents
+Health
+Metrics
+Status
+Alerts
+```
+
+Start with simple monitoring.
+
+Do not overbuild.
+
+---
+
+# 56. PHASE 6 — ERROR AND INCIDENT MANAGEMENT
+
+Implement:
+
+```text
+Error ingestion
+Error grouping
+Incident creation
+Incident status
+Notifications
+Error dashboard
+```
+
+---
+
+# 57. PHASE 7 — FRONTEND
+
+Implement the React dashboard progressively.
+
+Start with:
+
+```text
+Authentication
+Dashboard
+Customers
+Stores
+Subscriptions
+Monitoring
+Errors
+```
+
+Then expand.
+
+---
+
+# 58. PHASE 8 — OBSERVABILITY
+
+Introduce:
+
+```text
+Structured Logging
+Metrics
+Tracing
+Correlation IDs
+```
+
+Use OpenTelemetry-compatible architecture.
+
+---
+
+# 59. PHASE 9 — PROFESSIONAL INFRASTRUCTURE
+
+Implement support for:
+
+```text
+Dedicated Server
+Dedicated Store
+Agent
+Deployment Metadata
+Backup Status
+Server Health
+```
+
+---
+
+# 60. PHASE 10 — OPTIMIZATION
+
+Only after functionality works:
+
+* Performance profiling
+* Database optimization
+* Caching
+* Async processing
+* Queueing
+* Horizontal scaling
+* Service extraction
+
+Do not optimize based on assumptions.
+
+Measure first.
+
+---
+
+# 61. ARCHITECTURAL RULES
+
+The following rules are mandatory.
+
+### Rule 1
+
+Knight must never become the business backend of customer stores.
+
+### Rule 2
+
+Customer stores remain independently deployable.
+
+### Rule 3
+
+Knight must not directly depend on Django database schemas.
+
+### Rule 4
+
+Customer isolation must be enforced server-side.
+
+### Rule 5
+
+Frontend is never the source of truth for authorization.
+
+### Rule 6
+
+Feature entitlement must be enforced by backend systems.
+
+### Rule 7
+
+Do not create microservices without justification.
+
+### Rule 8
+
+Do not introduce infrastructure complexity merely for résumé value.
+
+### Rule 9
+
+Do not duplicate business logic between Knight and stores.
+
+### Rule 10
+
+Do not expose internal implementation details through public APIs.
+
+---
+
+# 62. ANTI-PATTERNS
+
+Never implement these unless explicitly justified:
+
+```text
+Direct KNIGHT → Store Database access
+
+Hard-coded feature flags
+
+Hard-coded subscription prices
+
+Frontend-only authorization
+
+Static secrets in source code
+
+One database shared by all independent stores
+
+One giant controller
+
+One giant React component
+
+Microservice per CRUD entity
+
+Kafka for simple synchronous CRUD
+
+Kubernetes before deployment requirements justify it
+
+Generic remote shell exposed through KNIGHT
+
+Duplicated business logic
+```
+
+---
+
+# 63. PERFORMANCE PRINCIPLES
+
+Do not prematurely optimize.
+
+First establish:
+
+```text
+Correctness
+Security
+Maintainability
+Observability
+```
+
+Then optimize measured bottlenecks.
+
+Potential optimization tools:
+
+```text
+Redis
+Caching
+Async processing
+Database indexes
+Background workers
+Queue
+Horizontal scaling
+Service extraction
+```
+
+Use only where justified.
+
+---
+
+# 64. CODE QUALITY
+
+Code must be:
+
+* readable
+* cohesive
+* testable
+* modular
+* typed
+* documented where necessary
+* free of unnecessary abstraction
+
+Avoid:
+
+```text
+God classes
+God services
+God controllers
+God components
+```
+
+Avoid abstractions that exist only to look architectural.
+
+---
+
+# 65. DATABASE MIGRATIONS
+
+All schema changes must be migration-based.
+
+Never manually modify production schema as part of normal development.
+
+Migrations must be reviewable.
+
+---
+
+# 66. API CONTRACTS
+
+The API contract between:
+
+```text
+React ↔ KNIGHT
+KNIGHT ↔ Django
+KNIGHT ↔ Agent
+```
+
+must be explicit.
+
+Do not make implicit assumptions.
+
+Where appropriate, use OpenAPI documentation.
+
+---
+
+# 67. VERSIONING
+
+Store applications must expose their application version.
+
+KNIGHT must be able to know:
+
+```text
+Store:
+Cafe 1
+
+Version:
+2.4.1
+
+Environment:
+Production
+
+Last deployment:
+...
+
+Status:
+Healthy
+```
+
+This information becomes important for debugging.
+
+---
+
+# 68. CORRELATION
+
+Every important operation should have correlation identifiers.
+
+Example:
+
+```text
+Request
+  ↓
+KNIGHT
+  ↓
+Store
+  ↓
+Django
+  ↓
+Error
+```
+
+The same trace/request context should be preserved wherever practical.
+
+---
+
+# 69. FUTURE AI CAPABILITIES
+
+The architecture should leave room for future AI functionality.
+
+Examples:
+
+```text
+AI Error Analysis
+AI Log Summarization
+AI Incident Analysis
+AI Performance Recommendations
+AI Customer Reports
+```
+
+Python/Django may be used for these capabilities where appropriate.
+
+However:
+
+AI must not contaminate the core architecture before a real requirement exists.
+
+---
+
+# 70. DECISION ABOUT DJANGO
+
+Django is not used inside KNIGHT merely because the developer knows Python.
+
+Django should be used for customer applications and Python-oriented capabilities where appropriate.
+
+Architecture must be based on responsibility, not personal familiarity.
+
+---
+
+# 71. DECISION ABOUT .NET
+
+.NET is the primary KNIGHT backend because it is well suited to:
+
+* API-heavy systems
+* strong typing
+* enterprise backend development
+* authentication/authorization
+* background processing
+* real-time communication
+* scalable backend architecture
+
+But do not use enterprise complexity without an actual requirement.
+
+---
+
+# 72. DEFINITION OF DONE
+
+A feature is NOT complete merely because code compiles.
+
+A feature is complete only when:
+
+```text
+Implementation
++
+Validation
++
+Tests
++
+Authorization
++
+Error Handling
++
+Documentation
++
+Observability where appropriate
++
+TODO update
+```
+
+are addressed.
+
+---
+
+# 73. AGENT BEHAVIOR
+
+During implementation, do not silently make major architectural decisions.
+
+For each significant decision:
+
+1. Identify the problem.
+2. Explain available options.
+3. Explain trade-offs.
+4. Choose the simplest architecture that satisfies the requirement.
+5. Record the decision.
+
+Maintain an Architecture Decision Record when a decision has long-term impact.
+
+---
+
+# 74. REQUIRED DEVELOPMENT LOOP
+
+For every major implementation phase:
+
+```text
+1. Analyze
+2. Design
+3. Implement
+4. Test
+5. Inspect
+6. Fix
+7. Refactor
+8. Document
+9. Update TODO
+10. Report
+```
+
+Do not skip testing.
+
+Do not claim completion without verification.
+
+---
+
+# 75. REPORT FORMAT
+
+After every major phase, provide:
+
+```text
+## Completed
+
+- ...
+
+## Files Changed
+
+- ...
+
+## Architecture Decisions
+
+- ...
+
+## Tests
+
+- ...
+
+## Problems Found
+
+- ...
+
+## Problems Fixed
+
+- ...
+
+## Remaining Risks
+
+- ...
+
+## TODO Updated
+
+Yes/No
+
+## Next Phase
+
+- ...
+```
+
+---
+
+# 76. SELF-REVIEW REQUIREMENT
+
+Before declaring a phase complete, perform a critical review.
+
+Ask:
+
+```text
+Did I violate the architecture?
+
+Did I accidentally couple KNIGHT to store internals?
+
+Can one customer access another customer?
+
+Can frontend manipulation bypass authorization?
+
+Are secrets exposed?
+
+Are APIs consistent?
+
+Are database boundaries respected?
+
+Did I introduce unnecessary complexity?
+
+Did I create abstractions without a reason?
+
+Are errors observable?
+
+Can this component be tested?
+
+Did I update documentation?
+
+Did I update TODO?
+```
+
+Fix discovered problems before reporting completion.
+
+---
+
+# 77. INITIAL DELIVERABLE
+
+Before implementing major functionality, produce the following:
+
+1. System architecture
+2. Domain model
+3. KNIGHT module boundaries
+4. Store integration architecture
+5. API contract proposal
+6. Authentication/authorization design
+7. Database schema proposal
+8. Frontend architecture
+9. Deployment architecture
+10. Monitoring architecture
+11. Security threat analysis
+12. Development roadmap
+13. Risk assessment
+
+Do not begin by generating hundreds of files.
+
+First prove that the architecture is coherent.
+
+---
+
+# 78. FINAL SYSTEM MODEL
+
+The final conceptual model must remain close to:
+
+```text
+                         ┌──────────────────────┐
+                         │       KNIGHT         │
+                         │                      │
+                         │ ASP.NET Core         │
+                         │ PostgreSQL           │
+                         │ Redis                │
+                         │ React Dashboard      │
+                         └──────────┬───────────┘
+                                    │
+              ┌─────────────────────┼─────────────────────┐
+              │                     │                     │
+              │                     │                     │
+              ▼                     ▼                     ▼
+        ┌───────────┐        ┌───────────┐        ┌───────────────┐
+        │  Store A  │        │  Store B  │        │    Store C    │
+        │  Django   │        │  Django   │        │    Django     │
+        │           │        │           │        │               │
+        │ cafe1.ir  │        │ cafe2.ir  │        │ cafe3.ir      │
+        └─────┬─────┘        └─────┬─────┘        └───────┬───────┘
+              │                    │                      │
+              ▼                    ▼                      ▼
+          Server A             Server B            Dedicated Server
+```
+
+The fundamental rule is:
+
+```text
+KNIGHT manages the stores.
+
+KNIGHT does not become the stores.
+```
+
+---
+
+# 79. FIRST COMMAND TO THE AGENT
+
+Do NOT start coding immediately.
+
+First inspect the repository and produce:
+
+```text
+1. Current repository analysis
+2. Architecture proposal
+3. Domain boundaries
+4. Database model
+5. API contracts
+6. Frontend architecture
+7. Store integration model
+8. Security model
+9. Development phases
+10. Risks and contradictions
+```
+
+Then wait for architectural validation before starting the first implementation phase.
+
+Once implementation begins, work incrementally and follow the required development loop.
+
+The goal is not to produce the maximum amount of code.
+
+The goal is to produce a system that is:
+
+```text
+Correct
+Secure
+Maintainable
+Observable
+Testable
+Extensible
+Deployable
+```
+
+and whose architecture can evolve from a small initial platform into a larger distributed platform without requiring a complete rewrite.

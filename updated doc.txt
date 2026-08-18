@@ -1,0 +1,1196 @@
+# KNIGHT — ARCHITECTURE CORRECTION & DOCUMENTATION UPDATE
+
+## IMPORTANT
+
+You have already analyzed the previous KNIGHT specification and created project documentation based on it.
+
+**Do NOT discard the existing documentation.**
+
+The previous specification contained an important misunderstanding about how KNIGHT Features work.
+
+You must now **audit the existing architecture and documentation, identify every place affected by this correction, update the documentation accordingly, and make the architecture consistent with the corrected model below.**
+
+This is an architectural correction, not a cosmetic documentation change.
+
+Do NOT start implementing the new architecture immediately.
+
+First:
+
+1. Inspect the current repository.
+2. Inspect all existing KNIGHT documentation.
+3. Identify every document, diagram, model, API contract, domain definition, deployment description, TODO item and architectural decision affected by this correction.
+4. Produce an impact report.
+5. Update the documentation.
+6. Resolve contradictions between old and new documentation.
+7. Update TODOs and architecture decisions.
+8. Only after documentation is internally consistent should implementation planning continue.
+
+---
+
+# 1. THE CORRECTED BUSINESS MODEL
+
+KNIGHT is the central control and management platform.
+
+Customer stores are independent Django applications.
+
+Example:
+
+```text
+KNIGHT
+   |
+   +-------------------+
+   |                   |
+   v                   v
+Cafe 1              Cafe 2
+Django              Django
+cafe1.ir            cafe2.ir
+```
+
+Every store has:
+
+* its own domain
+* its own Django application
+* its own database
+* its own configuration
+* its own deployment
+* potentially its own server
+
+KNIGHT is NOT the business backend of these stores.
+
+---
+
+# 2. CRITICAL CORRECTION: FEATURES
+
+The previous documentation incorrectly treated Features primarily as:
+
+```text
+Feature = entitlement / flag
+```
+
+That is incomplete and must be corrected.
+
+The actual model is:
+
+```text
+Feature = versioned, deployable Django functionality
+```
+
+A Feature is developed **once**.
+
+It is NOT manually reimplemented for every customer.
+
+For example:
+
+```text
+Feature:
+Advanced Analytics
+Version:
+1.4.0
+```
+
+is developed once as a reusable Django package/module.
+
+When Customer A purchases it, KNIGHT automatically installs/configures/enables the existing Feature in Customer A's Django application.
+
+When Customer B purchases the same Feature, KNIGHT uses the same Feature package/version and deploys it to Customer B.
+
+There must be NO manual feature development per customer.
+
+---
+
+# 3. CORRECT FEATURE LIFECYCLE
+
+The correct conceptual lifecycle is:
+
+```text
+Feature Development
+        |
+        v
+Feature Package
+        |
+        v
+Feature Registry in KNIGHT
+        |
+        v
+Customer purchases Feature
+        |
+        v
+Subscription / Entitlement validation
+        |
+        v
+Installation Job
+        |
+        v
+Feature Deployment to Store
+        |
+        v
+Installation
+        |
+        v
+Django Migration
+        |
+        v
+Configuration
+        |
+        v
+Enable Feature
+        |
+        v
+Health Check
+        |
+        v
+Installation SUCCESS
+```
+
+This workflow must be reflected throughout the architecture documentation.
+
+---
+
+# 4. FEATURE REGISTRY
+
+KNIGHT must contain a Feature Registry.
+
+The registry is the central catalog of available deployable Features.
+
+A Feature should conceptually contain information such as:
+
+```text
+Feature
+├── ID
+├── Slug
+├── Name
+├── Description
+├── Version
+├── Package Reference
+├── Dependencies
+├── Compatibility
+├── Configuration Schema
+├── Installation Strategy
+├── Upgrade Strategy
+├── Rollback Strategy
+└── Status
+```
+
+The exact data model may differ after architectural analysis.
+
+However, the concept is mandatory.
+
+---
+
+# 5. FEATURE PACKAGE
+
+A Feature should be implemented as a reusable Django package/module.
+
+For example:
+
+```text
+knight_feature_analytics/
+├── apps.py
+├── models.py
+├── views.py
+├── serializers.py
+├── services.py
+├── urls.py
+├── migrations/
+├── templates/
+└── knight_manifest.yaml
+```
+
+The exact structure is not mandatory.
+
+The important architectural principle is:
+
+```text
+Feature is a reusable software artifact.
+```
+
+It is not merely:
+
+```text
+feature_enabled = true
+```
+
+---
+
+# 6. FEATURE MANIFEST
+
+Each deployable Feature should have machine-readable metadata.
+
+For example:
+
+```text
+Feature:
+    slug
+    version
+    compatibility
+    dependencies
+    migrations
+    configuration
+    installation requirements
+```
+
+The exact manifest format should be designed by the architecture.
+
+Do not blindly copy the example.
+
+---
+
+# 7. FEATURE INSTALLATION
+
+KNIGHT must be capable of initiating automated Feature installation into a customer Django application.
+
+Conceptually:
+
+```text
+Customer purchases Feature
+        |
+        v
+KNIGHT validates entitlement
+        |
+        v
+KNIGHT creates deployment/install job
+        |
+        v
+Store integration layer / Agent
+        |
+        v
+Retrieve Feature Package
+        |
+        v
+Install Feature
+        |
+        v
+Apply Django migrations
+        |
+        v
+Apply configuration
+        |
+        v
+Enable Feature
+        |
+        v
+Restart/reload application if required
+        |
+        v
+Health Check
+        |
+        v
+Report result to KNIGHT
+```
+
+This must be reflected in:
+
+* architecture
+* domain model
+* API contracts
+* deployment documentation
+* store integration documentation
+* monitoring documentation
+* error handling
+* TODO
+
+---
+
+# 8. FEATURE MUST NOT BE COPIED MANUALLY
+
+The system must NOT require the developer to manually modify:
+
+```text
+Store A
+Store B
+Store C
+Store D
+```
+
+every time a Feature is created or updated.
+
+The intended workflow is:
+
+```text
+Developer implements Feature ONCE
+              |
+              v
+      Feature Registry
+              |
+              v
+      Customer purchases
+              |
+              v
+      Automated deployment
+```
+
+This is one of the core business requirements of KNIGHT.
+
+---
+
+# 9. FEATURE VERSIONING
+
+Features must have independent versions.
+
+For example:
+
+```text
+Analytics
+1.0.0
+1.1.0
+1.2.0
+```
+
+The architecture must support:
+
+* installing a specific version
+* upgrading
+* compatibility checks
+* migration
+* rollback where possible
+
+Store application version and Feature version are separate concepts.
+
+Example:
+
+```text
+Store:
+Cafe 1
+
+Store Version:
+4.2.0
+
+Installed Features:
+Analytics 1.3.0
+AI Reports 2.0.1
+```
+
+---
+
+# 10. FEATURE DEPENDENCIES
+
+Features may depend on other Features.
+
+Example:
+
+```text
+AI Reports
+    |
+    +-- requires -->
+          Analytics Core
+```
+
+KNIGHT must be able to determine dependency requirements before installation.
+
+The documentation must explain:
+
+* dependency resolution
+* installation order
+* incompatible versions
+* failure handling
+
+---
+
+# 11. FEATURE CONFIGURATION
+
+Features may require customer-specific configuration.
+
+For example:
+
+```text
+AI Reports
+
+enabled: true
+language: fa
+schedule: daily
+```
+
+The configuration must be managed in a structured way.
+
+Do not hard-code customer-specific configuration into the Feature package.
+
+KNIGHT should manage appropriate configuration metadata and communicate it securely to the store.
+
+---
+
+# 12. FEATURE ENTITLEMENT VS FEATURE INSTALLATION
+
+This distinction is mandatory.
+
+These are two different concepts:
+
+```text
+ENTITLEMENT
+=
+Customer is allowed to use Feature X
+```
+
+and:
+
+```text
+INSTALLATION
+=
+Feature X has actually been deployed to the customer's Django application
+```
+
+A customer may have:
+
+```text
+Entitlement = true
+Installation = failed
+```
+
+or:
+
+```text
+Entitlement = true
+Installation = pending
+```
+
+or:
+
+```text
+Entitlement = true
+Installation = successful
+```
+
+The domain model and documentation must represent these states appropriately.
+
+Do NOT collapse them into a single boolean.
+
+---
+
+# 13. FEATURE INSTALLATION STATE
+
+The architecture should support states such as:
+
+```text
+NotInstalled
+Pending
+Installing
+Installed
+Updating
+Failed
+RollingBack
+Disabled
+```
+
+The exact state machine must be formally documented.
+
+Invalid state transitions must be prevented.
+
+---
+
+# 14. AGENT CORRECTION
+
+The previous documentation treated the KNIGHT Agent primarily as a monitoring mechanism.
+
+That is incomplete.
+
+The Agent / Store Integration Layer may also participate in application lifecycle management.
+
+Potential responsibilities include:
+
+```text
+Monitoring
+Health Checks
+Application Version Reporting
+Feature Installation
+Feature Upgrade
+Feature Rollback
+Configuration Application
+Deployment Status
+```
+
+However:
+
+**Do NOT turn the Agent into an unrestricted remote shell.**
+
+The Agent must expose narrowly scoped, authenticated operations.
+
+---
+
+# 15. STORE INTEGRATION CORRECTION
+
+The Django store must contain a dedicated KNIGHT integration layer.
+
+Conceptually:
+
+```text
+Django Store
+│
+├── Business Applications
+│   ├── Products
+│   ├── Orders
+│   ├── Customers
+│   └── ...
+│
+└── KNIGHT Integration
+    ├── Authentication
+    ├── Health
+    ├── Feature Installation
+    ├── Feature Configuration
+    ├── Error Reporting
+    └── Event Reporting
+```
+
+Do not mix KNIGHT infrastructure logic with store business logic.
+
+---
+
+# 16. DEPLOYMENT CORRECTION
+
+The previous documentation may have treated deployment mainly as infrastructure metadata.
+
+That is insufficient.
+
+KNIGHT must eventually contain a **Feature Delivery / Deployment capability**.
+
+Conceptually:
+
+```text
+Feature Registry
+       |
+       v
+Deployment Engine
+       |
+       v
+Store Integration
+       |
+       v
+Customer Django
+```
+
+This must be reflected in the architecture.
+
+---
+
+# 17. PROFESSIONAL PLAN
+
+The Professional plan still means the customer receives a dedicated server/environment.
+
+However, the same Feature Delivery model applies.
+
+Example:
+
+```text
+KNIGHT
+   |
+   v
+Dedicated Server
+   |
+   v
+Customer Django
+   |
+   +-- Feature A
+   +-- Feature B
+   +-- Feature C
+```
+
+The difference is infrastructure isolation, NOT manual Feature implementation.
+
+---
+
+# 18. STORE PROVISIONING
+
+The architecture should support automated store provisioning.
+
+Conceptually:
+
+```text
+Customer Created
+      |
+      v
+Plan Selected
+      |
+      v
+Store Provisioning
+      |
+      v
+Base Django Store
+      |
+      v
+Required Base Features
+      |
+      v
+Automatic Installation
+      |
+      v
+Configuration
+      |
+      v
+Health Check
+      |
+      v
+Store Ready
+```
+
+The exact provisioning mechanism must be designed and documented.
+
+---
+
+# 19. NEW DOMAIN CONCEPTS
+
+Audit the current domain model.
+
+It will likely need concepts such as:
+
+```text
+Feature
+FeatureVersion
+FeatureDependency
+FeaturePackage
+FeatureCompatibility
+FeatureConfiguration
+FeatureEntitlement
+FeatureInstallation
+FeatureInstallationJob
+FeatureDeployment
+FeatureDeploymentResult
+```
+
+These are conceptual examples.
+
+Do not automatically create every entity.
+
+Determine which are actually required.
+
+---
+
+# 20. SUBSCRIPTION MODEL
+
+The previous subscription architecture remains valid, but it must be extended.
+
+The relationship should conceptually be:
+
+```text
+Plan
+   |
+   +-- Included Features
+   |
+   +-- Optional Features
+
+Customer Subscription
+   |
+   +-- Entitlements
+         |
+         v
+      Installation
+         |
+         v
+      Customer Store
+```
+
+The subscription determines what the customer is entitled to.
+
+The deployment system determines whether that entitled Feature is installed and healthy.
+
+---
+
+# 21. FEATURE REMOVAL
+
+The architecture must also consider what happens when:
+
+```text
+Customer disables Feature
+```
+
+or:
+
+```text
+Subscription expires
+```
+
+or:
+
+```text
+Customer downgrades plan
+```
+
+Do NOT simply assume:
+
+```text
+feature_enabled = false
+```
+
+The architecture must distinguish between:
+
+```text
+Disable
+Uninstall
+Keep Installed but Disabled
+Rollback
+Data Retention
+Data Migration
+```
+
+and define safe policies.
+
+---
+
+# 22. FEATURE DATA MIGRATIONS
+
+A Feature may introduce Django models and therefore migrations.
+
+The architecture must define how Feature migrations are:
+
+* packaged
+* deployed
+* executed
+* monitored
+* rolled back where possible
+
+Never assume arbitrary database rollback is always safe.
+
+Migration safety must be considered explicitly.
+
+---
+
+# 23. FEATURE COMPATIBILITY
+
+A Feature version must define compatibility constraints.
+
+For example:
+
+```text
+Feature:
+Analytics 2.0
+
+Compatible Store:
+>= 4.0
+< 6.0
+```
+
+The architecture must prevent incompatible Feature versions from being installed.
+
+---
+
+# 24. SECURITY REQUIREMENTS FOR FEATURE DELIVERY
+
+Feature packages are executable software.
+
+Therefore Feature delivery is a high-risk operation.
+
+The architecture must address:
+
+* package authenticity
+* package integrity
+* secure transport
+* authorization
+* version validation
+* compatibility validation
+* credential security
+* rollback/failure handling
+* audit logging
+
+Do not design Feature installation as downloading arbitrary code from an unauthenticated URL.
+
+---
+
+# 25. AUDIT LOGGING FOR FEATURES
+
+KNIGHT must record important Feature lifecycle operations.
+
+Examples:
+
+```text
+Feature Installed
+Feature Updated
+Feature Disabled
+Feature Uninstalled
+Feature Installation Failed
+Feature Rollback
+Configuration Changed
+```
+
+The audit record should identify:
+
+* customer
+* store
+* feature
+* version
+* actor or automation source
+* timestamp
+* result
+* correlation ID
+
+---
+
+# 26. OBSERVABILITY OF FEATURE DEPLOYMENT
+
+Feature installation must be observable.
+
+Example:
+
+```text
+Customer:
+Cafe 1
+
+Feature:
+Advanced Analytics
+
+Version:
+1.4.0
+
+Status:
+Installing
+
+Progress:
+Migration 2/4
+
+Started:
+12:41
+
+```
+
+After completion:
+
+```text
+Status:
+Installed
+```
+
+After failure:
+
+```text
+Status:
+Failed
+
+Reason:
+Migration error
+
+Rollback:
+Successful
+```
+
+---
+
+# 27. DOCUMENTATION UPDATE TASK
+
+Now inspect ALL existing project documentation.
+
+Search for concepts such as:
+
+```text
+Feature
+Plan
+Subscription
+Store
+Django
+Agent
+Deployment
+Installation
+Integration
+Monitoring
+API
+Architecture
+Microservice
+```
+
+For every occurrence, determine whether the old documentation assumes:
+
+```text
+Feature = flag/permission only
+```
+
+If yes, update it.
+
+---
+
+# 28. DOCUMENTS THAT MUST BE REVIEWED
+
+At minimum inspect and update:
+
+```text
+README
+Architecture documentation
+Domain model
+ERD
+API documentation
+Store integration documentation
+Deployment documentation
+Agent documentation
+Feature documentation
+Subscription documentation
+Security documentation
+Monitoring documentation
+TODO
+Roadmap
+Architecture Decision Records
+```
+
+If other documents are affected, update those too.
+
+---
+
+# 29. DIAGRAMS MUST BE UPDATED
+
+Any architecture diagram showing:
+
+```text
+KNIGHT
+   |
+   v
+Django Store
+```
+
+must be reviewed.
+
+The corrected conceptual flow should show:
+
+```text
+                 KNIGHT
+                    |
+            Feature Registry
+                    |
+            Deployment Engine
+                    |
+             Feature Package
+                    |
+                    v
+             Django Store
+                    |
+        +-----------+-----------+
+        |                       |
+   Feature Module          Store Business Logic
+```
+
+Also represent:
+
+```text
+Subscription
+     |
+     v
+Entitlement
+     |
+     v
+Installation
+     |
+     v
+Feature Module
+```
+
+---
+
+# 30. DO NOT REWRITE UNRELATED ARCHITECTURE
+
+This correction does NOT mean that every part of the previous architecture is wrong.
+
+Keep valid decisions such as:
+
+* .NET as KNIGHT Core
+* React + TypeScript frontend
+* PostgreSQL
+* independent Django stores
+* customer isolation
+* monitoring
+* error reporting
+* audit logging
+* API-first design
+* modular architecture
+* avoiding premature microservices
+
+Only change parts affected by the corrected Feature Delivery model.
+
+---
+
+# 31. MICROservice DECISION REMAINS UNCHANGED
+
+Do not convert Feature Packages into microservices.
+
+A Feature Package is NOT automatically a microservice.
+
+For example:
+
+```text
+Analytics Feature
+```
+
+may simply be:
+
+```text
+Django Package
+```
+
+installed inside the customer's Django application.
+
+Do NOT deploy:
+
+```text
+Analytics Service
+AI Service
+SMS Service
+```
+
+as separate network services unless there is a genuine architectural requirement.
+
+The goal is:
+
+```text
+ONE STORE DJANGO APPLICATION
++
+MULTIPLE INSTALLABLE FEATURES
+```
+
+not:
+
+```text
+ONE STORE
++
+20 MICROSERVICES
+```
+
+---
+
+# 32. CORRECTED FINAL MODEL
+
+The architecture should now converge toward:
+
+```text
+                         ┌─────────────────────────┐
+                         │        KNIGHT           │
+                         │                         │
+                         │ ASP.NET Core            │
+                         │ Feature Registry        │
+                         │ Subscription            │
+                         │ Entitlements            │
+                         │ Deployment Engine       │
+                         │ Monitoring              │
+                         │ Error Management        │
+                         │ Audit                   │
+                         └────────────┬────────────┘
+                                      │
+                              Feature Package
+                                      │
+                     ┌────────────────┼────────────────┐
+                     │                │                │
+                     ▼                ▼                ▼
+                  Store A          Store B          Store C
+                  Django           Django           Django
+                     │                │                │
+                Feature A       Feature A+B       Feature C
+                Feature C       Feature C         Feature D
+                     │                │                │
+                  Server A         Server B       Dedicated Server
+```
+
+The most important property is:
+
+```text
+A Feature is implemented ONCE.
+
+KNIGHT manages its versions.
+
+Customers purchase entitlements.
+
+KNIGHT automatically delivers and installs the Feature into the appropriate Django Store.
+
+The developer does NOT manually implement the Feature again for each customer.
+```
+
+---
+
+# 33. REQUIRED OUTPUT BEFORE IMPLEMENTATION
+
+After analyzing the existing documentation, DO NOT immediately modify code.
+
+First provide a report containing:
+
+## A. Documentation Impact
+
+List every existing document affected.
+
+## B. Architecture Impact
+
+List every architectural component affected.
+
+## C. Domain Impact
+
+List new/changed domain concepts.
+
+## D. API Impact
+
+List APIs that must be added or changed.
+
+## E. Deployment Impact
+
+Explain the new Feature Delivery lifecycle.
+
+## F. Agent Impact
+
+Explain changes required to the Agent/Store Integration layer.
+
+## G. Security Impact
+
+Explain risks introduced by automated executable Feature delivery.
+
+## H. Migration Impact
+
+Explain Django migration handling.
+
+## I. Versioning Impact
+
+Explain Feature versioning and compatibility.
+
+## J. Rollback Impact
+
+Explain failure and rollback requirements.
+
+## K. TODO Impact
+
+List new tasks that must be added.
+
+---
+
+# 34. FINAL INSTRUCTION
+
+The previous documentation is now considered a **previous architectural revision**.
+
+Do not treat it as the final truth.
+
+This document is the correction.
+
+After this update, there must be NO contradiction such as:
+
+```text
+Feature = merely a boolean flag
+```
+
+when the actual requirement is:
+
+```text
+Feature = reusable, versioned, deployable Django functionality
+```
+
+The final documentation must clearly represent the following lifecycle:
+
+```text
+IMPLEMENT ONCE
+      ↓
+PACKAGE
+      ↓
+REGISTER IN KNIGHT
+      ↓
+CUSTOMER PURCHASES
+      ↓
+ENTITLEMENT CREATED
+      ↓
+AUTOMATIC DEPLOYMENT
+      ↓
+INSTALL IN DJANGO STORE
+      ↓
+MIGRATION
+      ↓
+CONFIGURATION
+      ↓
+ENABLE
+      ↓
+HEALTH CHECK
+      ↓
+MONITOR
+      ↓
+UPGRADE / ROLLBACK WHEN REQUIRED
+```
+
+Do not implement the feature manually per customer.
+
+Do not duplicate Feature source code across stores as a development workflow.
+
+Do not reduce Feature management to a boolean flag.
+
+The system must be designed around **centralized Feature Development + Automated Feature Delivery**.

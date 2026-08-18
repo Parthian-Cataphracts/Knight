@@ -1,3 +1,9 @@
+> **LEGACY DOCUMENT.** This describes the previous product (a shared
+> multi-tenant food-service SaaS), not KNIGHT's target control-plane
+> architecture. See [`docs/README.md`](../README.md) and
+> [`docs/adr/0010`](../adr/0010-pivot-to-control-plane.md). Kept because it
+> documents code that still exists in `backend/`.
+
 # Security Notes
 
 ## Secrets
