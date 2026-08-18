@@ -93,13 +93,20 @@ public sealed class ControlPlaneDbContext : DbContext
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
-            if (!typeof(ICustomerScoped).IsAssignableFrom(entityType.ClrType))
+            var builderName = entityType.ClrType switch
+            {
+                var type when typeof(ICustomerScoped).IsAssignableFrom(type) => nameof(BuildCustomerFilter),
+                var type when typeof(ICustomerOwned).IsAssignableFrom(type) => nameof(BuildOwnedFilter),
+                _ => null,
+            };
+
+            if (builderName is null)
             {
                 continue;
             }
 
             var filter = typeof(ControlPlaneDbContext)
-                .GetMethod(nameof(BuildCustomerFilter), BindingFlags.NonPublic | BindingFlags.Instance)!
+                .GetMethod(builderName, BindingFlags.NonPublic | BindingFlags.Instance)!
                 .MakeGenericMethod(entityType.ClrType)
                 .Invoke(this, null);
 
@@ -111,6 +118,18 @@ public sealed class ControlPlaneDbContext : DbContext
     // customer is platform-owned and belongs to platform principals only: "no
     // customer" must never be read as "any customer".
     private LambdaExpression BuildCustomerFilter<TEntity>() where TEntity : class, ICustomerScoped
+    {
+        Expression<Func<TEntity, bool>> filter = entity =>
+            _scope.IsPlatformScope ||
+            (_scope.HasCustomer && entity.CustomerId == _scope.CustomerId);
+
+        return filter;
+    }
+
+    // The same rule for entities whose customer is mandatory. Written separately
+    // rather than shared through a cast because EF Core must see a comparison
+    // against the mapped column to translate it into SQL.
+    private LambdaExpression BuildOwnedFilter<TEntity>() where TEntity : class, ICustomerOwned
     {
         Expression<Func<TEntity, bool>> filter = entity =>
             _scope.IsPlatformScope ||

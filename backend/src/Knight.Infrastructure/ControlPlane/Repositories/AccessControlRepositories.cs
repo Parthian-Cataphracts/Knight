@@ -31,6 +31,13 @@ internal sealed class ControlPlaneUserRepository : IControlPlaneUserRepository
             .Include(u => u.Roles)
             .FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedEmail, cancellationToken);
 
+    /// <inheritdoc />
+    public Task<ControlPlaneUser?> FindForAuthenticationByIdAsync(Guid id, CancellationToken cancellationToken) =>
+        _context.Users
+            .IgnoreQueryFilters()
+            .Include(u => u.Roles)
+            .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+
     public Task<bool> ExistsWithEmailAsync(string normalizedEmail, CancellationToken cancellationToken) =>
         _context.Users.IgnoreQueryFilters().AnyAsync(u => u.NormalizedEmail == normalizedEmail, cancellationToken);
 

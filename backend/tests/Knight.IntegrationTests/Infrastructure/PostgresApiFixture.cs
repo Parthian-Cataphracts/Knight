@@ -69,6 +69,11 @@ public sealed class PostgresApiFixture : IAsyncLifetime
         Factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseSetting("ConnectionStrings:Platform", _container.GetConnectionString());
+
+            // The control plane has its own schema in the same database; naming
+            // it explicitly keeps the fixture honest about which context is
+            // being pointed where.
+            builder.UseSetting("ConnectionStrings:ControlPlane", _container.GetConnectionString());
             builder.UseSetting("ConnectionStrings:Redis", "localhost:6379");
             builder.UseSetting("Jwt:SigningKey", "integration-test-signing-key-at-least-32-characters-long");
             builder.UseSetting("Jwt:Issuer", "platform-api");
@@ -80,6 +85,8 @@ public sealed class PostgresApiFixture : IAsyncLifetime
             // unrelated tests into one shared bucket. Raise them here; a
             // dedicated low-limit variant is built specifically to test 429
             // behavior — see LoginRateLimitTests.
+            builder.UseSetting("RateLimiting:ControlPlaneLoginPermitLimit", "10000");
+            builder.UseSetting("RateLimiting:ControlPlanePermitLimit", "1000000");
             builder.UseSetting("RateLimiting:PlatformLoginPermitLimit", "10000");
             builder.UseSetting("RateLimiting:TenantLoginPermitLimit", "10000");
             builder.UseSetting("RateLimiting:RefreshPermitLimit", "10000");

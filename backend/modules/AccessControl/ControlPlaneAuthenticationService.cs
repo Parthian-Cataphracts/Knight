@@ -164,7 +164,9 @@ internal sealed class ControlPlaneAuthenticationService : IControlPlaneAuthentic
             return AuthenticationResult.Failed(AuthenticationOutcome.InvalidCredentials);
         }
 
-        var user = await _users.GetByIdAsync(session.UserId, cancellationToken);
+        // Unfiltered: a refresh request has not established a customer scope yet,
+        // so the filtered read would hide the account from its own refresh.
+        var user = await _users.FindForAuthenticationByIdAsync(session.UserId, cancellationToken);
         if (user is null || !user.CanAuthenticate(now))
         {
             await _sessions.RevokeFamilyAsync(session.FamilyId, now, "account_not_authenticable", cancellationToken);

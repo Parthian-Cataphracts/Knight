@@ -19,8 +19,13 @@ public static class ControlPlaneInfrastructure
 {
     public static IServiceCollection AddControlPlaneInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("ControlPlane")
-            ?? configuration.GetConnectionString("Platform")
+        // Blank counts as missing, not as a value: configuration files carry the
+        // key with an empty string precisely so the real one comes from the
+        // environment, and a "" that survived to Npgsql fails much later and far
+        // less clearly than it does here.
+        var connectionString = FirstConfigured(
+            configuration.GetConnectionString("ControlPlane"),
+            configuration.GetConnectionString("Platform"))
             ?? throw new InvalidOperationException(
                 "Missing connection string 'ControlPlane'. Set it via configuration or the CONTROL_PLANE_DB_CONNECTION_STRING environment variable.");
 
@@ -49,4 +54,7 @@ public static class ControlPlaneInfrastructure
 
         return services;
     }
+
+    private static string? FirstConfigured(params string?[] candidates) =>
+        candidates.FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate));
 }

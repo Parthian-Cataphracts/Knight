@@ -4,22 +4,20 @@
 # provably not a secret. Every allowlist entry below names something that is
 # either a published test vector or a placeholder that exists precisely because
 # the real value must come from the secret store at runtime.
+#
+# Patterns here are Go RE2: no lookahead, no backreferences. An exclusion is
+# expressed as an allowlist entry rather than as a negative assertion inside a
+# rule, because RE2 cannot express the latter at all.
 
 [extend]
 useDefault = true
-
-[[rules]]
-id = "knight-connection-string-password"
-description = "Password embedded in a PostgreSQL connection string"
-regex = '''(?i)(Host=[^;"']+;.*Password=)(?!platform\b)([^;"'\s]{6,})'''
-tags = ["knight", "database"]
 
 [allowlist]
 description = "Values that cannot be secrets"
 
 paths = [
-  # Local development compose files use platform/platform against a container
-  # that is never reachable from outside the developer's machine.
+  # Local development compose file: platform/platform against a container that
+  # is only ever bound to the developer's own machine.
   '''infrastructure/docker/docker-compose\.yml''',
 ]
 
@@ -36,4 +34,9 @@ regexes = [
 
   # Local development credentials for containers bound to localhost only.
   '''(Username|Password)=platform''',
+
+  # Idempotency keys in the checkout tests. An idempotency key is a
+  # client-chosen request identifier, deliberately visible to whoever makes the
+  # request — it authenticates nothing.
+  '''idemp-[a-z0-9-]+''',
 ]

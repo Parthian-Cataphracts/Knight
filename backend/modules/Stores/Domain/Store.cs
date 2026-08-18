@@ -12,7 +12,7 @@ namespace Stores.Domain;
 /// The aggregate owns its credentials so issuing, rotating and revoking always
 /// runs through the invariants below rather than by mutating rows directly.
 /// </summary>
-public sealed class Store : AuditableEntity
+public sealed class Store : AuditableEntity, ICustomerOwned
 {
     public Guid CustomerId { get; private set; }
 
