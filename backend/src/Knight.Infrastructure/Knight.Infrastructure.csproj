@@ -6,6 +6,10 @@
     <ProjectReference Include="..\..\modules\AccessControl\AccessControl.csproj" />
     <ProjectReference Include="..\..\modules\Customers\Customers.csproj" />
     <ProjectReference Include="..\..\modules\Stores\Stores.csproj" />
+    <ProjectReference Include="..\..\modules\FeatureRegistry\FeatureRegistry.csproj" />
+    <ProjectReference Include="..\..\modules\Plans\Plans.csproj" />
+    <ProjectReference Include="..\..\modules\Subscriptions\Subscriptions.csproj" />
+    <ProjectReference Include="..\..\modules\Billing\Billing.csproj" />
     <ProjectReference Include="..\..\modules\Identity\Identity.csproj" />
     <ProjectReference Include="..\..\modules\Tenancy\Tenancy.csproj" />
     <ProjectReference Include="..\..\modules\FeatureManagement\FeatureManagement.csproj" />
