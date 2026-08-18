@@ -1,0 +1,229 @@
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Plus, KeyRound, RefreshCw } from "lucide-react";
+import { useCollection } from "@/lib/api/hooks";
+import type { Installation, IntegrationStatus, Store } from "@/lib/api/domain";
+import { PageShell, PageHeader, Toolbar, FilterTabs, KeyValue, Mono } from "@/components/data/PageShell";
+import { CollectionCard } from "@/components/data/CollectionCard";
+import { DataTable, type Column } from "@/components/data/DataTable";
+import { Drawer } from "@/components/data/Drawer";
+import { StatusChip, type Tone } from "@/components/ui/StatusChip";
+import { Button } from "@/components/ui/Button";
+import { useAuthStore } from "@/store/auth";
+import { formatRelative } from "@/lib/utils/format";
+import { installationTone } from "@/features/installations/installationTone";
+
+const integrationTone: Record<IntegrationStatus, Tone> = {
+  Connected: "success",
+  Degraded: "warning",
+  Pending: "info",
+  Disconnected: "danger",
+  NotRegistered: "neutral",
+};
+
+type Filter = "all" | "Production" | "Staging" | "Development";
+
+export function StoresPage() {
+  const { t } = useTranslation();
+  const query = useCollection<Store>("/stores");
+  const installations = useCollection<Installation>("/installations");
+  const can = useAuthStore((state) => state.can);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [selected, setSelected] = useState<Store | null>(null);
+
+  const all = query.data ?? [];
+  const rows = all.filter((store) => filter === "all" || store.environment === filter);
+  const storeInstallations = (installations.data ?? []).filter(
+    (item) => item.storeId === selected?.id,
+  );
+
+  const columns: Column<Store>[] = [
+    {
+      key: "domain",
+      header: t("stores.domain"),
+      render: (row) => (
+        <span className="flex flex-col">
+          <span dir="ltr" className="font-mono text-body-sm text-on-surface">
+            {row.primaryDomain}
+          </span>
+          <span className="text-body-sm text-on-surface-variant">{row.customerName}</span>
+        </span>
+      ),
+    },
+    {
+      key: "environment",
+      header: t("stores.environment"),
+      render: (row) => (
+        <StatusChip tone={row.environment === "Production" ? "info" : "neutral"}>
+          {t(`environment.${row.environment}`)}
+        </StatusChip>
+      ),
+    },
+    {
+      key: "integration",
+      header: t("stores.integration"),
+      render: (row) => (
+        <StatusChip tone={integrationTone[row.integrationStatus]}>
+          {t(`integrationStatus.${row.integrationStatus}`)}
+        </StatusChip>
+      ),
+    },
+    {
+      key: "version",
+      header: t("stores.version"),
+      mono: true,
+      render: (row) => row.applicationVersion ?? "—",
+    },
+    {
+      key: "hosting",
+      header: t("stores.hosting"),
+      secondary: true,
+      render: (row) => t(`hosting.${row.hostingModel}`),
+    },
+    {
+      key: "features",
+      header: t("stores.features"),
+      numeric: true,
+      render: (row) => row.installedFeatureCount,
+    },
+    {
+      key: "lastSeen",
+      header: t("stores.lastSeen"),
+      secondary: true,
+      render: (row) => (row.lastSeenAt ? formatRelative(row.lastSeenAt) : "—"),
+    },
+  ];
+
+  return (
+    <PageShell>
+      <PageHeader
+        title={t("nav.stores")}
+        subtitle={t("stores.subtitle")}
+        actions={
+          can("store.create") ? (
+            <Button size="sm">
+              <Plus className="size-4" aria-hidden />
+              {t("stores.register")}
+            </Button>
+          ) : undefined
+        }
+      />
+
+      <CollectionCard
+        query={query}
+        toolbar={
+          <Toolbar>
+            <FilterTabs<Filter>
+              value={filter}
+              onChange={setFilter}
+              options={[
+                { value: "all", label: t("common.all"), count: all.length },
+                {
+                  value: "Production",
+                  label: t("environment.Production"),
+                  count: all.filter((s) => s.environment === "Production").length,
+                },
+                {
+                  value: "Staging",
+                  label: t("environment.Staging"),
+                  count: all.filter((s) => s.environment === "Staging").length,
+                },
+              ]}
+            />
+          </Toolbar>
+        }
+      >
+        {() => (
+          <DataTable
+            columns={columns}
+            rows={rows}
+            rowKey={(row) => row.id}
+            onRowClick={setSelected}
+            cardTitle={(row) => (
+              <span dir="ltr" className="font-mono">
+                {row.primaryDomain}
+              </span>
+            )}
+            emptyMessage={t("common.noResults")}
+          />
+        )}
+      </CollectionCard>
+
+      <Drawer
+        open={selected !== null}
+        title={selected?.primaryDomain ?? ""}
+        subtitle={selected?.customerName}
+        onClose={() => setSelected(null)}
+        footer={
+          can("store.credentials.manage") ? (
+            <>
+              <Button variant="outline" size="sm">
+                <RefreshCw className="size-4 rtl:-scale-x-100" aria-hidden />
+                {t("stores.rotate")}
+              </Button>
+              <Button size="sm">
+                <KeyRound className="size-4" aria-hidden />
+                {t("stores.issueCredentials")}
+              </Button>
+            </>
+          ) : undefined
+        }
+      >
+        {selected ? (
+          <div className="flex flex-col gap-6">
+            <dl className="divide-y divide-outline-variant">
+              <KeyValue label={t("stores.environment")}>
+                {t(`environment.${selected.environment}`)}
+              </KeyValue>
+              <KeyValue label={t("stores.integration")}>
+                <StatusChip tone={integrationTone[selected.integrationStatus]}>
+                  {t(`integrationStatus.${selected.integrationStatus}`)}
+                </StatusChip>
+              </KeyValue>
+              <KeyValue label={t("stores.version")}>
+                <Mono>{selected.applicationVersion ?? "—"}</Mono>
+              </KeyValue>
+              <KeyValue label={t("stores.hosting")}>
+                {t(`hosting.${selected.hostingModel}`)}
+              </KeyValue>
+              <KeyValue label={t("stores.lastSeen")}>
+                {selected.lastSeenAt ? formatRelative(selected.lastSeenAt) : "—"}
+              </KeyValue>
+              <KeyValue label={t("common.identifier")}>
+                <Mono>{selected.id}</Mono>
+              </KeyValue>
+            </dl>
+
+            <section>
+              <h3 className="label-caps mb-3 text-on-surface-variant/80">
+                {t("stores.installedFeatures")}
+              </h3>
+              {storeInstallations.length === 0 ? (
+                <p className="text-body-sm text-on-surface-variant">{t("common.noResults")}</p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {storeInstallations.map((item) => (
+                    <li
+                      key={item.id}
+                      className="flex items-center justify-between gap-3 rounded-md bg-surface-low px-3 py-2.5"
+                    >
+                      <span className="flex min-w-0 flex-col">
+                        <span className="truncate text-body-sm text-on-surface">
+                          {item.featureName}
+                        </span>
+                        <Mono>{item.installedVersion ?? t("installations.notInstalledShort")}</Mono>
+                      </span>
+                      <StatusChip tone={installationTone[item.state]}>
+                        {t(`installationState.${item.state}`)}
+                      </StatusChip>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
+        ) : null}
+      </Drawer>
+    </PageShell>
+  );
+}

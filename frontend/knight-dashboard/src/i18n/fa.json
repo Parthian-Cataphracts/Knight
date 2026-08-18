@@ -37,7 +37,15 @@
     "errorTitle": "دریافت اطلاعات ناموفق بود",
     "comingSoon": "این بخش هنوز پیاده‌سازی نشده است.",
     "comingSoonHint": "طبق TODO.md در فازهای بعدی اضافه می‌شود.",
-    "refresh": "بروزرسانی"
+    "refresh": "بروزرسانی",
+    "all": "همه",
+    "status": "وضعیت",
+    "edit": "ویرایش",
+    "yes": "بله",
+    "no": "خیر",
+    "noResults": "موردی یافت نشد.",
+    "identifier": "شناسه",
+    "correlationId": "شناسه همبستگی"
   },
   "auth": {
     "title": "ورود به پنل مدیریت",
@@ -83,5 +91,338 @@
     "critical": "بحرانی",
     "warning": "هشدار",
     "info": "اطلاع"
+  },
+  "customers": {
+    "subtitle": "مشتریانی که فروشگاه‌هایشان توسط نایت مدیریت می‌شود.",
+    "name": "مشتری",
+    "plan": "پلن",
+    "stores": "فروشگاه‌ها",
+    "createdAt": "تاریخ ایجاد",
+    "create": "مشتری جدید",
+    "suspend": "تعلیق"
+  },
+  "customerStatus": {
+    "Active": "فعال",
+    "Prospect": "در انتظار",
+    "Suspended": "معلق",
+    "Archived": "بایگانی"
+  },
+  "planKey": {
+    "basic": "پایه",
+    "custom": "سفارشی",
+    "professional": "حرفه‌ای"
+  },
+  "environment": {
+    "Production": "عملیاتی",
+    "Staging": "آزمایشی",
+    "Development": "توسعه"
+  },
+  "hosting": {
+    "SharedManaged": "اشتراکی (مدیریت‌شده)",
+    "DedicatedManaged": "اختصاصی (مدیریت‌شده)",
+    "CustomerManaged": "سرور مشتری"
+  },
+  "integrationStatus": {
+    "Connected": "متصل",
+    "Degraded": "نوسان",
+    "Pending": "در انتظار",
+    "Disconnected": "قطع",
+    "NotRegistered": "ثبت‌نشده"
+  },
+  "stores": {
+    "subtitle": "فروشگاه‌های جنگویی مستقل تحت مدیریت نایت.",
+    "domain": "دامنه",
+    "environment": "محیط",
+    "integration": "یکپارچگی",
+    "version": "نسخه",
+    "hosting": "میزبانی",
+    "features": "قابلیت‌ها",
+    "lastSeen": "آخرین ارتباط",
+    "register": "ثبت فروشگاه",
+    "rotate": "چرخش کلید",
+    "issueCredentials": "صدور اعتبارنامه",
+    "installedFeatures": "قابلیت‌های نصب‌شده"
+  },
+  "features": {
+    "subtitle": "مخزن مرکزی قابلیت‌های نسخه‌دار و قابل نصب.",
+    "name": "قابلیت",
+    "latestVersion": "آخرین نسخه",
+    "entitled": "دارای اشتراک",
+    "installed": "نصب‌شده",
+    "plans": "پلن‌ها",
+    "create": "قابلیت جدید",
+    "publish": "انتشار نسخه",
+    "yank": "ابطال نسخه",
+    "versions": "نسخه‌ها",
+    "noVersions": "هنوز نسخه‌ای منتشر نشده است.",
+    "optional": "اختیاری",
+    "dedicatedOnly": "نیازمند زیرساخت اختصاصی",
+    "compatibleWith": "سازگار با نسخه فروشگاه",
+    "migrations": "مهاجرت",
+    "reversible": "برگشت‌پذیر",
+    "irreversible": "برگشت‌ناپذیر",
+    "dependencies": "وابستگی‌ها",
+    "publishedAt": "انتشار",
+    "publishWarning": "انتشار یک نسخه یعنی ارسال کد اجرایی به همه فروشگاه‌های دارای اشتراک."
+  },
+  "featureStatus": {
+    "Published": "منتشرشده",
+    "Draft": "پیش‌نویس",
+    "Deprecated": "منسوخ",
+    "Withdrawn": "برداشته‌شده"
+  },
+  "versionStatus": {
+    "Published": "منتشرشده",
+    "Draft": "پیش‌نویس",
+    "Yanked": "ابطال‌شده"
+  },
+  "installations": {
+    "subtitle": "وضعیت نصب قابلیت‌ها در هر فروشگاه و Jobهای مربوط به آن.",
+    "tabInstallations": "نصب‌ها",
+    "tabJobs": "Jobها",
+    "store": "فروشگاه",
+    "feature": "قابلیت",
+    "entitlement": "اشتراک",
+    "installation": "نصب",
+    "entitled": "خریداری‌شده",
+    "notEntitled": "بدون اشتراک",
+    "version": "نسخه",
+    "lastChange": "آخرین تغییر",
+    "notInstalledShort": "نصب‌نشده",
+    "install": "نصب",
+    "disable": "غیرفعال‌سازی",
+    "enabled": "فعال",
+    "installedVersion": "نسخه نصب‌شده",
+    "desiredVersion": "نسخه هدف",
+    "health": "سلامت",
+    "manualIntervention": "بازگردانی خودکار ممکن نشد؛ نیاز به بررسی دستی دارد."
+  },
+  "installationState": {
+    "NotInstalled": "نصب‌نشده",
+    "Pending": "در صف",
+    "Installing": "در حال نصب",
+    "Installed": "نصب‌شده",
+    "Updating": "در حال ارتقا",
+    "RollingBack": "بازگردانی",
+    "Failed": "ناموفق",
+    "Disabled": "غیرفعال",
+    "Uninstalling": "در حال حذف"
+  },
+  "jobType": {
+    "Install": "نصب",
+    "Upgrade": "ارتقا",
+    "ApplyConfiguration": "اعمال پیکربندی",
+    "Enable": "فعال‌سازی",
+    "Disable": "غیرفعال‌سازی",
+    "Uninstall": "حذف",
+    "Rollback": "بازگردانی",
+    "HealthCheck": "بررسی سلامت",
+    "Provision": "راه‌اندازی",
+    "Backup": "پشتیبان‌گیری"
+  },
+  "jobStatus": {
+    "Queued": "در صف",
+    "Claimed": "تحویل‌شده",
+    "Running": "در حال اجرا",
+    "Succeeded": "موفق",
+    "Failed": "ناموفق",
+    "Cancelled": "لغو‌شده",
+    "TimedOut": "وقفه زمانی"
+  },
+  "stepStatus": {
+    "Pending": "در انتظار",
+    "Running": "در حال اجرا",
+    "Succeeded": "موفق",
+    "Failed": "ناموفق",
+    "Skipped": "رد شده"
+  },
+  "rollbackOutcome": {
+    "Succeeded": "بازگردانی موفق",
+    "ManualInterventionRequired": "نیاز به بررسی دستی",
+    "None": "—"
+  },
+  "jobs": {
+    "type": "نوع",
+    "target": "هدف",
+    "progress": "پیشرفت",
+    "queuedAt": "زمان ثبت",
+    "store": "فروشگاه",
+    "steps": "گام‌ها",
+    "noSteps": "جزئیات گام‌ها ثبت نشده است.",
+    "errorCode": "کد خطا",
+    "rollback": "بازگردانی",
+    "retry": "تلاش دوباره",
+    "cancel": "لغو Job"
+  },
+  "plans": {
+    "subtitle": "پلن‌ها، ماتریس دسترسی و اشتراک مشتریان.",
+    "create": "پلن جدید",
+    "edit": "ویرایش پلن",
+    "free": "رایگان",
+    "perMonth": "ماهانه",
+    "customers": "مشتری",
+    "matrix": "ماتریس دسترسی",
+    "feature": "قابلیت",
+    "subscriptions": "اشتراک‌ها",
+    "pricingNote": "قیمت‌ها از روی پلن و قابلیت‌های انتخابی محاسبه می‌شوند و هرگز در کد ثابت نیستند."
+  },
+  "subscriptions": {
+    "customer": "مشتری",
+    "plan": "پلن",
+    "optionalFeatures": "قابلیت اختیاری",
+    "monthlyTotal": "مبلغ ماهانه",
+    "periodEnd": "پایان دوره"
+  },
+  "subscriptionStatus": {
+    "Active": "فعال",
+    "Trial": "آزمایشی",
+    "PastDue": "معوق",
+    "Suspended": "معلق",
+    "Cancelled": "لغو‌شده"
+  },
+  "billing": {
+    "subtitle": "صورتحساب‌های صادرشده برای مشتریان.",
+    "number": "شماره",
+    "customer": "مشتری",
+    "period": "دوره",
+    "total": "مبلغ",
+    "issuedAt": "تاریخ صدور",
+    "currency": "تومان"
+  },
+  "invoiceStatus": {
+    "Draft": "پیش‌نویس",
+    "Issued": "صادرشده",
+    "Paid": "پرداخت‌شده",
+    "Void": "باطل",
+    "Overdue": "سررسید گذشته"
+  },
+  "infrastructure": {
+    "subtitle": "سرویس‌های پلتفرم و سرورهای میزبان فروشگاه‌ها.",
+    "platformServices": "سرویس‌های پلتفرم",
+    "servers": "سرورها",
+    "server": "سرور",
+    "ip": "آدرس IP",
+    "load": "بار (CPU/RAM/Disk)",
+    "stores": "فروشگاه",
+    "agent": "نسخه ایجنت",
+    "uptime": "در دسترس بودن",
+    "agentNote": "ایجنت فقط گزارش می‌دهد و Jobهای تعریف‌شده را اجرا می‌کند؛ دسترسی شل یا اجرای دستور دلخواه ندارد."
+  },
+  "monitoring": {
+    "subtitle": "سلامت فروشگاه‌ها و قواعد هشدار فعال.",
+    "store": "فروشگاه",
+    "reachability": "دسترس‌پذیری",
+    "installedFeatures": "قابلیت نصب‌شده",
+    "storeHealth": "سلامت فروشگاه‌ها",
+    "alertRules": "قواعد هشدار"
+  },
+  "errors": {
+    "subtitle": "خطاهای گروه‌بندی‌شده بر اساس اثر انگشت.",
+    "group": "گروه خطا",
+    "store": "فروشگاه",
+    "endpoint": "اندپوینت",
+    "occurrences": "تکرار",
+    "lastSeen": "آخرین رخداد",
+    "firstSeen": "اولین رخداد",
+    "firstSeenVersion": "نسخه اولین رخداد",
+    "ignore": "نادیده گرفتن",
+    "resolve": "حل شد"
+  },
+  "errorStatus": {
+    "New": "جدید",
+    "Acknowledged": "در دست بررسی",
+    "Resolved": "حل‌شده",
+    "Ignored": "نادیده"
+  },
+  "incidents": {
+    "subtitle": "رخدادهای باز و تاریخچه آن‌ها.",
+    "reference": "شناسه",
+    "title": "عنوان",
+    "severity": "شدت",
+    "scope": "دامنه",
+    "openedAt": "زمان شروع",
+    "resolvedAt": "زمان رفع"
+  },
+  "incidentStatus": {
+    "Open": "باز",
+    "Investigating": "در حال بررسی",
+    "Mitigated": "مهارشده",
+    "Resolved": "برطرف‌شده"
+  },
+  "logs": {
+    "subtitle": "جریان لاگ ساختاریافته فروشگاه‌ها و سرویس‌ها.",
+    "searchPlaceholder": "جستجو در متن پیام"
+  },
+  "logLevel": {
+    "Debug": "Debug",
+    "Information": "اطلاع",
+    "Warning": "هشدار",
+    "Error": "خطا",
+    "Critical": "بحرانی"
+  },
+  "audit": {
+    "subtitle": "همه عملیات حساس با عامل، نتیجه و شناسه همبستگی.",
+    "timestamp": "زمان",
+    "actor": "عامل",
+    "action": "عملیات",
+    "target": "هدف",
+    "customer": "مشتری",
+    "result": "نتیجه",
+    "ip": "IP",
+    "export": "خروجی CSV"
+  },
+  "actorType": {
+    "User": "کاربر",
+    "System": "سامانه",
+    "Store": "فروشگاه",
+    "Agent": "ایجنت"
+  },
+  "auditResult": {
+    "Success": "موفق",
+    "Failure": "ناموفق"
+  },
+  "access": {
+    "subtitle": "کاربران، نقش‌ها و سطح دسترسی.",
+    "users": "کاربران",
+    "roles": "نقش‌ها",
+    "user": "کاربر",
+    "role": "نقش",
+    "scope": "دامنه",
+    "platform": "پلتفرم",
+    "customer": "مشتری",
+    "rolesColumn": "نقش‌ها",
+    "mfa": "احراز دومرحله‌ای",
+    "permissions": "تعداد دسترسی",
+    "userCount": "کاربر",
+    "system": "سیستمی",
+    "lastSeen": "آخرین فعالیت",
+    "invite": "دعوت کاربر"
+  },
+  "userStatus": {
+    "Active": "فعال",
+    "Suspended": "معلق"
+  },
+  "reports": {
+    "subtitle": "گزارش‌های تجمیعی پلتفرم.",
+    "updated": "بروزرسانی"
+  },
+  "settings": {
+    "subtitle": "تنظیمات نمایش و اطلاعات محیط.",
+    "appearance": "ظاهر",
+    "theme": "پوسته",
+    "theme_dark": "تیره",
+    "theme_light": "روشن",
+    "language": "زبان",
+    "account": "حساب کاربری",
+    "name": "نام",
+    "roles": "نقش‌ها",
+    "scope": "دامنه",
+    "permissions": "تعداد دسترسی",
+    "environment": "محیط اجرا",
+    "apiBaseUrl": "آدرس API",
+    "mockMode": "داده آزمایشی",
+    "mockOn": "فعال",
+    "mockOff": "غیرفعال",
+    "mockNote": "در این حالت داده‌ها از fixture محلی خوانده می‌شوند، نه از API واقعی."
   }
 }

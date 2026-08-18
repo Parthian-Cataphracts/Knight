@@ -1,4 +1,5 @@
 import type { DashboardOverview, LoginResponse } from "./types";
+import * as fixtures from "./fixtures";
 
 /**
  * Development fixtures. The API does not exist yet (TODO.md phase 1), so screens
@@ -113,6 +114,44 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
   if (path === "/auth/me") return json(session.user);
   if (path === "/auth/logout") return new Response(null, { status: 204 });
   if (path === "/monitoring/overview") return json(overview);
+
+  const collections: Record<string, unknown[]> = {
+    "/customers": fixtures.customers,
+    "/stores": fixtures.stores,
+    "/features": fixtures.features,
+    "/installations": fixtures.installations,
+    "/jobs": fixtures.jobs,
+    "/plans": fixtures.plans,
+    "/subscriptions": fixtures.subscriptions,
+    "/invoices": fixtures.invoices,
+    "/servers": fixtures.servers,
+    "/errors/groups": fixtures.errorGroups,
+    "/incidents": fixtures.incidents,
+    "/logs": fixtures.logs,
+    "/audit-logs": fixtures.auditEntries,
+    "/users": fixtures.admins,
+    "/roles": fixtures.roles,
+    "/reports": fixtures.reports,
+  };
+
+  const collection = collections[path];
+  if (collection) {
+    return json({
+      items: collection,
+      page: 1,
+      pageSize: collection.length,
+      totalCount: collection.length,
+      totalPages: 1,
+    });
+  }
+
+  if (path === "/plans/entitlement-matrix") return json({ items: fixtures.entitlementMatrix });
+  if (path === "/infrastructure/services") return json({ items: fixtures.platformServices });
+
+  const versions = /^\/features\/([^/]+)\/versions$/.exec(path);
+  if (versions) {
+    return json({ items: fixtures.featureVersions[versions[1] as string] ?? [] });
+  }
 
   return problem(404, "not_found", `No fixture for ${method} ${path}`);
 }
