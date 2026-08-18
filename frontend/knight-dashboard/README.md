@@ -66,8 +66,16 @@ src/
 
 ## Status
 
-Implemented: design tokens, RTL and theme switching, app shell, login,
-dashboard overview.
+All sixteen navigation destinations are implemented and read from the API
+client: Dashboard, Customers, Stores, Features, Installations & Jobs, Plans &
+Subscriptions, Billing, Infrastructure, Monitoring, Errors, Incidents, Logs,
+Reports, Users & Access, Audit log and Settings.
 
-Remaining screens are listed under phase 6 in [`TODO.md`](../../TODO.md). Routes
-for them exist and render a placeholder so navigation is complete.
+Every screen is verified in fa/RTL and en/LTR, at mobile and desktop widths,
+with no horizontal page scroll.
+
+What is deliberately still missing (it needs the API, not more UI): create and
+edit forms, the install preview dialog with the dependency plan, the
+subscription change flow with live pricing, server metric charts, error event
+samples, the incident timeline, and the MFA step. Tracked under phase 6 in
+[`TODO.md`](../../TODO.md).
