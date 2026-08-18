@@ -8,6 +8,7 @@ import {
   Receipt,
   Server,
   Activity,
+  BellRing,
   Bug,
   Siren,
   ScrollText,
@@ -66,6 +67,7 @@ export const NAVIGATION: NavSection[] = [
     items: [
       { key: "infrastructure", to: "/infrastructure", icon: Server, permission: "server.view" },
       { key: "monitoring", to: "/monitoring", icon: Activity, permission: "monitoring.view" },
+      { key: "alerts", to: "/alerts", icon: BellRing, permission: "monitoring.view" },
       { key: "errors", to: "/errors", icon: Bug, permission: "errors.view" },
       { key: "incidents", to: "/incidents", icon: Siren, permission: "incident.view" },
       { key: "logs", to: "/logs", icon: ScrollText, permission: "logs.view" },

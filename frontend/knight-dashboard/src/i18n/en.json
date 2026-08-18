@@ -23,7 +23,8 @@
     "sectionOperations": "Operations",
     "sectionService": "Service management",
     "sectionInfra": "Infrastructure",
-    "sectionGovernance": "Governance"
+    "sectionGovernance": "Governance",
+    "alerts": "Alerts"
   },
   "common": {
     "search": "Search",
@@ -58,7 +59,11 @@
     "secure": "Encrypted connection",
     "support": "Platform support",
     "docs": "Security documentation",
-    "failed": "Sign-in failed"
+    "failed": "Sign-in failed",
+    "mfaPrompt": "Enter the six-digit code from your authenticator app.",
+    "mfaCode": "One-time code",
+    "verify": "Verify and sign in",
+    "backToCredentials": "Back"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -141,7 +146,8 @@
     "register": "Register store",
     "rotate": "Rotate secret",
     "issueCredentials": "Issue credentials",
-    "installedFeatures": "Installed features"
+    "installedFeatures": "Installed features",
+    "suspend": "Suspend store"
   },
   "features": {
     "subtitle": "Central registry of versioned, deployable features.",
@@ -306,7 +312,9 @@
     "stores": "Stores",
     "agent": "Agent",
     "uptime": "Uptime",
-    "agentNote": "The agent only reports and runs typed jobs; it has no shell and executes no arbitrary commands."
+    "agentNote": "The agent only reports and runs typed jobs; it has no shell and executes no arbitrary commands.",
+    "cpuTrend": "CPU trend (last 12 samples)",
+    "memoryTrend": "Memory trend"
   },
   "monitoring": {
     "subtitle": "Store health and the active alert rules.",
@@ -326,7 +334,9 @@
     "firstSeen": "First seen",
     "firstSeenVersion": "First seen in",
     "ignore": "Ignore",
-    "resolve": "Resolve"
+    "resolve": "Resolve",
+    "samples": "Event samples",
+    "noSamples": "No samples recorded."
   },
   "errorStatus": {
     "New": "New",
@@ -341,7 +351,11 @@
     "severity": "Severity",
     "scope": "Scope",
     "openedAt": "Opened",
-    "resolvedAt": "Resolved"
+    "resolvedAt": "Resolved",
+    "timeline": "Timeline",
+    "noEvents": "No events recorded.",
+    "addNote": "Add note",
+    "resolve": "Resolve"
   },
   "incidentStatus": {
     "Open": "Open",
@@ -424,5 +438,154 @@
     "mockOn": "On",
     "mockOff": "Off",
     "mockNote": "Data comes from local fixtures, not a real API."
+  },
+  "alerts": {
+    "subtitle": "Active alerts across infrastructure, stores and feature delivery.",
+    "title": "Title",
+    "severity": "Severity",
+    "source": "Source",
+    "scope": "Scope",
+    "rule": "Rule",
+    "raisedAt": "Raised",
+    "assignee": "Assignee",
+    "metric": "Metric",
+    "metricTrend": "Metric trend",
+    "logTail": "Recent log lines",
+    "acknowledge": "Acknowledge",
+    "assignToMe": "Assign to me",
+    "tile_critical": "Critical",
+    "tile_warning": "Warning",
+    "tile_info": "Info",
+    "tile_resolved": "Resolved"
+  },
+  "alertStatus": {
+    "Open": "Open",
+    "Investigating": "Investigating",
+    "Acknowledged": "Acknowledged",
+    "Resolved": "Resolved"
+  },
+  "incidentEvent": {
+    "Opened": "Opened",
+    "Note": "Note",
+    "StatusChanged": "Status changed",
+    "Mitigated": "Mitigated",
+    "Resolved": "Resolved"
+  },
+  "domains": {
+    "host": "Host",
+    "type": "Type",
+    "verification": "Ownership",
+    "tls": "TLS expiry",
+    "add": "Add domain",
+    "none": "No domains registered."
+  },
+  "domainType": {
+    "Primary": "Primary",
+    "Alias": "Alias",
+    "Admin": "Admin",
+    "Staging": "Staging"
+  },
+  "domainVerification": {
+    "Verified": "Verified",
+    "Pending": "Pending",
+    "Failed": "Failed"
+  },
+  "credentials": {
+    "clientId": "Client id",
+    "createdAt": "Created",
+    "lastUsed": "Last used",
+    "none": "No credentials issued.",
+    "note": "The secret is shown once at creation and stored only as a hash."
+  },
+  "credentialStatus": {
+    "Active": "Active",
+    "GracePeriod": "Grace period",
+    "Revoked": "Revoked"
+  },
+  "deployments": {
+    "deployedAt": "Deployed",
+    "deployedBy": "By",
+    "notes": "Notes"
+  },
+  "deploymentStatus": {
+    "Succeeded": "Succeeded",
+    "Failed": "Failed"
+  },
+  "storeDetail": {
+    "open": "Open store",
+    "overview": "Overview",
+    "features": "Features",
+    "domains": "Domains",
+    "credentials": "Credentials",
+    "deployments": "Deployments",
+    "activity": "Activity",
+    "identity": "Identity and status",
+    "usage": "Usage",
+    "requests": "Requests (24h)",
+    "errors": "Errors (24h)",
+    "storage": "Storage"
+  },
+  "customerDetail": {
+    "open": "Open customer",
+    "overview": "Overview",
+    "stores": "Stores",
+    "entitlements": "Feature entitlements",
+    "admins": "Admins",
+    "billing": "Billing",
+    "activity": "Activity",
+    "identity": "Identity",
+    "subscription": "Subscription",
+    "noSubscription": "No subscription recorded.",
+    "notes": "Internal notes",
+    "addNote": "Add note",
+    "noNotes": "No notes recorded.",
+    "noStores": "No stores registered.",
+    "noAdmins": "No admins recorded.",
+    "entitlementNote": "Entitlement is the right to use; installation is the capability actually running in the store. Both are tracked separately.",
+    "isolationNote": "Per-customer data access is enforced by the API; this page only displays it."
+  },
+  "createCustomer": {
+    "title": "Create customer",
+    "subtitle": "Register the customer, its first store and the service plan.",
+    "basics": "Basics",
+    "name": "Customer name",
+    "slug": "Slug",
+    "contactEmail": "Contact email",
+    "firstAdmin": "First administrator",
+    "adminName": "Admin name",
+    "adminEmail": "Work email",
+    "adminNote": "An activation link is sent to this address.",
+    "store": "First store",
+    "domain": "Primary domain",
+    "domainNote": "Domain ownership must be verified before the store connects.",
+    "features": "Features",
+    "includedInPlan": "Included in plan",
+    "dedicatedOnly": "Needs dedicated infrastructure",
+    "noFeatures": "No features defined for this plan.",
+    "plan": "Service plan",
+    "summary": "Provisioning steps",
+    "provisioningNote": "After submission these steps run as jobs:",
+    "step1": "Create the store and issue credentials",
+    "step2": "Register the agent and handshake",
+    "step3": "Install the plan's features automatically",
+    "step4": "Health check and hand over",
+    "submit": "Create customer",
+    "cancel": "Cancel",
+    "required": "This field is required.",
+    "invalidEmail": "Enter a valid email address."
+  },
+  "installPreview": {
+    "title": "Install preview",
+    "plan": "Resolved plan",
+    "role_target": "Target feature",
+    "role_dependency": "Dependency",
+    "alreadyInstalled": "Already installed",
+    "willInstall": "Will install",
+    "migrations": "Database migrations",
+    "duration": "Estimated duration",
+    "restart": "Requires restart",
+    "irreversibleWarning": "This version's migration is irreversible; automatic rollback will not be possible if it fails.",
+    "typeToConfirm": "Type {{name}} to confirm:",
+    "confirm": "Start installation"
   }
 }

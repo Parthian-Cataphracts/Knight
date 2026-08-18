@@ -23,7 +23,8 @@
     "sectionOperations": "عملیات",
     "sectionService": "مدیریت سرویس",
     "sectionInfra": "زیرساخت",
-    "sectionGovernance": "راهبری"
+    "sectionGovernance": "راهبری",
+    "alerts": "هشدارها"
   },
   "common": {
     "search": "جستجو",
@@ -58,7 +59,11 @@
     "secure": "ارتباط امن و رمزنگاری‌شده",
     "support": "پشتیبانی پلتفرم",
     "docs": "مستندات امنیتی",
-    "failed": "ورود ناموفق بود"
+    "failed": "ورود ناموفق بود",
+    "mfaPrompt": "کد شش‌رقمی برنامه احرازکننده را وارد کنید.",
+    "mfaCode": "کد یک‌بارمصرف",
+    "verify": "تأیید و ورود",
+    "backToCredentials": "بازگشت"
   },
   "dashboard": {
     "title": "داشبورد",
@@ -141,7 +146,8 @@
     "register": "ثبت فروشگاه",
     "rotate": "چرخش کلید",
     "issueCredentials": "صدور اعتبارنامه",
-    "installedFeatures": "قابلیت‌های نصب‌شده"
+    "installedFeatures": "قابلیت‌های نصب‌شده",
+    "suspend": "تعلیق فروشگاه"
   },
   "features": {
     "subtitle": "مخزن مرکزی قابلیت‌های نسخه‌دار و قابل نصب.",
@@ -306,7 +312,9 @@
     "stores": "فروشگاه",
     "agent": "نسخه ایجنت",
     "uptime": "در دسترس بودن",
-    "agentNote": "ایجنت فقط گزارش می‌دهد و Jobهای تعریف‌شده را اجرا می‌کند؛ دسترسی شل یا اجرای دستور دلخواه ندارد."
+    "agentNote": "ایجنت فقط گزارش می‌دهد و Jobهای تعریف‌شده را اجرا می‌کند؛ دسترسی شل یا اجرای دستور دلخواه ندارد.",
+    "cpuTrend": "روند پردازنده (۱۲ نمونه اخیر)",
+    "memoryTrend": "روند حافظه"
   },
   "monitoring": {
     "subtitle": "سلامت فروشگاه‌ها و قواعد هشدار فعال.",
@@ -326,7 +334,9 @@
     "firstSeen": "اولین رخداد",
     "firstSeenVersion": "نسخه اولین رخداد",
     "ignore": "نادیده گرفتن",
-    "resolve": "حل شد"
+    "resolve": "حل شد",
+    "samples": "نمونه رخدادها",
+    "noSamples": "نمونه‌ای ثبت نشده است."
   },
   "errorStatus": {
     "New": "جدید",
@@ -341,7 +351,11 @@
     "severity": "شدت",
     "scope": "دامنه",
     "openedAt": "زمان شروع",
-    "resolvedAt": "زمان رفع"
+    "resolvedAt": "زمان رفع",
+    "timeline": "خط زمانی",
+    "noEvents": "رویدادی ثبت نشده است.",
+    "addNote": "افزودن یادداشت",
+    "resolve": "برطرف شد"
   },
   "incidentStatus": {
     "Open": "باز",
@@ -424,5 +438,154 @@
     "mockOn": "فعال",
     "mockOff": "غیرفعال",
     "mockNote": "در این حالت داده‌ها از fixture محلی خوانده می‌شوند، نه از API واقعی."
+  },
+  "alerts": {
+    "subtitle": "هشدارهای فعال زیرساخت، فروشگاه‌ها و تحویل قابلیت.",
+    "title": "عنوان",
+    "severity": "شدت",
+    "source": "منبع",
+    "scope": "دامنه",
+    "rule": "قاعده",
+    "raisedAt": "زمان",
+    "assignee": "مسئول",
+    "metric": "متریک",
+    "metricTrend": "روند متریک",
+    "logTail": "آخرین خطوط لاگ",
+    "acknowledge": "تأیید دریافت",
+    "assignToMe": "واگذاری به من",
+    "tile_critical": "بحرانی",
+    "tile_warning": "هشدار",
+    "tile_info": "اطلاع",
+    "tile_resolved": "برطرف‌شده"
+  },
+  "alertStatus": {
+    "Open": "باز",
+    "Investigating": "در حال بررسی",
+    "Acknowledged": "تأییدشده",
+    "Resolved": "برطرف‌شده"
+  },
+  "incidentEvent": {
+    "Opened": "ایجاد",
+    "Note": "یادداشت",
+    "StatusChanged": "تغییر وضعیت",
+    "Mitigated": "مهار",
+    "Resolved": "رفع"
+  },
+  "domains": {
+    "host": "دامنه",
+    "type": "نوع",
+    "verification": "تأیید مالکیت",
+    "tls": "انقضای گواهی",
+    "add": "افزودن دامنه",
+    "none": "دامنه‌ای ثبت نشده است."
+  },
+  "domainType": {
+    "Primary": "اصلی",
+    "Alias": "مستعار",
+    "Admin": "مدیریت",
+    "Staging": "آزمایشی"
+  },
+  "domainVerification": {
+    "Verified": "تأییدشده",
+    "Pending": "در انتظار",
+    "Failed": "ناموفق"
+  },
+  "credentials": {
+    "clientId": "شناسه کلاینت",
+    "createdAt": "تاریخ صدور",
+    "lastUsed": "آخرین استفاده",
+    "none": "اعتبارنامه‌ای صادر نشده است.",
+    "note": "کلید محرمانه فقط یک بار هنگام صدور نمایش داده می‌شود و در نایت به‌صورت هش ذخیره می‌گردد."
+  },
+  "credentialStatus": {
+    "Active": "فعال",
+    "GracePeriod": "مهلت چرخش",
+    "Revoked": "ابطال‌شده"
+  },
+  "deployments": {
+    "deployedAt": "زمان استقرار",
+    "deployedBy": "توسط",
+    "notes": "توضیح"
+  },
+  "deploymentStatus": {
+    "Succeeded": "موفق",
+    "Failed": "ناموفق"
+  },
+  "storeDetail": {
+    "open": "صفحه فروشگاه",
+    "overview": "کلیات",
+    "features": "قابلیت‌ها",
+    "domains": "دامنه‌ها",
+    "credentials": "اعتبارنامه‌ها",
+    "deployments": "استقرارها",
+    "activity": "فعالیت‌ها",
+    "identity": "هویت و وضعیت",
+    "usage": "مصرف",
+    "requests": "درخواست‌ها (۲۴ ساعت)",
+    "errors": "خطاها (۲۴ ساعت)",
+    "storage": "فضای ذخیره‌سازی"
+  },
+  "customerDetail": {
+    "open": "صفحه مشتری",
+    "overview": "کلیات",
+    "stores": "فروشگاه‌ها",
+    "entitlements": "اشتراک قابلیت‌ها",
+    "admins": "مدیران",
+    "billing": "صورتحساب",
+    "activity": "فعالیت‌ها",
+    "identity": "هویت",
+    "subscription": "اشتراک",
+    "noSubscription": "اشتراکی ثبت نشده است.",
+    "notes": "یادداشت‌های داخلی",
+    "addNote": "افزودن یادداشت",
+    "noNotes": "یادداشتی ثبت نشده است.",
+    "noStores": "فروشگاهی ثبت نشده است.",
+    "noAdmins": "مدیری ثبت نشده است.",
+    "entitlementNote": "اشتراک یعنی حق استفاده؛ نصب یعنی اجرای واقعی قابلیت در فروشگاه. این دو جدا رصد می‌شوند.",
+    "isolationNote": "دسترسی به داده هر مشتری در سمت سرور محدود می‌شود؛ این صفحه فقط نمایش است."
+  },
+  "createCustomer": {
+    "title": "ایجاد مشتری جدید",
+    "subtitle": "ثبت مشتری، فروشگاه اولیه و پلن سرویس.",
+    "basics": "اطلاعات پایه",
+    "name": "نام مشتری",
+    "slug": "شناسه یکتا",
+    "contactEmail": "ایمیل تماس",
+    "firstAdmin": "مدیر اولیه",
+    "adminName": "نام مدیر",
+    "adminEmail": "ایمیل سازمانی",
+    "adminNote": "لینک فعال‌سازی و تنظیم رمز عبور به این ایمیل ارسال می‌شود.",
+    "store": "فروشگاه اولیه",
+    "domain": "دامنه اصلی",
+    "domainNote": "مالکیت دامنه پیش از اتصال فروشگاه باید تأیید شود.",
+    "features": "قابلیت‌ها",
+    "includedInPlan": "شامل پلن",
+    "dedicatedOnly": "نیازمند زیرساخت اختصاصی",
+    "noFeatures": "برای این پلن قابلیتی تعریف نشده است.",
+    "plan": "پلن سرویس",
+    "summary": "مراحل راه‌اندازی",
+    "provisioningNote": "پس از ثبت، این مراحل به‌صورت Job اجرا می‌شوند:",
+    "step1": "ساخت فروشگاه و صدور اعتبارنامه",
+    "step2": "ثبت ایجنت و اتصال اولیه",
+    "step3": "نصب خودکار قابلیت‌های پلن",
+    "step4": "بررسی سلامت و آماده‌سازی",
+    "submit": "ایجاد مشتری",
+    "cancel": "انصراف",
+    "required": "این فیلد الزامی است.",
+    "invalidEmail": "ایمیل معتبر نیست."
+  },
+  "installPreview": {
+    "title": "پیش‌نمایش نصب",
+    "plan": "نقشه نصب",
+    "role_target": "قابلیت هدف",
+    "role_dependency": "وابستگی",
+    "alreadyInstalled": "نصب‌شده",
+    "willInstall": "نصب می‌شود",
+    "migrations": "مهاجرت پایگاه داده",
+    "duration": "زمان تقریبی",
+    "restart": "نیاز به راه‌اندازی مجدد",
+    "irreversibleWarning": "مهاجرت این نسخه برگشت‌ناپذیر است؛ در صورت شکست، بازگردانی خودکار ممکن نیست.",
+    "typeToConfirm": "برای تأیید، {{name}} را تایپ کنید:",
+    "confirm": "شروع نصب"
   }
 }

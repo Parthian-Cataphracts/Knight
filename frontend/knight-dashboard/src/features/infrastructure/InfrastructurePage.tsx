@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { RefreshCw, Server as ServerIcon } from "lucide-react";
 import { useCollection } from "@/lib/api/hooks";
+import { AreaChart } from "@/components/data/Sparkline";
 import type { Server } from "@/lib/api/domain";
 import type { HealthState } from "@/lib/api/types";
 import { PageShell, PageHeader, KeyValue, Mono } from "@/components/data/PageShell";
@@ -34,6 +35,10 @@ export function InfrastructurePage() {
   const services = useCollection<PlatformService>("/infrastructure/services");
   const servers = useCollection<Server>("/servers");
   const [selected, setSelected] = useState<Server | null>(null);
+  const metrics = useCollection<{ cpu: number[]; memory: number[] }>(
+    `/servers/${selected?.id ?? "none"}/metrics`,
+  );
+  const series = metrics.data?.[0];
 
   const columns: Column<Server>[] = [
     {
@@ -162,6 +167,17 @@ export function InfrastructurePage() {
       >
         {selected ? (
           <div className="flex flex-col gap-6">
+            {series ? (
+              <div className="flex flex-col gap-4">
+                <AreaChart
+                  series={series.cpu}
+                  label={t("infrastructure.cpuTrend")}
+                  unit="%"
+                  tone={selected.cpuPercent > 80 ? "danger" : "primary"}
+                />
+                <AreaChart series={series.memory} label={t("infrastructure.memoryTrend")} unit="%" />
+              </div>
+            ) : null}
             <div className="flex flex-col gap-4">
               <Meter label={t("dashboard.cpu")} value={selected.cpuPercent} tone={selected.cpuPercent > 80 ? "danger" : "primary"} />
               <Meter label={t("dashboard.memory")} value={selected.memoryPercent} tone={selected.memoryPercent > 75 ? "warning" : "primary"} />

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useCollection } from "@/lib/api/hooks";
 import type { ErrorGroup } from "@/lib/api/domain";
+import type { ErrorEventSample } from "@/lib/api/fixtures-detail";
 import { PageShell, PageHeader, Toolbar, FilterTabs, KeyValue, Mono } from "@/components/data/PageShell";
 import { CollectionCard } from "@/components/data/CollectionCard";
 import { DataTable, type Column } from "@/components/data/DataTable";
@@ -23,9 +24,17 @@ type Filter = "all" | ErrorGroup["status"];
 export function ErrorsPage() {
   const { t } = useTranslation();
   const query = useCollection<ErrorGroup>("/errors/groups");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const samples = useCollection<ErrorEventSample>(
+    `/errors/groups/${selectedId ?? "none"}/events`,
+  );
   const can = useAuthStore((state) => state.can);
   const [filter, setFilter] = useState<Filter>("all");
-  const [selected, setSelected] = useState<ErrorGroup | null>(null);
+  const [selected, setSelectedGroup] = useState<ErrorGroup | null>(null);
+  const setSelected = (group: ErrorGroup | null) => {
+    setSelectedGroup(group);
+    setSelectedId(group?.id ?? null);
+  };
 
   const all = query.data ?? [];
   const rows = all.filter((group) => filter === "all" || group.status === filter);
@@ -170,6 +179,31 @@ export function ErrorsPage() {
                 <Mono>{selected.firstSeenVersion}</Mono>
               </KeyValue>
             </dl>
+
+            <section>
+              <h3 className="label-caps mb-2 text-on-surface-variant/80">{t("errors.samples")}</h3>
+              {(samples.data ?? []).length === 0 ? (
+                <p className="text-body-sm text-on-surface-variant">{t("errors.noSamples")}</p>
+              ) : (
+                <ul className="flex flex-col gap-3">
+                  {(samples.data ?? []).map((sample) => (
+                    <li key={sample.id} className="rounded-md bg-surface-low p-3">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <Mono>{formatDateTime(sample.occurredAt)}</Mono>
+                        <Mono className="text-primary">{sample.version}</Mono>
+                        <Mono>trace: {sample.traceId}</Mono>
+                      </div>
+                      <pre
+                        dir="ltr"
+                        className="mt-2 overflow-x-auto rounded bg-surface-lowest p-2.5 font-mono text-code text-on-surface-variant"
+                      >
+                        {sample.stackTrace}
+                      </pre>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           </div>
         ) : null}
       </Drawer>
