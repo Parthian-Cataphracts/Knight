@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, CheckCircle2, CircleDot, RotateCcw, XCircle, Clock } from "lucide-react";
-import { useCollection } from "@/lib/api/hooks";
+import { useCollection, useResource } from "@/lib/api/hooks";
 import type { Installation, Job, JobStep } from "@/lib/api/domain";
+import type { InstallPlan } from "@/lib/api/fixtures-detail";
 import { PageShell, PageHeader, Toolbar, FilterTabs, KeyValue, Mono } from "@/components/data/PageShell";
 import { CollectionCard } from "@/components/data/CollectionCard";
 import { DataTable, type Column } from "@/components/data/DataTable";
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { useAuthStore } from "@/store/auth";
 import { formatRelative } from "@/lib/utils/format";
 import { installationTone, jobTone } from "./installationTone";
+import { InstallPreviewDialog } from "./InstallPreviewDialog";
 
 type Tab = "installations" | "jobs";
 
@@ -86,6 +88,11 @@ export function InstallationsPage() {
   const can = useAuthStore((state) => state.can);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [selectedInstallation, setSelectedInstallation] = useState<Installation | null>(null);
+  const [previewFor, setPreviewFor] = useState<Installation | null>(null);
+  const preview = useResource<InstallPlan>(
+    `/stores/${previewFor?.storeId ?? "none"}/features/${previewFor?.featureId ?? "none"}/plan`,
+    previewFor !== null,
+  );
 
   const installationColumns: Column<Installation>[] = [
     {
@@ -259,7 +266,15 @@ export function InstallationsPage() {
               <Button variant="outline" size="sm">
                 {t("installations.disable")}
               </Button>
-              <Button size="sm">{t("installations.install")}</Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setPreviewFor(selectedInstallation);
+                  setSelectedInstallation(null);
+                }}
+              >
+                {t("installations.install")}
+              </Button>
             </>
           ) : undefined
         }
@@ -369,6 +384,15 @@ export function InstallationsPage() {
           </div>
         ) : null}
       </Drawer>
+
+      <InstallPreviewDialog
+        open={previewFor !== null}
+        plan={preview.data ?? null}
+        storeName={previewFor?.storeName ?? ""}
+        featureName={previewFor?.featureName ?? ""}
+        onClose={() => setPreviewFor(null)}
+        onConfirm={() => setPreviewFor(null)}
+      />
     </PageShell>
   );
 }

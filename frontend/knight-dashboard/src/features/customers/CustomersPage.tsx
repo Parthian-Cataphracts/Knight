@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { Plus, Search } from "lucide-react";
 import { useCollection } from "@/lib/api/hooks";
 import type { Customer, CustomerStatus } from "@/lib/api/domain";
@@ -23,6 +24,7 @@ type Filter = "all" | CustomerStatus;
 
 export function CustomersPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const query = useCollection<Customer>("/customers");
   const can = useAuthStore((state) => state.can);
   const [filter, setFilter] = useState<Filter>("all");
@@ -78,7 +80,7 @@ export function CustomersPage() {
         subtitle={t("customers.subtitle")}
         actions={
           can("customer.create") ? (
-            <Button size="sm">
+            <Button size="sm" onClick={() => navigate("/customers/new")}>
               <Plus className="size-4" aria-hidden />
               {t("customers.create")}
             </Button>
@@ -152,7 +154,9 @@ export function CustomersPage() {
               <Button variant="outline" size="sm">
                 {t("customers.suspend")}
               </Button>
-              <Button size="sm">{t("common.edit")}</Button>
+              <Button size="sm" onClick={() => navigate(`/customers/${selected?.id ?? ""}`)}>
+                {t("customerDetail.open")}
+              </Button>
             </>
           ) : undefined
         }

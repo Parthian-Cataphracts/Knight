@@ -1,5 +1,6 @@
 import type { DashboardOverview, LoginResponse } from "./types";
 import * as fixtures from "./fixtures";
+import * as detail from "./fixtures-detail";
 
 /**
  * Development fixtures. The API does not exist yet (TODO.md phase 1), so screens
@@ -132,6 +133,7 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
     "/users": fixtures.admins,
     "/roles": fixtures.roles,
     "/reports": fixtures.reports,
+    "/alerts": detail.alerts,
   };
 
   const collection = collections[path];
@@ -147,6 +149,32 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
 
   if (path === "/plans/entitlement-matrix") return json({ items: fixtures.entitlementMatrix });
   if (path === "/infrastructure/services") return json({ items: fixtures.platformServices });
+
+  const scoped: [RegExp, (id: string) => unknown[]][] = [
+    [/^\/stores\/([^/]+)\/domains$/, (id) => detail.storeDomains[id] ?? []],
+    [/^\/stores\/([^/]+)\/credentials$/, (id) => detail.storeCredentials[id] ?? []],
+    [/^\/stores\/([^/]+)\/deployments$/, (id) => detail.storeDeployments[id] ?? []],
+    [/^\/stores\/([^/]+)\/activity$/, (id) => detail.storeActivity[id] ?? []],
+    [/^\/stores\/([^/]+)\/usage$/, (id) => (detail.storeUsage[id] ? [detail.storeUsage[id]] : [])],
+    [/^\/servers\/([^/]+)\/metrics$/, (id) => (detail.serverMetricSeries[id] ? [detail.serverMetricSeries[id]] : [])],
+    [/^\/customers\/([^/]+)\/activity$/, (id) => detail.customerActivity[id] ?? []],
+    [/^\/customers\/([^/]+)\/notes$/, (id) => detail.customerNotes[id] ?? []],
+    [/^\/errors\/groups\/([^/]+)\/events$/, (id) => detail.errorSamples[id] ?? []],
+    [/^\/incidents\/([^/]+)\/events$/, (id) => detail.incidentTimeline[id] ?? []],
+  ];
+
+  for (const [pattern, resolve] of scoped) {
+    const match = pattern.exec(path);
+    if (match) {
+      const items = resolve(match[1] as string);
+      return json({ items, page: 1, pageSize: items.length, totalCount: items.length, totalPages: 1 });
+    }
+  }
+
+  const installPlan = /^\/stores\/([^/]+)\/features\/([^/]+)\/plan$/.exec(path);
+  if (installPlan) {
+    return json(installPlan[2] === "f3" ? detail.installPlans["blocked"] : detail.installPlans["ok"]);
+  }
 
   const versions = /^\/features\/([^/]+)\/versions$/.exec(path);
   if (versions) {

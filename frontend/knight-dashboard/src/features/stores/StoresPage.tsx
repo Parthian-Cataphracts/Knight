@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { Plus, KeyRound, RefreshCw } from "lucide-react";
 import { useCollection } from "@/lib/api/hooks";
 import type { Installation, IntegrationStatus, Store } from "@/lib/api/domain";
@@ -25,6 +26,7 @@ type Filter = "all" | "Production" | "Staging" | "Development";
 
 export function StoresPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const query = useCollection<Store>("/stores");
   const installations = useCollection<Installation>("/installations");
   const can = useAuthStore((state) => state.can);
@@ -161,9 +163,9 @@ export function StoresPage() {
                 <RefreshCw className="size-4 rtl:-scale-x-100" aria-hidden />
                 {t("stores.rotate")}
               </Button>
-              <Button size="sm">
+              <Button size="sm" onClick={() => navigate(`/stores/${selected?.id ?? ""}`)}>
                 <KeyRound className="size-4" aria-hidden />
-                {t("stores.issueCredentials")}
+                {t("storeDetail.open")}
               </Button>
             </>
           ) : undefined

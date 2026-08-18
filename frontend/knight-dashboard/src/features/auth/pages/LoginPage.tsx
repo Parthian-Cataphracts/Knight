@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
-import { Shield, Mail, Lock, ArrowLeft, ShieldCheck } from "lucide-react";
+import { Shield, Mail, Lock, ArrowLeft, ShieldCheck, KeyRound } from "lucide-react";
 import { apiRequest } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/problem";
 import type { LoginRequest, LoginResponse } from "@/lib/api/types";
@@ -14,11 +14,20 @@ export function LoginPage() {
   const signIn = useAuthStore((state) => state.signIn);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState<"credentials" | "mfa">("credentials");
 
   const login = useMutation({
     mutationFn: (credentials: LoginRequest) =>
       apiRequest<LoginResponse>("/auth/login", { method: "POST", body: credentials }),
-    onSuccess: (response) => signIn(response.user, response.accessToken),
+    onSuccess: (response) => {
+      // Platform staff must clear a second factor (docs/authentication.md section 1).
+      if (response.user.customerId === null && step === "credentials") {
+        setStep("mfa");
+        return;
+      }
+      signIn(response.user, response.accessToken);
+    },
   });
 
   const onSubmit = (event: FormEvent) => {
@@ -41,6 +50,37 @@ export function LoginPage() {
         </div>
 
         <form onSubmit={onSubmit} className="card-surface elevated flex flex-col gap-5 p-6">
+          {step === "mfa" ? (
+            <>
+              <p className="flex items-start gap-2 rounded-md bg-primary/10 px-3 py-2.5 text-body-sm text-primary">
+                <KeyRound className="mt-0.5 size-4 shrink-0" aria-hidden />
+                {t("auth.mfaPrompt")}
+              </p>
+              <TextField
+                label={t("auth.mfaCode")}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                dir="ltr"
+                required
+                maxLength={6}
+                value={code}
+                onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
+                icon={<ShieldCheck className="size-4" aria-hidden />}
+              />
+              <Button type="submit" loading={login.isPending} disabled={code.length < 6}>
+                {t("auth.verify")}
+                <ArrowLeft className="size-4 rtl:-scale-x-100" aria-hidden />
+              </Button>
+              <button
+                type="button"
+                onClick={() => setStep("credentials")}
+                className="text-body-sm text-on-surface-variant hover:text-on-surface"
+              >
+                {t("auth.backToCredentials")}
+              </button>
+            </>
+          ) : (
+          <>
           <TextField
             label={t("auth.email")}
             type="email"
@@ -87,6 +127,8 @@ export function LoginPage() {
             {t("auth.submit")}
             <ArrowLeft className="size-4 rtl:-scale-x-100" aria-hidden />
           </Button>
+          </>
+          )}
 
           <p className="flex items-center justify-center gap-2 text-body-sm text-on-surface-variant">
             <ShieldCheck className="size-4 text-success" aria-hidden />
