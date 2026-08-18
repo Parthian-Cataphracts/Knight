@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/modules/">
+    <Project Path="modules/AccessControl/AccessControl.csproj" />
     <Project Path="modules/Catalog/Catalog.csproj" />
     <Project Path="modules/Checkout/Checkout.csproj" />
     <Project Path="modules/Customer/Customer.csproj" />
