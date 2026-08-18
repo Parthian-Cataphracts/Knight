@@ -1,0 +1,87 @@
+{
+  "app": {
+    "name": "پنل مدیریت نایت",
+    "tagline": "مرکز کنترل فروشگاه‌های مستقل"
+  },
+  "nav": {
+    "dashboard": "داشبورد",
+    "customers": "مشتریان",
+    "stores": "فروشگاه‌ها",
+    "features": "قابلیت‌ها",
+    "installations": "نصب‌ها و Jobها",
+    "plans": "پلن‌ها و اشتراک",
+    "billing": "صورتحساب",
+    "infrastructure": "زیرساخت",
+    "monitoring": "مانیتورینگ",
+    "errors": "خطاها",
+    "incidents": "رخدادها",
+    "logs": "لاگ‌ها",
+    "reports": "گزارش‌ها",
+    "access": "کاربران و دسترسی",
+    "audit": "گزارش ممیزی",
+    "settings": "تنظیمات",
+    "sectionOperations": "عملیات",
+    "sectionService": "مدیریت سرویس",
+    "sectionInfra": "زیرساخت",
+    "sectionGovernance": "راهبری"
+  },
+  "common": {
+    "search": "جستجو",
+    "logout": "خروج",
+    "theme": "تغییر پوسته",
+    "language": "زبان",
+    "menu": "منو",
+    "close": "بستن",
+    "retry": "تلاش دوباره",
+    "loading": "در حال بارگذاری…",
+    "errorTitle": "دریافت اطلاعات ناموفق بود",
+    "comingSoon": "این بخش هنوز پیاده‌سازی نشده است.",
+    "comingSoonHint": "طبق TODO.md در فازهای بعدی اضافه می‌شود.",
+    "refresh": "بروزرسانی"
+  },
+  "auth": {
+    "title": "ورود به پنل مدیریت",
+    "subtitle": "برای ادامه وارد حساب مدیر پلتفرم شوید.",
+    "email": "ایمیل سازمانی",
+    "password": "رمز عبور",
+    "remember": "مرا به خاطر بسپار",
+    "forgot": "فراموشی رمز عبور؟",
+    "submit": "ورود به پنل",
+    "secure": "ارتباط امن و رمزنگاری‌شده",
+    "support": "پشتیبانی پلتفرم",
+    "docs": "مستندات امنیتی",
+    "failed": "ورود ناموفق بود"
+  },
+  "dashboard": {
+    "title": "داشبورد",
+    "subtitle": "نمای کلی وضعیت پلتفرم نایت.",
+    "activeCustomers": "مشتریان فعال",
+    "suspended": "معلق",
+    "connectedStores": "فروشگاه‌های متصل",
+    "openAlerts": "هشدارهای باز",
+    "runningJobs": "Jobهای در حال اجرا",
+    "failedInstalls": "نصب‌های ناموفق",
+    "entitledNotInstalled": "خریداری‌شده، نصب‌نشده",
+    "services": "وضعیت سرویس‌ها",
+    "resources": "منابع سرور",
+    "cpu": "پردازنده",
+    "memory": "حافظه",
+    "disk": "دیسک",
+    "alerts": "هشدارهای سیستم",
+    "activity": "فعالیت‌های اخیر",
+    "featureDelivery": "تحویل قابلیت‌ها",
+    "noAlerts": "هشدار بازی وجود ندارد.",
+    "viewAll": "مشاهده همه"
+  },
+  "health": {
+    "Healthy": "سالم",
+    "Degraded": "نوسان",
+    "Offline": "قطع",
+    "Unknown": "نامشخص"
+  },
+  "severity": {
+    "critical": "بحرانی",
+    "warning": "هشدار",
+    "info": "اطلاع"
+  }
+}

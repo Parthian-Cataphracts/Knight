@@ -58,3 +58,9 @@ storage-data/
 # Local spec drafts and prompt notes — not part of the product
 /first doc.txt
 /updated doc.txt
+
+# Frontend
+node_modules/
+dist/
+.env
+.env.local
