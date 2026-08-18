@@ -89,6 +89,19 @@ knight/
 
 ## Quick start
 
+### Dashboard
+
+```bash
+cd frontend/knight-dashboard && cp .env.example .env && npm install && npm run dev
+```
+
+Open `http://localhost:5173` and sign in with `admin@knight.local`, any password
+of four or more characters, and any six-digit MFA code. It runs on fixtures
+until the control-plane API exists — see
+[`frontend/knight-dashboard/README.md`](frontend/knight-dashboard/README.md).
+
+### Backend
+
 ```bash
 cd infrastructure/docker && docker compose up -d
 ```

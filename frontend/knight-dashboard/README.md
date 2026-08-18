@@ -29,6 +29,25 @@ API to switch over — no other code changes.
 Any credentials with a password of four characters or more sign in against the
 fixtures; a shorter password exercises the `401` path.
 
+## Signing in
+
+Fixture mode (`VITE_USE_MOCKS=true`, the default) accepts a single seeded
+account:
+
+| Field | Value |
+|---|---|
+| Email | `admin@knight.local` |
+| Password | any 4+ characters, e.g. `devpassword` |
+| MFA code | any 6 digits, e.g. `123456` |
+
+It signs in as a platform `SuperAdmin`, so every screen and action is visible.
+A password shorter than four characters exercises the `401` path.
+
+The control-plane auth API does not exist yet (TODO.md phase 1), so
+`VITE_USE_MOCKS=false` has nothing to talk to. The `Knight.Bootstrap` tool in
+`backend/tools` creates an administrator, but against the *legacy* schema and
+endpoints, which this dashboard does not use.
+
 ## Scripts
 
 | Command | Purpose |
