@@ -14,8 +14,32 @@ export function LoadingBlock({ rows = 3 }: { rows?: number }) {
   );
 }
 
-export function ErrorBlock({ message, onRetry }: { message: string; onRetry?: () => void }) {
+/**
+ * A 404 from the API is not a failure to report as one: several dashboard
+ * screens are built against endpoints that later phases deliver (feature
+ * delivery, monitoring, incidents), and a red error implies something broke
+ * rather than has not been built. Callers pass the status so this stays one
+ * decision instead of six.
+ */
+export function ErrorBlock({
+  message,
+  status,
+  onRetry,
+}: {
+  message: string;
+  status?: number | undefined;
+  onRetry?: (() => void) | undefined;
+}) {
   const { t } = useTranslation();
+
+  if (status === 404) {
+    return (
+      <p className="p-5 text-body-sm text-on-surface-variant" role="status">
+        {t("common.notAvailableYet")}
+      </p>
+    );
+  }
+
   return (
     <div className="flex flex-col items-start gap-3 p-5" role="alert">
       <p className="text-body-sm font-medium text-error">{t("common.errorTitle")}</p>

@@ -42,6 +42,12 @@ public sealed record CustomerResponse
 
     public string? Notes { get; init; }
 
+    /// <summary>How many stores the customer has registered.</summary>
+    public required int StoreCount { get; init; }
+
+    /// <summary>Key of the plan the customer is currently on; null when they have no live subscription.</summary>
+    public string? PlanKey { get; init; }
+
     public required DateTimeOffset CreatedAt { get; init; }
 
     public DateTimeOffset? UpdatedAt { get; init; }

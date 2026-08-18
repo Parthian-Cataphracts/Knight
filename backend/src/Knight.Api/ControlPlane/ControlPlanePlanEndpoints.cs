@@ -1,6 +1,7 @@
 using AccessControl.Domain;
 using FeatureRegistry;
 using FeatureRegistry.Domain;
+using Knight.Application.Abstractions.ControlPlane;
 using Knight.Contracts.Common;
 using Knight.Contracts.ControlPlane;
 using Plans;
@@ -38,6 +39,7 @@ public static class ControlPlanePlanEndpoints
             string? category,
             string? search,
             IFeatureCatalogService service,
+            IFeatureUsageReader usage,
             CancellationToken cancellationToken) =>
         {
             if (!TryParse<FeatureStatus>(status, out var parsedStatus))
@@ -49,17 +51,33 @@ public static class ControlPlanePlanEndpoints
                 new FeatureListQuery(page ?? 1, pageSize ?? 25, parsedStatus, category, search),
                 cancellationToken);
 
+            // Plans offering each feature and how many customers hold it, read
+            // once for the page rather than once per row.
+            var usages = await usage.SummariseAsync(
+                result.Items.Select(feature => feature.Id).ToArray(),
+                cancellationToken);
+
             return Results.Ok(PagedResponse<FeatureResponse>.Create(
-                result.Items.Select(ToResponse).ToArray(),
+                result.Items.Select(feature => ToResponse(feature, usages.GetValueOrDefault(feature.Id))).ToArray(),
                 result.Page,
                 result.PageSize,
                 result.TotalCount));
         }).RequirePermission(ControlPlanePermissions.FeatureView);
 
-        group.MapGet("/{id:guid}", async (Guid id, IFeatureCatalogService service, CancellationToken cancellationToken) =>
+        group.MapGet("/{id:guid}", async (
+            Guid id,
+            IFeatureCatalogService service,
+            IFeatureUsageReader usage,
+            CancellationToken cancellationToken) =>
         {
             var feature = await service.GetAsync(id, cancellationToken);
-            return feature is null ? Results.NotFound() : Results.Ok(ToResponse(feature));
+            if (feature is null)
+            {
+                return Results.NotFound();
+            }
+
+            var usages = await usage.SummariseAsync([feature.Id], cancellationToken);
+            return Results.Ok(ToResponse(feature, usages.GetValueOrDefault(feature.Id)));
         }).RequirePermission(ControlPlanePermissions.FeatureView);
 
         group.MapPost("/", async (CreateFeatureRequest request, IFeatureCatalogService service, CancellationToken cancellationToken) =>
@@ -111,17 +129,40 @@ public static class ControlPlanePlanEndpoints
             .RequireRateLimiting("control-plane")
             .WithTags("Plans");
 
-        group.MapGet("/", async (bool? includeInactive, IPlanService service, CancellationToken cancellationToken) =>
-            Results.Ok((await service.ListAsync(includeInactive ?? false, cancellationToken)).Select(ToResponse).ToArray()))
-            .RequirePermission(ControlPlanePermissions.PlanView);
-
-        group.MapGet("/{id:guid}", async (Guid id, IPlanService service, CancellationToken cancellationToken) =>
+        group.MapGet("/", async (
+            bool? includeInactive,
+            IPlanService service,
+            IFeatureCatalogReader features,
+            IPlanSubscriberReader subscribers,
+            CancellationToken cancellationToken) =>
         {
-            var plan = await service.GetAsync(id, cancellationToken);
-            return plan is null ? Results.NotFound() : Results.Ok(ToResponse(plan));
+            var plans = await service.ListAsync(includeInactive ?? false, cancellationToken);
+            var items = await PlanDescriptions.DescribeAsync(plans, features, subscribers, cancellationToken);
+
+            // Paged envelope like every other collection: the dashboard reads
+            // them all through one client that expects "items".
+            return Results.Ok(PagedResponse<PlanResponse>.Create(items, 1, items.Count, items.Count));
         }).RequirePermission(ControlPlanePermissions.PlanView);
 
-        group.MapPost("/", async (CreatePlanRequest request, IPlanService service, CancellationToken cancellationToken) =>
+        group.MapGet("/{id:guid}", async (
+            Guid id,
+            IPlanService service,
+            IFeatureCatalogReader features,
+            IPlanSubscriberReader subscribers,
+            CancellationToken cancellationToken) =>
+        {
+            var plan = await service.GetAsync(id, cancellationToken);
+            return plan is null
+                ? Results.NotFound()
+                : Results.Ok(await PlanDescriptions.DescribeAsync(plan, features, subscribers, cancellationToken));
+        }).RequirePermission(ControlPlanePermissions.PlanView);
+
+        group.MapPost("/", async (
+            CreatePlanRequest request,
+            IPlanService service,
+            IFeatureCatalogReader features,
+            IPlanSubscriberReader subscribers,
+            CancellationToken cancellationToken) =>
         {
             var plan = await service.CreateAsync(
                 new CreatePlanInput(
@@ -133,49 +174,87 @@ public static class ControlPlanePlanEndpoints
                     request.SortOrder),
                 cancellationToken);
 
-            return Results.Created($"/api/v1/plans/{plan.Id}", ToResponse(plan));
+            return Results.Created(
+                $"/api/v1/plans/{plan.Id}",
+                await PlanDescriptions.DescribeAsync(plan, features, subscribers, cancellationToken));
         }).RequirePermission(ControlPlanePermissions.PlanManage);
 
         group.MapPatch("/{id:guid}", async (
             Guid id,
             UpdatePlanRequest request,
             IPlanService service,
+            IFeatureCatalogReader features,
+            IPlanSubscriberReader subscribers,
             CancellationToken cancellationToken) =>
-            Results.Ok(ToResponse(await service.UpdateAsync(
-                id,
-                new UpdatePlanInput(request.Name, request.Description, request.BasePrice, request.Currency, request.SortOrder),
-                cancellationToken))))
+            Results.Ok(await PlanDescriptions.DescribeAsync(
+                await service.UpdateAsync(
+                    id,
+                    new UpdatePlanInput(request.Name, request.Description, request.BasePrice, request.Currency, request.SortOrder),
+                    cancellationToken),
+                features,
+                subscribers,
+                cancellationToken)))
             .RequirePermission(ControlPlanePermissions.PlanManage);
 
-        group.MapPost("/{id:guid}/activate", async (Guid id, IPlanService service, CancellationToken cancellationToken) =>
-            Results.Ok(ToResponse(await service.ActivateAsync(id, cancellationToken))))
+        group.MapPost("/{id:guid}/activate", async (
+            Guid id,
+            IPlanService service,
+            IFeatureCatalogReader features,
+            IPlanSubscriberReader subscribers,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await PlanDescriptions.DescribeAsync(
+                await service.ActivateAsync(id, cancellationToken),
+                features,
+                subscribers,
+                cancellationToken)))
             .RequirePermission(ControlPlanePermissions.PlanManage);
 
-        group.MapPost("/{id:guid}/deactivate", async (Guid id, IPlanService service, CancellationToken cancellationToken) =>
-            Results.Ok(ToResponse(await service.DeactivateAsync(id, cancellationToken))))
+        group.MapPost("/{id:guid}/deactivate", async (
+            Guid id,
+            IPlanService service,
+            IFeatureCatalogReader features,
+            IPlanSubscriberReader subscribers,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await PlanDescriptions.DescribeAsync(
+                await service.DeactivateAsync(id, cancellationToken),
+                features,
+                subscribers,
+                cancellationToken)))
             .RequirePermission(ControlPlanePermissions.PlanManage);
 
         group.MapPut("/{id:guid}/features", async (
             Guid id,
             SetPlanFeatureRequest request,
             IPlanService service,
+            IFeatureCatalogReader features,
+            IPlanSubscriberReader subscribers,
             CancellationToken cancellationToken) =>
-            Results.Ok(ToResponse(await service.SetFeatureAsync(
-                id,
-                new SetPlanFeatureInput(
-                    request.FeatureId,
-                    request.IsIncluded,
-                    request.IsCustomerToggleable,
-                    request.PinnedVersionRange),
-                cancellationToken))))
+            Results.Ok(await PlanDescriptions.DescribeAsync(
+                await service.SetFeatureAsync(
+                    id,
+                    new SetPlanFeatureInput(
+                        request.FeatureId,
+                        request.IsIncluded,
+                        request.IsCustomerToggleable,
+                        request.PinnedVersionRange),
+                    cancellationToken),
+                features,
+                subscribers,
+                cancellationToken)))
             .RequirePermission(ControlPlanePermissions.PlanManage);
 
         group.MapDelete("/{id:guid}/features/{featureId:guid}", async (
             Guid id,
             Guid featureId,
             IPlanService service,
+            IFeatureCatalogReader features,
+            IPlanSubscriberReader subscribers,
             CancellationToken cancellationToken) =>
-            Results.Ok(ToResponse(await service.RemoveFeatureAsync(id, featureId, cancellationToken))))
+            Results.Ok(await PlanDescriptions.DescribeAsync(
+                await service.RemoveFeatureAsync(id, featureId, cancellationToken),
+                features,
+                subscribers,
+                cancellationToken)))
             .RequirePermission(ControlPlanePermissions.PlanManage);
 
         group.MapPut("/prices", async (SetFeaturePriceRequest request, IPlanService service, CancellationToken cancellationToken) =>
@@ -196,8 +275,10 @@ public static class ControlPlanePlanEndpoints
             Guid featureId,
             IPlanService service,
             CancellationToken cancellationToken) =>
-            Results.Ok((await service.ListPricesAsync(featureId, cancellationToken)).Select(ToResponse).ToArray()))
-            .RequirePermission(ControlPlanePermissions.PlanView);
+        {
+            var prices = (await service.ListPricesAsync(featureId, cancellationToken)).Select(ToResponse).ToArray();
+            return Results.Ok(PagedResponse<FeaturePriceResponse>.Create(prices, 1, prices.Length, prices.Length));
+        }).RequirePermission(ControlPlanePermissions.PlanView);
     }
 
     private static bool TryParse<TEnum>(string? value, out TEnum? parsed) where TEnum : struct, Enum
@@ -221,8 +302,21 @@ public static class ControlPlanePlanEndpoints
     private static IResult ValidationProblem(string field, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [field] = [message] });
 
-    internal static FeatureResponse ToResponse(Feature feature) => new()
+    /// <summary>
+    /// <paramref name="usage"/> is null when the caller had no reason to read
+    /// it; the response then reports no plans and nobody entitled, which is what
+    /// a brand-new feature looks like anyway.
+    /// </summary>
+    internal static FeatureResponse ToResponse(Feature feature, FeatureUsage? usage = null) => new()
     {
+        Plans = usage?.PlanKeys ?? [],
+        EntitledCount = usage?.EntitledCount ?? 0,
+
+        // Versions and installations belong to the registry and delivery
+        // subsystem (phase 3.5); null says "not knowable yet" rather than zero,
+        // which would claim the feature is installed nowhere.
+        LatestVersion = null,
+        InstallCount = null,
         Id = feature.Id,
         Slug = feature.Slug,
         Name = feature.Name,
@@ -233,29 +327,6 @@ public static class ControlPlanePlanEndpoints
         Status = feature.Status.ToString(),
         CreatedAt = feature.CreatedAt,
         UpdatedAt = feature.UpdatedAt,
-    };
-
-    internal static PlanResponse ToResponse(Plan plan) => new()
-    {
-        Id = plan.Id,
-        Key = plan.Key,
-        Name = plan.Name,
-        Description = plan.Description,
-        BasePrice = plan.BasePriceAmount,
-        Currency = plan.Currency,
-        IsActive = plan.IsActive,
-        SortOrder = plan.SortOrder,
-        Features = plan.Features
-            .Select(feature => new PlanFeatureResponse
-            {
-                FeatureId = feature.FeatureId,
-                IsIncluded = feature.IsIncluded,
-                IsCustomerToggleable = feature.IsCustomerToggleable,
-                PinnedVersionRange = feature.PinnedVersionRange,
-            })
-            .ToArray(),
-        CreatedAt = plan.CreatedAt,
-        UpdatedAt = plan.UpdatedAt,
     };
 
     private static FeaturePriceResponse ToResponse(FeaturePrice price) => new()

@@ -69,3 +69,32 @@ Follow the phase order in [`TODO.md`](TODO.md), update it at the end of every
 session, record long-term decisions as ADRs in `docs/adr/`, and keep the
 documentation in the same commit as the change it describes. Never claim work
 is complete without running the tests and reporting real output.
+
+## 5. End-of-phase verification — mandatory
+
+A phase is not complete when the code compiles and the unit tests pass. It is
+complete when the system has been **run and exercised for real**. Before ticking
+a phase in `TODO.md`:
+
+1. **Start everything.** Database and Redis up, migrations applied, the API
+   running, the dashboard running against it with `VITE_USE_MOCKS=false`. Not a
+   test host — the actual processes a developer runs.
+2. **Drive it through the browser.** Sign in as a real seeded account and walk
+   the screens this phase touched. A passing integration suite is not a
+   substitute: CORS, cookies, response shapes, session restore and route
+   mapping only fail in a browser, and every one of those has already been
+   found this way on this project.
+3. **Fix everything found.** Backend errors, frontend contract mismatches,
+   missing endpoints, screens that show a red failure where the feature simply
+   is not built yet — all of it. A screen that cannot work must say so plainly
+   rather than look broken. No pretending, no "mostly works", no ticking a box
+   to move on.
+4. **Then run the full suite** (`REQUIRE_POSTGRES_TESTS=1 dotnet test`) and
+   report the real numbers, and confirm CI is green.
+5. **Write down how to test it.** Every phase report ends with the exact steps:
+   which commands start what, which URL to open, which fields to fill with which
+   values, and what the expected result is. Someone else must be able to repeat
+   the verification without guessing.
+
+Ask when a decision is genuinely the product owner's; otherwise proceed on your
+own best proposal and say what you assumed.

@@ -3,6 +3,7 @@ using Billing;
 using Billing.Domain;
 using Knight.Contracts.Common;
 using Knight.Contracts.ControlPlane;
+using Knight.Application.Abstractions.ControlPlane;
 using Knight.Application.Abstractions.Time;
 
 namespace Knight.Api.ControlPlane;
@@ -30,6 +31,7 @@ public static class ControlPlaneBillingEndpoints
             Guid? customerId,
             string? status,
             IBillingService service,
+            ILabelReader labels,
             CancellationToken cancellationToken) =>
         {
             if (!TryParseStatus(status, out var parsedStatus))
@@ -41,17 +43,31 @@ public static class ControlPlaneBillingEndpoints
                 new InvoiceListQuery(page ?? 1, pageSize ?? 25, customerId, parsedStatus),
                 cancellationToken);
 
+            var names = await labels.CustomerNamesAsync(
+                result.Items.Select(invoice => invoice.CustomerId).Distinct().ToArray(),
+                cancellationToken);
+
             return Results.Ok(PagedResponse<InvoiceResponse>.Create(
-                result.Items.Select(ToResponse).ToArray(),
+                result.Items.Select(invoice => ToResponse(invoice, names.GetValueOrDefault(invoice.CustomerId))).ToArray(),
                 result.Page,
                 result.PageSize,
                 result.TotalCount));
         }).RequirePermission(ControlPlanePermissions.BillingView);
 
-        group.MapGet("/{id:guid}", async (Guid id, IBillingService service, CancellationToken cancellationToken) =>
+        group.MapGet("/{id:guid}", async (
+            Guid id,
+            IBillingService service,
+            ILabelReader labels,
+            CancellationToken cancellationToken) =>
         {
             var invoice = await service.GetInvoiceAsync(id, cancellationToken);
-            return invoice is null ? Results.NotFound() : Results.Ok(ToResponse(invoice));
+            if (invoice is null)
+            {
+                return Results.NotFound();
+            }
+
+            var names = await labels.CustomerNamesAsync([invoice.CustomerId], cancellationToken);
+            return Results.Ok(ToResponse(invoice, names.GetValueOrDefault(invoice.CustomerId)));
         }).RequirePermission(ControlPlanePermissions.BillingView);
 
         group.MapPost("/prepare/{subscriptionId:guid}", async (
@@ -151,10 +167,11 @@ public static class ControlPlaneBillingEndpoints
         TaxId = account.TaxId,
     };
 
-    internal static InvoiceResponse ToResponse(Invoice invoice) => new()
+    internal static InvoiceResponse ToResponse(Invoice invoice, string? customerName = null) => new()
     {
         Id = invoice.Id,
         CustomerId = invoice.CustomerId,
+        CustomerName = customerName ?? string.Empty,
         SubscriptionId = invoice.SubscriptionId,
         Number = invoice.Number,
         PeriodStart = invoice.PeriodStart,

@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ComponentType } from "react";
 import { Route } from "react-router-dom";
 import { LoadingBlock } from "@/components/ui/StateBlock";
+import { RouteErrorBoundary } from "./RouteErrorBoundary";
 
 /** Every feature area is a lazily loaded route chunk. */
 const pages: [path: string, loader: () => Promise<{ default: ComponentType }>][] = [
@@ -35,9 +36,13 @@ export function featureRoutes() {
         path={path}
         index={path === "/"}
         element={
-          <Suspense fallback={<LoadingBlock rows={6} />}>
-            <Page />
-          </Suspense>
+          // Each screen is wrapped on its own so one failing page cannot blank
+          // the whole application.
+          <RouteErrorBoundary resetKey={path}>
+            <Suspense fallback={<LoadingBlock rows={6} />}>
+              <Page />
+            </Suspense>
+          </RouteErrorBoundary>
         }
       />
     );

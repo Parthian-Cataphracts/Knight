@@ -81,8 +81,8 @@ export function FeaturesPage() {
       header: t("features.installed"),
       numeric: true,
       render: (row) => (
-        <span className={row.installCount < row.entitledCount ? "text-warning" : undefined}>
-          {formatNumber(row.installCount)}
+        <span className={(row.installCount ?? 0) < row.entitledCount ? "text-warning" : undefined}>
+          {row.installCount === null ? "—" : formatNumber(row.installCount)}
         </span>
       ),
     },
@@ -91,7 +91,7 @@ export function FeaturesPage() {
       header: t("features.plans"),
       secondary: true,
       render: (row) =>
-        row.plans.length === 0 ? "—" : row.plans.map((plan) => t(`planKey.${plan}`)).join("، "),
+        (row.plans ?? []).length === 0 ? "—" : (row.plans ?? []).map((plan) => t(`planKey.${plan}`)).join("، "),
     },
   ];
 
@@ -198,7 +198,7 @@ export function FeaturesPage() {
                 {formatNumber(selected.entitledCount)}
               </KeyValue>
               <KeyValue label={t("features.installed")}>
-                {formatNumber(selected.installCount)}
+                {selected.installCount === null ? "—" : formatNumber(selected.installCount)}
               </KeyValue>
             </dl>
 

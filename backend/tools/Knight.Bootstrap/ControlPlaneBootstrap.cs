@@ -47,6 +47,10 @@ internal static class ControlPlaneBootstrap
 
         var services = new ServiceCollection();
         services.AddLogging();
+
+        // The catalogue seeder reads Catalogue:SeedPath, so the container needs
+        // the configuration itself, not just the values already read from it.
+        services.AddSingleton<IConfiguration>(configuration);
         services.AddSingleton<IDateTimeProvider, BootstrapClock>();
         services.AddControlPlaneInfrastructure(configuration);
         services.AddAccessControlModule(configuration);

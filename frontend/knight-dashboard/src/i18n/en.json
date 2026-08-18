@@ -46,7 +46,9 @@
     "no": "No",
     "noResults": "Nothing found.",
     "identifier": "Identifier",
-    "correlationId": "Correlation id"
+    "correlationId": "Correlation id",
+    "notAvailableYet": "Not available yet — this arrives in a later phase.",
+    "screenFailed": "This screen failed to render."
   },
   "auth": {
     "title": "Sign in to Knight",
@@ -63,7 +65,9 @@
     "mfaPrompt": "Enter the six-digit code from your authenticator app.",
     "mfaCode": "One-time code",
     "verify": "Verify and sign in",
-    "backToCredentials": "Back"
+    "backToCredentials": "Back",
+    "mfaEnrolPrompt": "This account requires two-factor authentication. Add the key below to your authenticator app, then enter the code it shows.",
+    "copySecret": "Copy key"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -84,7 +88,15 @@
     "activity": "Recent activity",
     "featureDelivery": "Feature delivery",
     "noAlerts": "No open alerts.",
-    "viewAll": "View all"
+    "viewAll": "View all",
+    "activeSubscriptions": "Active subscriptions",
+    "onTrial": "on trial",
+    "activeEntitlements": "Active entitlements",
+    "billing": "Billing",
+    "invoicesDraft": "Draft",
+    "invoicesIssued": "Issued",
+    "invoicesOverdue": "Overdue",
+    "outstanding": "Outstanding"
   },
   "health": {
     "Healthy": "Healthy",

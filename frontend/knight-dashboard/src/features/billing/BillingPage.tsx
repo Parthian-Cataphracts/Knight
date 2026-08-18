@@ -42,7 +42,9 @@ export function BillingPage() {
       header: t("billing.total"),
       numeric: true,
       render: (row) =>
-        row.total === 0 ? t("plans.free") : `${formatNumber(row.total)} ${t("billing.currency")}`,
+        // The invoice carries its own currency; a fixed label would misreport
+        // any customer billed in another one.
+        row.total === 0 ? t("plans.free") : `${formatNumber(row.total)} ${row.currency}`,
     },
     {
       key: "status",
