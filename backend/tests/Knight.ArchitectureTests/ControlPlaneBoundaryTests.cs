@@ -28,6 +28,10 @@ public sealed class ControlPlaneBoundaryTests
         typeof(Customers.Domain.Customer).Assembly,
         typeof(Stores.Domain.Store).Assembly,
         typeof(AccessControl.Domain.ControlPlaneUser).Assembly,
+        typeof(FeatureRegistry.Domain.Feature).Assembly,
+        typeof(Plans.Domain.Plan).Assembly,
+        typeof(Subscriptions.Domain.Subscription).Assembly,
+        typeof(Billing.Domain.Invoice).Assembly,
     ];
 
     [Fact]
@@ -90,6 +94,10 @@ public sealed class ControlPlaneBoundaryTests
             [typeof(Customers.Domain.Customer).Assembly] = "Customers",
             [typeof(Stores.Domain.Store).Assembly] = "Stores",
             [typeof(AccessControl.Domain.ControlPlaneUser).Assembly] = "AccessControl",
+            [typeof(FeatureRegistry.Domain.Feature).Assembly] = "FeatureRegistry",
+            [typeof(Plans.Domain.Plan).Assembly] = "Plans",
+            [typeof(Subscriptions.Domain.Subscription).Assembly] = "Subscriptions",
+            [typeof(Billing.Domain.Invoice).Assembly] = "Billing",
         };
 
         foreach (var (assembly, ownNamespace) in moduleNamespaces)

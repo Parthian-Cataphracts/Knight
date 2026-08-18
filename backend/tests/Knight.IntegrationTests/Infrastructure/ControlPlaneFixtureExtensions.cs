@@ -72,7 +72,8 @@ public static class ControlPlaneFixtureExtensions
     public static async Task<Guid> SeedStoreAsync(
         this PostgresApiFixture fixture,
         Guid customerId,
-        StoreEnvironment environment = StoreEnvironment.Production)
+        StoreEnvironment environment = StoreEnvironment.Production,
+        HostingModel hostingModel = HostingModel.SharedManaged)
     {
         var id = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
@@ -88,7 +89,7 @@ public static class ControlPlaneFixtureExtensions
                 $"store-{suffix}",
                 $"{suffix}.example.test",
                 environment,
-                HostingModel.SharedManaged);
+                hostingModel);
 
             store.Activate(now);
             await context.Stores.AddAsync(store);

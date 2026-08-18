@@ -4,6 +4,7 @@ using Knight.Application.Abstractions.ControlPlane;
 using Knight.Infrastructure.ControlPlane.Adapters;
 using Knight.Infrastructure.ControlPlane.Repositories;
 using Knight.Infrastructure.ControlPlane.Security;
+using Knight.Infrastructure.ControlPlane.Seed;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -69,6 +70,8 @@ public static class ControlPlaneInfrastructure
         services.AddSingleton<ISecureTokenFactory, SecureTokenFactory>();
         services.AddSingleton<IControlPlaneTokenGenerator, ControlPlaneTokenGenerator>();
         services.AddSingleton<ITotpService, TotpService>();
+
+        services.AddScoped<ICommercialCatalogueSeeder, CommercialCatalogueSeeder>();
 
         return services;
     }

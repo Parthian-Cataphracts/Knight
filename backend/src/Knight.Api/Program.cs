@@ -190,6 +190,9 @@ app.MapControlPlaneAuthEndpoints();
 app.MapControlPlaneCustomerEndpoints();
 app.MapControlPlaneStoreEndpoints();
 app.MapControlPlaneAuditLogEndpoints();
+app.MapControlPlanePlanEndpoints();
+app.MapControlPlaneSubscriptionEndpoints();
+app.MapControlPlaneBillingEndpoints();
 
 app.MapPlatformHealthEndpoints();
 app.MapPlatformTenantEndpoints();

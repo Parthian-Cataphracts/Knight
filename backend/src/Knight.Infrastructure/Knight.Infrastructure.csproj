@@ -35,6 +35,12 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.22.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Shipped inside the assembly so a deployment always has a catalogue to
+         start from; Catalogue:SeedPath overrides it with a file on disk. -->
+    <EmbeddedResource Include="ControlPlane\Seed\commercial-catalogue.json" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

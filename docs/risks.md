@@ -29,7 +29,7 @@ Status: **living document**. Update whenever a risk is resolved or discovered.
 | R11 | Two ADRs numbered 0006 and two numbered 0007 | Confusing references | Numbers frozen; never reused; new ADRs start at 0010 |
 | R12 | Duplicate/stray docs under `backend/docs/` | Future agents read the wrong file | Consolidate into `docs/` during Stage B |
 | R13 | Building the dashboard before contracts stabilise | Rework | Generate types from OpenAPI; build screens after their endpoints exist |
-| R14 | Billing scope is undefined (invoicing only vs payment processing) | Scope creep | Phase 3 records billing facts only; payment gateway is a separate decision |
+| R14 | ~~Billing scope is undefined (invoicing only vs payment processing)~~ **Resolved in phase 2** | Scope creep | Invoicing only: KNIGHT records invoices and observed payments and moves no money ([`adr/0019`](adr/0019-entitlement-as-an-explicit-record.md)). A payment gateway remains a separate, later decision |
 | R15 | Single-developer bandwidth across .NET + Django + React + agent | Everything progresses, nothing finishes | Follow the phase order in `TODO.md`; do not start a phase before the previous one's exit criteria |
 | R16 | **KNIGHT delivers executable code into customer production systems** | A bug or compromise in delivery can break or breach every store at once | Signed artifacts, digest pinned in KNIGHT, typed job vocabulary, staged rollout, canary store first, kill switch on publishing |
 | R17 | Remote Django migrations on customer databases | Data loss or a half-migrated store | Expand/contract mandatory, declared reversibility, restore point, honest `ManualInterventionRequired` outcome ([`adr/0016`](adr/0016-feature-migration-and-removal-policy.md)) |
