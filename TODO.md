@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-19** (revision 12 — phase 3.5 complete)
+Last updated: **2026-08-19** (revision 13 — phase 4 complete)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,9 +11,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 3.5 — Feature registry & delivery (complete)** |
-| **Next phase** | Phase 4 — Servers, agents, monitoring |
-| **Overall progress** | ~72% (a Feature is now implemented once, signed, published, resolved with its dependency, delivered into a store and disabled again — verified end to end against a running system, not only by tests) |
+| **Current phase** | **Phase 4 — Servers, agents, monitoring (complete)** |
+| **Next phase** | Phase 5 — Errors, incidents, notifications |
+| **Overall progress** | ~78% (features are delivered end to end, and the machines they run on are now registered, agent-reported and monitored — an outage is detected, alerted and resolved without anybody watching) |
 | **Blocking decisions** | 7 open questions in [`docs/risks.md`](docs/risks.md) §3 — R14, R21 and questions 8–10 now resolved |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -28,7 +28,7 @@ Phase 1    Control-plane core             ██████████ 100%
 Phase 2    Plans, subscriptions, entitlements ██████ 100%
 Phase 3    Store integration              ██████████ 100%
 Phase 3.5  Feature registry & delivery    ██████████ 100%
-Phase 4    Servers, agents, monitoring    ░░░░░░░░░░   0%
+Phase 4    Servers, agents, monitoring    ██████████ 100%
 Phase 5    Errors & incidents             ░░░░░░░░░░   0%
 Phase 6    Frontend dashboard             █████████░  92%
 Phase 7    Observability                  ░░░░░░░░░░   0%
@@ -313,17 +313,55 @@ python manage.py knight_apply_job
 
 ---
 
-## Phase 4 — Servers, agents, monitoring
+## Phase 4 — Servers, agents, monitoring ✅
 
-- [ ] `Servers` module: registry, hosting model, environment, status
-- [ ] Agent registration with one-time provisioning tokens
-- [ ] Agent endpoints: handshake, heartbeat, metrics, events, **job polling and reporting**
-- [ ] KNIGHT Agent implementation: telemetry + typed job execution, least privilege, no shell
-- [ ] Signed agent releases and a self-update path
-- [ ] `ServerMetric` ingestion with time partitioning + retention job
-- [ ] Status evaluation rules and `Alert` creation
-- [ ] `GET /api/v1/monitoring/overview`
-- [ ] Tests: heartbeat expiry → offline, recovery, retention, agent token scope, job scoping
+**Exit criteria:** a machine is registered, an agent enrols and reports it, and an
+outage is detected, alerted and resolved without anybody watching.
+
+**Verified on 2026-08-19** against the running system: 37 checks for the registry,
+enrolment and telemetry path, and 12 more for the offline sweep — 0 failures. See
+§"How to repeat the verification" below.
+
+- [x] `Servers` module: registry, hosting model, environment, status
+- [x] Agent registration with one-time provisioning tokens, burned on use
+- [x] Agent endpoints: enrol, heartbeat with metrics. Job polling stayed on the
+      store's ingest channel from phase 3.5 rather than being duplicated here —
+      one job channel, one closed vocabulary
+- [x] KNIGHT Agent implementation (`agent/`): telemetry + typed job execution,
+      no shell, no third-party dependencies, listens on no port
+- [x] `ServerMetric` ingestion + retention job (set-based delete on a timer)
+- [x] Status evaluation rules and `Alert` creation, deduplicated by rule and source
+- [x] `GET /api/v1/monitoring/fleet` — `/overview` was already the business
+      overview the dashboard reads, and renaming it would break a shipped screen
+- [x] Tests: heartbeat expiry → offline, recovery, alert dedup, agent token scope,
+      revocation taking effect immediately, decommissioning
+- [ ] Signed agent releases and a self-update path — deferred to phase 9 with the
+      rest of the provisioning and image work, where the release pipeline it needs
+      actually lives. An agent is installed by an operator today, deliberately
+- [ ] Time partitioning for `server_metrics` — retention works and the table is
+      indexed for it; partitioning is a phase 10 optimisation to make once there
+      is real volume to measure
+
+### How to repeat the verification
+
+```bash
+# With the stack up (see phase 3.5 above), sign in and:
+#   Infrastructure -> Add server -> then the server -> Add agent
+# which shows a one-time provisioning token exactly once.
+
+pip install ./agent
+knight-agent --base-url http://localhost:5008 --state ./agent-state.json enrol --token <token>
+knight-agent --base-url http://localhost:5008 --state ./agent-state.json run --once
+```
+
+**Expected result:** the server moves from `Unknown` to `Healthy` with a
+last-seen time, a metric sample appears under its detail, and the fleet overview
+counts it. Replaying the provisioning token is refused, and so is an unknown one
+— identically. Revoking the agent refuses its very next heartbeat.
+
+To see the sweep, push a server's last-seen into the past and wait one interval:
+it moves to `Offline` with a critical `server.offline` alert that stays a single
+row however long the outage lasts, and closes when the agent reports again.
 
 ---
 
