@@ -96,6 +96,14 @@ public sealed class ControlPlaneDbContext : DbContext
 
     public DbSet<FeatureDelivery.Domain.FeatureConfiguration> FeatureConfigurations => Set<FeatureDelivery.Domain.FeatureConfiguration>();
 
+    public DbSet<Servers.Domain.Server> Servers => Set<Servers.Domain.Server>();
+
+    public DbSet<Servers.Domain.Agent> Agents => Set<Servers.Domain.Agent>();
+
+    public DbSet<Servers.Domain.ServerMetric> ServerMetrics => Set<Servers.Domain.ServerMetric>();
+
+    public DbSet<Servers.Domain.Alert> Alerts => Set<Servers.Domain.Alert>();
+
     public DbSet<Billing.Domain.BillingAccount> BillingAccounts => Set<Billing.Domain.BillingAccount>();
 
     public DbSet<Billing.Domain.Invoice> Invoices => Set<Billing.Domain.Invoice>();
@@ -142,6 +150,11 @@ public sealed class ControlPlaneDbContext : DbContext
         modelBuilder.ApplyConfiguration(new FeatureInstallationJobConfiguration());
         modelBuilder.ApplyConfiguration(new JobStepResultConfiguration());
         modelBuilder.ApplyConfiguration(new StoreFeatureConfigurationConfiguration());
+
+        modelBuilder.ApplyConfiguration(new ServerConfiguration());
+        modelBuilder.ApplyConfiguration(new AgentConfiguration());
+        modelBuilder.ApplyConfiguration(new ServerMetricConfiguration());
+        modelBuilder.ApplyConfiguration(new AlertConfiguration());
 
         ApplyCustomerIsolation(modelBuilder);
     }

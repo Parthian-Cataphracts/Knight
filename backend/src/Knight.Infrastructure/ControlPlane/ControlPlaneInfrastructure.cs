@@ -74,6 +74,11 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<FeatureDelivery.Domain.IFeatureInstallationJobRepository, FeatureInstallationJobRepository>();
         services.AddScoped<FeatureDelivery.Domain.IFeatureConfigurationRepository, FeatureConfigurationRepository>();
 
+        services.AddScoped<Servers.Domain.IServerRepository, ServerRepository>();
+        services.AddScoped<Servers.Domain.IAgentRepository, AgentRepository>();
+        services.AddScoped<Servers.Domain.IServerMetricRepository, ServerMetricRepository>();
+        services.AddScoped<Servers.Domain.IAlertRepository, AlertRepository>();
+
         // Both of these are joins between the registry and delivery, which are
         // not allowed to know about each other, so they live here.
         services.AddScoped<IStoreDeliveryReader, StoreDeliveryReader>();
