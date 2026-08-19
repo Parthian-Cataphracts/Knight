@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useCollection } from "@/lib/api/hooks";
+import { useAction, useCollection } from "@/lib/api/hooks";
 import type { Incident } from "@/lib/api/domain";
 import type { IncidentEvent } from "@/lib/api/fixtures-detail";
 import { PageShell, PageHeader, KeyValue, Mono } from "@/components/data/PageShell";
@@ -10,6 +10,7 @@ import { Drawer } from "@/components/data/Drawer";
 import { Timeline } from "@/components/data/Tabs";
 import { StatusChip, type Tone } from "@/components/ui/StatusChip";
 import { Button } from "@/components/ui/Button";
+import { TextField } from "@/components/ui/TextField";
 import { useAuthStore } from "@/store/auth";
 import { formatDateTime, formatRelative } from "@/lib/utils/format";
 
@@ -32,6 +33,26 @@ export function IncidentsPage() {
   const can = useAuthStore((state) => state.can);
   const [selected, setSelected] = useState<Incident | null>(null);
   const timeline = useCollection<IncidentEvent>(`/incidents/${selected?.id ?? "none"}/events`);
+  const [note, setNote] = useState("");
+
+  // Both lists are invalidated: an action changes the incident's status on the
+  // table and appends to the timeline in the drawer, and refetching only one
+  // would leave the other showing the state from a moment ago.
+  const act = useAction<unknown, { id: string; action: string; body?: unknown }>(
+    ({ id, action, body }) => ({ path: `/incidents/${id}/${action}`, options: { body } }),
+    ["/incidents"],
+  );
+
+  const run = (action: string, body?: unknown) => {
+    if (!selected) return;
+
+    act.mutate(
+      { id: selected.id, action, body },
+      {
+        onSuccess: () => setNote(""),
+      },
+    );
+  };
 
   const columns: Column<Incident>[] = [
     { key: "reference", header: t("incidents.reference"), mono: true, render: (row) => row.reference },
@@ -97,12 +118,46 @@ export function IncidentsPage() {
         subtitle={selected ? `${selected.reference} · ${formatDateTime(selected.openedAt)}` : undefined}
         onClose={() => setSelected(null)}
         footer={
-          can("incident.manage") ? (
+          can("incident.manage") && selected ? (
             <>
-              <Button variant="outline" size="sm">
-                {t("incidents.addNote")}
-              </Button>
-              <Button size="sm">{t("incidents.resolve")}</Button>
+              {selected.status === "Resolved" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={act.isPending || note.trim().length === 0}
+                  onClick={() => run("reopen", { reason: note.trim() })}
+                >
+                  {t("incidents.reopen")}
+                </Button>
+              ) : (
+                <>
+                  {selected.status === "Open" ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={act.isPending}
+                      onClick={() => run("acknowledge", { message: note.trim() || undefined })}
+                    >
+                      {t("incidents.acknowledge")}
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={act.isPending || note.trim().length === 0}
+                    onClick={() => run("mitigate", { message: note.trim() })}
+                  >
+                    {t("incidents.mitigate")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={act.isPending}
+                    onClick={() => run("resolve", { rootCause: note.trim() || undefined })}
+                  >
+                    {t("incidents.resolve")}
+                  </Button>
+                </>
+              )}
             </>
           ) : undefined
         }
@@ -130,6 +185,31 @@ export function IncidentsPage() {
                 </KeyValue>
               ) : null}
             </dl>
+
+            {act.isError ? (
+              <p role="alert" className="rounded-md bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+                {act.error.message}
+              </p>
+            ) : null}
+
+            {can("incident.manage") ? (
+              <section className="flex flex-col gap-2">
+                <TextField
+                  label={t("incidents.note")}
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  placeholder={t("incidents.notePlaceholder")}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={act.isPending || note.trim().length === 0}
+                  onClick={() => run("notes", { message: note.trim() })}
+                >
+                  {t("incidents.addNote")}
+                </Button>
+              </section>
+            ) : null}
 
             <section>
               <h3 className="label-caps mb-3 text-on-surface-variant/80">{t("incidents.timeline")}</h3>

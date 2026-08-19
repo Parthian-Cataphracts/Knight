@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { apiRequest, setAccessToken } from "@/lib/api/client";
+import { connectRealtime, disconnectRealtime } from "@/lib/realtime/connection";
 import type { CurrentUser, LoginResponse } from "@/lib/api/types";
 
 interface AuthState {
@@ -22,8 +23,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signIn: (user, accessToken) => {
     setAccessToken(accessToken);
     set({ user, status: "authenticated" });
+
+    // Opened after the token is set, since the hub authenticates with it. A
+    // failure to connect is swallowed inside: nothing on the dashboard depends
+    // on realtime being available.
+    connectRealtime();
   },
   signOut: () => {
+    // Closed before the token is cleared, so the connection ends deliberately
+    // rather than being dropped by the server on the next unauthenticated
+    // reconnect attempt.
+    disconnectRealtime();
     setAccessToken(null);
     set({ user: null, status: "anonymous" });
   },
@@ -37,6 +47,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (session.status === "succeeded" && session.accessToken && session.user) {
         setAccessToken(session.accessToken);
         set({ user: session.user, status: "authenticated" });
+        connectRealtime();
         return;
       }
 

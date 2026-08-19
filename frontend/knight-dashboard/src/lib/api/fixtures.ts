@@ -158,10 +158,10 @@ export const servers: Server[] = [
 ];
 
 export const errorGroups: ErrorGroup[] = [
-  { id: "eg1", storeName: "cafe1.ir", environment: "Production", exceptionType: "IntegrityError", title: "duplicate key value violates unique constraint", endpoint: "/api/orders/", occurrenceCount: 37, status: "New", firstSeenAt: minutesAgo(140), lastSeenAt: minutesAgo(4), firstSeenVersion: "4.2.0" },
-  { id: "eg2", storeName: "cafe2.ir", environment: "Production", exceptionType: "OperationalError", title: "could not connect to server: Connection refused", endpoint: null, occurrenceCount: 12, status: "Acknowledged", firstSeenAt: daysAgo(1), lastSeenAt: minutesAgo(55), firstSeenVersion: "4.1.3" },
-  { id: "eg3", storeName: "parsbakery.ir", environment: "Production", exceptionType: "ValidationError", title: "invalid phone number format", endpoint: "/api/customers/", occurrenceCount: 4, status: "Resolved", firstSeenAt: daysAgo(9), lastSeenAt: daysAgo(6), firstSeenVersion: "4.1.0" },
-  { id: "eg4", storeName: "staging.cafe1.ir", environment: "Staging", exceptionType: "TemplateSyntaxError", title: "Invalid block tag", endpoint: "/menu/", occurrenceCount: 2, status: "Ignored", firstSeenAt: daysAgo(2), lastSeenAt: daysAgo(2), firstSeenVersion: "4.3.0-rc1" },
+  { id: "eg1", storeName: "cafe1.ir", environment: "Production", exceptionType: "IntegrityError", title: "duplicate key value violates unique constraint", endpoint: "/api/orders/", occurrenceCount: 37, status: "New", firstSeenAt: minutesAgo(140), lastSeenAt: minutesAgo(4), firstSeenVersion: "4.2.0" , lastSeenVersion: "4.3.0", isRegression: true, incidentId: null },
+  { id: "eg2", storeName: "cafe2.ir", environment: "Production", exceptionType: "OperationalError", title: "could not connect to server: Connection refused", endpoint: null, occurrenceCount: 12, status: "Acknowledged", firstSeenAt: daysAgo(1), lastSeenAt: minutesAgo(55), firstSeenVersion: "4.1.3" , lastSeenVersion: "4.1.3", isRegression: false, incidentId: "in1" },
+  { id: "eg3", storeName: "parsbakery.ir", environment: "Production", exceptionType: "ValidationError", title: "invalid phone number format", endpoint: "/api/customers/", occurrenceCount: 4, status: "Resolved", firstSeenAt: daysAgo(9), lastSeenAt: daysAgo(6), firstSeenVersion: "4.1.0" , lastSeenVersion: "4.1.0", isRegression: false, incidentId: null },
+  { id: "eg4", storeName: "staging.cafe1.ir", environment: "Staging", exceptionType: "TemplateSyntaxError", title: "Invalid block tag", endpoint: "/menu/", occurrenceCount: 2, status: "Ignored", firstSeenAt: daysAgo(2), lastSeenAt: daysAgo(2), firstSeenVersion: "4.3.0-rc1" , lastSeenVersion: "4.3.0-rc1", isRegression: false, incidentId: null },
 ];
 
 export const incidents: Incident[] = [

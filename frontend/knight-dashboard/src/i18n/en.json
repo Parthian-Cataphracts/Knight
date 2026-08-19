@@ -348,7 +348,9 @@
     "ignore": "Ignore",
     "resolve": "Resolve",
     "samples": "Event samples",
-    "noSamples": "No samples recorded."
+    "noSamples": "No samples recorded.",
+    "acknowledge": "Acknowledge",
+    "regression": "Regression"
   },
   "errorStatus": {
     "New": "New",
@@ -367,7 +369,12 @@
     "timeline": "Timeline",
     "noEvents": "No events recorded.",
     "addNote": "Add note",
-    "resolve": "Resolve"
+    "resolve": "Resolve",
+    "acknowledge": "Investigate",
+    "mitigate": "Mitigate",
+    "reopen": "Reopen",
+    "note": "Note",
+    "notePlaceholder": "What did you find, or what did you do?"
   },
   "incidentStatus": {
     "Open": "Open",
@@ -611,5 +618,12 @@
     "irreversibleWarning": "This version's migration is irreversible; automatic rollback will not be possible if it fails.",
     "typeToConfirm": "Type {{name}} to confirm:",
     "confirm": "Start installation"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "Nothing to report.",
+    "markRead": "Mark as read",
+    "unread": "Unread",
+    "open": "Open notifications"
   }
 }
