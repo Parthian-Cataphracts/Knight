@@ -54,7 +54,8 @@
     "enable": "Enable",
     "disable": "Disable",
     "save": "Save",
-    "name": "Name"
+    "name": "Name",
+    "add": "Add"
   },
   "auth": {
     "title": "Sign in to Knight",
@@ -122,7 +123,9 @@
     "stores": "Stores",
     "createdAt": "Created",
     "create": "New customer",
-    "suspend": "Suspend"
+    "suspend": "Suspend",
+    "activate": "Activate",
+    "archive": "Archive"
   },
   "customerStatus": {
     "Active": "Active",
@@ -165,7 +168,10 @@
     "rotate": "Rotate secret",
     "issueCredentials": "Issue credentials",
     "installedFeatures": "Installed features",
-    "suspend": "Suspend store"
+    "suspend": "Suspend store",
+    "activate": "Activate",
+    "archive": "Archive",
+    "secretShownOnce": "This secret is shown once and never again. Copy it now."
   },
   "features": {
     "subtitle": "Central registry of versioned, deployable features.",
@@ -219,7 +225,9 @@
     "installedVersion": "Installed version",
     "desiredVersion": "Target version",
     "health": "Health",
-    "manualIntervention": "Automatic rollback stopped; manual intervention required."
+    "manualIntervention": "Automatic rollback stopped; manual intervention required.",
+    "upgrade": "Upgrade",
+    "enable": "Enable"
   },
   "installationState": {
     "NotInstalled": "Not installed",
@@ -380,7 +388,9 @@
     "mitigate": "Mitigate",
     "reopen": "Reopen",
     "note": "Note",
-    "notePlaceholder": "What did you find, or what did you do?"
+    "notePlaceholder": "What did you find, or what did you do?",
+    "open": "Open incident",
+    "summary": "Summary"
   },
   "incidentStatus": {
     "Open": "Open",
@@ -485,7 +495,13 @@
     "tile_critical": "Critical",
     "tile_warning": "Warning",
     "tile_info": "Info",
-    "tile_resolved": "Resolved"
+    "tile_resolved": "Resolved",
+    "occurrences": "Occurrences",
+    "lastObserved": "Last observed",
+    "acknowledgedAt": "Acknowledged",
+    "resolvedAt": "Resolved",
+    "resolve": "Resolve",
+    "noneOpen": "No alerts."
   },
   "alertStatus": {
     "Open": "Open",
@@ -507,7 +523,9 @@
     "tls": "TLS expiry",
     "add": "Add domain",
     "none": "No domains registered.",
-    "verifiedAt": "Verified"
+    "verifiedAt": "Verified",
+    "startVerification": "Start verification",
+    "verify": "Verify now"
   },
   "domainType": {
     "Primary": "Primary",
@@ -655,5 +673,10 @@
     "lastDelivered": "Last delivered",
     "consecutiveFailures": "Consecutive failures",
     "disabledReason": "Why it is off"
+  },
+  "alertState": {
+    "open": "Open",
+    "acknowledged": "Acknowledged",
+    "resolved": "Resolved"
   }
 }

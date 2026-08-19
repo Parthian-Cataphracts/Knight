@@ -1,18 +1,38 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, Info, AlertOctagon, CheckCheck } from "lucide-react";
-import { useCollection } from "@/lib/api/hooks";
-import type { Alert } from "@/lib/api/fixtures-detail";
+import { useAction, useCollection } from "@/lib/api/hooks";
 import { PageShell, PageHeader, Toolbar, FilterTabs, KeyValue, Mono } from "@/components/data/PageShell";
 import { CollectionCard } from "@/components/data/CollectionCard";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { Drawer } from "@/components/data/Drawer";
-import { AreaChart } from "@/components/data/Sparkline";
-import { Card } from "@/components/ui/Card";
 import { StatusChip, type Tone } from "@/components/ui/StatusChip";
 import { Button } from "@/components/ui/Button";
 import { useAuthStore } from "@/store/auth";
 import { formatDateTime, formatNumber, formatRelative } from "@/lib/utils/format";
+
+/**
+ * An alert as the control plane actually records it.
+ *
+ * The shape matters. There is no per-occurrence row and no assignee: an alert
+ * is deduplicated by rule and source, so a server that has been offline for six
+ * hours is one row carrying a count and a duration — which is the fact an
+ * operator needs — rather than seven hundred rows burying it.
+ */
+interface Alert {
+  id: string;
+  source: string;
+  sourceId: string;
+  customerId: string | null;
+  severity: "Critical" | "Warning" | "Info";
+  ruleKey: string;
+  message: string;
+  raisedAt: string;
+  resolvedAt: string | null;
+  acknowledgedAt: string | null;
+  occurrenceCount: number;
+  lastObservedAt: string;
+  isOpen: boolean;
+}
 
 const severityTone: Record<Alert["severity"], Tone> = {
   Critical: "danger",
@@ -20,46 +40,59 @@ const severityTone: Record<Alert["severity"], Tone> = {
   Info: "info",
 };
 
-const statusTone: Record<Alert["status"], Tone> = {
-  Open: "danger",
-  Investigating: "warning",
-  Acknowledged: "info",
-  Resolved: "success",
+const stateTone: Record<string, Tone> = {
+  open: "danger",
+  acknowledged: "warning",
+  resolved: "success",
 };
 
-type Filter = "all" | Alert["severity"];
+type Filter = "open" | "Critical" | "Warning" | "resolved";
+
+/**
+ * Acknowledged and resolved are different claims, and the screen keeps them
+ * apart: acknowledging says somebody is looking, resolving says the condition
+ * has cleared. Only the second closes the row.
+ */
+function stateOf(alert: Alert): string {
+  return !alert.isOpen ? "resolved" : alert.acknowledgedAt ? "acknowledged" : "open";
+}
 
 export function AlertsPage() {
   const { t } = useTranslation();
-  const query = useCollection<Alert>("/monitoring/alerts");
+
+  // Resolved alerts are fetched alongside the open ones so the filter can move
+  // between them without a second round trip, and so "when did it clear?" is
+  // answerable on the screen that showed it broken.
+  const query = useCollection<Alert>("/monitoring/alerts?openOnly=false&pageSize=100");
   const can = useAuthStore((state) => state.can);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("open");
   const [selected, setSelected] = useState<Alert | null>(null);
 
-  const all = query.data ?? [];
-  const rows = all.filter((alert) => filter === "all" || alert.severity === filter);
-  const count = (severity: Alert["severity"]) => all.filter((a) => a.severity === severity).length;
+  const act = useAction<unknown, { id: string; action: "acknowledge" | "resolve" }>(
+    ({ id, action }) => ({ path: `/monitoring/alerts/${id}/${action}` }),
+    ["/monitoring/alerts"],
+  );
 
-  const tiles = [
-    { key: "critical", icon: AlertOctagon, tone: "danger" as Tone, value: count("Critical") },
-    { key: "warning", icon: AlertTriangle, tone: "warning" as Tone, value: count("Warning") },
-    { key: "info", icon: Info, tone: "info" as Tone, value: count("Info") },
-    {
-      key: "resolved",
-      icon: CheckCheck,
-      tone: "success" as Tone,
-      value: all.filter((a) => a.status === "Resolved").length,
-    },
-  ];
+  const all = query.data ?? [];
+
+  const rows = all.filter((alert) => {
+    if (filter === "open") return alert.isOpen;
+    if (filter === "resolved") return !alert.isOpen;
+    return alert.isOpen && alert.severity === filter;
+  });
+
+  const count = (predicate: (alert: Alert) => boolean) => all.filter(predicate).length;
 
   const columns: Column<Alert>[] = [
     {
-      key: "title",
-      header: t("alerts.title"),
+      key: "rule",
+      header: t("alerts.rule"),
       render: (row) => (
         <span className="flex flex-col">
-          <span className="text-on-surface">{row.title}</span>
-          <Mono>{row.reference}</Mono>
+          <span dir="ltr" className="font-mono text-body-sm text-on-surface">
+            {row.ruleKey}
+          </span>
+          <span className="line-clamp-1 text-body-sm text-on-surface-variant">{row.message}</span>
         </span>
       ),
     },
@@ -67,47 +100,31 @@ export function AlertsPage() {
       key: "severity",
       header: t("alerts.severity"),
       render: (row) => (
-        <StatusChip tone={severityTone[row.severity]}>{t(`severity.${row.severity.toLowerCase()}`)}</StatusChip>
+        <StatusChip tone={severityTone[row.severity]}>
+          {t(`severity.${row.severity.toLowerCase()}`)}
+        </StatusChip>
       ),
     },
     { key: "source", header: t("alerts.source"), mono: true, render: (row) => row.source },
-    { key: "scope", header: t("alerts.scope"), render: (row) => row.scope },
-    { key: "rule", header: t("alerts.rule"), mono: true, secondary: true, render: (row) => row.ruleKey },
+    {
+      key: "count",
+      header: t("alerts.occurrences"),
+      numeric: true,
+      render: (row) => formatNumber(row.occurrenceCount),
+    },
     {
       key: "status",
       header: t("common.status"),
       render: (row) => (
-        <StatusChip tone={statusTone[row.status]}>{t(`alertStatus.${row.status}`)}</StatusChip>
+        <StatusChip tone={stateTone[stateOf(row)]!}>{t(`alertState.${stateOf(row)}`)}</StatusChip>
       ),
     },
     { key: "raised", header: t("alerts.raisedAt"), render: (row) => formatRelative(row.raisedAt) },
-    {
-      key: "assignee",
-      header: t("alerts.assignee"),
-      secondary: true,
-      render: (row) => row.assignee ?? "—",
-    },
   ];
 
   return (
     <PageShell>
       <PageHeader title={t("nav.alerts")} subtitle={t("alerts.subtitle")} />
-
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        {tiles.map((tile) => (
-          <Card key={tile.key} className="flex items-center justify-between gap-3 p-4">
-            <div>
-              <p className="text-body-sm text-on-surface-variant">{t(`alerts.tile_${tile.key}`)}</p>
-              <p className="mt-1 text-headline font-semibold text-on-surface">
-                {formatNumber(tile.value)}
-              </p>
-            </div>
-            <StatusChip tone={tile.tone}>
-              <tile.icon className="size-4" aria-hidden />
-            </StatusChip>
-          </Card>
-        ))}
-      </div>
 
       <CollectionCard
         query={query}
@@ -117,10 +134,18 @@ export function AlertsPage() {
               value={filter}
               onChange={setFilter}
               options={[
-                { value: "all", label: t("common.all"), count: all.length },
-                { value: "Critical", label: t("severity.critical"), count: count("Critical") },
-                { value: "Warning", label: t("severity.warning"), count: count("Warning") },
-                { value: "Info", label: t("severity.info"), count: count("Info") },
+                { value: "open", label: t("alertState.open"), count: count((a) => a.isOpen) },
+                {
+                  value: "Critical",
+                  label: t("severity.critical"),
+                  count: count((a) => a.isOpen && a.severity === "Critical"),
+                },
+                {
+                  value: "Warning",
+                  label: t("severity.warning"),
+                  count: count((a) => a.isOpen && a.severity === "Warning"),
+                },
+                { value: "resolved", label: t("alertState.resolved"), count: count((a) => !a.isOpen) },
               ]}
             />
           </Toolbar>
@@ -132,41 +157,60 @@ export function AlertsPage() {
             rows={rows}
             rowKey={(row) => row.id}
             onRowClick={setSelected}
-            cardTitle={(row) => row.title}
-            emptyMessage={t("common.noResults")}
+            cardTitle={(row) => (
+              <span dir="ltr" className="font-mono">
+                {row.ruleKey}
+              </span>
+            )}
+            emptyMessage={t("alerts.noneOpen")}
           />
         )}
       </CollectionCard>
 
       <Drawer
         open={selected !== null}
-        title={selected?.title ?? ""}
-        subtitle={selected ? `${selected.reference} · ${formatDateTime(selected.raisedAt)}` : undefined}
+        title={selected?.ruleKey ?? ""}
+        subtitle={selected ? formatDateTime(selected.raisedAt) : undefined}
         onClose={() => setSelected(null)}
         footer={
-          can("incident.manage") ? (
+          can("server.manage") && selected?.isOpen ? (
             <>
-              <Button variant="outline" size="sm">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={act.isPending || selected.acknowledgedAt !== null}
+                onClick={() => act.mutate({ id: selected.id, action: "acknowledge" })}
+              >
                 {t("alerts.acknowledge")}
               </Button>
-              <Button size="sm">{t("alerts.assignToMe")}</Button>
+              <Button
+                size="sm"
+                disabled={act.isPending}
+                onClick={() =>
+                  act.mutate(
+                    { id: selected.id, action: "resolve" },
+                    { onSuccess: () => setSelected(null) },
+                  )
+                }
+              >
+                {t("alerts.resolve")}
+              </Button>
             </>
           ) : undefined
         }
       >
         {selected ? (
           <div className="flex flex-col gap-5">
-            <p className="text-body-sm text-on-surface-variant">{selected.detail}</p>
-
-            {selected.series ? (
-              <AreaChart
-                series={selected.series}
-                threshold={selected.threshold}
-                label={t("alerts.metricTrend")}
-                tone={selected.severity === "Critical" ? "danger" : "warning"}
-                unit={selected.metricKey?.endsWith("ms") ? "ms" : undefined}
-              />
+            {act.isError ? (
+              <p
+                role="alert"
+                className="rounded-md bg-error-container px-3 py-2 text-body-sm text-on-error-container"
+              >
+                {act.error.message}
+              </p>
             ) : null}
+
+            <p className="text-body-sm text-on-surface">{selected.message}</p>
 
             <dl className="divide-y divide-outline-variant">
               <KeyValue label={t("alerts.severity")}>
@@ -175,39 +219,33 @@ export function AlertsPage() {
                 </StatusChip>
               </KeyValue>
               <KeyValue label={t("common.status")}>
-                <StatusChip tone={statusTone[selected.status]}>
-                  {t(`alertStatus.${selected.status}`)}
+                <StatusChip tone={stateTone[stateOf(selected)]!}>
+                  {t(`alertState.${stateOf(selected)}`)}
                 </StatusChip>
               </KeyValue>
-              <KeyValue label={t("alerts.rule")}>
-                <Mono>{selected.ruleKey}</Mono>
-              </KeyValue>
               <KeyValue label={t("alerts.source")}>
-                <Mono>{selected.source}</Mono>
+                <Mono>
+                  {selected.source} · {selected.sourceId}
+                </Mono>
               </KeyValue>
-              <KeyValue label={t("alerts.scope")}>{selected.scope}</KeyValue>
-              <KeyValue label={t("stores.environment")}>
-                {t(`environment.${selected.environment}`)}
+              <KeyValue label={t("alerts.occurrences")}>{formatNumber(selected.occurrenceCount)}</KeyValue>
+              <KeyValue label={t("alerts.raisedAt")}>
+                <Mono>{formatDateTime(selected.raisedAt)}</Mono>
               </KeyValue>
-              {selected.metricKey ? (
-                <KeyValue label={t("alerts.metric")}>
-                  <Mono>{selected.metricKey}</Mono>
+              <KeyValue label={t("alerts.lastObserved")}>
+                <Mono>{formatDateTime(selected.lastObservedAt)}</Mono>
+              </KeyValue>
+              {selected.acknowledgedAt ? (
+                <KeyValue label={t("alerts.acknowledgedAt")}>
+                  <Mono>{formatDateTime(selected.acknowledgedAt)}</Mono>
                 </KeyValue>
               ) : null}
-              <KeyValue label={t("alerts.assignee")}>{selected.assignee ?? "—"}</KeyValue>
+              {selected.resolvedAt ? (
+                <KeyValue label={t("alerts.resolvedAt")}>
+                  <Mono>{formatDateTime(selected.resolvedAt)}</Mono>
+                </KeyValue>
+              ) : null}
             </dl>
-
-            {selected.logTail.length > 0 ? (
-              <section>
-                <h3 className="label-caps mb-2 text-on-surface-variant/80">{t("alerts.logTail")}</h3>
-                <pre
-                  dir="ltr"
-                  className="overflow-x-auto rounded-md bg-surface-lowest p-3 font-mono text-code text-on-surface-variant"
-                >
-                  {selected.logTail.join("\n")}
-                </pre>
-              </section>
-            ) : null}
           </div>
         ) : null}
       </Drawer>

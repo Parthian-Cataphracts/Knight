@@ -2,13 +2,15 @@ import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, Ban, ExternalLink, Plus } from "lucide-react";
-import { useCollection } from "@/lib/api/hooks";
+import { apiRequest } from "@/lib/api/client";
+import { useAction, useCollection } from "@/lib/api/hooks";
 import type { AdminUser, Customer, Installation, Invoice, Store, Subscription } from "@/lib/api/domain";
 import type { ActivityEntry, CustomerNote } from "@/lib/api/fixtures-detail";
 import { PageShell, PageHeader, KeyValue, Mono } from "@/components/data/PageShell";
 import { CollectionCard } from "@/components/data/CollectionCard";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { Tabs, Timeline } from "@/components/data/Tabs";
+import { TextField } from "@/components/ui/TextField";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { StatusChip, type Tone } from "@/components/ui/StatusChip";
 import { Button } from "@/components/ui/Button";
@@ -31,6 +33,34 @@ export function CustomerDetailPage() {
   const navigate = useNavigate();
   const { customerId = "" } = useParams();
   const can = useAuthStore((state) => state.can);
+
+  // Lifecycle transitions are separate endpoints rather than a status field on
+  // a PATCH, because each one has its own rules — archiving refuses while
+  // stores are live, suspending cascades to them — and a generic "set status"
+  // would have to re-implement all of it in the client.
+  const lifecycle = useAction<unknown, "activate" | "suspend" | "archive">(
+    (action) => ({ path: `/customers/${customerId}/${action}` }),
+    ["/customers"],
+  );
+
+  const [noteBody, setNoteBody] = useState("");
+  const [noteError, setNoteError] = useState<string | null>(null);
+
+  const addNote = async () => {
+    setNoteError(null);
+
+    try {
+      await apiRequest(`/customers/${customerId}/notes`, {
+        method: "POST",
+        body: { body: noteBody.trim() },
+      });
+
+      setNoteBody("");
+      void notes.refetch();
+    } catch (caught) {
+      setNoteError(caught instanceof Error ? caught.message : String(caught));
+    }
+  };
   const [tab, setTab] = useState<Tab>("overview");
 
   const customers = useCollection<Customer>("/customers");
@@ -179,11 +209,37 @@ export function CustomerDetailPage() {
         actions={
           can("customer.update") ? (
             <>
-              <Button variant="outline" size="sm">
-                <Ban className="size-4" aria-hidden />
-                {t("customers.suspend")}
-              </Button>
-              <Button size="sm">{t("common.edit")}</Button>
+              {customer.status === "Suspended" || customer.status === "Prospect" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={lifecycle.isPending}
+                  onClick={() => lifecycle.mutate("activate")}
+                >
+                  {t("customers.activate")}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={lifecycle.isPending}
+                  onClick={() => lifecycle.mutate("suspend")}
+                >
+                  <Ban className="size-4" aria-hidden />
+                  {t("customers.suspend")}
+                </Button>
+              )}
+
+              {can("customer.archive") && customer.status !== "Archived" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={lifecycle.isPending}
+                  onClick={() => lifecycle.mutate("archive")}
+                >
+                  {t("customers.archive")}
+                </Button>
+              ) : null}
             </>
           ) : undefined
         }
@@ -259,14 +315,31 @@ export function CustomerDetailPage() {
               title={t("customerDetail.notes")}
               action={
                 can("customer.update") ? (
-                  <Button variant="outline" size="sm">
-                    <Plus className="size-4" aria-hidden />
-                    {t("customerDetail.addNote")}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <TextField
+                      label={t("customerDetail.addNote")}
+                      value={noteBody}
+                      onChange={(event) => setNoteBody(event.target.value)}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={noteBody.trim().length === 0}
+                      onClick={() => void addNote()}
+                    >
+                      <Plus className="size-4" aria-hidden />
+                      {t("common.add")}
+                    </Button>
+                  </div>
                 ) : undefined
               }
             />
             <CardBody>
+              {noteError ? (
+                <p role="alert" className="mb-3 rounded-md bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+                  {noteError}
+                </p>
+              ) : null}
               {(notes.data ?? []).length === 0 ? (
                 <p className="text-body-sm text-on-surface-variant">{t("customerDetail.noNotes")}</p>
               ) : (

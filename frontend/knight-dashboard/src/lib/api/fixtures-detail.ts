@@ -1,4 +1,3 @@
-import type { Environment } from "./types";
 import { minutesAgo } from "./fixtures";
 
 /** Detail-level fixtures: alerts, per-customer and per-store views, series data. */
@@ -9,75 +8,41 @@ const daysAhead = (d: number): string => new Date(now + d * 86_400_000).toISOStr
 
 export interface Alert {
   id: string;
-  reference: string;
-  severity: "Critical" | "Warning" | "Info";
-  title: string;
-  detail: string;
   source: string;
-  scope: string;
-  environment: Environment;
+  sourceId: string;
+  customerId: string | null;
+  severity: "Critical" | "Warning" | "Info";
   ruleKey: string;
-  metricKey: string | null;
-  threshold: number | null;
-  series: number[] | null;
-  status: "Open" | "Investigating" | "Acknowledged" | "Resolved";
-  assignee: string | null;
+  message: string;
   raisedAt: string;
-  logTail: string[];
+  resolvedAt: string | null;
+  acknowledgedAt: string | null;
+  occurrenceCount: number;
+  lastObservedAt: string;
+  isOpen: boolean;
 }
 
 export const alerts: Alert[] = [
   {
-    id: "al1", reference: "ALT-8492", severity: "Critical",
-    title: "نصب قابلیت روی فروشگاه ناموفق ماند",
-    detail: "مهاجرت ۰۰۰۳ برگشت‌ناپذیر بود و بازگردانی خودکار متوقف شد.",
-    source: "knight-delivery", scope: "cafe1.ir", environment: "Production",
-    ruleKey: "feature.install.failed", metricKey: null, threshold: null, series: null,
-    status: "Open", assignee: null, raisedAt: minutesAgo(12),
-    logTail: [
-      "migrate: applying 0003_add_report_partition",
-      'ProgrammingError: relation "analytics_report" already exists',
-      "rollback: migration is not reversible; stopping",
-    ],
+    id: "al1", source: "Server", sourceId: "sv1", customerId: null, severity: "Critical",
+    ruleKey: "server.offline", message: "web-01 has not reported for 12 minutes.",
+    raisedAt: minutesAgo(12), resolvedAt: null, acknowledgedAt: null,
+    occurrenceCount: 12, lastObservedAt: minutesAgo(1), isOpen: true,
   },
   {
-    id: "al2", reference: "ALT-8491", severity: "Warning",
-    title: "تأخیر پاسخ Redis از آستانه گذشت",
-    detail: "میانگین زمان پاسخ در ۱۵ دقیقه گذشته بالای ۱۰۰ میلی‌ثانیه مانده است.",
-    source: "prod-shared-01", scope: "زیرساخت مشترک", environment: "Production",
-    ruleKey: "service.latency", metricKey: "redis.latency.ms", threshold: 100,
-    series: [38, 42, 51, 64, 88, 96, 121, 145, 138, 152, 149, 145],
-    status: "Investigating", assignee: "تیم زیرساخت", raisedAt: minutesAgo(48),
-    logTail: ["redis: slowlog entries increased", "worker: queue backlog 1200"],
+    id: "al2", source: "FeatureInstallation", sourceId: "fi1", customerId: "c1", severity: "Warning",
+    ruleKey: "feature.entitled_not_installed",
+    message: "cafe2.ir is entitled to analytics-reports but it is not installed.",
+    raisedAt: minutesAgo(180), resolvedAt: null, acknowledgedAt: minutesAgo(60),
+    occurrenceCount: 3, lastObservedAt: minutesAgo(2), isOpen: true,
   },
   {
-    id: "al3", reference: "ALT-8490", severity: "Warning",
-    title: "قابلیت خریداری‌شده نصب نشده است",
-    detail: "بیش از ۲۴ ساعت از فعال‌سازی اشتراک گذشته و نصب انجام نشده.",
-    source: "knight-delivery", scope: "cafe2.ir", environment: "Production",
-    ruleKey: "feature.entitled_not_installed", metricKey: null, threshold: null, series: null,
-    status: "Open", assignee: null, raisedAt: minutesAgo(180), logTail: [],
-  },
-  {
-    id: "al4", reference: "ALT-8489", severity: "Critical",
-    title: "سرور مشتری‌محور از دسترس خارج شد",
-    detail: "سه ضربان پیاپی از ایجنت دریافت نشد.",
-    source: "legacy-alborz", scope: "alborz.ir", environment: "Production",
-    ruleKey: "server.offline", metricKey: "agent.heartbeat.age", threshold: 180,
-    series: [30, 45, 60, 90, 130, 190, 240, 300, 360, 420, 480, 540],
-    status: "Acknowledged", assignee: "تیم پشتیبانی", raisedAt: daysAgo(6), logTail: [],
-  },
-  {
-    id: "al5", reference: "ALT-8488", severity: "Info",
-    title: "پشتیبان‌گیری روزانه با موفقیت انجام شد",
-    detail: "حجم ۲.۱ گیگابایت روی استوریج ثبت شد.",
-    source: "backup-job-42", scope: "parsbakery.ir", environment: "Production",
-    ruleKey: "backup.completed", metricKey: null, threshold: null, series: null,
-    status: "Resolved", assignee: "خودکار", raisedAt: daysAgo(1), logTail: [],
+    id: "al3", source: "Store", sourceId: "s2", customerId: "c2", severity: "Warning",
+    ruleKey: "store.unreachable", message: "parsbakery.ir did not answer its health probe.",
+    raisedAt: minutesAgo(600), resolvedAt: minutesAgo(540), acknowledgedAt: minutesAgo(580),
+    occurrenceCount: 6, lastObservedAt: minutesAgo(541), isOpen: false,
   },
 ];
-
-// --- Store detail ------------------------------------------------------------
 
 export interface StoreDomain {
   id: string;
