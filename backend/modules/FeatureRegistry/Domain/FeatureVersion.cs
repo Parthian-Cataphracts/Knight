@@ -1,5 +1,6 @@
 using Knight.Domain.Common;
 using Knight.Domain.Exceptions;
+using Knight.Domain.Versioning;
 
 namespace FeatureRegistry.Domain;
 

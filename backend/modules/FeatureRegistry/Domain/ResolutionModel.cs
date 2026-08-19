@@ -1,3 +1,4 @@
+using Knight.Domain.Versioning;
 namespace FeatureRegistry.Domain;
 
 /// <summary>

@@ -1,4 +1,4 @@
-using FeatureRegistry.Domain;
+using Knight.Domain.Versioning;
 using Xunit;
 
 namespace Knight.UnitTests.ControlPlane;

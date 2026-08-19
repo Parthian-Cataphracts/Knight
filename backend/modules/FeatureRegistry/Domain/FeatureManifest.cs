@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Knight.Domain.Versioning;
 
 namespace FeatureRegistry.Domain;
 

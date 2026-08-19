@@ -1,6 +1,6 @@
 using Knight.Domain.Exceptions;
 
-namespace FeatureRegistry.Domain;
+namespace Knight.Domain.Versioning;
 
 /// <summary>
 /// A constraint on a version, as written in a manifest: <c>"&gt;=4.0.0,&lt;6.0.0"</c>.

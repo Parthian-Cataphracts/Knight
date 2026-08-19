@@ -1,5 +1,5 @@
-using FeatureRegistry.Domain;
 using Knight.Domain.Exceptions;
+using Knight.Domain.Versioning;
 using Xunit;
 
 namespace Knight.UnitTests.ControlPlane;

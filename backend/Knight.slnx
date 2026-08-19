@@ -14,6 +14,7 @@
     <Project Path="modules/Ordering/Ordering.csproj" />
     <Project Path="modules/Payment/Payment.csproj" />
     <Project Path="modules/Promotions/Promotions.csproj" />
+    <Project Path="modules/FeatureDelivery/FeatureDelivery.csproj" />
     <Project Path="modules/FeatureRegistry/FeatureRegistry.csproj" />
     <Project Path="modules/Plans/Plans.csproj" />
     <Project Path="modules/Subscriptions/Subscriptions.csproj" />
