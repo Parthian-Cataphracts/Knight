@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-19** (revision 9 — phase 3.5 registry and delivery core)
+Last updated: **2026-08-19** (revision 10 — phase 3.5 services and endpoints)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -13,7 +13,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 |---|---|
 | **Current phase** | **Phase 3.5 — Feature registry & delivery (in progress)** |
 | **Next phase** | Phase 4 — Servers, agents, monitoring |
-| **Overall progress** | ~60% (the registry's deployable half, the dependency resolver and the delivery state machine exist and are tested against a real database; the publish pipeline, the endpoints and the store-side installer do not yet) |
+| **Overall progress** | ~65% (KNIGHT's side of delivery is complete and runs: publish, resolve, queue, and the agent job channel. The store-side installer and the reference feature packages are the remaining half) |
 | **Blocking decisions** | 7 open questions in [`docs/risks.md`](docs/risks.md) §3 — R14, R21 and questions 8–10 now resolved |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -27,7 +27,7 @@ Phase 0    Discovery & architecture       ██████████ 100%
 Phase 1    Control-plane core             ██████████ 100%
 Phase 2    Plans, subscriptions, entitlements ██████ 100%
 Phase 3    Store integration              ██████████ 100%
-Phase 3.5  Feature registry & delivery    ███░░░░░░░  30%   ← in progress
+Phase 3.5  Feature registry & delivery    ██████░░░░  55%   ← in progress
 Phase 4    Servers, agents, monitoring    ░░░░░░░░░░   0%
 Phase 5    Errors & incidents             ░░░░░░░░░░   0%
 Phase 6    Frontend dashboard             █████████░  92%
@@ -202,27 +202,29 @@ uninstalled — with no manual per-store work at any point.
 ### Registry (KNIGHT)
 - [x] `FeatureRegistry` module: `Feature`, `FeatureVersion`, immutability, publish/yank
 - [x] Manifest model and error-collecting validator (reports every bad field at once, not the first)
-- [ ] `POST /api/v1/features/manifest/validate` endpoint over that validator
+- [x] `POST /api/v1/features/manifest/validate` endpoint over that validator
 - [x] Artifact digest + signature recorded on the version; publish refuses unsigned artifacts
 - [x] `FeatureDependency` persistence, denormalised from the manifest at publish
 - [x] Dependency resolver: constraint fixpoint, topological plan, cycle detection
 - [x] Compatibility checker: store version, python, django, hosting model, conflicts, downgrade refusal
-- [ ] Dry-run endpoint returning the resolved plan and verdict
-- [ ] Registry endpoints + audit for publish/yank
-- [ ] Registry service and repositories over the aggregates
+- [x] Dry-run endpoint returning the resolved plan and verdict (`POST /api/v1/installations/plan`)
+- [x] Registry endpoints + audit for publish/yank, including revoking a whole signing key
+- [x] Registry service and repositories over the aggregates
 
 ### Delivery engine (KNIGHT)
 - [x] `FeatureDelivery` module: `FeatureInstallation` aggregate with the full state machine
 - [x] Illegal-transition rejection in the aggregate (unit-tested exhaustively)
 - [x] `FeatureInstallationJob` + `JobStepResult`, idempotent step reporting, one active job per store
 - [x] Claiming, claim expiry, bounded retry, cancellation — in the aggregate
-- [ ] The queue itself: repositories, the claim query, and the timeout sweep
-- [ ] Entitlement events → automatic install/disable jobs
+- [x] The queue itself: repositories, the claim query, and the timeout sweep
+- [x] Entitlement events → automatic enable/disable jobs
 - [x] `FeatureConfiguration` with encrypted secret values and drift detection
 - [ ] Configuration JSON Schema validation against the manifest
-- [ ] Rollback orchestration incl. `ManualInterventionRequired` outcome
+- [x] Rollback orchestration incl. `ManualInterventionRequired` outcome
 - [ ] Reconciliation job + `feature.drift` detection
-- [ ] Endpoints: install/upgrade/enable/disable/uninstall/rollback/configuration/plan, `/jobs/*`
+- [x] Endpoints: install/upgrade/enable/disable/uninstall/rollback/configuration/plan, `/jobs/*`
+- [x] Agent job channel: claim, report a step, report an outcome (outbound-only)
+- [ ] A hosted service running the claim-expiry sweep on a timer
 - [ ] SignalR: `jobProgress`, `jobCompleted`, `featureInstallationStateChanged`
 
 ### Package pipeline
@@ -231,7 +233,7 @@ uninstalled — with no manual per-store work at any point.
 - [ ] Build + sign + publish pipeline to the private package registry
 - [x] Registry implementation chosen: object storage with KNIGHT as the index (`risks.md` §3 Q8)
 - [x] Signing key custody chosen: Ed25519 behind `ISigner`, file-backed now, KMS-ready (Q9, R21)
-- [ ] Implement the signer, the artifact store and the signed-URL fetch
+- [x] Signer, artifact store and expiring download URLs (ECDSA P-256; .NET 10 ships no Ed25519)
 - [ ] Reference Feature: one real capability, one model, one migration, a health check, tests
 - [ ] A second Feature depending on the first, to exercise dependency resolution
 
