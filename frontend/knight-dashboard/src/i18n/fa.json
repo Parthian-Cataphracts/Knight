@@ -54,7 +54,8 @@
     "enable": "فعال‌سازی",
     "disable": "غیرفعال‌سازی",
     "save": "ذخیره",
-    "name": "نام"
+    "name": "نام",
+    "add": "افزودن"
   },
   "auth": {
     "title": "ورود به پنل مدیریت",
@@ -122,7 +123,9 @@
     "stores": "فروشگاه‌ها",
     "createdAt": "تاریخ ایجاد",
     "create": "مشتری جدید",
-    "suspend": "تعلیق"
+    "suspend": "تعلیق",
+    "activate": "فعال‌سازی",
+    "archive": "بایگانی"
   },
   "customerStatus": {
     "Active": "فعال",
@@ -165,7 +168,10 @@
     "rotate": "چرخش کلید",
     "issueCredentials": "صدور اعتبارنامه",
     "installedFeatures": "قابلیت‌های نصب‌شده",
-    "suspend": "تعلیق فروشگاه"
+    "suspend": "تعلیق فروشگاه",
+    "activate": "فعال‌سازی",
+    "archive": "بایگانی",
+    "secretShownOnce": "این کلید فقط یک بار نمایش داده می‌شود. همین حالا کپی کنید."
   },
   "features": {
     "subtitle": "مخزن مرکزی قابلیت‌های نسخه‌دار و قابل نصب.",
@@ -219,7 +225,9 @@
     "installedVersion": "نسخه نصب‌شده",
     "desiredVersion": "نسخه هدف",
     "health": "سلامت",
-    "manualIntervention": "بازگردانی خودکار ممکن نشد؛ نیاز به بررسی دستی دارد."
+    "manualIntervention": "بازگردانی خودکار ممکن نشد؛ نیاز به بررسی دستی دارد.",
+    "upgrade": "ارتقا",
+    "enable": "فعال‌سازی"
   },
   "installationState": {
     "NotInstalled": "نصب‌نشده",
@@ -380,7 +388,9 @@
     "mitigate": "مهار شد",
     "reopen": "بازگشایی",
     "note": "یادداشت",
-    "notePlaceholder": "چه چیزی پیدا کردید یا چه کاری انجام دادید؟"
+    "notePlaceholder": "چه چیزی پیدا کردید یا چه کاری انجام دادید؟",
+    "open": "ثبت رخداد",
+    "summary": "خلاصه"
   },
   "incidentStatus": {
     "Open": "باز",
@@ -475,7 +485,7 @@
     "source": "منبع",
     "scope": "دامنه",
     "rule": "قاعده",
-    "raisedAt": "زمان",
+    "raisedAt": "زمان ثبت",
     "assignee": "مسئول",
     "metric": "متریک",
     "metricTrend": "روند متریک",
@@ -485,7 +495,13 @@
     "tile_critical": "بحرانی",
     "tile_warning": "هشدار",
     "tile_info": "اطلاع",
-    "tile_resolved": "برطرف‌شده"
+    "tile_resolved": "برطرف‌شده",
+    "occurrences": "تکرار",
+    "lastObserved": "آخرین مشاهده",
+    "acknowledgedAt": "زمان بررسی",
+    "resolvedAt": "زمان رفع",
+    "resolve": "رفع شد",
+    "noneOpen": "هشداری نیست."
   },
   "alertStatus": {
     "Open": "باز",
@@ -507,7 +523,9 @@
     "tls": "انقضای گواهی",
     "add": "افزودن دامنه",
     "none": "دامنه‌ای ثبت نشده است.",
-    "verifiedAt": "تأیید"
+    "verifiedAt": "تأیید",
+    "startVerification": "شروع تأیید",
+    "verify": "تأیید کن"
   },
   "domainType": {
     "Primary": "اصلی",
@@ -655,5 +673,10 @@
     "lastDelivered": "آخرین ارسال",
     "consecutiveFailures": "خطاهای پیاپی",
     "disabledReason": "دلیل غیرفعال بودن"
+  },
+  "alertState": {
+    "open": "باز",
+    "acknowledged": "در دست بررسی",
+    "resolved": "رفع‌شده"
   }
 }

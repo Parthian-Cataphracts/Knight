@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, CheckCircle2, CircleDot, RotateCcw, XCircle, Clock } from "lucide-react";
-import { useCollection, useResource } from "@/lib/api/hooks";
+import { useAction, useCollection, useResource } from "@/lib/api/hooks";
 import type { Installation, Job, JobStep } from "@/lib/api/domain";
 import type { InstallPlan } from "@/lib/api/fixtures-detail";
 import { PageShell, PageHeader, Toolbar, FilterTabs, KeyValue, Mono } from "@/components/data/PageShell";
@@ -89,6 +89,22 @@ export function InstallationsPage() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [selectedInstallation, setSelectedInstallation] = useState<Installation | null>(null);
   const [previewFor, setPreviewFor] = useState<Installation | null>(null);
+
+  // Every installation action takes the store and feature rather than the
+  // installation id: the delivery engine keys on the pair, because an
+  // installation record may not exist yet for something never installed.
+  const installAction = useAction<unknown, { action: string; storeId: string; featureId: string }>(
+    ({ action, storeId, featureId }) => ({
+      path: `/installations/${action}`,
+      options: { body: { storeId, featureId } },
+    }),
+    ["/installations", "/jobs"],
+  );
+
+  const cancelJob = useAction<unknown, string>(
+    (id) => ({ path: `/jobs/${id}/cancel` }),
+    ["/jobs", "/installations"],
+  );
   const preview = useResource<InstallPlan>(
     `/stores/${previewFor?.storeId ?? "none"}/features/${previewFor?.featureId ?? "none"}/plan`,
     previewFor !== null,
@@ -261,11 +277,45 @@ export function InstallationsPage() {
         subtitle={selectedInstallation?.storeName}
         onClose={() => setSelectedInstallation(null)}
         footer={
-          can("installation.manage") ? (
+          can("installation.manage") && selectedInstallation ? (
             <>
-              <Button variant="outline" size="sm">
-                {t("installations.disable")}
-              </Button>
+              {selectedInstallation.state === "Installed" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={installAction.isPending}
+                  onClick={() =>
+                    installAction.mutate({
+                      action: "disable",
+                      storeId: selectedInstallation.storeId,
+                      featureId: selectedInstallation.featureId,
+                    })
+                  }
+                >
+                  {t("installations.disable")}
+                </Button>
+              ) : null}
+
+              {selectedInstallation.state === "Disabled" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={installAction.isPending}
+                  onClick={() =>
+                    installAction.mutate({
+                      action: "enable",
+                      storeId: selectedInstallation.storeId,
+                      featureId: selectedInstallation.featureId,
+                    })
+                  }
+                >
+                  {t("installations.enable")}
+                </Button>
+              ) : null}
+
+              {/* The preview dialog is deliberately the only route to
+                  installing: a dependency plan and a compatibility verdict are
+                  things an operator must see before code moves. */}
               <Button
                 size="sm"
                 onClick={() => {
@@ -273,7 +323,9 @@ export function InstallationsPage() {
                   setSelectedInstallation(null);
                 }}
               >
-                {t("installations.install")}
+                {selectedInstallation.installedVersion === null
+                  ? t("installations.install")
+                  : t("installations.upgrade")}
               </Button>
             </>
           ) : undefined
@@ -334,9 +386,14 @@ export function InstallationsPage() {
         subtitle={selectedJob?.target}
         onClose={() => setSelectedJob(null)}
         footer={
-          selectedJob && can("job.manage") ? (
-            <Button variant="outline" size="sm">
-              {selectedJob.status === "Failed" ? t("jobs.retry") : t("jobs.cancel")}
+          selectedJob && can("job.manage") && selectedJob.status !== "Succeeded" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={cancelJob.isPending}
+              onClick={() => cancelJob.mutate(selectedJob.id, { onSuccess: () => setSelectedJob(null) })}
+            >
+              {t("jobs.cancel")}
             </Button>
           ) : undefined
         }

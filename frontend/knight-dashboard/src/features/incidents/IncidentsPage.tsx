@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAction, useCollection } from "@/lib/api/hooks";
+import { apiRequest } from "@/lib/api/client";
 import type { Incident } from "@/lib/api/domain";
 import type { IncidentEvent } from "@/lib/api/fixtures-detail";
 import { PageShell, PageHeader, KeyValue, Mono } from "@/components/data/PageShell";
@@ -37,6 +39,7 @@ export function IncidentsPage() {
     selected !== null,
   );
   const [note, setNote] = useState("");
+  const [opening, setOpening] = useState(false);
 
   // Both lists are invalidated: an action changes the incident's status on the
   // table and appends to the timeline in the drawer, and refetching only one
@@ -96,7 +99,27 @@ export function IncidentsPage() {
 
   return (
     <PageShell>
-      <PageHeader title={t("nav.incidents")} subtitle={t("incidents.subtitle")} />
+      <PageHeader
+        title={t("nav.incidents")}
+        subtitle={t("incidents.subtitle")}
+        actions={
+          can("incident.manage") ? (
+            <Button size="sm" onClick={() => setOpening(true)}>
+              <Plus className="size-4" />
+              {t("incidents.open")}
+            </Button>
+          ) : undefined
+        }
+      />
+
+      <OpenIncidentForm
+        open={opening}
+        onClose={() => setOpening(false)}
+        onOpened={() => {
+          setOpening(false);
+          void query.refetch();
+        }}
+      />
       <CollectionCard query={query}>
         {(rows) => (
           <DataTable
@@ -238,5 +261,103 @@ export function IncidentsPage() {
         ) : null}
       </Drawer>
     </PageShell>
+  );
+}
+
+/**
+ * Opening an incident by hand.
+ *
+ * Rules open incidents automatically for critical alerts, but the ones a person
+ * opens are the ones a rule could not see — a customer phoning about something
+ * KNIGHT has no signal for. Severity is required rather than defaulted, because
+ * an incident's severity decides who is told, and a default would quietly make
+ * that decision for whoever is in a hurry.
+ */
+function OpenIncidentForm({
+  open,
+  onClose,
+  onOpened,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onOpened: () => void;
+}) {
+  const { t } = useTranslation();
+  const [title, setTitle] = useState("");
+  const [summary, setSummary] = useState("");
+  const [severity, setSeverity] = useState<"Info" | "Warning" | "Critical">("Critical");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    setSaving(true);
+    setError(null);
+
+    try {
+      await apiRequest("/incidents", {
+        method: "POST",
+        body: { title, severity, summary: summary.length > 0 ? summary : undefined },
+      });
+
+      setTitle("");
+      setSummary("");
+      onOpened();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Drawer
+      open={open}
+      title={t("incidents.open")}
+      onClose={onClose}
+      footer={
+        <Button size="sm" disabled={saving || title.trim().length === 0} onClick={() => void submit()}>
+          {t("incidents.open")}
+        </Button>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {error ? (
+          <p role="alert" className="rounded-md bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+            {error}
+          </p>
+        ) : null}
+
+        <TextField
+          label={t("incidents.title")}
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+        />
+
+        <TextField
+          label={t("incidents.summary")}
+          value={summary}
+          onChange={(event) => setSummary(event.target.value)}
+        />
+
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-body-sm font-medium text-on-surface-variant">
+            {t("incidents.severity")}
+          </legend>
+          <div className="flex flex-wrap gap-2">
+            {(["Info", "Warning", "Critical"] as const).map((option) => (
+              <Button
+                key={option}
+                type="button"
+                size="sm"
+                variant={severity === option ? "primary" : "outline"}
+                onClick={() => setSeverity(option)}
+              >
+                {t(`severity.${option.toLowerCase()}`)}
+              </Button>
+            ))}
+          </div>
+        </fieldset>
+      </div>
+    </Drawer>
   );
 }

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, KeyRound, RefreshCw, Ban, Globe, Plus } from "lucide-react";
-import { useCollection } from "@/lib/api/hooks";
+import { ChevronLeft, KeyRound, RefreshCw, Ban, Globe } from "lucide-react";
+import { useAction, useCollection } from "@/lib/api/hooks";
 import type { Installation, Store } from "@/lib/api/domain";
 import type { ActivityEntry, Deployment, StoreCredential, StoreDomain } from "@/lib/api/fixtures-detail";
 import { PageShell, PageHeader, KeyValue, Mono } from "@/components/data/PageShell";
@@ -54,6 +54,31 @@ export function StoreDetailPage() {
   const { t } = useTranslation();
   const { storeId = "" } = useParams();
   const can = useAuthStore((state) => state.can);
+
+  const lifecycle = useAction<unknown, "activate" | "suspend" | "archive">(
+    (action) => ({ path: `/stores/${storeId}/${action}` }),
+    ["/stores"],
+  );
+
+  // A newly issued credential is the only moment its secret exists in a form
+  // anyone can read: the API returns it once and stores a hash. So it is held
+  // here to be shown, and never fetched again.
+  const [issued, setIssued] = useState<{ clientId: string; clientSecret: string } | null>(null);
+
+  const issueCredential = useAction<{ clientId: string; clientSecret: string }, void>(
+    () => ({ path: `/stores/${storeId}/credentials` }),
+    ["/stores"],
+  );
+
+  const startVerification = useAction<unknown, void>(
+    () => ({ path: `/stores/${storeId}/domain-verification` }),
+    ["/stores"],
+  );
+
+  const verifyDomain = useAction<unknown, void>(
+    () => ({ path: `/stores/${storeId}/domain-verification/verify` }),
+    ["/stores"],
+  );
   const [tab, setTab] = useState<Tab>("overview");
 
   const stores = useCollection<Store>("/stores");
@@ -193,11 +218,37 @@ export function StoreDetailPage() {
         actions={
           can("store.manage") ? (
             <>
-              <Button variant="outline" size="sm">
-                <Ban className="size-4" aria-hidden />
-                {t("stores.suspend")}
-              </Button>
-              <Button size="sm">{t("common.edit")}</Button>
+              {store.status === "Active" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={lifecycle.isPending}
+                  onClick={() => lifecycle.mutate("suspend")}
+                >
+                  <Ban className="size-4" aria-hidden />
+                  {t("stores.suspend")}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={lifecycle.isPending}
+                  onClick={() => lifecycle.mutate("activate")}
+                >
+                  {t("stores.activate")}
+                </Button>
+              )}
+
+              {store.status !== "Archived" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={lifecycle.isPending}
+                  onClick={() => lifecycle.mutate("archive")}
+                >
+                  {t("stores.archive")}
+                </Button>
+              ) : null}
             </>
           ) : undefined
         }
@@ -289,10 +340,24 @@ export function StoreDetailPage() {
                 icon={<Globe className="size-5" />}
                 action={
                   can("store.manage") ? (
-                    <Button size="sm" variant="outline">
-                      <Plus className="size-4" aria-hidden />
-                      {t("domains.add")}
-                    </Button>
+                    <span className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={startVerification.isPending}
+                        onClick={() => startVerification.mutate()}
+                      >
+                        {t("domains.startVerification")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={verifyDomain.isPending}
+                        onClick={() => verifyDomain.mutate()}
+                      >
+                        {t("domains.verify")}
+                      </Button>
+                    </span>
                   ) : undefined
                 }
               />
@@ -321,16 +386,32 @@ export function StoreDetailPage() {
                 icon={<KeyRound className="size-5" />}
                 action={
                   can("store.credentials.manage") ? (
-                    <span className="flex gap-2">
-                      <Button size="sm" variant="outline">
-                        <RefreshCw className="size-4 rtl:-scale-x-100" aria-hidden />
-                        {t("stores.rotate")}
-                      </Button>
-                      <Button size="sm">{t("stores.issueCredentials")}</Button>
-                    </span>
+                    <Button
+                      size="sm"
+                      disabled={issueCredential.isPending}
+                      onClick={() =>
+                        issueCredential.mutate(undefined, {
+                          onSuccess: (credential) => setIssued(credential),
+                        })
+                      }
+                    >
+                      <RefreshCw className="size-4 rtl:-scale-x-100" aria-hidden />
+                      {t("stores.issueCredentials")}
+                    </Button>
                   ) : undefined
                 }
               />
+              {issued ? (
+                <div className="m-4 rounded-md border border-warning/40 bg-warning/10 p-3">
+                  <p className="text-body-sm text-on-surface">{t("stores.secretShownOnce")}</p>
+                  <p dir="ltr" className="mt-2 break-all font-mono text-label text-on-surface">
+                    {issued.clientId}
+                  </p>
+                  <p dir="ltr" className="break-all font-mono text-label text-on-surface">
+                    {issued.clientSecret}
+                  </p>
+                </div>
+              ) : null}
               <DataTable
                 columns={credentialColumns}
                 rows={rows}
