@@ -89,9 +89,8 @@ internal sealed class IncidentConfiguration : IEntityTypeConfiguration<Incident>
             .HasForeignKey(entry => entry.IncidentId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.Navigation(incident => incident.Timeline)
-            .UsePropertyAccessMode(PropertyAccessMode.Field)
-            .AutoInclude(false);
+        builder.Metadata.FindNavigation(nameof(Incident.Timeline))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
     }
 }
 

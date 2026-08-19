@@ -99,6 +99,7 @@ public sealed class ControlPlaneBoundaryTests
             [typeof(FeatureRegistry.Domain.Feature).Assembly] = "FeatureRegistry",
             [typeof(FeatureDelivery.Domain.FeatureInstallation).Assembly] = "FeatureDelivery",
             [typeof(Servers.Domain.Server).Assembly] = "Servers",
+            [typeof(Observability.Domain.ErrorGroup).Assembly] = "Observability",
             [typeof(Plans.Domain.Plan).Assembly] = "Plans",
             [typeof(Subscriptions.Domain.Subscription).Assembly] = "Subscriptions",
             [typeof(Billing.Domain.Invoice).Assembly] = "Billing",

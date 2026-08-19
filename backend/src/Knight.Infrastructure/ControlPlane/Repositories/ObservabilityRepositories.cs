@@ -249,6 +249,14 @@ internal sealed class IncidentRepository : IIncidentRepository
     public async Task AddAsync(Incident incident, CancellationToken cancellationToken) =>
         await _context.Incidents.AddAsync(incident, cancellationToken);
 
+    public void RegisterNewEvents(IReadOnlyCollection<IncidentEvent> entries)
+    {
+        foreach (var entry in entries)
+        {
+            _context.Entry(entry).State = EntityState.Added;
+        }
+    }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         _context.SaveChangesAsync(cancellationToken);
 }

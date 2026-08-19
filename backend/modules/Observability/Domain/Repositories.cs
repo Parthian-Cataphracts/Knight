@@ -104,6 +104,17 @@ public interface IIncidentRepository
 
     Task AddAsync(Incident incident, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Marks timeline entries appended to an already-loaded incident as new.
+    ///
+    /// Needed because the domain assigns its own identifiers. Persistence infers
+    /// "already exists" from a key being set, so an entry appended to a tracked
+    /// aggregate would otherwise be written as an update to a row that has never
+    /// existed — which fails loudly here, and would silently lose the timeline if
+    /// it did not.
+    /// </summary>
+    void RegisterNewEvents(IReadOnlyCollection<IncidentEvent> entries);
+
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
 
