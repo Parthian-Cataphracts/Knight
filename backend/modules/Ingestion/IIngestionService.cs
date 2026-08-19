@@ -95,4 +95,11 @@ public interface IIngestionService
         int page,
         int pageSize,
         CancellationToken cancellationToken);
+
+    Task<(IReadOnlyCollection<StoreLogEntry> Items, long TotalCount)> ListLogsAsync(
+        Guid? storeId,
+        string? level,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken);
 }

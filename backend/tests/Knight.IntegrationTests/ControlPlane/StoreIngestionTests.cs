@@ -510,7 +510,7 @@ public sealed class StoreIngestionTests
         Assert.Equal("3.1.0", latest.GetProperty("reportedVersion").GetString());
 
         var deployments = await client.GetFromJsonAsync<JsonDocument>($"/api/v1/stores/{store.StoreId}/deployments");
-        var first = deployments!.RootElement.EnumerateArray().First();
+        var first = deployments!.RootElement.GetProperty("items").EnumerateArray().First();
 
         // The handshake reported the version first, so the deployment is already
         // there before the heartbeat arrives.
@@ -556,7 +556,7 @@ public sealed class StoreIngestionTests
         var client = await PlatformClientAsync();
         var deployments = await client.GetFromJsonAsync<JsonDocument>($"/api/v1/stores/{store.StoreId}/deployments");
 
-        var forVersion = deployments!.RootElement.EnumerateArray()
+        var forVersion = deployments!.RootElement.GetProperty("items").EnumerateArray()
             .Where(deployment => deployment.GetProperty("version").GetString() == "4.0.0")
             .ToArray();
 

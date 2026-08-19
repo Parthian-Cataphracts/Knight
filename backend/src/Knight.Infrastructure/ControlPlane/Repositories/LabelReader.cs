@@ -88,6 +88,28 @@ internal sealed class LabelReader : ILabelReader
                 .ToArray());
     }
 
+    /// <summary>
+    /// Left inside the isolation filter, unlike the role lookups above: a store
+    /// belongs to exactly one customer, so a customer-scoped caller must not be
+    /// able to turn an id it should not have into a name.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<Guid, string>> StoreNamesAsync(
+        IReadOnlyCollection<Guid> storeIds,
+        CancellationToken cancellationToken)
+    {
+        if (storeIds.Count == 0)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        var rows = await _context.Stores
+            .Where(store => storeIds.Contains(store.Id))
+            .Select(store => new { store.Id, store.PrimaryDomain })
+            .ToArrayAsync(cancellationToken);
+
+        return rows.ToDictionary(row => row.Id, row => row.PrimaryDomain);
+    }
+
     public async Task<IReadOnlyDictionary<Guid, int>> RoleMemberCountsAsync(CancellationToken cancellationToken)
     {
         var rows = await _context.UserRoleAssignments

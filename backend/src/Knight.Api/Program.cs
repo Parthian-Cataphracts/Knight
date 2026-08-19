@@ -223,6 +223,7 @@ app.MapStoreIngestEndpoints();
 app.MapControlPlaneCustomerEndpoints();
 app.MapControlPlaneStoreEndpoints();
 app.MapControlPlaneAuditLogEndpoints();
+app.MapControlPlaneLogEndpoints();
 app.MapControlPlanePlanEndpoints();
 app.MapControlPlaneSubscriptionEndpoints();
 app.MapControlPlaneBillingEndpoints();

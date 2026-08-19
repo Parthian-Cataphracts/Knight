@@ -168,6 +168,13 @@ public sealed record StoreDeploymentResponse
     /// <summary>VersionChange when KNIGHT noticed it, StoreReported when the store announced it.</summary>
     public required string Source { get; init; }
 
+    /// <summary>
+    /// Who deployed it. Null for every deployment in phase 3: KNIGHT learns
+    /// about these from the store, which does not know who ran the pipeline.
+    /// Provisioning and the agent fill it in later.
+    /// </summary>
+    public string? DeployedBy { get; init; }
+
     /// <summary>Detected, Succeeded, Failed or RolledBack.</summary>
     public required string Status { get; init; }
 
@@ -260,6 +267,76 @@ public sealed record StoreEventResponse
     public required string Severity { get; init; }
 
     public required string Summary { get; init; }
+
+    public string? TraceId { get; init; }
+}
+
+/// <summary>
+/// A domain the store answers on, and whether ownership of it has been proven.
+/// One row today — the primary domain — because aliases arrive with provisioning
+/// in phase 9 and a list now keeps that from being a breaking change.
+/// </summary>
+public sealed record StoreDomainResponse
+{
+    public required Guid Id { get; init; }
+
+    public required string Host { get; init; }
+
+    /// <summary>Primary today; Alias and Staging arrive with provisioning.</summary>
+    public required string Type { get; init; }
+
+    /// <summary>NotStarted, Pending or Verified.</summary>
+    public required string Verification { get; init; }
+
+    public DateTimeOffset? VerifiedAt { get; init; }
+
+    /// <summary>HttpToken or DnsTextRecord, once proven.</summary>
+    public string? VerificationMethod { get; init; }
+}
+
+/// <summary>
+/// One entry in a store's own account of its life, built from the lifecycle
+/// events it reported. What an operator did to the store lives in the audit log
+/// and is queried separately.
+/// </summary>
+public sealed record StoreActivityResponse
+{
+    public required Guid Id { get; init; }
+
+    public required string Title { get; init; }
+
+    public required string Actor { get; init; }
+
+    public required DateTimeOffset OccurredAt { get; init; }
+
+    /// <summary>event or warning, so the timeline can colour it.</summary>
+    public required string Kind { get; init; }
+}
+
+/// <summary>
+/// One structured log line a store shipped. Levels are normalised on the way out
+/// — stores log in whatever vocabulary their framework uses — while the stream
+/// itself is stored exactly as sent.
+/// </summary>
+public sealed record StoreLogEntryResponse
+{
+    public required Guid Id { get; init; }
+
+    public required DateTimeOffset Timestamp { get; init; }
+
+    /// <summary>Debug, Information, Warning, Error or Critical.</summary>
+    public required string Level { get; init; }
+
+    public required string Service { get; init; }
+
+    public required Guid StoreId { get; init; }
+
+    /// <summary>The store's primary domain, so a row says where it came from.</summary>
+    public string? StoreName { get; init; }
+
+    public required string Environment { get; init; }
+
+    public required string Message { get; init; }
 
     public string? TraceId { get; init; }
 }

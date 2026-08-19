@@ -377,7 +377,11 @@
   },
   "logs": {
     "subtitle": "جریان لاگ ساختاریافته فروشگاه‌ها و سرویس‌ها.",
-    "searchPlaceholder": "جستجو در متن پیام"
+    "searchPlaceholder": "جستجو در متن پیام",
+    "service": "سرویس",
+    "message": "پیام",
+    "traceId": "ردیابی",
+    "none": "هیچ ورودی گزارشی نیست. ارسال گزارش قابلیتی پولی است و شاید هنوز برای هیچ فروشگاهی فعال نباشد."
   },
   "logLevel": {
     "Debug": "Debug",
@@ -489,7 +493,8 @@
     "verification": "تأیید مالکیت",
     "tls": "انقضای گواهی",
     "add": "افزودن دامنه",
-    "none": "دامنه‌ای ثبت نشده است."
+    "none": "دامنه‌ای ثبت نشده است.",
+    "verifiedAt": "تأیید"
   },
   "domainType": {
     "Primary": "اصلی",
@@ -500,7 +505,8 @@
   "domainVerification": {
     "Verified": "تأییدشده",
     "Pending": "در انتظار",
-    "Failed": "ناموفق"
+    "Failed": "ناموفق",
+    "NotStarted": "آغازنشده"
   },
   "credentials": {
     "clientId": "شناسه کلاینت",
@@ -512,16 +518,21 @@
   "credentialStatus": {
     "Active": "فعال",
     "GracePeriod": "مهلت چرخش",
-    "Revoked": "ابطال‌شده"
+    "Revoked": "ابطال‌شده",
+    "Expired": "منقضی"
   },
   "deployments": {
     "deployedAt": "زمان استقرار",
     "deployedBy": "توسط",
-    "notes": "توضیح"
+    "notes": "توضیح",
+    "reportedByStore": "گزارش فروشگاه",
+    "detected": "شناسایی نایت"
   },
   "deploymentStatus": {
     "Succeeded": "موفق",
-    "Failed": "ناموفق"
+    "Failed": "ناموفق",
+    "Detected": "شناسایی‌شده",
+    "RolledBack": "بازگردانی‌شده"
   },
   "storeDetail": {
     "open": "صفحه فروشگاه",
@@ -535,7 +546,8 @@
     "usage": "مصرف",
     "requests": "درخواست‌ها (۲۴ ساعت)",
     "errors": "خطاها (۲۴ ساعت)",
-    "storage": "فضای ذخیره‌سازی"
+    "storage": "فضای ذخیره‌سازی",
+    "usageUnavailable": "سنجه‌های مصرف با پایش سرور در فاز بعد می‌آید."
   },
   "customerDetail": {
     "open": "صفحه مشتری",

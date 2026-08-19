@@ -1,6 +1,9 @@
 # Store Integration
 
-Status: **authoritative proposal**.
+Status: **authoritative**, and implemented — see
+[`stores/reference-store/`](../stores/reference-store/README.md). The wire
+contract both sides test against is
+[`contracts/store-integration.schema.json`](contracts/store-integration.schema.json).
 
 A customer store is an independent Django application. It talks to KNIGHT only
 through the contract in `api-contracts.md`, from a dedicated integration layer
@@ -57,7 +60,10 @@ code never imports a feature package directly — it goes through the façade.
                (clientId + secret, secret displayed once).
 2. Configure   Secret is placed in the store's environment (never in git).
 3. Connect     `python manage.py knight_register` performs the handshake.
-               KNIGHT flips integrationStatus Pending -> Connected.
+               The store reaches Pending. It reaches Connected only once its
+               primary domain has been proven (section 12) — a credential says
+               nothing about who answers on the domain KNIGHT polls
+               (adr/0021).
 4. Operate     - KNIGHT polls /api/knight/health on a schedule
                - the store pushes errors/events and pulls entitlements
                - the agent polls for lifecycle jobs and installs/upgrades
@@ -104,7 +110,7 @@ Rules:
 
 ## 5. Health contract
 
-`GET /api/knight/health` responds quickly and without authentication-heavy work:
+`GET /api/knight/health` responds quickly and without touching business tables:
 
 ```json
 {
@@ -120,8 +126,17 @@ Rules:
 }
 ```
 
-The endpoint is authenticated (store credentials or a signed request) so it is
-not a public information leak, and it must not touch business tables.
+The endpoint is authenticated and it must not touch business tables. KNIGHT
+signs the request — `X-Knight-Signature`, an HMAC over method, path, timestamp
+and nonce, under the key the store received in its handshake — and the store
+refuses anything unsigned, stale beyond its skew window, or signed with another
+key. The payload names versions, dependencies and installed features, which is
+diagnostics for an operator and reconnaissance for everyone else.
+
+The canonical string is
+`knight-request|1|{METHOD}|{path}|{timestamp}|{nonce}`. The path only, never the
+host: a proxy in front of the store may rewrite the host, and binding the
+signature to it would break every store behind one.
 
 ## 6. Environment safety
 
@@ -145,10 +160,15 @@ KNIGHT_TIMEOUT_SECONDS=5
 
 ## 8. Reference implementation
 
-A reference Django store template lives at `stores/reference-store/` (to be
-created in Phase 4). It contains a minimal business app plus the full
-`knight_integration` package, and doubles as the integration test target for
-the KNIGHT↔Store contract.
+[`stores/reference-store/`](../stores/reference-store/README.md) is a real
+Django store: a minimal business app plus the full `knight_integration`
+package. It is the integration-test target for the KNIGHT↔Store contract and the
+worked example a customer store is built from.
+
+The layering rule in section 1 is enforced there by a test rather than by
+convention — `knight_integration/tests/test_boundaries.py` fails if a business
+module reaches past the feature façade, or if the integration layer imports a
+business model.
 
 ## 9. Feature loading
 
@@ -180,7 +200,30 @@ Either way the step vocabulary is fixed and typed
 ([`adr/0015`](adr/0015-feature-delivery-mechanism.md)); the store never
 executes a command string received from KNIGHT.
 
-## 11. Non-goals
+## 11. Domain ownership
+
+KNIGHT calls the store, at an address an operator typed into a form and DNS
+nobody in this system controls resolves. Before it will treat the link as
+established, whoever controls that domain has to prove it holds a token only
+KNIGHT issued ([`adr/0021`](adr/0021-domain-verification-before-connected.md)):
+
+```
+Operator starts verification in KNIGHT     -> token issued for this store
+Store publishes it                          /.well-known/knight-domain-verification
+                                            or TXT on _knight-verification.<domain>
+KNIGHT fetches and compares it              -> integrationStatus Pending -> Connected
+```
+
+The token is not a credential — publishing it is the entire mechanism — and the
+store serves it unauthenticated, because this runs before the store holds any key
+to authenticate anything with. Changing a store's primary domain drops the proof.
+
+Every outbound call KNIGHT makes to a store is checked at the socket: a resolved
+address in a loopback, link-local, private or CGNAT range is refused before
+connecting, and link-local is refused even where private ranges are explicitly
+allowed.
+
+## 12. Non-goals
 
 - KNIGHT never queries a store database.
 - KNIGHT never executes arbitrary code or shell commands on a store — only the

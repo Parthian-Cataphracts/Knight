@@ -377,7 +377,11 @@
   },
   "logs": {
     "subtitle": "Structured log stream from stores and services.",
-    "searchPlaceholder": "Search message text"
+    "searchPlaceholder": "Search message text",
+    "service": "Service",
+    "message": "Message",
+    "traceId": "Trace",
+    "none": "No log entries. Log shipping is a paid capability and may not be enabled for any store yet."
   },
   "logLevel": {
     "Debug": "Debug",
@@ -489,7 +493,8 @@
     "verification": "Ownership",
     "tls": "TLS expiry",
     "add": "Add domain",
-    "none": "No domains registered."
+    "none": "No domains registered.",
+    "verifiedAt": "Verified"
   },
   "domainType": {
     "Primary": "Primary",
@@ -500,7 +505,8 @@
   "domainVerification": {
     "Verified": "Verified",
     "Pending": "Pending",
-    "Failed": "Failed"
+    "Failed": "Failed",
+    "NotStarted": "Not started"
   },
   "credentials": {
     "clientId": "Client id",
@@ -512,16 +518,21 @@
   "credentialStatus": {
     "Active": "Active",
     "GracePeriod": "Grace period",
-    "Revoked": "Revoked"
+    "Revoked": "Revoked",
+    "Expired": "Expired"
   },
   "deployments": {
     "deployedAt": "Deployed",
     "deployedBy": "By",
-    "notes": "Notes"
+    "notes": "Notes",
+    "reportedByStore": "Reported by the store",
+    "detected": "Detected by KNIGHT"
   },
   "deploymentStatus": {
     "Succeeded": "Succeeded",
-    "Failed": "Failed"
+    "Failed": "Failed",
+    "Detected": "Detected",
+    "RolledBack": "Rolled back"
   },
   "storeDetail": {
     "open": "Open store",
@@ -535,7 +546,8 @@
     "usage": "Usage",
     "requests": "Requests (24h)",
     "errors": "Errors (24h)",
-    "storage": "Storage"
+    "storage": "Storage",
+    "usageUnavailable": "Usage metrics arrive with server monitoring in a later phase."
   },
   "customerDetail": {
     "open": "Open customer",

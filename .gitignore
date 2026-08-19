@@ -43,7 +43,10 @@ Thumbs.db
 desktop.ini
 
 # Logs
-logs/
+# Anchored to the repository root on purpose: a bare "logs/" also matches source
+# directories called logs — it silently swallowed the dashboard's logs screen —
+# and a runtime log directory only ever appears at the root anyway.
+/logs/
 *.log
 
 # Local infrastructure data

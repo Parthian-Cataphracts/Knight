@@ -86,4 +86,12 @@ public interface ILabelReader
         CancellationToken cancellationToken);
 
     Task<IReadOnlyDictionary<Guid, int>> RoleMemberCountsAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Store names by id, for screens that show telemetry rows and need to say
+    /// which store each came from without a query per row.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, string>> StoreNamesAsync(
+        IReadOnlyCollection<Guid> storeIds,
+        CancellationToken cancellationToken);
 }
