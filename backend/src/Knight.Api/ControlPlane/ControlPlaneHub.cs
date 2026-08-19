@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Knight.Application.Abstractions.ControlPlane;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -27,12 +28,10 @@ public sealed class ControlPlaneHub : Hub
     /// <summary>Everything that is not one customer's business: fleet state, platform alerts.</summary>
     public const string PlatformGroup = "platform";
 
-    private readonly IControlPlanePrincipal _principal;
     private readonly ILogger<ControlPlaneHub> _logger;
 
-    public ControlPlaneHub(IControlPlanePrincipal principal, ILogger<ControlPlaneHub> logger)
+    public ControlPlaneHub(ILogger<ControlPlaneHub> logger)
     {
-        _principal = principal;
         _logger = logger;
     }
 
@@ -40,29 +39,40 @@ public sealed class ControlPlaneHub : Hub
 
     public override async Task OnConnectedAsync()
     {
+        // Claims are read from the hub's own principal, never from
+        // IHttpContextAccessor. Once a WebSocket has upgraded there is no
+        // HttpContext left to read, so a request-scoped principal reports every
+        // connection as anonymous — which looks exactly like an attack and
+        // silently kills every connection.
+        var user = Context.User;
+
+        var isControlPlaneUser =
+            user?.FindFirstValue(PrincipalTypes.ClaimType) == PrincipalTypes.User;
+
         // An outstanding second factor means the session is half-authenticated,
         // and a half-authenticated session must not receive live operational
         // data any more than it may call an endpoint for it.
-        if (!_principal.MfaSatisfied)
+        if (!isControlPlaneUser || user?.FindFirstValue(ControlPlaneClaims.MfaSatisfied) != "mfa")
         {
             Context.Abort();
 
             return;
         }
 
-        if (_principal.CustomerId is { } customerId)
+        if (Guid.TryParse(user.FindFirstValue(ControlPlaneClaims.CustomerId), out var customerId))
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, GroupFor(customerId));
         }
-        else if (_principal.IsPlatformStaff)
+        else
         {
+            // No customer claim on a control-plane user means platform staff.
             await Groups.AddToGroupAsync(Context.ConnectionId, PlatformGroup);
         }
 
-        _logger.LogDebug(
-            "Realtime connection {ConnectionId} opened for user {UserId}.",
+        _logger.LogInformation(
+            "Realtime connection {ConnectionId} opened for {Subject}.",
             Context.ConnectionId,
-            _principal.UserId);
+            user.FindFirstValue("sub"));
 
         await base.OnConnectedAsync();
     }

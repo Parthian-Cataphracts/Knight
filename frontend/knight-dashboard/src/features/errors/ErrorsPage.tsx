@@ -27,6 +27,7 @@ export function ErrorsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const samples = useCollection<ErrorEventSample>(
     `/errors/groups/${selectedId ?? "none"}/events`,
+    selectedId !== null,
   );
   const can = useAuthStore((state) => state.can);
 

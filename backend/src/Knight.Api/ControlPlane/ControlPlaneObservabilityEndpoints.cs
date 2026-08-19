@@ -86,7 +86,11 @@ public static class ControlPlaneObservabilityEndpoints
         {
             var samples = await errors.ListSamplesAsync(id, limit ?? 20, cancellationToken);
 
-            return Results.Ok(samples.Select(sample => new ErrorEventSampleResponse
+            // The same envelope every other collection endpoint returns. A bare
+            // array here would be a second, undocumented shape for the client to
+            // handle, and the one screen that reads it would silently render
+            // empty rather than fail.
+            var mapped = samples.Select(sample => new ErrorEventSampleResponse
             {
                 Id = sample.Id,
                 OccurredAt = sample.OccurredAt,
@@ -97,7 +101,10 @@ public static class ControlPlaneObservabilityEndpoints
                 Message = sample.Message,
                 Endpoint = sample.Endpoint,
                 StatusCode = sample.StatusCode,
-            }).ToArray());
+            }).ToArray();
+
+            return Results.Ok(PagedResponse<ErrorEventSampleResponse>.Create(
+                mapped, 1, mapped.Length, mapped.Length));
         }).RequirePermission(ControlPlanePermissions.ErrorsView);
 
         group.MapPost("/groups/{id:guid}/acknowledge", async (
@@ -223,16 +230,21 @@ public static class ControlPlaneObservabilityEndpoints
             // Actor names are resolved in one lookup for the whole timeline
             // rather than per entry: an incident that ran for a day has a lot of
             // entries and very few distinct people.
-            var actors = await labels.RoleNamesForUsersAsync([], cancellationToken);
+            var actors = await labels.UserNamesAsync(
+                [.. timeline.Where(entry => entry.ActorId is not null).Select(entry => entry.ActorId!.Value).Distinct()],
+                cancellationToken);
 
-            return Results.Ok(timeline.Select(entry => new IncidentEventResponse
+            var mapped = timeline.Select(entry => new IncidentEventResponse
             {
                 Id = entry.Id,
                 OccurredAt = entry.OccurredAt,
                 Type = entry.Type.ToString(),
-                Actor = entry.ActorId is null ? "System" : entry.ActorId.Value.ToString(),
+                Actor = entry.ActorId is null ? "System" : actors.GetValueOrDefault(entry.ActorId.Value, "—"),
                 Message = entry.Message,
-            }).ToArray());
+            }).ToArray();
+
+            return Results.Ok(PagedResponse<IncidentEventResponse>.Create(
+                mapped, 1, mapped.Length, mapped.Length));
         }).RequirePermission(ControlPlanePermissions.IncidentView);
 
         group.MapPost("/", async (

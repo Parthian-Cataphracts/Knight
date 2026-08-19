@@ -81,6 +81,16 @@ public interface ILabelReader
         IReadOnlyCollection<Guid> planIds,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Display names for accounts, so a record of who did something reads as a
+    /// person rather than as an identifier. Looked up in one query for a whole
+    /// timeline: an incident that ran for a day has many entries and very few
+    /// distinct people.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, string>> UserNamesAsync(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyDictionary<Guid, IReadOnlyCollection<string>>> RoleNamesForUsersAsync(
         IReadOnlyCollection<Guid> userIds,
         CancellationToken cancellationToken);
