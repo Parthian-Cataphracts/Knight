@@ -157,12 +157,17 @@ export const storeActivity: Record<string, ActivityEntry[]> = {
 };
 
 /** Requests per hour over the last 24 samples, used by the usage chart. */
-export const storeUsage: Record<string, { requests: number[]; errors: number[]; storageGb: number; storageQuotaGb: number }> = {
+export const storeUsage: Record<
+  string,
+  { errors: number[]; logs: number[]; healthLatencyMs: number[]; windowHours: number; totalErrors: number; totalLogs: number }
+> = {
   s1: {
-    requests: [120, 98, 76, 60, 55, 70, 140, 260, 380, 420, 460, 500, 540, 520, 480, 505, 560, 610, 590, 520, 430, 320, 220, 160],
     errors: [1, 0, 0, 0, 0, 1, 2, 3, 2, 4, 6, 12, 18, 22, 14, 9, 7, 5, 4, 3, 2, 1, 1, 0],
-    storageGb: 342,
-    storageQuotaGb: 500,
+    logs: [120, 98, 76, 60, 55, 70, 140, 260, 380, 420, 460, 500, 540, 520, 480, 505, 560, 610, 590, 520, 430, 320, 220, 160],
+    healthLatencyMs: [120, 98, 76, 60, 55, 70, 140, 260, 380, 420, 460, 500, 540, 520, 480, 505, 560, 610, 590, 520, 430, 320, 220, 160],
+    windowHours: 24,
+    totalErrors: 117,
+    totalLogs: 8094,
   },
 };
 

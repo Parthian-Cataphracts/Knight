@@ -257,3 +257,98 @@ public sealed record NotificationTestResponse
 
     public string? Error { get; init; }
 }
+
+// --- Dashboard summary panels ------------------------------------------------
+
+/// <summary>
+/// One platform dependency on the infrastructure screen. <see cref="Metrics"/>
+/// is a list of two-element [label, value] pairs, because what is worth showing
+/// differs per service and a typed shape would fit none of them.
+/// </summary>
+public sealed record PlatformServiceResponse
+{
+    public required string Key { get; init; }
+
+    public required string Name { get; init; }
+
+    public required string Detail { get; init; }
+
+    /// <summary>Healthy, Degraded, Offline or Unknown.</summary>
+    public required string Status { get; init; }
+
+    public required IReadOnlyCollection<string[]> Metrics { get; init; }
+}
+
+public sealed record ReportSummaryResponse
+{
+    public required string Key { get; init; }
+
+    public required string Name { get; init; }
+
+    public required string Description { get; init; }
+
+    /// <summary>When the data behind this report last changed. Null when there is none yet.</summary>
+    public DateTimeOffset? UpdatedAt { get; init; }
+}
+
+public sealed record EntitlementMatrixRowResponse
+{
+    public required string FeatureSlug { get; init; }
+
+    public required string FeatureName { get; init; }
+
+    /// <summary>Keyed by plan key: "yes", a pinned version range, or "—" when the plan does not include it.</summary>
+    public required IReadOnlyDictionary<string, string> Values { get; init; }
+}
+
+public sealed record ActivityItemResponse
+{
+    public required Guid Id { get; init; }
+
+    public required DateTimeOffset OccurredAt { get; init; }
+
+    /// <summary>user, system, warning or event — what tone the feed shows it in.</summary>
+    public required string Kind { get; init; }
+
+    public required string Title { get; init; }
+
+    public required string Actor { get; init; }
+}
+
+public sealed record CustomerNoteResponse
+{
+    public required Guid Id { get; init; }
+
+    public required string Author { get; init; }
+
+    public required DateTimeOffset CreatedAt { get; init; }
+
+    public required string Body { get; init; }
+}
+
+public sealed record CreateCustomerNoteRequest
+{
+    public required string Body { get; init; }
+}
+
+/// <summary>
+/// What a store has actually been doing, hour by hour.
+///
+/// There is deliberately no request count and no storage figure: stores report
+/// neither, and a dashboard showing an invented number would be worse than one
+/// showing fewer real ones.
+/// </summary>
+public sealed record StoreUsageResponse
+{
+    public required IReadOnlyList<int> Errors { get; init; }
+
+    public required IReadOnlyList<int> Logs { get; init; }
+
+    public required IReadOnlyList<int> HealthLatencyMs { get; init; }
+
+    public required int WindowHours { get; init; }
+
+    public required long TotalErrors { get; init; }
+
+    public required long TotalLogs { get; init; }
+}

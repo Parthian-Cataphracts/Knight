@@ -274,6 +274,7 @@ app.MapControlPlanePlanEndpoints();
 app.MapControlPlaneDeliveryEndpoints();
 app.MapControlPlaneServerEndpoints();
 app.MapControlPlaneObservabilityEndpoints();
+app.MapControlPlaneInsightEndpoints();
 app.MapControlPlaneSubscriptionEndpoints();
 app.MapControlPlaneBillingEndpoints();
 app.MapControlPlaneAccessEndpoints();

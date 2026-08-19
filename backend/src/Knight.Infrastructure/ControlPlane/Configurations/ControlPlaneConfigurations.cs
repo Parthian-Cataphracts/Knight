@@ -1,4 +1,5 @@
 using AccessControl.Domain;
+using Customers.Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Stores.Domain;
@@ -236,5 +237,26 @@ internal sealed class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
         // Audit rows outlive the accounts they mention: the actor is recorded by
         // id and display name, without a foreign key that would block deleting a
         // user or, worse, cascade their history away.
+    }
+}
+
+/// <summary>
+/// Notes a person wrote about a customer. Customer-scoped, so the isolation
+/// filter applies: a customer's own staff see their notes, platform staff see
+/// all of them, and nobody sees a neighbour's.
+/// </summary>
+internal sealed class CustomerNoteConfiguration : IEntityTypeConfiguration<CustomerNote>
+{
+    public void Configure(EntityTypeBuilder<CustomerNote> builder)
+    {
+        builder.ToTable("customer_notes");
+
+        builder.HasKey(note => note.Id);
+
+        builder.Property(note => note.AuthorName).HasMaxLength(200).IsRequired();
+        builder.Property(note => note.Body).HasMaxLength(CustomerNote.MaxBodyLength).IsRequired();
+
+        // The only read: one customer's notes, newest first.
+        builder.HasIndex(note => new { note.CustomerId, note.CreatedAt }).IsDescending(false, true);
     }
 }
