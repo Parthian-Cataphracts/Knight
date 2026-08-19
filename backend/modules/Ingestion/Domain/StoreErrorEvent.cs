@@ -7,9 +7,11 @@ namespace Ingestion.Domain;
 /// One unhandled exception a store reported (docs/domain-model.md section 8).
 ///
 /// Stored as the store sent it, minus anything too long to be worth keeping.
-/// Grouping into <c>ErrorGroup</c>s by fingerprint is phase 5's job
-/// ([`adr/0013`](../../../docs/adr/0013-error-grouping-strategy.md)); until then
-/// <see cref="ErrorGroupId"/> stays null and these rows are the raw record.
+/// Grouping into <c>ErrorGroup</c>s by fingerprint happens immediately after the
+/// batch is accepted ([`adr/0013`](../../../docs/adr/0013-error-grouping-strategy.md)),
+/// through a port so that ingestion never depends on the module that analyses
+/// what it accepts. An event whose grouping failed keeps a null
+/// <see cref="ErrorGroupId"/> and is still a complete record of what happened.
 ///
 /// Everything here originates outside KNIGHT and is treated accordingly: fields
 /// are length-capped on the way in, and nothing is ever interpolated into a
@@ -54,8 +56,18 @@ public sealed class StoreErrorEvent : Entity, ICustomerOwned
     /// <summary>The store's own context bag, verbatim JSON, already scrubbed store-side.</summary>
     public string? Context { get; private set; }
 
-    /// <summary>Assigned by error grouping in phase 5; null for everything ingested before it exists.</summary>
+    /// <summary>The problem this occurrence belongs to. Null when grouping has not run or could not.</summary>
     public Guid? ErrorGroupId { get; private set; }
+
+    /// <summary>
+    /// Whether this occurrence is one of the copies kept in full for its group.
+    ///
+    /// Only sampled events keep their stack trace and context. The hundredth
+    /// identical traceback costs storage and teaches nobody anything, but the
+    /// row itself is kept either way, because the *count* is the number an
+    /// operator actually acts on and it must stay exact.
+    /// </summary>
+    public bool IsSample { get; private set; }
 
     private StoreErrorEvent()
     {
@@ -154,5 +166,31 @@ public sealed class StoreErrorEvent : Entity, ICustomerOwned
             IngestionText.Clip(requestId, 100),
             IngestionText.Clip(traceId, 100),
             IngestionText.Clip(context, MaxContextLength));
+    }
+
+    /// <summary>
+    /// Files this occurrence under the problem it belongs to.
+    ///
+    /// When it is not being kept as a sample, the two large payloads are dropped
+    /// here rather than at query time. Storing them and never reading them would
+    /// leave the highest-volume table in the schema growing for no one's benefit.
+    /// </summary>
+    public void AssignToGroup(Guid groupId, bool keepSample)
+    {
+        if (groupId == Guid.Empty)
+        {
+            throw DomainException.Validation("An error event must be assigned to a real group.");
+        }
+
+        ErrorGroupId = groupId;
+        IsSample = keepSample;
+
+        if (keepSample)
+        {
+            return;
+        }
+
+        StackTrace = null;
+        Context = null;
     }
 }

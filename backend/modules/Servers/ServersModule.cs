@@ -67,6 +67,10 @@ public static class ServersModule
         services.AddScoped<IAgentService, AgentService>();
         services.AddScoped<IMonitoringService, MonitoringService>();
 
+        // How everything outside this module raises an alert, without any of it
+        // having to know how deduplication works.
+        services.AddScoped<Knight.Application.Abstractions.ControlPlane.IAlertRaiser, AlertRaiser>();
+
         return services;
     }
 }

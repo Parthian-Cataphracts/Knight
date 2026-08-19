@@ -116,6 +116,12 @@ builder.Services.AddAuthorizationBuilder()
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, ControlPlanePermissionHandler>();
 
+// The realtime channel the dashboard listens on. Registered before CORS because
+// the hub is served from the same origin policy as the API — a browser opening a
+// websocket honours it exactly as it does a fetch.
+builder.Services.AddSignalR();
+builder.Services.AddScoped<IRealtimeNotifier, SignalRRealtimeNotifier>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Default", policy =>
@@ -230,9 +236,14 @@ app.MapControlPlaneLogEndpoints();
 app.MapControlPlanePlanEndpoints();
 app.MapControlPlaneDeliveryEndpoints();
 app.MapControlPlaneServerEndpoints();
+app.MapControlPlaneObservabilityEndpoints();
 app.MapControlPlaneSubscriptionEndpoints();
 app.MapControlPlaneBillingEndpoints();
 app.MapControlPlaneAccessEndpoints();
+
+// The connection is placed into its groups from its own claims on connect; there
+// is deliberately no hub method a client can call to choose what it receives.
+app.MapHub<ControlPlaneHub>(ControlPlaneHub.Path);
 
 app.MapPlatformHealthEndpoints();
 app.MapPlatformTenantEndpoints();
