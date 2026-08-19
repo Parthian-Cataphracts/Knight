@@ -334,3 +334,29 @@ export const notificationChannels = [
     hasSecret: false,
   },
 ];
+
+export const jobSteps: Record<string, {
+  sequence: number;
+  name: string;
+  status: "Running" | "Succeeded" | "Failed" | "Skipped";
+  output: string | null;
+  errorCode: string | null;
+  durationMilliseconds: number | null;
+  reportCount: number;
+  startedAt: string;
+  completedAt: string | null;
+}[]> = {
+  j2: [
+    { sequence: 1, name: "preflight", status: "Succeeded", output: null, errorCode: null, durationMilliseconds: 120, reportCount: 1, startedAt: minutesAgo(15), completedAt: minutesAgo(15) },
+    { sequence: 2, name: "fetch", status: "Succeeded", output: null, errorCode: null, durationMilliseconds: 900, reportCount: 1, startedAt: minutesAgo(15), completedAt: minutesAgo(14) },
+    { sequence: 3, name: "verify", status: "Succeeded", output: null, errorCode: null, durationMilliseconds: 80, reportCount: 1, startedAt: minutesAgo(14), completedAt: minutesAgo(14) },
+    { sequence: 4, name: "install", status: "Succeeded", output: null, errorCode: null, durationMilliseconds: 2200, reportCount: 1, startedAt: minutesAgo(14), completedAt: minutesAgo(13) },
+    {
+      sequence: 5, name: "migrate", status: "Failed",
+      output: 'ProgrammingError: relation "analytics_report" already exists',
+      errorCode: "migration_failed", durationMilliseconds: 640, reportCount: 1,
+      startedAt: minutesAgo(13), completedAt: minutesAgo(12),
+    },
+    { sequence: 6, name: "configure", status: "Skipped", output: null, errorCode: null, durationMilliseconds: null, reportCount: 1, startedAt: minutesAgo(12), completedAt: minutesAgo(12) },
+  ],
+};

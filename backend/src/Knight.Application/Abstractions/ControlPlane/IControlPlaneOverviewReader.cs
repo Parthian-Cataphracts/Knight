@@ -81,6 +81,22 @@ public interface ILabelReader
         IReadOnlyCollection<Guid> planIds,
         CancellationToken cancellationToken);
 
+    /// <summary>Feature names by id, for screens that hold a feature id and must show a name.</summary>
+    Task<IReadOnlyDictionary<Guid, string>> FeatureNamesAsync(
+        IReadOnlyCollection<Guid> featureIds,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Which features each customer is currently entitled to.
+    ///
+    /// Read for a whole page at once, because the installations screen compares
+    /// entitlement against installation on every row and doing it per row would
+    /// turn one screen into a query storm.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyCollection<Guid>>> EntitledFeaturesAsync(
+        IReadOnlyCollection<Guid> customerIds,
+        CancellationToken cancellationToken);
+
     /// <summary>
     /// Display names for accounts, so a record of who did something reads as a
     /// person rather than as an identifier. Looked up in one query for a whole

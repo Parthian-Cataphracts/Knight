@@ -96,6 +96,27 @@ public sealed record FeatureInstallationResponse
 
     public required string FeatureSlug { get; init; }
 
+    /// <summary>Resolved server-side: the client cannot join a feature id to its name.</summary>
+    public string? FeatureName { get; init; }
+
+    public string? StoreName { get; init; }
+
+    /// <summary>
+    /// Whether the customer is entitled to this capability.
+    ///
+    /// Entitlement and installation are separate facts and the screen shows them
+    /// as separate columns, so the difference between "owed but missing" and
+    /// "installed but no longer paid for" is visible rather than inferred
+    /// (docs/adr/0019-entitlement-as-an-explicit-record.md).
+    /// </summary>
+    public required bool Entitled { get; init; }
+
+    /// <summary>True while the feature is installed and serving, as opposed to installed and switched off.</summary>
+    public required bool IsEnabled { get; init; }
+
+    /// <summary>When the installation last changed state, so a list can be ordered by what moved recently.</summary>
+    public required DateTimeOffset LastTransitionAt { get; init; }
+
     public required string State { get; init; }
 
     public string? InstalledVersion { get; init; }
@@ -170,6 +191,8 @@ public sealed record FeatureJobResponse
     public required Guid FeatureId { get; init; }
 
     public required string FeatureSlug { get; init; }
+
+    public string? StoreName { get; init; }
 
     public required string Type { get; init; }
 

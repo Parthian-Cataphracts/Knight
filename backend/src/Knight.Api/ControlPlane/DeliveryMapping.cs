@@ -39,12 +39,28 @@ internal static class DeliveryMapping
             new FeatureDependencyResponse(dependency.DependsOnSlug, dependency.VersionRangeExpression))],
     };
 
-    public static FeatureInstallationResponse ToResponse(this FeatureInstallation installation) => new()
+    /// <summary>
+    /// Maps an installation, optionally with the labels only a join can supply.
+    ///
+    /// The labels are parameters rather than looked up here because a page of
+    /// installations resolves them in one query for the whole page; doing it per
+    /// row would turn one screen into fifty round trips.
+    /// </summary>
+    public static FeatureInstallationResponse ToResponse(
+        this FeatureInstallation installation,
+        string? storeName = null,
+        string? featureName = null,
+        bool entitled = false) => new()
     {
         Id = installation.Id,
         StoreId = installation.StoreId,
         FeatureId = installation.FeatureId,
         FeatureSlug = installation.FeatureSlug,
+        FeatureName = featureName,
+        StoreName = storeName,
+        Entitled = entitled,
+        IsEnabled = installation.State is InstallationState.Installed,
+        LastTransitionAt = installation.UpdatedAt ?? installation.CreatedAt,
         State = installation.State.ToString(),
         InstalledVersion = installation.InstalledVersion,
         TargetVersion = installation.TargetVersion,
@@ -61,12 +77,13 @@ internal static class DeliveryMapping
         RequiresManualIntervention = installation.RollbackOutcome is RollbackOutcome.ManualInterventionRequired,
     };
 
-    public static FeatureJobResponse ToResponse(this FeatureInstallationJob job) => new()
+    public static FeatureJobResponse ToResponse(this FeatureInstallationJob job, string? storeName = null) => new()
     {
         Id = job.Id,
         StoreId = job.StoreId,
         FeatureId = job.FeatureId,
         FeatureSlug = job.FeatureSlug,
+        StoreName = storeName,
         Type = job.Type.ToString(),
         State = job.State.ToString(),
         TargetVersion = job.TargetVersion,
@@ -116,6 +133,6 @@ internal static class DeliveryMapping
 
     public static InstallationRequestResponse ToResponse(this InstallationRequestResult result) => new(
         result.Plan.ToResponse(),
-        [.. result.QueuedJobs.Select(ToResponse)],
+        [.. result.QueuedJobs.Select(job => job.ToResponse())],
         result.Installation.ToResponse());
 }

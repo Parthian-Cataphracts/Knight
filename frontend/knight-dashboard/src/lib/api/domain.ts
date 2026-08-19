@@ -89,18 +89,29 @@ export type InstallationState =
 export interface Installation {
   id: string;
   storeId: string;
-  storeName: string;
+  storeName: string | null;
   featureId: string;
-  featureName: string;
+  featureName: string | null;
   featureSlug: string;
+
+  /** Entitlement and installation are separate facts; the screen shows both columns. */
   entitled: boolean;
-  installedVersion: string | null;
-  desiredVersion: string | null;
-  state: InstallationState;
   isEnabled: boolean;
+  installedVersion: string | null;
+  targetVersion: string | null;
+  previousVersion: string | null;
+  state: InstallationState;
   health: HealthState;
+  currentJobId: string | null;
+  failureCode: string | null;
+  failureMessage: string | null;
+  rollbackOutcome: "NotAttempted" | "RolledBack" | "PartiallyRolledBack" | "ManualInterventionRequired";
   blockingReason: string | null;
-  rollbackOutcome: "None" | "Succeeded" | "ManualInterventionRequired" | null;
+
+  /** True when a database is in a state KNIGHT refused to guess about. */
+  requiresManualIntervention: boolean;
+  installedAt: string | null;
+  disabledAt: string | null;
   lastTransitionAt: string;
 }
 
@@ -116,37 +127,51 @@ export type JobType =
   | "Provision"
   | "Backup";
 
-export type JobStatus =
-  | "Queued"
-  | "Claimed"
-  | "Running"
-  | "Succeeded"
-  | "Failed"
-  | "Cancelled"
-  | "TimedOut";
+/** The states the delivery engine actually records. */
+export type JobStatus = "Queued" | "Running" | "Succeeded" | "Failed" | "Cancelled";
 
 export interface JobStep {
-  index: number;
+  sequence: number;
   name: string;
-  status: "Pending" | "Running" | "Succeeded" | "Failed" | "Skipped";
+  status: "Running" | "Succeeded" | "Failed" | "Skipped";
   output: string | null;
+  errorCode: string | null;
+  durationMilliseconds: number | null;
+  reportCount: number;
+  startedAt: string;
+  completedAt: string | null;
+}
+
+/** What the job detail endpoint returns: the job, plus its steps. */
+export interface JobDetail {
+  job: Job;
+  steps: JobStep[];
 }
 
 export interface Job {
   id: string;
-  type: JobType;
-  status: JobStatus;
   storeId: string;
-  storeName: string;
-  target: string;
-  currentStep: number;
-  totalSteps: number;
-  steps: JobStep[];
-  errorCode: string | null;
-  rollbackOutcome: "None" | "Succeeded" | "ManualInterventionRequired" | null;
+  storeName: string | null;
+  featureId: string;
+  featureSlug: string;
+  type: JobType;
+
+  /** The API calls this "state"; the screens speak of a job's status. Same field. */
+  state: JobStatus;
+  targetVersion: string | null;
+
+  /** Why the job exists. A job an operator asked for reads very differently after an incident. */
+  trigger: "Manual" | "Entitlement" | "Provisioning" | "Reconciliation" | "Schedule";
+  completedStepCount: number;
+  totalStepCount: number;
+  attemptCount: number;
+  maxAttempts: number;
+  failureCode: string | null;
+  failureMessage: string | null;
+  rollbackOutcome: "NotAttempted" | "RolledBack" | "PartiallyRolledBack" | "ManualInterventionRequired";
   queuedAt: string;
-  startedAt: string | null;
-  finishedAt: string | null;
+  claimedAt: string | null;
+  completedAt: string | null;
   correlationId: string;
 }
 

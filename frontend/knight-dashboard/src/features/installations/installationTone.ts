@@ -16,9 +16,7 @@ export const installationTone: Record<InstallationState, Tone> = {
 export const jobTone: Record<JobStatus, Tone> = {
   Succeeded: "success",
   Running: "info",
-  Claimed: "info",
   Queued: "neutral",
   Cancelled: "neutral",
   Failed: "danger",
-  TimedOut: "danger",
 };

@@ -262,16 +262,16 @@
     "TimedOut": "وقفه زمانی"
   },
   "stepStatus": {
-    "Pending": "در انتظار",
     "Running": "در حال اجرا",
     "Succeeded": "موفق",
     "Failed": "ناموفق",
-    "Skipped": "رد شده"
+    "Skipped": "رد شد"
   },
   "rollbackOutcome": {
-    "Succeeded": "بازگردانی موفق",
-    "ManualInterventionRequired": "نیاز به بررسی دستی",
-    "None": "—"
+    "NotAttempted": "انجام نشد",
+    "RolledBack": "برگشت داده شد",
+    "PartiallyRolledBack": "برگشت جزئی",
+    "ManualInterventionRequired": "نیازمند بررسی دستی"
   },
   "jobs": {
     "type": "نوع",
@@ -284,7 +284,10 @@
     "errorCode": "کد خطا",
     "rollback": "بازگردانی",
     "retry": "تلاش دوباره",
-    "cancel": "لغو Job"
+    "cancel": "لغو Job",
+    "attempts": "تلاش‌ها",
+    "trigger": "منشأ",
+    "errorMessage": "شرح خطا"
   },
   "plans": {
     "subtitle": "پلن‌ها، ماتریس دسترسی و اشتراک مشتریان.",

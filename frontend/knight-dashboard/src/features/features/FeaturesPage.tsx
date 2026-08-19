@@ -41,6 +41,7 @@ export function FeaturesPage() {
 
   const versions = useCollection<FeatureVersion>(
     selected ? `/features/${selected.id}/versions` : "/features/none/versions",
+    selected !== null,
   );
 
   const all = query.data ?? [];
