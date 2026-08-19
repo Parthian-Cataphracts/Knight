@@ -67,3 +67,9 @@ node_modules/
 dist/
 .env
 .env.local
+
+# Built feature artifacts and the local package store. Delivered code is built,
+# signed and published — never committed.
+/dist/
+/artifacts/
+/knight-features/

@@ -2,6 +2,7 @@ using FeatureDelivery.Domain;
 using FeatureRegistry.Domain;
 using Knight.Domain.Versioning;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace Knight.Infrastructure.ControlPlane.Repositories;
 
@@ -231,7 +232,14 @@ internal sealed class FeatureInstallationJobRepository : IFeatureInstallationJob
         return await _context.FeatureInstallationJobs
             .Include(job => job.Steps)
             .Where(job => job.StoreId == storeId && job.State == JobState.Queued)
+            // Ordered by id as well as time, and the tiebreaker is what matters:
+            // a plan's jobs are all queued in the same transaction and share a
+            // timestamp, so ordering by time alone leaves the database free to
+            // hand back a dependent feature before the one it depends on. Job
+            // ids are UUIDv7, generated in the plan's topological order, so they
+            // carry that order into the queue.
             .OrderBy(job => job.QueuedAt)
+            .ThenBy(job => job.Id)
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -286,6 +294,9 @@ internal sealed class FeatureInstallationJobRepository : IFeatureInstallationJob
 
     public async Task AddAsync(FeatureInstallationJob job, CancellationToken cancellationToken) =>
         await _context.FeatureInstallationJobs.AddAsync(job, cancellationToken);
+
+    public void RegisterNewStep(JobStepResult step) =>
+        _context.Entry(step).State = EntityState.Added;
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) => _context.SaveChangesAsync(cancellationToken);
 }

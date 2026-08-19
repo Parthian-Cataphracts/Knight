@@ -205,7 +205,14 @@ public sealed class FeatureInstallationJob : AuditableEntity, ICustomerOwned
     /// later report replaces the earlier one for that step rather than appending,
     /// so the record stays one row per step (docs/feature-delivery.md §7).
     /// </summary>
-    public void ReportStep(
+    /// <returns>
+    /// The step row if this report created one, or null when it updated a step
+    /// that had already been reported. The caller needs to know, because a newly
+    /// created child of a loaded aggregate has to be registered with the
+    /// persistence layer explicitly — the same reason the plan and subscription
+    /// repositories expose RegisterNewFeature.
+    /// </returns>
+    public JobStepResult? ReportStep(
         string stepName,
         StepStatus status,
         DateTimeOffset now,
@@ -225,6 +232,8 @@ public sealed class FeatureInstallationJob : AuditableEntity, ICustomerOwned
             throw DomainException.Validation($"'{name}' is not a step of a {Type} job.");
         }
 
+        JobStepResult? created = null;
+
         var existing = _steps.Find(step => string.Equals(step.Name, name, StringComparison.Ordinal));
         if (existing is not null)
         {
@@ -232,7 +241,7 @@ public sealed class FeatureInstallationJob : AuditableEntity, ICustomerOwned
         }
         else
         {
-            _steps.Add(JobStepResult.Create(
+            created = JobStepResult.Create(
                 Guid.CreateVersion7(),
                 Id,
                 _steps.Count + 1,
@@ -241,7 +250,9 @@ public sealed class FeatureInstallationJob : AuditableEntity, ICustomerOwned
                 output,
                 errorCode,
                 durationMilliseconds,
-                now));
+                now);
+
+            _steps.Add(created);
         }
 
         // A claim is extended by evidence of life rather than by a heartbeat of
@@ -252,6 +263,7 @@ public sealed class FeatureInstallationJob : AuditableEntity, ICustomerOwned
         }
 
         MarkUpdated(now);
+        return created;
     }
 
     public void Succeed(DateTimeOffset now)

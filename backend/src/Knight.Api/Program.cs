@@ -221,6 +221,7 @@ app.UseAuthorization();
 app.MapControlPlaneAuthEndpoints();
 app.MapStoreIngestEndpoints();
 app.MapStoreJobEndpoints();
+app.MapArtifactEndpoints();
 app.MapControlPlaneCustomerEndpoints();
 app.MapControlPlaneStoreEndpoints();
 app.MapControlPlaneAuditLogEndpoints();

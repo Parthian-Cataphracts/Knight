@@ -63,8 +63,16 @@ internal sealed class AgentJobService : IAgentJobService
         var now = _clock.UtcNow;
         job.Claim(now, _options.JobClaimTimeout);
 
-        var installation = await _installations.GetByIdAsync(job.InstallationId, cancellationToken);
-        installation?.BeginWork(job.Id, now);
+        // Only install and upgrade jobs put the installation into Pending when
+        // they were queued, so only they have work to begin. A disable or
+        // uninstall acts on a feature that is installed and staying that way
+        // until the job reports, and telling it to begin work would be an
+        // illegal transition the aggregate would rightly refuse.
+        if (job.Type is JobType.Install or JobType.Upgrade)
+        {
+            var installation = await _installations.GetByIdAsync(job.InstallationId, cancellationToken);
+            installation?.BeginWork(job.Id, now);
+        }
 
         await _jobs.SaveChangesAsync(cancellationToken);
         await _installations.SaveChangesAsync(cancellationToken);
@@ -84,13 +92,18 @@ internal sealed class AgentJobService : IAgentJobService
             });
         }
 
-        job.ReportStep(
+        var created = job.ReportStep(
             report.Step,
             status,
             _clock.UtcNow,
             report.Output,
             report.ErrorCode,
             report.DurationMilliseconds);
+
+        if (created is not null)
+        {
+            _jobs.RegisterNewStep(created);
+        }
 
         await _jobs.SaveChangesAsync(cancellationToken);
     }
