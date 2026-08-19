@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-18** (revision 7 — phase 2 plans, entitlements and billing complete)
+Last updated: **2026-08-19** (revision 8 — phase 3 store integration complete)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,9 +11,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 2 — Plans, subscriptions, entitlements, billing (complete)** |
-| **Next phase** | Phase 3 — Store integration |
-| **Overall progress** | ~45% (the control plane can now answer who a customer is, what they run, and what they have paid for; feature delivery, the store template and the agent remain greenfield) |
+| **Current phase** | **Phase 3 — Store integration (complete)** |
+| **Next phase** | Phase 3.5 — Feature registry & delivery |
+| **Overall progress** | ~55% (a real Django store now registers with KNIGHT, is observed by it, and enforces entitlements server-side; feature delivery and the agent remain greenfield) |
 | **Blocking decisions** | 10 open questions in [`docs/risks.md`](docs/risks.md) §3 — R14 (billing scope) resolved as invoicing only |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -26,11 +26,11 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 Phase 0    Discovery & architecture       ██████████ 100%
 Phase 1    Control-plane core             ██████████ 100%
 Phase 2    Plans, subscriptions, entitlements ██████ 100%
-Phase 3    Store integration              ░░░░░░░░░░   0%
+Phase 3    Store integration              ██████████ 100%
 Phase 3.5  Feature registry & delivery    ░░░░░░░░░░   0%   ← new in revision 2
 Phase 4    Servers, agents, monitoring    ░░░░░░░░░░   0%
 Phase 5    Errors & incidents             ░░░░░░░░░░   0%
-Phase 6    Frontend dashboard             █████████░  90%
+Phase 6    Frontend dashboard             █████████░  92%
 Phase 7    Observability                  ░░░░░░░░░░   0%
 Phase 8    Business-domain port to Django ░░░░░░░░░░   0%
 Phase 9    Provisioning & professional infra ░░░░░░░   0%
@@ -152,34 +152,44 @@ end by `ControlPlaneCommerceTests`.
 
 ---
 
-## Phase 3 — Store integration
+## Phase 3 — Store integration ✅
 
 **Exit criteria:** the reference Django store registers, reports health and its
-version, ships errors, and enforces entitlements server-side.
+version, ships errors, and enforces entitlements server-side. Covered by
+`StoreIngestionTests` (KNIGHT, 24 cases), `StoreSignatureContractTests`, the
+unit suites, and the store's own 36 Django tests.
 
 ### KNIGHT side
-- [ ] `POST /api/v1/ingest/handshake` with credential validation + environment binding
-- [ ] Short-lived store tokens (ADR 0012), Redis-backed nonce/replay protection
-- [ ] Ingestion endpoints: `errors`, `events`, `heartbeat`, `features` (pull)
-- [ ] Per-store rate limiting, batch caps, idempotency keys
-- [ ] Store health poller with timeout/retry/backoff, recording reported feature set
-- [ ] SSRF protection on outbound calls
-- [ ] Domain ownership verification before `Connected`
-- [ ] `integrationStatus` transitions + `StoreDeployment` recording
+- [x] `POST /api/v1/ingest/handshake` with credential validation + environment binding
+- [x] Short-lived store tokens ([`adr/0020`](docs/adr/0020-store-ingestion-authentication.md)), nonce/replay protection behind `IReplayGuard`
+- [x] Ingestion endpoints: `errors`, `events`, `logs`, `heartbeat`, `features` (pull, signed)
+- [x] Per-store rate limiting, batch caps, idempotency keys
+- [x] Store health poller with timeout/retry/backoff, recording the reported feature set
+- [x] SSRF protection on outbound calls — refused at the socket, on the resolved address
+- [x] Domain ownership verification before `Connected` ([`adr/0021`](docs/adr/0021-domain-verification-before-connected.md))
+- [x] `integrationStatus` transitions + `StoreDeployment` recording, detected and reported collapsing to one row
+- [x] Redis made optional; the host refuses the in-process fallback outside Development
+- [x] Dashboard read paths: health history, deployments, events, errors, domains, credentials, logs
 
 ### Store side (`stores/reference-store/`)
-- [ ] Django + DRF skeleton with its own PostgreSQL and Redis
-- [ ] `knight_integration`: `conf`, `client`, `auth`, `health`, `features`, `errors`, `events`
-- [ ] Commands: `knight_register`, `knight_sync_features`, `knight_selftest`
-- [ ] Error middleware with batching, bounded queue, scrubbing
-- [ ] Entitlement cache: TTL, signed payload, last-known-good fallback
-- [ ] Health endpoint reporting store version, runtime, and installed features
-- [ ] A minimal business app proving business code never imports the integration layer
+- [x] Django + DRF skeleton with its own PostgreSQL database
+- [x] `knight_integration`: `conf`, `client`, `auth`, `health`, `features`, `errors`, `events`
+- [x] Commands: `knight_register`, `knight_sync_features`, `knight_heartbeat`, `knight_selftest`
+- [x] Error middleware with batching, bounded queue, scrubbing
+- [x] Entitlement cache: TTL, signed payload, last-known-good fallback, minimum safe set
+- [x] Health endpoint reporting store version, runtime and installed features, signature-authenticated
+- [x] A minimal business app proving business code never imports the integration layer — enforced by a test
 
 ### Tests
-- [ ] Contract tests both ways against a shared schema file
-- [ ] End-to-end: register → health → error ingest → entitlement change → enforcement
-- [ ] Negative: wrong environment, revoked credential, expired token, foreign `storeId`, replay
+- [x] Contract tests both ways against `docs/contracts/store-integration.schema.json` and the worked signature examples beside it
+- [x] End-to-end: register → verify domain → health → error ingest → entitlement pull → enforcement
+- [x] Negative: wrong environment, revoked credential, suspended customer, tampered token, replayed nonce, cross-customer isolation
+
+### Deferred, deliberately
+- [ ] DNS TXT domain verification — modelled, and the method provisioning will need in phase 9; only HTTP is implemented
+- [ ] Error grouping and fingerprinting — the raw stream is stored and shown; grouping is phase 5's job ([`adr/0013`](docs/adr/0013-error-grouping-strategy.md))
+- [ ] Log search, filtering by time and export — the stream and a level filter exist; the rest lands with observability in phase 7
+- [ ] `StoreHealthCheck` retention — the table is append-only by design and needs the phase 7 retention job
 
 ---
 
@@ -318,6 +328,8 @@ uninstalled — with no manual per-store work at any point.
 - [x] Error group event samples with stack traces
 - [x] Incident detail timeline
 - [x] MFA step on login
+- [x] Logs screen (level filter and search; time filtering and export land with phase 7)
+- [x] Store detail against the real API: health history, deployments, domains with ownership state, credentials by state, activity
 - [ ] Edit/save write paths for every form (blocked on the API)
 - [ ] Subscription change flow with live price quote (blocked on `/subscriptions/quote`)
 - [ ] Live job progress over SignalR (currently one-shot fetch)

@@ -247,6 +247,14 @@ internal sealed class IngestionService : IIngestionService
         CancellationToken cancellationToken) =>
         _repository.ListEventsAsync(storeId, Page(page), Size(pageSize), cancellationToken);
 
+    public Task<(IReadOnlyCollection<StoreLogEntry> Items, long TotalCount)> ListLogsAsync(
+        Guid? storeId,
+        string? level,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken) =>
+        _repository.ListLogsAsync(storeId, level, Page(page), Size(pageSize), cancellationToken);
+
     /// <summary>
     /// The environment in the payload and the one the token was minted for must
     /// agree. They can only diverge if a store is misconfigured or a token is

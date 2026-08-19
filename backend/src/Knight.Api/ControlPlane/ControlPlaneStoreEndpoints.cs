@@ -185,8 +185,112 @@ public static class ControlPlaneStoreEndpoints
             IStoreIntegrationService integration,
             CancellationToken cancellationToken) =>
         {
-            var deployments = await integration.ListDeploymentsAsync(id, limit ?? 25, cancellationToken);
-            return Results.Ok(deployments.Select(ToResponse).ToArray());
+            var size = limit ?? 25;
+            var deployments = await integration.ListDeploymentsAsync(id, size, cancellationToken);
+
+            return Results.Ok(PagedResponse<StoreDeploymentResponse>.Create(
+                deployments.Select(ToResponse).ToArray(),
+                1,
+                size,
+                deployments.Count));
+        }).RequirePermission(ControlPlanePermissions.StoreView);
+
+        // The credentials a store holds, by state. Issuing and rotating are
+        // separate permissions; reading which ones exist is not, because the
+        // response carries no secret and no hash.
+        group.MapGet("/{id:guid}/credentials", async (
+            Guid id,
+            IStoreManagementService service,
+            IDateTimeProvider clock,
+            CancellationToken cancellationToken) =>
+        {
+            var store = await service.GetAsync(id, cancellationToken);
+            if (store is null)
+            {
+                return Results.NotFound();
+            }
+
+            var now = clock.UtcNow;
+            var credentials = store.Credentials
+                .OrderByDescending(credential => credential.CreatedAt)
+                .Select(credential => new StoreCredentialResponse
+                {
+                    Id = credential.Id,
+                    ClientId = credential.ClientId,
+                    State = credential.StateAt(now).ToString(),
+                    CreatedAt = credential.CreatedAt,
+                    ExpiresAt = credential.ExpiresAt,
+                    RotatedAt = credential.RotatedAt,
+                    RevokedAt = credential.RevokedAt,
+                    LastUsedAt = credential.LastUsedAt,
+                })
+                .ToArray();
+
+            return Results.Ok(PagedResponse<StoreCredentialResponse>.Create(credentials, 1, credentials.Length, credentials.Length));
+        }).RequirePermission(ControlPlanePermissions.StoreView);
+
+        // A store has exactly one domain in this phase — its primary — and what
+        // is worth saying about it is whether ownership has been proven. Aliases
+        // and TLS arrive with provisioning in phase 9; returning a list now keeps
+        // that addition from being a breaking change.
+        group.MapGet("/{id:guid}/domains", async (
+            Guid id,
+            IStoreManagementService service,
+            IStoreIntegrationService integration,
+            CancellationToken cancellationToken) =>
+        {
+            var store = await service.GetAsync(id, cancellationToken);
+            if (store is null)
+            {
+                return Results.NotFound();
+            }
+
+            var challenge = await integration.GetDomainVerificationAsync(id, cancellationToken);
+
+            var domain = new StoreDomainResponse
+            {
+                Id = store.Id,
+                Host = store.PrimaryDomain,
+                Type = "Primary",
+                Verification = store.IsDomainVerified
+                    ? "Verified"
+                    : challenge is null ? "NotStarted" : "Pending",
+                VerifiedAt = store.DomainVerifiedAt,
+                VerificationMethod = store.DomainVerificationMethod?.ToString(),
+            };
+
+            return Results.Ok(PagedResponse<StoreDomainResponse>.Create([domain], 1, 1, 1));
+        }).RequirePermission(ControlPlanePermissions.StoreView);
+
+        // What has happened to this store, from what the store itself reported.
+        // Operator actions live in the audit log and are queried separately; this
+        // is the store's own account of its life.
+        group.MapGet("/{id:guid}/activity", async (
+            Guid id,
+            int? page,
+            int? pageSize,
+            IIngestionService ingestion,
+            CancellationToken cancellationToken) =>
+        {
+            var (items, total) = await ingestion.ListEventsAsync(id, page ?? 1, pageSize ?? 25, cancellationToken);
+
+            return Results.Ok(PagedResponse<StoreActivityResponse>.Create(
+                items.Select(@event => new StoreActivityResponse
+                {
+                    Id = @event.Id,
+                    Title = @event.Summary,
+                    Actor = "store",
+                    OccurredAt = @event.OccurredAt,
+                    Kind = @event.Severity switch
+                    {
+                        Ingestion.Domain.StoreEventSeverity.Error => "warning",
+                        Ingestion.Domain.StoreEventSeverity.Warning => "warning",
+                        _ => "event",
+                    },
+                }).ToArray(),
+                page ?? 1,
+                pageSize ?? 25,
+                total));
         }).RequirePermission(ControlPlanePermissions.StoreView);
 
         group.MapGet("/{id:guid}/events", async (
@@ -286,6 +390,7 @@ public static class ControlPlaneStoreEndpoints
         DetectedAt = deployment.DetectedAt,
         Source = deployment.Source.ToString(),
         Status = deployment.Status.ToString(),
+        DeployedBy = null,
         Notes = deployment.Notes,
     };
 

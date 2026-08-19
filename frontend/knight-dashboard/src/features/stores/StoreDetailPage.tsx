@@ -31,12 +31,14 @@ interface UsageResponse {
 const verificationTone: Record<StoreDomain["verification"], Tone> = {
   Verified: "success",
   Pending: "warning",
+  NotStarted: "neutral",
   Failed: "danger",
 };
 
-const credentialTone: Record<StoreCredential["status"], Tone> = {
+const credentialTone: Record<StoreCredential["state"], Tone> = {
   Active: "success",
   GracePeriod: "warning",
+  Expired: "neutral",
   Revoked: "neutral",
 };
 
@@ -114,22 +116,9 @@ export function StoreDetailPage() {
       ),
     },
     {
-      key: "tls",
-      header: t("domains.tls"),
-      render: (row) =>
-        row.tlsExpiresAt ? (
-          <span
-            className={
-              new Date(row.tlsExpiresAt).getTime() - Date.now() < 7 * 86_400_000
-                ? "text-warning"
-                : undefined
-            }
-          >
-            {formatRelative(row.tlsExpiresAt)}
-          </span>
-        ) : (
-          "—"
-        ),
+      key: "verifiedAt",
+      header: t("domains.verifiedAt"),
+      render: (row) => (row.verifiedAt ? formatRelative(row.verifiedAt) : "—"),
     },
   ];
 
@@ -139,8 +128,8 @@ export function StoreDetailPage() {
       key: "status",
       header: t("common.status"),
       render: (row) => (
-        <StatusChip tone={credentialTone[row.status]}>
-          {t(`credentialStatus.${row.status}`)}
+        <StatusChip tone={credentialTone[row.state]}>
+          {t(`credentialStatus.${row.state}`)}
         </StatusChip>
       ),
     },
@@ -158,13 +147,25 @@ export function StoreDetailPage() {
       key: "status",
       header: t("common.status"),
       render: (row) => (
-        <StatusChip tone={row.status === "Succeeded" ? "success" : "danger"}>
+        <StatusChip
+          tone={
+            row.status === "Succeeded"
+              ? "success"
+              : row.status === "Detected"
+                ? "neutral"
+                : "danger"
+          }
+        >
           {t(`deploymentStatus.${row.status}`)}
         </StatusChip>
       ),
     },
     { key: "at", header: t("deployments.deployedAt"), render: (row) => formatRelative(row.deployedAt) },
-    { key: "by", header: t("deployments.deployedBy"), render: (row) => row.deployedBy },
+    {
+      key: "by",
+      header: t("deployments.deployedBy"),
+      render: (row) => row.deployedBy ?? (row.source === "StoreReported" ? t("deployments.reportedByStore") : t("deployments.detected")),
+    },
     { key: "notes", header: t("deployments.notes"), secondary: true, render: (row) => row.notes ?? "—" },
   ];
 
@@ -246,7 +247,7 @@ export function StoreDetailPage() {
                   />
                 </>
               ) : (
-                <p className="text-body-sm text-on-surface-variant">{t("common.noResults")}</p>
+                <p className="text-body-sm text-on-surface-variant">{t("storeDetail.usageUnavailable")}</p>
               )}
             </CardBody>
           </Card>

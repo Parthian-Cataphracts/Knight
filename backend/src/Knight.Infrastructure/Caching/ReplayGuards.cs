@@ -99,20 +99,26 @@ internal sealed class InProcessReplayGuard : IReplayGuard
 /// </summary>
 public sealed class ReplayGuardGuardrail : IHostedService
 {
-    private readonly IReplayGuard _guard;
+    private readonly ReplayProtectionMode _mode;
     private readonly IHostEnvironment _environment;
     private readonly ILogger<ReplayGuardGuardrail> _logger;
 
-    public ReplayGuardGuardrail(IReplayGuard guard, IHostEnvironment environment, ILogger<ReplayGuardGuardrail> logger)
+    /// <summary>
+    /// Takes the mode rather than the guard on purpose. Injecting
+    /// <see cref="IReplayGuard"/> would construct it, and constructing the Redis
+    /// one opens the connection — turning a startup check into a startup
+    /// dependency on Redis being up at that instant.
+    /// </summary>
+    public ReplayGuardGuardrail(ReplayProtectionMode mode, IHostEnvironment environment, ILogger<ReplayGuardGuardrail> logger)
     {
-        _guard = guard;
+        _mode = mode;
         _environment = environment;
         _logger = logger;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        if (_guard is not InProcessReplayGuard)
+        if (_mode.IsDistributed)
         {
             return Task.CompletedTask;
         }

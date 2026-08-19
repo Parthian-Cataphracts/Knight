@@ -28,24 +28,22 @@ re-implemented or hand-copied per customer
           Server A                 Server A (shared)       Dedicated server
 ```
 
-## Current repository state (2026-08-18)
+## Current repository state (2026-08-19)
 
-The repository currently contains a **different product** than the one
-specified above: a shared multi-tenant food-service SaaS written in .NET 10,
-where all tenants live in one PostgreSQL database and all business logic
-(catalog, ordering, payment, delivery) is inside KNIGHT itself.
-
-A decision was made to **pivot fully to the control-plane specification**
-(see [`adr/0010-pivot-to-control-plane.md`](adr/0010-pivot-to-control-plane.md)).
-Until the pivot lands, both realities exist side by side in this repo. Do not
-assume a document describes the target state unless it is listed as
-*authoritative* below.
+The pivot to the control-plane specification
+([`adr/0010`](adr/0010-pivot-to-control-plane.md)) is partly landed. Two
+realities still exist side by side: the control plane, which is real, and the
+frozen store-side business modules of the previous product, which phase 8 ports
+to Django and deletes. Do not assume a document describes the target state
+unless it is listed as *authoritative* below.
 
 | | |
 |---|---|
-| **What exists and works** | .NET 10 modular monolith, 11 business modules, ~97 test files, EF Core migrations, Docker Compose infra |
-| **What does not exist at all** | Control-plane domain (Customers/Stores/Plans/Subscriptions/Servers/Monitoring/Errors/Incidents), **the Feature registry and delivery pipeline**, Django store template, feature packages, the agent, the entire frontend |
-| **Frontend** | Empty. Only `frontend/README.md` and `.gitkeep` files |
+| **Control plane** | Customers, stores, access control and auditing, plans, subscriptions, entitlements, billing; store ingestion, health polling and domain verification |
+| **Stores** | [`stores/reference-store/`](../stores/reference-store/README.md) — a real Django store with the full `knight_integration` layer, tested against the shared contract |
+| **Dashboard** | `frontend/knight-dashboard/` — every screen against the real API |
+| **Frozen** | The previous product's business modules (catalog, ordering, payment, delivery and the rest), untouched until phase 8 |
+| **Not built yet** | **The Feature registry and delivery pipeline**, feature packages, the agent, servers and monitoring, incidents and notifications |
 
 Detailed inventory: [`current-state-analysis.md`](current-state-analysis.md).
 
@@ -59,6 +57,9 @@ Read in this order:
 4. [`domain-model.md`](domain-model.md) — control-plane entities and relationships
 5. [`api-contracts.md`](api-contracts.md) — Dashboard↔KNIGHT, KNIGHT↔Store, Agent↔KNIGHT contracts
 6. [`store-integration.md`](store-integration.md) — the Django integration layer and its lifecycle
+   (implemented in [`stores/reference-store/`](../stores/reference-store/README.md);
+   the wire contract both sides test against is
+   [`contracts/store-integration.schema.json`](contracts/store-integration.schema.json))
 7. [`store-provisioning.md`](store-provisioning.md) — from customer signup to a ready store
 8. [`authentication.md`](authentication.md) — human auth, store auth, agent auth
 9. [`authorization.md`](authorization.md) — roles, permissions, customer isolation
@@ -69,6 +70,7 @@ Read in this order:
 14. [`migration-plan.md`](migration-plan.md) — how to get from the current repo to the target
 15. [`risks.md`](risks.md) — open risks, contradictions, unresolved decisions
 16. [`development.md`](development.md) — how to run, test, and contribute
+17. [`phase-3-verification.md`](phase-3-verification.md) — the exact steps to bring KNIGHT, a store and the dashboard up together and see the link work
 
 Project status and remaining work: [`../TODO.md`](../TODO.md).
 
@@ -103,6 +105,8 @@ but they are **not** a description of KNIGHT's target architecture:
 | [0017](adr/0017-feature-compatibility-and-dependencies.md) | Feature versioning, compatibility, dependency resolution | Accepted |
 | [0018](adr/0018-separate-control-plane-context-and-access-module.md) | Separate control-plane DbContext and access module | Accepted |
 | [0019](adr/0019-entitlement-as-an-explicit-record.md) | Entitlement as an explicit record, reconciled from the subscription | Accepted |
+| [0020](adr/0020-store-ingestion-authentication.md) | Store ingestion: tokens, replay protection, signed payloads | Accepted |
+| [0021](adr/0021-domain-verification-before-connected.md) | A store is Connected only once it has proven its domain | Accepted |
 
 **Revision note:** the first documentation revision treated a Feature as an
 entitlement flag. ADR 0014 corrects that. Where any older, un-updated document

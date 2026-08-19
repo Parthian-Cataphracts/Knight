@@ -139,5 +139,34 @@ internal sealed class IngestionRepository : IIngestionRepository
         return (items, total);
     }
 
+    public async Task<(IReadOnlyCollection<StoreLogEntry> Items, long TotalCount)> ListLogsAsync(
+        Guid? storeId,
+        string? level,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var query = _context.StoreLogEntries.AsQueryable();
+
+        if (storeId is { } id)
+        {
+            query = query.Where(entry => entry.StoreId == id);
+        }
+
+        if (!string.IsNullOrWhiteSpace(level))
+        {
+            // Compared against the stored form, which is upper-cased on the way
+            // in; normalisation into the dashboard's vocabulary happens on read.
+            var normalised = level.Trim().ToUpperInvariant();
+            query = query.Where(entry => entry.Level == normalised);
+        }
+
+        var ordered = query.OrderByDescending(entry => entry.Timestamp).ThenBy(entry => entry.Id);
+        var total = await ordered.LongCountAsync(cancellationToken);
+        var items = await ordered.Skip((page - 1) * pageSize).Take(pageSize).ToArrayAsync(cancellationToken);
+
+        return (items, total);
+    }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken) => _context.SaveChangesAsync(cancellationToken);
 }

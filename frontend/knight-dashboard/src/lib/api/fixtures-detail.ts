@@ -83,8 +83,11 @@ export interface StoreDomain {
   id: string;
   host: string;
   type: "Primary" | "Alias" | "Admin" | "Staging";
-  verification: "Verified" | "Pending" | "Failed";
-  tlsExpiresAt: string | null;
+  /** NotStarted until an operator issues a token, Pending until KNIGHT finds it published. */
+  verification: "NotStarted" | "Pending" | "Verified" | "Failed";
+  verifiedAt?: string | null;
+  verificationMethod?: string | null;
+  tlsExpiresAt?: string | null;
 }
 
 export interface StoreCredential {
@@ -93,22 +96,27 @@ export interface StoreCredential {
   createdAt: string;
   lastUsedAt: string | null;
   expiresAt: string | null;
-  status: "Active" | "GracePeriod" | "Revoked";
+  /** Evaluated server-side against the current time; the response carries no secret. */
+  state: "Active" | "GracePeriod" | "Expired" | "Revoked";
 }
 
 export interface Deployment {
   id: string;
   version: string;
+  previousVersion?: string | null;
   deployedAt: string;
-  deployedBy: string;
-  status: "Succeeded" | "Failed";
+  /** Null for a deployment KNIGHT learned about from the store rather than from a person. */
+  deployedBy?: string | null;
+  /** VersionChange when KNIGHT noticed it, StoreReported when the store announced it. */
+  source?: "VersionChange" | "StoreReported";
+  status: "Detected" | "Succeeded" | "Failed" | "RolledBack";
   notes: string | null;
 }
 
 export interface ActivityEntry {
   id: string;
   occurredAt: string;
-  kind: "user" | "system" | "warning" | "backup";
+  kind: "user" | "system" | "warning" | "backup" | "event";
   title: string;
   actor: string;
 }
@@ -125,10 +133,10 @@ export const storeDomains: Record<string, StoreDomain[]> = {
 
 export const storeCredentials: Record<string, StoreCredential[]> = {
   s1: [
-    { id: "cr1", clientId: "kn_cafe1_9f2c41ab", createdAt: daysAgo(120), lastUsedAt: minutesAgo(2), expiresAt: null, status: "Active" },
-    { id: "cr2", clientId: "kn_cafe1_1d7790ce", createdAt: daysAgo(400), lastUsedAt: daysAgo(119), expiresAt: daysAgo(113), status: "Revoked" },
+    { id: "cr1", clientId: "kn_cafe1_9f2c41ab", createdAt: daysAgo(120), lastUsedAt: minutesAgo(2), expiresAt: null, state: "Active" },
+    { id: "cr2", clientId: "kn_cafe1_1d7790ce", createdAt: daysAgo(400), lastUsedAt: daysAgo(119), expiresAt: daysAgo(113), state: "Revoked" },
   ],
-  s3: [{ id: "cr3", clientId: "kn_cafe2_44de7c30", createdAt: daysAgo(60), lastUsedAt: minutesAgo(18), expiresAt: null, status: "Active" }],
+  s3: [{ id: "cr3", clientId: "kn_cafe2_44de7c30", createdAt: daysAgo(60), lastUsedAt: minutesAgo(18), expiresAt: null, state: "Active" }],
 };
 
 export const storeDeployments: Record<string, Deployment[]> = {
