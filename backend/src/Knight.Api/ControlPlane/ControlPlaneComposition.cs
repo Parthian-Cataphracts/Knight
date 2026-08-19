@@ -1,3 +1,4 @@
+using Servers;
 using FeatureDelivery;
 using AccessControl;
 using Billing;
@@ -28,6 +29,7 @@ public static class ControlPlaneComposition
         services.AddStoresModule(configuration);
         services.AddFeatureRegistryModule();
         services.AddFeatureDeliveryModule(configuration);
+        services.AddServersModule(configuration);
         services.AddPlansModule();
         services.AddSubscriptionsModule(configuration);
         services.AddBillingModule(configuration);
@@ -46,6 +48,10 @@ public static class ControlPlaneComposition
         // dead agent holds its store's queue forever and every later install for
         // that store silently never happens.
         services.AddHostedService<FeatureJobSweeper>();
+
+        // The only thing that can decide a machine is offline: absence cannot be
+        // reported by the thing that is absent.
+        services.AddHostedService<FleetMonitor>();
 
         return services;
     }

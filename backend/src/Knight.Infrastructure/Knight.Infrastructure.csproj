@@ -9,6 +9,7 @@
     <ProjectReference Include="..\..\modules\Ingestion\Ingestion.csproj" />
     <ProjectReference Include="..\..\modules\FeatureRegistry\FeatureRegistry.csproj" />
     <ProjectReference Include="..\..\modules\FeatureDelivery\FeatureDelivery.csproj" />
+    <ProjectReference Include="..\..\modules\Servers\Servers.csproj" />
     <ProjectReference Include="..\..\modules\Plans\Plans.csproj" />
     <ProjectReference Include="..\..\modules\Subscriptions\Subscriptions.csproj" />
     <ProjectReference Include="..\..\modules\Billing\Billing.csproj" />
