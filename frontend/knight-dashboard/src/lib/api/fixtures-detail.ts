@@ -338,3 +338,34 @@ export const notifications: NotificationDeliveryFixture[] = [
     readAt: minutesAgo(170),
   },
 ];
+
+export const notificationChannels = [
+  {
+    id: "nc1",
+    customerId: null,
+    name: "On-call webhook",
+    kind: "Webhook" as const,
+    endpoint: "https://hooks.example.com/knight",
+    minimumSeverity: "Critical" as const,
+    ruleFilter: ["server.offline", "feature.install.failed"],
+    isEnabled: true,
+    disabledReason: null,
+    lastDeliveredAt: minutesAgo(12),
+    consecutiveFailures: 0,
+    hasSecret: true,
+  },
+  {
+    id: "nc2",
+    customerId: null,
+    name: "Notification centre",
+    kind: "InApp" as const,
+    endpoint: null,
+    minimumSeverity: "Info" as const,
+    ruleFilter: [],
+    isEnabled: true,
+    disabledReason: null,
+    lastDeliveredAt: minutesAgo(4),
+    consecutiveFailures: 0,
+    hasSecret: false,
+  },
+];

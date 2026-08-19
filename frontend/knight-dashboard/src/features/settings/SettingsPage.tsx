@@ -4,6 +4,7 @@ import { PageShell, PageHeader, KeyValue, Mono } from "@/components/data/PageShe
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { NotificationChannels } from "./NotificationChannels";
 import { useUiStore } from "@/store/ui";
 import { useAuthStore } from "@/store/auth";
 
@@ -15,6 +16,8 @@ export function SettingsPage() {
   return (
     <PageShell>
       <PageHeader title={t("nav.settings")} subtitle={t("settings.subtitle")} />
+
+      <NotificationChannels />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Card>
