@@ -84,6 +84,18 @@ public sealed class ControlPlaneDbContext : DbContext
 
     public DbSet<Subscriptions.Domain.FeatureEntitlement> FeatureEntitlements => Set<Subscriptions.Domain.FeatureEntitlement>();
 
+    public DbSet<FeatureRegistry.Domain.FeatureVersion> FeatureVersions => Set<FeatureRegistry.Domain.FeatureVersion>();
+
+    public DbSet<FeatureRegistry.Domain.FeatureDependency> FeatureDependencies => Set<FeatureRegistry.Domain.FeatureDependency>();
+
+    public DbSet<FeatureDelivery.Domain.FeatureInstallation> FeatureInstallations => Set<FeatureDelivery.Domain.FeatureInstallation>();
+
+    public DbSet<FeatureDelivery.Domain.FeatureInstallationJob> FeatureInstallationJobs => Set<FeatureDelivery.Domain.FeatureInstallationJob>();
+
+    public DbSet<FeatureDelivery.Domain.JobStepResult> FeatureJobSteps => Set<FeatureDelivery.Domain.JobStepResult>();
+
+    public DbSet<FeatureDelivery.Domain.FeatureConfiguration> FeatureConfigurations => Set<FeatureDelivery.Domain.FeatureConfiguration>();
+
     public DbSet<Billing.Domain.BillingAccount> BillingAccounts => Set<Billing.Domain.BillingAccount>();
 
     public DbSet<Billing.Domain.Invoice> Invoices => Set<Billing.Domain.Invoice>();
@@ -123,6 +135,13 @@ public sealed class ControlPlaneDbContext : DbContext
         modelBuilder.ApplyConfiguration(new InvoiceLineConfiguration());
         modelBuilder.ApplyConfiguration(new PaymentRecordConfiguration());
         modelBuilder.ApplyConfiguration(new InvoiceNumberSequenceConfiguration());
+
+        modelBuilder.ApplyConfiguration(new FeatureVersionConfiguration());
+        modelBuilder.ApplyConfiguration(new FeatureDependencyConfiguration());
+        modelBuilder.ApplyConfiguration(new FeatureInstallationConfiguration());
+        modelBuilder.ApplyConfiguration(new FeatureInstallationJobConfiguration());
+        modelBuilder.ApplyConfiguration(new JobStepResultConfiguration());
+        modelBuilder.ApplyConfiguration(new StoreFeatureConfigurationConfiguration());
 
         ApplyCustomerIsolation(modelBuilder);
     }
