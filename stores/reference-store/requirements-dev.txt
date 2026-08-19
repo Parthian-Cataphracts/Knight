@@ -1,0 +1,9 @@
+# Test-only dependencies for the reference store.
+#
+# Kept apart from requirements.txt so that what a store actually runs in
+# production stays visible and minimal. The contract tests validate payloads
+# against docs/contracts/store-integration.schema.json and need a JSON Schema
+# implementation to do it; nothing in the store itself does.
+-r requirements.txt
+
+jsonschema==4.23.0

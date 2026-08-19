@@ -12,6 +12,7 @@ fixture, not into a settings file, not into the repository.
 """
 
 import os
+from django.core.exceptions import ImproperlyConfigured
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,6 +27,27 @@ def _flag(name: str, default: bool = False) -> bool:
     if not raw:
         return default
     return raw.lower() in {"1", "true", "yes", "on"}
+
+
+def _json(name: str, default):
+    """
+    Reads a JSON-valued environment variable.
+
+    A malformed value is a startup failure rather than a silent default: a store
+    whose signing keys failed to parse would look configured and then refuse
+    every feature it was ever sent, which is a far harder thing to diagnose than
+    a store that would not start.
+    """
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+
+    import json
+
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ImproperlyConfigured(f"{name} must be valid JSON: {exc}") from exc
 
 
 def _int(name: str, default: int) -> int:
@@ -140,4 +162,23 @@ KNIGHT = {
     "DOMAIN_VERIFICATION_TOKEN": _env("KNIGHT_DOMAIN_VERIFICATION_TOKEN"),
     # Tolerance for clock skew when checking a signed request from KNIGHT.
     "REQUEST_SIGNATURE_SKEW_SECONDS": _int("KNIGHT_REQUEST_SIGNATURE_SKEW_SECONDS", 300),
+    # Where installed feature packages live. Outside the repository on purpose:
+    # feature code is delivered, not checked in.
+    "FEATURE_ROOT": _env("KNIGHT_FEATURE_ROOT", str(BASE_DIR.parent / "knight-features")),
+    # Public keys KNIGHT signs feature artifacts with, as {key id: base64 DER}.
+    # An artifact signed by anything not listed here is refused
+    # (docs/adr/0015-feature-delivery-mechanism.md).
+    "SIGNING_KEYS": _json("KNIGHT_SIGNING_KEYS", {}),
+    "MAX_ARTIFACT_BYTES": _int("KNIGHT_MAX_ARTIFACT_BYTES", 256 * 1024 * 1024),
 }
+
+# Feature packages KNIGHT has installed into this store.
+#
+# Appended after the store's own apps so a delivered feature can never displace
+# one of them, and read from the installer's on-disk registry rather than from
+# KNIGHT: the control plane is not reachable at import time and must never be on
+# the path of this store starting up (docs/feature-delivery.md §4).
+from knight_integration.features import loader as _feature_loader  # noqa: E402
+
+_feature_loader.ensure_import_path(KNIGHT["FEATURE_ROOT"])
+INSTALLED_APPS += _feature_loader.feature_apps(KNIGHT["FEATURE_ROOT"])
