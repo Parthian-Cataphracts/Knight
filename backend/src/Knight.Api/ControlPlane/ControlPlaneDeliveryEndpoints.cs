@@ -143,6 +143,7 @@ public static class ControlPlaneDeliveryEndpoints
             Guid? customerId,
             string? state,
             IFeatureDeliveryService service,
+            ILabelReader labels,
             CancellationToken cancellationToken) =>
         {
             if (!TryParse<InstallationState>(state, out var parsedState))
@@ -153,8 +154,26 @@ public static class ControlPlaneDeliveryEndpoints
             var result = await service.ListInstallationsAsync(
                 page ?? 1, pageSize ?? 25, storeId, customerId, parsedState, cancellationToken);
 
+            // Labels for the whole page in one pass each. Entitlement is the
+            // column this screen exists for, so it is resolved here rather than
+            // left for the client to guess from the installation state.
+            var storeNames = await labels.StoreNamesAsync(
+                [.. result.Items.Select(item => item.StoreId).Distinct()],
+                cancellationToken);
+
+            var featureNames = await labels.FeatureNamesAsync(
+                [.. result.Items.Select(item => item.FeatureId).Distinct()],
+                cancellationToken);
+
+            var entitlements = await labels.EntitledFeaturesAsync(
+                [.. result.Items.Select(item => item.CustomerId).Distinct()],
+                cancellationToken);
+
             return Results.Ok(PagedResponse<FeatureInstallationResponse>.Create(
-                [.. result.Items.Select(DeliveryMapping.ToResponse)],
+                [.. result.Items.Select(item => item.ToResponse(
+                    storeNames.GetValueOrDefault(item.StoreId),
+                    featureNames.GetValueOrDefault(item.FeatureId),
+                    entitlements.TryGetValue(item.CustomerId, out var owed) && owed.Contains(item.FeatureId)))],
                 result.Page,
                 result.PageSize,
                 result.TotalCount));
@@ -267,6 +286,7 @@ public static class ControlPlaneDeliveryEndpoints
             Guid? customerId,
             string? state,
             IFeatureDeliveryService service,
+            ILabelReader labels,
             CancellationToken cancellationToken) =>
         {
             if (!TryParse<JobState>(state, out var parsedState))
@@ -277,8 +297,12 @@ public static class ControlPlaneDeliveryEndpoints
             var result = await service.ListJobsAsync(
                 page ?? 1, pageSize ?? 25, storeId, customerId, parsedState, cancellationToken);
 
+            var jobStoreNames = await labels.StoreNamesAsync(
+                [.. result.Items.Select(job => job.StoreId).Distinct()],
+                cancellationToken);
+
             return Results.Ok(PagedResponse<FeatureJobResponse>.Create(
-                [.. result.Items.Select(DeliveryMapping.ToResponse)],
+                [.. result.Items.Select(job => job.ToResponse(jobStoreNames.GetValueOrDefault(job.StoreId)))],
                 result.Page,
                 result.PageSize,
                 result.TotalCount));

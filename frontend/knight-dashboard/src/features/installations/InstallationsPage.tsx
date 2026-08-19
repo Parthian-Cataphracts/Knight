@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, CheckCircle2, CircleDot, RotateCcw, XCircle, Clock } from "lucide-react";
 import { useAction, useCollection, useResource } from "@/lib/api/hooks";
-import type { Installation, Job, JobStep } from "@/lib/api/domain";
+import type { Installation, Job, JobDetail, JobStep } from "@/lib/api/domain";
 import type { InstallPlan } from "@/lib/api/fixtures-detail";
 import { PageShell, PageHeader, Toolbar, FilterTabs, KeyValue, Mono } from "@/components/data/PageShell";
 import { CollectionCard } from "@/components/data/CollectionCard";
@@ -21,7 +21,6 @@ const stepIcon = {
   Succeeded: CheckCircle2,
   Running: CircleDot,
   Failed: XCircle,
-  Pending: Clock,
   Skipped: Clock,
 } as const;
 
@@ -29,31 +28,40 @@ const stepColor = {
   Succeeded: "text-success",
   Running: "text-info",
   Failed: "text-error",
-  Pending: "text-on-surface-variant/60",
   Skipped: "text-on-surface-variant/40",
 } as const;
 
+/**
+ * A job's steps.
+ *
+ * Fetched from the job's own endpoint rather than carried on the list: a page of
+ * jobs would otherwise ship every step of every job to draw one progress bar,
+ * and the steps are only ever read one job at a time.
+ */
 function JobProgress({ job }: { job: Job }) {
   const { t } = useTranslation();
-  if (job.steps.length === 0) {
+  const detail = useResource<JobDetail>(`/jobs/${job.id}`);
+  const steps = detail.data?.steps ?? [];
+
+  if (steps.length === 0) {
     return (
       <p className="text-body-sm text-on-surface-variant">
-        {t("jobs.noSteps")} ({job.currentStep}/{job.totalSteps})
+        {t("jobs.noSteps")} ({job.completedStepCount}/{job.totalStepCount})
       </p>
     );
   }
 
   return (
     <ol className="flex flex-col gap-2.5">
-      {job.steps.map((step: JobStep) => {
+      {steps.map((step: JobStep) => {
         const Icon = stepIcon[step.status];
         return (
-          <li key={step.index} className="flex items-start gap-3">
+          <li key={step.sequence} className="flex items-start gap-3">
             <Icon className={`mt-0.5 size-4 shrink-0 ${stepColor[step.status]}`} aria-hidden />
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline justify-between gap-2">
                 <span dir="ltr" className="font-mono text-label text-on-surface">
-                  {step.index}. {step.name}
+                  {step.sequence}. {step.name}
                 </span>
                 <span className="text-body-sm text-on-surface-variant">
                   {t(`stepStatus.${step.status}`)}
@@ -154,10 +162,10 @@ export function InstallationsPage() {
       mono: true,
       render: (row) =>
         row.installedVersion
-          ? row.desiredVersion && row.desiredVersion !== row.installedVersion
-            ? `${row.installedVersion} → ${row.desiredVersion}`
+          ? row.targetVersion && row.targetVersion !== row.installedVersion
+            ? `${row.installedVersion} → ${row.targetVersion}`
             : row.installedVersion
-          : (row.desiredVersion ?? "—"),
+          : (row.targetVersion ?? "—"),
     },
     {
       key: "changed",
@@ -174,8 +182,11 @@ export function InstallationsPage() {
       header: t("jobs.target"),
       render: (row) => (
         <span className="flex flex-col">
-          <span className="text-on-surface">{row.target}</span>
-          <Mono>{row.storeName}</Mono>
+          <span className="text-on-surface">
+            {row.featureSlug}
+            {row.targetVersion ? ` ${row.targetVersion}` : ""}
+          </span>
+          <Mono>{row.storeName ?? row.storeId}</Mono>
         </span>
       ),
     },
@@ -183,7 +194,7 @@ export function InstallationsPage() {
       key: "status",
       header: t("common.status"),
       render: (row) => (
-        <StatusChip tone={jobTone[row.status]}>{t(`jobStatus.${row.status}`)}</StatusChip>
+        <StatusChip tone={jobTone[row.state]}>{t(`jobStatus.${row.state}`)}</StatusChip>
       ),
     },
     {
@@ -193,12 +204,14 @@ export function InstallationsPage() {
         <span className="flex min-w-24 items-center gap-2">
           <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-highest">
             <span
-              className={`block h-full rounded-full ${row.status === "Failed" ? "bg-error" : "bg-primary"}`}
-              style={{ width: `${(row.currentStep / row.totalSteps) * 100}%` }}
+              className={`block h-full rounded-full ${row.state === "Failed" ? "bg-error" : "bg-primary"}`}
+              style={{
+                width: `${row.totalStepCount === 0 ? 0 : (row.completedStepCount / row.totalStepCount) * 100}%`,
+              }}
             />
           </span>
           <span dir="ltr" className="font-mono text-label text-on-surface-variant">
-            {row.currentStep}/{row.totalSteps}
+            {row.completedStepCount}/{row.totalStepCount}
           </span>
         </span>
       ),
@@ -237,7 +250,7 @@ export function InstallationsPage() {
               rows={rows}
               rowKey={(row) => row.id}
               onRowClick={setSelectedInstallation}
-              cardTitle={(row) => row.featureName}
+              cardTitle={(row) => row.featureName ?? row.featureSlug}
               emptyMessage={t("common.noResults")}
             />
           )}
@@ -264,7 +277,7 @@ export function InstallationsPage() {
               rows={rows}
               rowKey={(row) => row.id}
               onRowClick={setSelectedJob}
-              cardTitle={(row) => row.target}
+              cardTitle={(row) => row.featureSlug}
               emptyMessage={t("common.noResults")}
             />
           )}
@@ -273,8 +286,8 @@ export function InstallationsPage() {
 
       <Drawer
         open={selectedInstallation !== null}
-        title={selectedInstallation?.featureName ?? ""}
-        subtitle={selectedInstallation?.storeName}
+        title={selectedInstallation?.featureName ?? selectedInstallation?.featureSlug ?? ""}
+        subtitle={selectedInstallation?.storeName ?? undefined}
         onClose={() => setSelectedInstallation(null)}
         footer={
           can("installation.manage") && selectedInstallation ? (
@@ -367,7 +380,7 @@ export function InstallationsPage() {
                 <Mono>{selectedInstallation.installedVersion ?? "—"}</Mono>
               </KeyValue>
               <KeyValue label={t("installations.desiredVersion")}>
-                <Mono>{selectedInstallation.desiredVersion ?? "—"}</Mono>
+                <Mono>{selectedInstallation.targetVersion ?? "—"}</Mono>
               </KeyValue>
               <KeyValue label={t("installations.health")}>
                 {t(`health.${selectedInstallation.health}`)}
@@ -383,10 +396,10 @@ export function InstallationsPage() {
       <Drawer
         open={selectedJob !== null}
         title={selectedJob ? t(`jobType.${selectedJob.type}`) : ""}
-        subtitle={selectedJob?.target}
+        subtitle={selectedJob?.featureSlug}
         onClose={() => setSelectedJob(null)}
         footer={
-          selectedJob && can("job.manage") && selectedJob.status !== "Succeeded" ? (
+          selectedJob && can("job.manage") && selectedJob.state === "Queued" ? (
             <Button
               variant="outline"
               size="sm"
@@ -402,28 +415,37 @@ export function InstallationsPage() {
           <div className="flex flex-col gap-5">
             <dl className="divide-y divide-outline-variant">
               <KeyValue label={t("common.status")}>
-                <StatusChip tone={jobTone[selectedJob.status]}>
-                  {t(`jobStatus.${selectedJob.status}`)}
+                <StatusChip tone={jobTone[selectedJob.state]}>
+                  {t(`jobStatus.${selectedJob.state}`)}
                 </StatusChip>
               </KeyValue>
               <KeyValue label={t("jobs.store")}>
-                <Mono>{selectedJob.storeName}</Mono>
+                <Mono>{selectedJob.storeName ?? selectedJob.storeId}</Mono>
               </KeyValue>
               <KeyValue label={t("jobs.progress")}>
                 <span dir="ltr" className="font-mono text-label">
-                  {selectedJob.currentStep}/{selectedJob.totalSteps}
+                  {selectedJob.completedStepCount}/{selectedJob.totalStepCount}
                 </span>
               </KeyValue>
+              <KeyValue label={t("jobs.attempts")}>
+                <span dir="ltr" className="font-mono text-label">
+                  {selectedJob.attemptCount}/{selectedJob.maxAttempts}
+                </span>
+              </KeyValue>
+              <KeyValue label={t("jobs.trigger")}>{selectedJob.trigger}</KeyValue>
               <KeyValue label={t("jobs.queuedAt")}>{formatRelative(selectedJob.queuedAt)}</KeyValue>
-              {selectedJob.errorCode ? (
+              {selectedJob.failureCode ? (
                 <KeyValue label={t("jobs.errorCode")}>
-                  <Mono className="text-error">{selectedJob.errorCode}</Mono>
+                  <Mono className="text-error">{selectedJob.failureCode}</Mono>
                 </KeyValue>
               ) : null}
-              {selectedJob.rollbackOutcome && selectedJob.rollbackOutcome !== "None" ? (
+              {selectedJob.failureMessage ? (
+                <KeyValue label={t("jobs.errorMessage")}>{selectedJob.failureMessage}</KeyValue>
+              ) : null}
+              {selectedJob.rollbackOutcome !== "NotAttempted" ? (
                 <KeyValue label={t("jobs.rollback")}>
                   <StatusChip
-                    tone={selectedJob.rollbackOutcome === "Succeeded" ? "success" : "warning"}
+                    tone={selectedJob.rollbackOutcome === "RolledBack" ? "success" : "warning"}
                   >
                     {t(`rollbackOutcome.${selectedJob.rollbackOutcome}`)}
                   </StatusChip>
@@ -446,7 +468,7 @@ export function InstallationsPage() {
         open={previewFor !== null}
         plan={preview.data ?? null}
         storeName={previewFor?.storeName ?? ""}
-        featureName={previewFor?.featureName ?? ""}
+        featureName={previewFor?.featureName ?? previewFor?.featureSlug ?? ""}
         onClose={() => setPreviewFor(null)}
         onConfirm={() => setPreviewFor(null)}
       />

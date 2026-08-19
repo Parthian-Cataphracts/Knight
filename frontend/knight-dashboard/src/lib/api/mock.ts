@@ -182,6 +182,16 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
     return json(installPlan[2] === "f3" ? detail.installPlans["blocked"] : detail.installPlans["ok"]);
   }
 
+  // The job detail endpoint returns the job plus its steps, which the list
+  // deliberately does not carry.
+  const jobDetail = /^\/jobs\/([^/]+)$/.exec(path);
+  if (jobDetail) {
+    const job = fixtures.jobs.find((entry) => entry.id === jobDetail[1]);
+    return job
+      ? json({ job, steps: detail.jobSteps[job.id] ?? [] })
+      : problem(404, "not_found", `No job ${jobDetail[1]}`);
+  }
+
   const versions = /^\/features\/([^/]+)\/versions$/.exec(path);
   if (versions) {
     return json({ items: fixtures.featureVersions[versions[1] as string] ?? [] });

@@ -110,6 +110,53 @@ internal sealed class LabelReader : ILabelReader
         return rows.ToDictionary(row => row.Id, row => row.PrimaryDomain);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, string>> FeatureNamesAsync(
+        IReadOnlyCollection<Guid> featureIds,
+        CancellationToken cancellationToken)
+    {
+        if (featureIds.Count == 0)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        var rows = await _context.Features
+            .AsNoTracking()
+            .Where(feature => featureIds.Contains(feature.Id))
+            .Select(feature => new { feature.Id, feature.Name })
+            .ToArrayAsync(cancellationToken);
+
+        return rows.ToDictionary(row => row.Id, row => row.Name);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyCollection<Guid>>> EntitledFeaturesAsync(
+        IReadOnlyCollection<Guid> customerIds,
+        CancellationToken cancellationToken)
+    {
+        if (customerIds.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyCollection<Guid>>();
+        }
+
+        var now = DateTimeOffset.UtcNow;
+
+        // Live entitlements only: revoked and expired ones are history, and a
+        // screen that counted them would show a customer as owed something they
+        // stopped paying for.
+        var rows = await _context.FeatureEntitlements
+            .AsNoTracking()
+            .Where(entitlement => customerIds.Contains(entitlement.CustomerId) &&
+                                  entitlement.RevokedAt == null &&
+                                  (entitlement.ExpiresAt == null || entitlement.ExpiresAt > now))
+            .Select(entitlement => new { entitlement.CustomerId, entitlement.FeatureId })
+            .ToArrayAsync(cancellationToken);
+
+        return rows
+            .GroupBy(row => row.CustomerId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyCollection<Guid>)group.Select(row => row.FeatureId).Distinct().ToArray());
+    }
+
     public async Task<IReadOnlyDictionary<Guid, string>> UserNamesAsync(
         IReadOnlyCollection<Guid> userIds,
         CancellationToken cancellationToken)

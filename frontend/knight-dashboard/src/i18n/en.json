@@ -262,16 +262,16 @@
     "TimedOut": "Timed out"
   },
   "stepStatus": {
-    "Pending": "Pending",
     "Running": "Running",
     "Succeeded": "Succeeded",
     "Failed": "Failed",
     "Skipped": "Skipped"
   },
   "rollbackOutcome": {
-    "Succeeded": "Rolled back",
-    "ManualInterventionRequired": "Manual intervention required",
-    "None": "—"
+    "NotAttempted": "Not attempted",
+    "RolledBack": "Rolled back",
+    "PartiallyRolledBack": "Partially rolled back",
+    "ManualInterventionRequired": "Needs a human"
   },
   "jobs": {
     "type": "Type",
@@ -284,7 +284,10 @@
     "errorCode": "Error code",
     "rollback": "Rollback",
     "retry": "Retry",
-    "cancel": "Cancel job"
+    "cancel": "Cancel job",
+    "attempts": "Attempts",
+    "trigger": "Trigger",
+    "errorMessage": "Failure"
   },
   "plans": {
     "subtitle": "Plans, entitlement matrix and customer subscriptions.",
