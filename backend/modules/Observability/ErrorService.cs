@@ -1,4 +1,5 @@
 using Knight.Application.Abstractions.ControlPlane;
+using Knight.Application.Abstractions.Observability;
 using Knight.Application.Abstractions.Time;
 using Knight.Application.Exceptions;
 using Microsoft.Extensions.Logging;
@@ -22,6 +23,7 @@ internal sealed class ErrorService : IErrorService, IErrorGrouping
     private readonly IErrorGroupRepository _groups;
     private readonly IErrorGroupEventReader _events;
     private readonly IAlertRaiser _alerts;
+    private readonly IKnightMetrics _metrics;
     private readonly IAuditTrail _audit;
     private readonly IDateTimeProvider _clock;
     private readonly ILogger<ErrorService> _logger;
@@ -31,6 +33,7 @@ internal sealed class ErrorService : IErrorService, IErrorGrouping
         IErrorGroupRepository groups,
         IErrorGroupEventReader events,
         IAlertRaiser alerts,
+        IKnightMetrics metrics,
         IAuditTrail audit,
         IDateTimeProvider clock,
         ILogger<ErrorService> logger,
@@ -39,6 +42,7 @@ internal sealed class ErrorService : IErrorService, IErrorGrouping
         _groups = groups;
         _events = events;
         _alerts = alerts;
+        _metrics = metrics;
         _audit = audit;
         _clock = clock;
         _logger = logger;
@@ -105,6 +109,10 @@ internal sealed class ErrorService : IErrorService, IErrorGrouping
 
                     await _groups.AddAsync(group, cancellationToken);
                     existing[print.Fingerprint] = group;
+
+                    // The rate at which stores find *new* ways to fail, which is
+                    // a different question from how often they fail.
+                    _metrics.ErrorGroupCreated(candidate.Environment);
                 }
 
                 var keepSample = group.SampleCount < _options.MaxSamplesPerGroup;
@@ -125,6 +133,8 @@ internal sealed class ErrorService : IErrorService, IErrorGrouping
         // errors screen; a group that was never written is invisible everywhere.
         foreach (var group in regressions)
         {
+            _metrics.ErrorGroupRegressed();
+
             await RaiseRegressionAsync(group, cancellationToken);
         }
 

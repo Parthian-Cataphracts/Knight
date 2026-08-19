@@ -1,4 +1,5 @@
 using Knight.Application.Abstractions.ControlPlane;
+using Knight.Application.Abstractions.Observability;
 using Knight.Application.Abstractions.Security;
 using Knight.Application.Abstractions.Time;
 using Knight.Application.Exceptions;
@@ -28,6 +29,7 @@ internal sealed class NotificationService : INotificationService, IAlertEventPub
     private readonly IIncidentService _incidents;
     private readonly IRealtimeNotifier _realtime;
     private readonly ISecretProtector _secrets;
+    private readonly IKnightMetrics _metrics;
     private readonly IAuditTrail _audit;
     private readonly IDateTimeProvider _clock;
     private readonly ILogger<NotificationService> _logger;
@@ -39,6 +41,7 @@ internal sealed class NotificationService : INotificationService, IAlertEventPub
         IIncidentService incidents,
         IRealtimeNotifier realtime,
         ISecretProtector secrets,
+        IKnightMetrics metrics,
         IAuditTrail audit,
         IDateTimeProvider clock,
         ILogger<NotificationService> logger,
@@ -49,6 +52,7 @@ internal sealed class NotificationService : INotificationService, IAlertEventPub
         _incidents = incidents;
         _realtime = realtime;
         _secrets = secrets;
+        _metrics = metrics;
         _audit = audit;
         _clock = clock;
         _logger = logger;
@@ -414,6 +418,10 @@ internal sealed class NotificationService : INotificationService, IAlertEventPub
         try
         {
             var result = await _transport.SendAsync(channel, delivery, cancellationToken);
+
+            _metrics.NotificationDelivered(
+                channel.Kind.ToString(),
+                result.Succeeded ? "delivered" : result.Permanent ? "abandoned" : "retrying");
 
             if (channel.Kind is NotificationChannelKind.InApp && result.Succeeded)
             {

@@ -1,3 +1,4 @@
+using Knight.Application.Abstractions.Observability;
 using Knight.Domain.Common;
 using Knight.Domain.Exceptions;
 
@@ -114,8 +115,14 @@ public sealed class StoreLogEntry : Entity, ICustomerOwned
             IngestionText.Clip(storeVersion, 50),
             IngestionText.Clip(requestId, 100),
             IngestionText.Clip(traceId, 100),
-            IngestionText.Clip(message, MaxMessageLength) ?? throw DomainException.Validation("A log entry must carry a message."),
-            IngestionText.Clip(exception, StoreErrorEvent.MaxStackTraceLength),
-            IngestionText.Clip(attributes, MaxAttributesLength));
+            // Redacted on the way in, not on the way out. A log line is the
+            // least structured thing KNIGHT stores and the most likely to carry
+            // a credential in a field nobody named; storing it and redacting at
+            // read time would mean the secret is in the database and the backups
+            // regardless of what any screen shows.
+            Redaction.Text(IngestionText.Clip(message, MaxMessageLength))
+                ?? throw DomainException.Validation("A log entry must carry a message."),
+            Redaction.Text(IngestionText.Clip(exception, StoreErrorEvent.MaxStackTraceLength)),
+            Redaction.Json(IngestionText.Clip(attributes, MaxAttributesLength)));
     }
 }

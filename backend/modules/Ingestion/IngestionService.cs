@@ -1,5 +1,6 @@
 using Ingestion.Domain;
 using Knight.Application.Abstractions.ControlPlane;
+using Knight.Application.Abstractions.Observability;
 using Knight.Application.Abstractions.Time;
 using Knight.Application.Exceptions;
 using Knight.Domain.Exceptions;
@@ -30,6 +31,7 @@ internal sealed class IngestionService : IIngestionService
     private readonly ICustomerEntitlementReader _entitlements;
     private readonly IReplayGuard _replay;
     private readonly IErrorGrouping _grouping;
+    private readonly IKnightMetrics _metrics;
     private readonly IDateTimeProvider _clock;
     private readonly ILogger<IngestionService> _logger;
     private readonly IngestionOptions _options;
@@ -39,6 +41,7 @@ internal sealed class IngestionService : IIngestionService
         ICustomerEntitlementReader entitlements,
         IReplayGuard replay,
         IErrorGrouping grouping,
+        IKnightMetrics metrics,
         IDateTimeProvider clock,
         ILogger<IngestionService> logger,
         IOptions<IngestionOptions> options)
@@ -47,6 +50,7 @@ internal sealed class IngestionService : IIngestionService
         _entitlements = entitlements;
         _replay = replay;
         _grouping = grouping;
+        _metrics = metrics;
         _clock = clock;
         _logger = logger;
         _options = options.Value;
@@ -116,6 +120,8 @@ internal sealed class IngestionService : IIngestionService
                 events.Count,
                 store.StoreId);
         }
+
+        _metrics.IngestAccepted("errors", accepted.Count, errors.Count);
 
         return new IngestionReceipt(accepted.Count, errors.Count, false, errors);
     }

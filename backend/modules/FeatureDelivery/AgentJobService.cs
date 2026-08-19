@@ -1,6 +1,7 @@
 using System.Text.Json;
 using FeatureDelivery.Domain;
 using Knight.Application.Abstractions.ControlPlane;
+using Knight.Application.Abstractions.Observability;
 using Knight.Application.Abstractions.Security;
 using Knight.Application.Abstractions.Time;
 using Knight.Application.Exceptions;
@@ -27,6 +28,7 @@ internal sealed class AgentJobService : IAgentJobService
     private readonly IFeatureArtifactStore _artifacts;
     private readonly ISecretProtector _secrets;
     private readonly IAuditTrail _audit;
+    private readonly IKnightMetrics _metrics;
     private readonly IDateTimeProvider _clock;
     private readonly FeatureDeliveryOptions _options;
 
@@ -38,6 +40,7 @@ internal sealed class AgentJobService : IAgentJobService
         IFeatureArtifactStore artifacts,
         ISecretProtector secrets,
         IAuditTrail audit,
+        IKnightMetrics metrics,
         IDateTimeProvider clock,
         IOptions<FeatureDeliveryOptions> options)
     {
@@ -48,6 +51,7 @@ internal sealed class AgentJobService : IAgentJobService
         _artifacts = artifacts;
         _secrets = secrets;
         _audit = audit;
+        _metrics = metrics;
         _clock = clock;
         _options = options.Value;
     }
@@ -141,6 +145,8 @@ internal sealed class AgentJobService : IAgentJobService
         await _jobs.SaveChangesAsync(cancellationToken);
         await _installations.SaveChangesAsync(cancellationToken);
 
+        RecordMetrics(job, report, now);
+
         await _audit.RecordAsync(
             report.Succeeded ? "feature.job.succeeded" : "feature.job.failed",
             "FeatureInstallationJob",
@@ -155,6 +161,50 @@ internal sealed class AgentJobService : IAgentJobService
                 report.FailureCode,
                 RollbackOutcome = job.RollbackOutcome.ToString(),
             });
+    }
+
+    /// <summary>
+    /// Records what the job cost and how it ended.
+    ///
+    /// Duration is measured from when the agent claimed it rather than from when
+    /// it was queued, because queue time says how busy the fleet is and execution
+    /// time says how slow the work is — and an operator chasing a slow install
+    /// needs the second, not their sum.
+    /// </summary>
+    private void RecordMetrics(FeatureInstallationJob job, JobCompletionReport report, DateTimeOffset now)
+    {
+        var started = job.ClaimedAt ?? job.QueuedAt;
+
+        _metrics.JobCompleted(
+            job.Type.ToString(),
+            report.Succeeded ? "succeeded" : "failed",
+            Math.Max((now - started).TotalSeconds, 0));
+
+        if (report.Succeeded)
+        {
+            return;
+        }
+
+        // Which step failed is read from the steps the agent reported rather
+        // than from the completion payload, which does not carry it — and the
+        // step is the dimension an operator groups by when asking "what keeps
+        // breaking", so guessing it would make the metric misleading.
+        var failedStep = job.Steps
+            .Where(step => step.Status is StepStatus.Failed)
+            .Select(step => step.Name)
+            .LastOrDefault() ?? "unknown";
+
+        _metrics.JobStepFailed(
+            job.Type.ToString(),
+            failedStep,
+            string.IsNullOrWhiteSpace(report.FailureCode) ? "job.failed" : report.FailureCode);
+
+        if (job.RollbackOutcome is not RollbackOutcome.NotAttempted)
+        {
+            // The share of rollbacks needing a human is the number that says
+            // whether failures are self-healing or whether somebody is paged.
+            _metrics.RollbackCompleted(job.RollbackOutcome.ToString());
+        }
     }
 
     /// <summary>
@@ -297,6 +347,7 @@ internal sealed class AgentJobService : IAgentJobService
             job.FeatureSlug,
             job.TargetVersion,
             job.CorrelationId,
+            job.TraceParent,
             JobPipeline.StepsFor(job.Type),
             job.NextStep(),
             artifact,

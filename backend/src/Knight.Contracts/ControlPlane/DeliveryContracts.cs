@@ -266,6 +266,13 @@ public sealed record AgentJobResponse(
     string FeatureSlug,
     string? TargetVersion,
     string CorrelationId,
+
+    /// <summary>
+    /// The W3C traceparent of the request that queued the job, so an agent's own
+    /// spans join that trace rather than starting a disconnected one. Optional:
+    /// an agent that does not trace ignores a string.
+    /// </summary>
+    string? TraceParent,
     IReadOnlyList<string> Steps,
     string? NextStep,
     AgentArtifactResponse? Artifact,

@@ -96,6 +96,7 @@ public static class StoreJobEndpoints
         assignment.FeatureSlug,
         assignment.TargetVersion,
         assignment.CorrelationId,
+        assignment.TraceParent,
         assignment.Steps,
         assignment.NextStep,
         assignment.Artifact is null

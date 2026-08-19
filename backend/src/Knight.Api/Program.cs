@@ -29,10 +29,24 @@ using Stores;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseSerilog((context, services, configuration) => configuration
-    .ReadFrom.Configuration(context.Configuration)
-    .ReadFrom.Services(services)
-    .Enrich.FromLogContext());
+// Structured logging. Outside Development the sink is newline-delimited JSON,
+// because a log line is only useful to a collector if its fields survive the
+// trip — and a human tailing a file in Development is better served by text
+// (docs/observability.md §2).
+builder.Host.UseSerilog((context, services, configuration) =>
+{
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext()
+        .Enrich.WithProperty("service", "knight-control-plane")
+        .Enrich.WithProperty("environment", context.HostingEnvironment.EnvironmentName);
+
+    if (!context.HostingEnvironment.IsDevelopment())
+    {
+        configuration.WriteTo.Console(new Serilog.Formatting.Compact.CompactJsonFormatter());
+    }
+});
 
 // Product identity for the generated OpenAPI document. Route paths are part of the
 // published API contract and are deliberately untouched by the Knight rename — the
@@ -141,6 +155,9 @@ builder.Services.AddScoped<IAuthorizationHandler, ControlPlanePermissionHandler>
 // websocket honours it exactly as it does a fetch.
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IRealtimeNotifier, SignalRRealtimeNotifier>();
+
+// KNIGHT's own traces, metrics and retention sweep.
+builder.Services.AddKnightTelemetry(builder.Configuration);
 
 builder.Services.AddCors(options =>
 {

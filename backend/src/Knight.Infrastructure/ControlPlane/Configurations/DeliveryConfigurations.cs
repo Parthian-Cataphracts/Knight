@@ -151,6 +151,10 @@ internal sealed class FeatureInstallationJobConfiguration : IEntityTypeConfigura
         builder.Property(j => j.TargetVersion).HasMaxLength(50);
         builder.Property(j => j.IdempotencyKey).HasMaxLength(200).IsRequired();
         builder.Property(j => j.CorrelationId).HasMaxLength(100).IsRequired();
+
+        // A W3C traceparent is 55 characters; the cap leaves room without
+        // inviting anything that is not one.
+        builder.Property(j => j.TraceParent).HasMaxLength(64);
         builder.Property(j => j.FailureCode).HasMaxLength(100);
         builder.Property(j => j.FailureMessage).HasMaxLength(2000);
         builder.Property(j => j.RollbackOutcome).HasConversion<string>().HasMaxLength(30).IsRequired();
