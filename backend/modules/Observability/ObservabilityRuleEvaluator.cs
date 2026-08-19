@@ -1,0 +1,256 @@
+using Knight.Application.Abstractions.ControlPlane;
+using Knight.Application.Abstractions.Time;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Observability.Domain;
+
+namespace Observability;
+
+/// <summary>
+/// One pass of every rule that cannot be evaluated at the moment something
+/// happens.
+///
+/// The rules here share one property: each is about a *difference that has
+/// persisted*, not about an event. Nothing reports "my entitlement was never
+/// installed" and nothing reports "my rate has quintupled" — those are only
+/// visible to something that looks at the whole picture on a timer, which is
+/// exactly what this is (docs/observability.md §8).
+///
+/// Every rule is written so that running it twice changes nothing the second
+/// time. Alert deduplication does the work: a rule raises the same rule key and
+/// subject every pass, and the alerting layer turns the second and subsequent
+/// raises into observations of one open alert.
+/// </summary>
+public interface IObservabilityRuleEvaluator
+{
+    Task<RuleEvaluationResult> EvaluateAsync(CancellationToken cancellationToken);
+}
+
+/// <summary>What one pass found. Returned rather than logged so a test can assert on it.</summary>
+public sealed record RuleEvaluationResult(
+    int Spikes,
+    int FailedInstalls,
+    int EntitledNotInstalled,
+    int Drifted,
+    int StuckJobs)
+{
+    public int Total => Spikes + FailedInstalls + EntitledNotInstalled + Drifted + StuckJobs;
+}
+
+internal sealed class ObservabilityRuleEvaluator : IObservabilityRuleEvaluator
+{
+    private readonly IErrorGroupRepository _groups;
+    private readonly IErrorGroupEventReader _events;
+    private readonly IDeliveryHealthReader _delivery;
+    private readonly IAlertRaiser _alerts;
+    private readonly IDateTimeProvider _clock;
+    private readonly ILogger<ObservabilityRuleEvaluator> _logger;
+    private readonly ObservabilityOptions _options;
+
+    public ObservabilityRuleEvaluator(
+        IErrorGroupRepository groups,
+        IErrorGroupEventReader events,
+        IDeliveryHealthReader delivery,
+        IAlertRaiser alerts,
+        IDateTimeProvider clock,
+        ILogger<ObservabilityRuleEvaluator> logger,
+        IOptions<ObservabilityOptions> options)
+    {
+        _groups = groups;
+        _events = events;
+        _delivery = delivery;
+        _alerts = alerts;
+        _clock = clock;
+        _logger = logger;
+        _options = options.Value;
+    }
+
+    public async Task<RuleEvaluationResult> EvaluateAsync(CancellationToken cancellationToken)
+    {
+        var now = _clock.UtcNow;
+
+        var spikes = await EvaluateSpikesAsync(now, cancellationToken);
+        var failed = await EvaluateFailedInstallsAsync(now, cancellationToken);
+        var missing = await EvaluateEntitledNotInstalledAsync(now, cancellationToken);
+        var drifted = await EvaluateDriftAsync(cancellationToken);
+        var stuck = await EvaluateStuckJobsAsync(now, cancellationToken);
+
+        return new RuleEvaluationResult(spikes, failed, missing, drifted, stuck);
+    }
+
+    /// <summary>
+    /// A group whose recent rate is far above its own established rate.
+    ///
+    /// Comparing a group against itself rather than against a global threshold is
+    /// the whole point: a checkout endpoint that throws twice an hour every hour
+    /// is not news, and the same endpoint throwing two hundred times in fifteen
+    /// minutes is — even though a fixed threshold would either miss the second or
+    /// fire constantly on the first.
+    /// </summary>
+    private async Task<int> EvaluateSpikesAsync(DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var since = now - _options.SpikeWindow;
+        var raised = 0;
+
+        foreach (var group in await _groups.ListSeenSinceAsync(since, cancellationToken))
+        {
+            // Acknowledged, resolved and ignored groups are excluded: somebody
+            // has already made a decision about this one, and a spike alert is
+            // that decision being overruled by a counter.
+            if (!group.IsAlertable)
+            {
+                continue;
+            }
+
+            var recent = await _events.CountSinceAsync(group.Id, since, cancellationToken);
+
+            if (recent < _options.SpikeMinimumCount)
+            {
+                continue;
+            }
+
+            // The baseline is the group's whole history expressed at the window's
+            // scale. A group that has only ever existed inside this window has no
+            // baseline to exceed, so its first window is never a spike — it is
+            // simply the group appearing, which the errors screen already shows.
+            var lifetime = group.LastSeenAt - group.FirstSeenAt;
+
+            if (lifetime <= _options.SpikeWindow)
+            {
+                continue;
+            }
+
+            var expected = group.OccurrenceCount * (_options.SpikeWindow.TotalSeconds / lifetime.TotalSeconds);
+
+            if (expected <= 0 || recent < expected * _options.SpikeMultiplier)
+            {
+                continue;
+            }
+
+            var (_, isNew) = await _alerts.RaiseAsync(
+                ObservabilityRules.ErrorSpike,
+                nameof(NotificationSeverity.Critical),
+                "Store",
+                group.Id,
+                group.CustomerId,
+                $"{group.Title} occurred {recent} times in the last {_options.SpikeWindow.TotalMinutes:0} minutes " +
+                $"— about {recent / Math.Max(expected, 1):0}x its usual rate.",
+                cancellationToken);
+
+            if (isNew)
+            {
+                raised++;
+            }
+        }
+
+        return raised;
+    }
+
+    private async Task<int> EvaluateFailedInstallsAsync(DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var failures = await _delivery.ListFailedJobsAsync(now - _options.FailureLookback, cancellationToken);
+
+        return await RaiseEachAsync(
+            failures,
+            ObservabilityRules.FeatureInstallFailed,
+            NotificationSeverity.Critical,
+            discrepancy => $"Installing {discrepancy.FeatureSlug} on {discrepancy.StoreName} failed: {discrepancy.Detail}",
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// The customer is paying for something that is not running. Of every rule
+    /// here this is the one that costs money to leave broken, and the one nobody
+    /// would otherwise notice: the dashboard shows the entitlement, the store
+    /// shows nothing, and neither screen is wrong.
+    /// </summary>
+    private async Task<int> EvaluateEntitledNotInstalledAsync(DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var missing = await _delivery.ListEntitledNotInstalledAsync(now - _options.InstallationGrace, cancellationToken);
+
+        return await RaiseEachAsync(
+            missing,
+            ObservabilityRules.FeatureEntitledNotInstalled,
+            NotificationSeverity.Warning,
+            discrepancy =>
+                $"{discrepancy.StoreName} is entitled to {discrepancy.FeatureSlug} but it is not installed. {discrepancy.Detail}",
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// KNIGHT believes one thing is deployed and the store reports another.
+    /// Either somebody changed a store by hand or an install half-succeeded, and
+    /// both mean the control plane's picture of the world is wrong — which makes
+    /// every later decision it takes about that store suspect.
+    /// </summary>
+    private async Task<int> EvaluateDriftAsync(CancellationToken cancellationToken)
+    {
+        var drifted = await _delivery.ListDriftedAsync(cancellationToken);
+
+        return await RaiseEachAsync(
+            drifted,
+            ObservabilityRules.FeatureDrift,
+            NotificationSeverity.Warning,
+            discrepancy => $"{discrepancy.StoreName} reports {discrepancy.FeatureSlug} {discrepancy.Detail}",
+            cancellationToken);
+    }
+
+    private async Task<int> EvaluateStuckJobsAsync(DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var stuck = await _delivery.ListStuckJobsAsync(now - _options.StuckJobThreshold, cancellationToken);
+
+        return await RaiseEachAsync(
+            stuck,
+            ObservabilityRules.JobStuck,
+            NotificationSeverity.Warning,
+            discrepancy =>
+                $"A {discrepancy.FeatureSlug} job on {discrepancy.StoreName} was claimed and never reported again. {discrepancy.Detail}",
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Raises one alert per discrepancy and counts the genuinely new ones.
+    ///
+    /// One failure does not stop the pass: a rule that gave up at the first
+    /// problem would be least useful exactly when most things are wrong.
+    /// </summary>
+    private async Task<int> RaiseEachAsync(
+        IReadOnlyCollection<DeliveryDiscrepancy> discrepancies,
+        string ruleKey,
+        NotificationSeverity severity,
+        Func<DeliveryDiscrepancy, string> message,
+        CancellationToken cancellationToken)
+    {
+        var raised = 0;
+
+        foreach (var discrepancy in discrepancies)
+        {
+            try
+            {
+                var (_, isNew) = await _alerts.RaiseAsync(
+                    ruleKey,
+                    severity.ToString(),
+                    "FeatureInstallation",
+                    discrepancy.SubjectId,
+                    discrepancy.CustomerId,
+                    message(discrepancy),
+                    cancellationToken);
+
+                if (isNew)
+                {
+                    raised++;
+                }
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(
+                    exception,
+                    "Failed to raise {RuleKey} for subject {SubjectId}; the rest of the pass continues.",
+                    ruleKey,
+                    discrepancy.SubjectId);
+            }
+        }
+
+        return raised;
+    }
+}

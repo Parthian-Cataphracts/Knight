@@ -79,6 +79,20 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<Servers.Domain.IServerMetricRepository, ServerMetricRepository>();
         services.AddScoped<Servers.Domain.IAlertRepository, AlertRepository>();
 
+        services.AddScoped<Observability.Domain.IErrorGroupRepository, ErrorGroupRepository>();
+        services.AddScoped<Observability.Domain.IErrorGroupEventReader, ErrorGroupEventReader>();
+        services.AddScoped<Observability.Domain.IIncidentRepository, IncidentRepository>();
+        services.AddScoped<Observability.Domain.INotificationRepository, NotificationRepository>();
+
+        // Webhooks reuse the store poller's hardened client rather than getting
+        // one of their own: a webhook URL is untrusted input in exactly the way a
+        // store URL is (docs/security-threat-model.md, SSRF).
+        services.AddScoped<Observability.Domain.INotificationTransport, Integration.NotificationTransport>();
+
+        // The four delivery rules compare records owned by different modules, so
+        // the comparison lives here, where the whole schema is visible.
+        services.AddScoped<IDeliveryHealthReader, DeliveryHealthReader>();
+
         // Both of these are joins between the registry and delivery, which are
         // not allowed to know about each other, so they live here.
         services.AddScoped<IStoreDeliveryReader, StoreDeliveryReader>();

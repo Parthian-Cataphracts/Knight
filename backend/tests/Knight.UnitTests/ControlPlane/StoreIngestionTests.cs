@@ -27,6 +27,12 @@ public sealed class IngestionServiceTests
     private readonly ICustomerEntitlementReader _entitlements = Substitute.For<ICustomerEntitlementReader>();
     private readonly IReplayGuard _replay = new InProcessReplayGuard();
 
+    // Grouping is a consequence of accepting telemetry, never a condition of it,
+    // so these tests substitute it out entirely: what they assert is that a batch
+    // is accepted or refused for the right reason, and that must stay true
+    // whatever grouping does — including throwing.
+    private readonly IErrorGrouping _grouping = Substitute.For<IErrorGrouping>();
+
     private IIngestionService CreateService(IngestionOptions? options = null)
     {
         var clock = Substitute.For<IDateTimeProvider>();
@@ -36,6 +42,7 @@ public sealed class IngestionServiceTests
             _repository,
             _entitlements,
             _replay,
+            _grouping,
             clock,
             NullLogger<IngestionService>.Instance,
             Options.Create(options ?? new IngestionOptions()));

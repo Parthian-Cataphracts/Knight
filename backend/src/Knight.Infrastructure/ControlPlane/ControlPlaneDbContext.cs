@@ -104,6 +104,16 @@ public sealed class ControlPlaneDbContext : DbContext
 
     public DbSet<Servers.Domain.Alert> Alerts => Set<Servers.Domain.Alert>();
 
+    public DbSet<Observability.Domain.ErrorGroup> ErrorGroups => Set<Observability.Domain.ErrorGroup>();
+
+    public DbSet<Observability.Domain.Incident> Incidents => Set<Observability.Domain.Incident>();
+
+    public DbSet<Observability.Domain.IncidentEvent> IncidentEvents => Set<Observability.Domain.IncidentEvent>();
+
+    public DbSet<Observability.Domain.NotificationChannel> NotificationChannels => Set<Observability.Domain.NotificationChannel>();
+
+    public DbSet<Observability.Domain.NotificationDelivery> NotificationDeliveries => Set<Observability.Domain.NotificationDelivery>();
+
     public DbSet<Billing.Domain.BillingAccount> BillingAccounts => Set<Billing.Domain.BillingAccount>();
 
     public DbSet<Billing.Domain.Invoice> Invoices => Set<Billing.Domain.Invoice>();
@@ -155,6 +165,13 @@ public sealed class ControlPlaneDbContext : DbContext
         modelBuilder.ApplyConfiguration(new AgentConfiguration());
         modelBuilder.ApplyConfiguration(new ServerMetricConfiguration());
         modelBuilder.ApplyConfiguration(new AlertConfiguration());
+
+        modelBuilder.ApplyConfiguration(new ErrorGroupConfiguration());
+        modelBuilder.ApplyConfiguration(new IncidentConfiguration());
+        modelBuilder.ApplyConfiguration(new IncidentEventConfiguration());
+        modelBuilder.ApplyConfiguration(new NotificationChannelConfiguration());
+        modelBuilder.ApplyConfiguration(new NotificationDeliveryConfiguration());
+        modelBuilder.ApplyConfiguration(new IncidentReferenceSequenceConfiguration());
 
         ApplyCustomerIsolation(modelBuilder);
     }

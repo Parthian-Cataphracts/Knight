@@ -5,6 +5,7 @@ using Billing;
 using Customers;
 using FeatureRegistry;
 using Ingestion;
+using Observability;
 using Plans;
 using Knight.Api.BackgroundServices;
 using Knight.Api.Ingest;
@@ -34,6 +35,7 @@ public static class ControlPlaneComposition
         services.AddSubscriptionsModule(configuration);
         services.AddBillingModule(configuration);
         services.AddIngestionModule(configuration);
+        services.AddObservabilityModule(configuration);
 
         services.AddScoped<IControlPlanePrincipal, HttpControlPlanePrincipal>();
         services.AddScoped<IStorePrincipal, HttpStorePrincipal>();
@@ -52,6 +54,11 @@ public static class ControlPlaneComposition
         // The only thing that can decide a machine is offline: absence cannot be
         // reported by the thing that is absent.
         services.AddHostedService<FleetMonitor>();
+
+        // Evaluates the rules nobody can evaluate at the moment something
+        // happens — spikes, entitlements that were never installed, drift — and
+        // drains the notification queue.
+        services.AddHostedService<ObservabilityWorker>();
 
         return services;
     }

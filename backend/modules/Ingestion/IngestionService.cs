@@ -29,6 +29,7 @@ internal sealed class IngestionService : IIngestionService
     private readonly IIngestionRepository _repository;
     private readonly ICustomerEntitlementReader _entitlements;
     private readonly IReplayGuard _replay;
+    private readonly IErrorGrouping _grouping;
     private readonly IDateTimeProvider _clock;
     private readonly ILogger<IngestionService> _logger;
     private readonly IngestionOptions _options;
@@ -37,6 +38,7 @@ internal sealed class IngestionService : IIngestionService
         IIngestionRepository repository,
         ICustomerEntitlementReader entitlements,
         IReplayGuard replay,
+        IErrorGrouping grouping,
         IDateTimeProvider clock,
         ILogger<IngestionService> logger,
         IOptions<IngestionOptions> options)
@@ -44,6 +46,7 @@ internal sealed class IngestionService : IIngestionService
         _repository = repository;
         _entitlements = entitlements;
         _replay = replay;
+        _grouping = grouping;
         _clock = clock;
         _logger = logger;
         _options = options.Value;
@@ -101,6 +104,8 @@ internal sealed class IngestionService : IIngestionService
         {
             await _repository.AddErrorsAsync(accepted, cancellationToken);
             await _repository.SaveChangesAsync(cancellationToken);
+
+            await GroupAsync(store, accepted, cancellationToken);
         }
 
         if (errors.Count > 0)
@@ -113,6 +118,63 @@ internal sealed class IngestionService : IIngestionService
         }
 
         return new IngestionReceipt(accepted.Count, errors.Count, false, errors);
+    }
+
+    /// <summary>
+    /// Files the accepted errors under the problems they belong to.
+    ///
+    /// Runs after the events are already saved, and swallows everything it can
+    /// throw. That ordering is the whole point: ingestion's contract is that a
+    /// store never loses telemetry, and grouping is an analysis of what was
+    /// accepted, never a condition of accepting it. An ungrouped error is a small
+    /// loss of convenience on one screen; a rejected batch is the loss of the
+    /// only evidence a store had that something went wrong.
+    /// </summary>
+    private async Task GroupAsync(
+        IngestingStore store,
+        IReadOnlyCollection<StoreErrorEvent> accepted,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var assignments = await _grouping.GroupAsync(
+                accepted.Select(error => new ErrorToGroup(
+                    error.Id,
+                    error.StoreId,
+                    error.CustomerId,
+                    error.Environment,
+                    error.ExceptionType,
+                    error.Message,
+                    error.Endpoint,
+                    error.StackTrace,
+                    error.StoreVersion,
+                    error.OccurredAt)).ToArray(),
+                cancellationToken);
+
+            var byId = accepted.ToDictionary(error => error.Id);
+
+            foreach (var assignment in assignments)
+            {
+                if (byId.TryGetValue(assignment.EventId, out var error))
+                {
+                    error.AssignToGroup(assignment.GroupId, assignment.KeepSample);
+                }
+            }
+
+            await _repository.SaveChangesAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "Failed to group {Count} error event(s) from store {StoreId}; the events are stored ungrouped.",
+                accepted.Count,
+                store.StoreId);
+        }
     }
 
     public async Task<IngestionReceipt> IngestEventsAsync(

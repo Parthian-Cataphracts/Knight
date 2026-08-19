@@ -2,6 +2,7 @@ using Knight.Application.Abstractions.ControlPlane;
 using Knight.Application.Abstractions.Identity;
 using Knight.Application.Abstractions.Time;
 using Knight.Application.Exceptions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Servers.Domain;
 
@@ -26,6 +27,8 @@ internal sealed class MonitoringService : IMonitoringService
     private readonly IAuditTrail _audit;
     private readonly IDateTimeProvider _clock;
     private readonly ICurrentUser _currentUser;
+    private readonly IAlertEventPublisher _alertEvents;
+    private readonly ILogger<MonitoringService> _logger;
     private readonly ServerOptions _options;
 
     public MonitoringService(
@@ -36,6 +39,8 @@ internal sealed class MonitoringService : IMonitoringService
         IAuditTrail audit,
         IDateTimeProvider clock,
         ICurrentUser currentUser,
+        IAlertEventPublisher alertEvents,
+        ILogger<MonitoringService> logger,
         IOptions<ServerOptions> options)
     {
         _servers = servers;
@@ -45,6 +50,8 @@ internal sealed class MonitoringService : IMonitoringService
         _audit = audit;
         _clock = clock;
         _currentUser = currentUser;
+        _alertEvents = alertEvents;
+        _logger = logger;
         _options = options.Value;
     }
 
@@ -52,6 +59,12 @@ internal sealed class MonitoringService : IMonitoringService
     {
         var now = _clock.UtcNow;
         var changed = 0;
+
+        // Collected rather than published inline: a recovery must not be
+        // announced before the row that records it has been saved, or a
+        // dispatcher racing this pass could send "resolved" for an alert the
+        // database still shows as open.
+        var resolved = new List<Alert>();
 
         foreach (var server in await _servers.ListReportingAsync(cancellationToken))
         {
@@ -87,6 +100,7 @@ internal sealed class MonitoringService : IMonitoringService
                 if (open is not null)
                 {
                     open.Resolve(now);
+                    resolved.Add(open);
                     changed++;
                 }
             }
@@ -104,6 +118,11 @@ internal sealed class MonitoringService : IMonitoringService
         await _servers.SaveChangesAsync(cancellationToken);
         await _agents.SaveChangesAsync(cancellationToken);
         await _alerts.SaveChangesAsync(cancellationToken);
+
+        foreach (var alert in resolved)
+        {
+            await PublishResolvedAsync(alert, cancellationToken);
+        }
 
         return changed;
     }
@@ -228,6 +247,8 @@ internal sealed class MonitoringService : IMonitoringService
         await _audit.RecordAsync(
             "alert.resolved", "Alert", alert.Id.ToString(), alert.CustomerId, cancellationToken);
 
+        await PublishResolvedAsync(alert, cancellationToken);
+
         return alert;
     }
 
@@ -247,6 +268,11 @@ internal sealed class MonitoringService : IMonitoringService
         {
             existing.Observe(message, now);
             await _alerts.SaveChangesAsync(cancellationToken);
+
+            // Published as not-new, so whoever consumes it can tell "this is
+            // still true" from "this just started" and decline to page again.
+            await PublishRaisedAsync(existing, isNew: false, cancellationToken);
+
             return existing;
         }
 
@@ -263,7 +289,64 @@ internal sealed class MonitoringService : IMonitoringService
             cancellationToken,
             newValue: new { ruleKey, Severity = severity.ToString(), Source = source.ToString(), sourceId });
 
+        await PublishRaisedAsync(alert, isNew: true, cancellationToken);
+
         return alert;
+    }
+
+    /// <summary>
+    /// Announces an alert to whoever acts on alerts.
+    ///
+    /// Failures are swallowed, and that is the right trade: the alert is already
+    /// recorded and visible on the dashboard. Letting a notification fault roll
+    /// back the fleet sweep would mean one broken webhook stops KNIGHT noticing
+    /// that servers are down.
+    /// </summary>
+    private async Task PublishRaisedAsync(Alert alert, bool isNew, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _alertEvents.PublishAsync(
+                new AlertRaised(
+                    alert.Id,
+                    alert.RuleKey,
+                    alert.Severity.ToString(),
+                    alert.Message,
+                    alert.SourceId,
+                    alert.Source.ToString(),
+                    alert.CustomerId,
+                    isNew,
+                    alert.LastObservedAt),
+                cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "Failed to publish alert {AlertId} ({RuleKey}); the alert itself is recorded.",
+                alert.Id,
+                alert.RuleKey);
+        }
+    }
+
+    private async Task PublishResolvedAsync(Alert alert, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _alertEvents.PublishAsync(
+                new AlertResolved(
+                    alert.Id,
+                    alert.RuleKey,
+                    alert.SourceId,
+                    alert.CustomerId,
+                    alert.Message,
+                    alert.ResolvedAt ?? _clock.UtcNow),
+                cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to publish the resolution of alert {AlertId}.", alert.Id);
+        }
     }
 
     /// <summary>
