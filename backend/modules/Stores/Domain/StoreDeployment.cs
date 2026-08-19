@@ -113,6 +113,33 @@ public sealed class StoreDeployment : Entity, ICustomerOwned
             string.IsNullOrWhiteSpace(notes) ? null : notes.Trim());
     }
 
+    /// <summary>
+    /// Upgrades a deployment KNIGHT merely observed into one the store
+    /// confirmed.
+    ///
+    /// Both facts arrive for the same deployment whenever a store reports one:
+    /// the version it announces is also the version it is now running, so
+    /// detection sees it too. They are one deployment, and recording two would
+    /// make the history read as a redeploy that never happened.
+    /// </summary>
+    public void Confirm(StoreDeploymentStatus status, DateTimeOffset deployedAt, string? notes)
+    {
+        if (Status is not StoreDeploymentStatus.Detected)
+        {
+            throw DomainException.Conflict("Only a detected deployment can be confirmed.");
+        }
+
+        if (status is StoreDeploymentStatus.Detected)
+        {
+            throw DomainException.Validation("A confirmation must say how the deployment went.");
+        }
+
+        Status = status;
+        Source = StoreDeploymentSource.StoreReported;
+        DeployedAt = deployedAt;
+        Notes = string.IsNullOrWhiteSpace(notes) ? Notes : notes.Trim();
+    }
+
     private static string RequireVersion(string version) =>
         StoreNormalization.NormalizeVersion(version)
         ?? throw DomainException.Validation("A deployment must name a version.");

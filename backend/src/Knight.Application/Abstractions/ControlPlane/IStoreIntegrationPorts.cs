@@ -95,10 +95,15 @@ public sealed record StoreProbeResult(
 /// and checks the address before it connects, because a store's domain is
 /// operator-supplied data and pointing it at an internal address would turn the
 /// poller into a request forger (docs/security-threat-model.md).
+///
+/// The request is signed with the store's derived key, so the store can refuse
+/// to describe itself to anyone but KNIGHT. A health payload names versions,
+/// dependencies and installed features — useful to an operator, and just as
+/// useful to somebody deciding what to attack (docs/store-integration.md §5).
 /// </summary>
 public interface IStoreHealthProbe
 {
-    Task<StoreProbeResult> ProbeAsync(string domain, CancellationToken cancellationToken);
+    Task<StoreProbeResult> ProbeAsync(Guid storeId, string domain, string environment, CancellationToken cancellationToken);
 }
 
 /// <summary>Where a verification token was looked for, and whether it was there.</summary>

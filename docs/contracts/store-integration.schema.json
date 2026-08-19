@@ -1,0 +1,323 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://knight.dev/contracts/store-integration.schema.json",
+  "title": "KNIGHT ↔ Store contract",
+  "description": [
+    "The wire contract between KNIGHT and a customer store, in one file that both",
+    "sides test against. KNIGHT validates what it sends and accepts against these",
+    "definitions in Knight.IntegrationTests; the reference store validates the same",
+    "payloads from its side in knight_integration/tests. A change that breaks one",
+    "side therefore fails on both, which is the entire point of keeping it here",
+    "rather than in either codebase.",
+    "",
+    "Sections 1-2 are what the store sends and receives (docs/api-contracts.md §3).",
+    "Section 3 is what the store answers when KNIGHT calls it. Section 4 defines the",
+    "two canonical strings that are signed; they are flat text rather than JSON",
+    "because two languages will never agree byte-for-byte on JSON, and a signature",
+    "that only sometimes verifies is worse than none."
+  ],
+
+  "$defs": {
+    "environment": {
+      "type": "string",
+      "enum": ["Development", "Staging", "Production"]
+    },
+
+    "integrationStatus": {
+      "type": "string",
+      "enum": ["NotRegistered", "Pending", "Connected", "Degraded", "Disconnected"]
+    },
+
+    "healthStatus": {
+      "type": "string",
+      "enum": ["healthy", "degraded", "unhealthy"]
+    },
+
+    "timestamp": {
+      "type": "string",
+      "description": "ISO-8601, UTC.",
+      "minLength": 20
+    },
+
+    "handshakeRequest": {
+      "type": "object",
+      "required": ["clientId", "clientSecret", "environment"],
+      "properties": {
+        "clientId": { "type": "string", "minLength": 1 },
+        "clientSecret": { "type": "string", "minLength": 1 },
+        "environment": { "$ref": "#/$defs/environment" },
+        "storeVersion": { "type": ["string", "null"] },
+        "runtime": { "type": ["string", "null"] },
+        "nonce": {
+          "type": ["string", "null"],
+          "description": "Used once. A second handshake presenting it inside the window is refused."
+        }
+      }
+    },
+
+    "handshakeResponse": {
+      "type": "object",
+      "required": [
+        "storeId",
+        "storeName",
+        "slug",
+        "environment",
+        "integrationStatus",
+        "accessToken",
+        "tokenType",
+        "expiresIn",
+        "expiresAt",
+        "entitlementSigningKey",
+        "domainVerificationOutstanding",
+        "heartbeatSeconds",
+        "featureRefreshSeconds"
+      ],
+      "properties": {
+        "storeId": { "type": "string", "format": "uuid" },
+        "storeName": { "type": "string" },
+        "slug": { "type": "string" },
+        "environment": { "$ref": "#/$defs/environment" },
+        "integrationStatus": { "$ref": "#/$defs/integrationStatus" },
+        "accessToken": { "type": "string", "minLength": 1 },
+        "tokenType": { "type": "string", "const": "Bearer" },
+        "expiresIn": { "type": "integer", "minimum": 1 },
+        "expiresAt": { "$ref": "#/$defs/timestamp" },
+        "entitlementSigningKey": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Base64 HMAC key, derived per store. Verifies both signed payloads and signed requests."
+        },
+        "domainVerificationOutstanding": { "type": "boolean" },
+        "domainVerificationToken": { "type": ["string", "null"] },
+        "domainVerificationPath": { "type": ["string", "null"] },
+        "heartbeatSeconds": { "type": "integer", "minimum": 1 },
+        "featureRefreshSeconds": { "type": "integer", "minimum": 1 }
+      }
+    },
+
+    "heartbeatRequest": {
+      "type": "object",
+      "required": ["environment", "status"],
+      "properties": {
+        "environment": { "$ref": "#/$defs/environment" },
+        "status": { "$ref": "#/$defs/healthStatus" },
+        "storeVersion": { "type": ["string", "null"] },
+        "dependencies": { "type": ["object", "null"] },
+        "features": {
+          "type": ["array", "null"],
+          "items": { "type": "string" },
+          "description": "Feature slugs the store has installed, so entitlement and installation can be compared."
+        },
+        "detail": { "type": ["string", "null"] }
+      }
+    },
+
+    "heartbeatResponse": {
+      "type": "object",
+      "required": ["integrationStatus", "domainVerificationOutstanding", "observedAt", "heartbeatSeconds"],
+      "properties": {
+        "integrationStatus": { "$ref": "#/$defs/integrationStatus" },
+        "domainVerificationOutstanding": { "type": "boolean" },
+        "observedAt": { "$ref": "#/$defs/timestamp" },
+        "heartbeatSeconds": { "type": "integer", "minimum": 1 }
+      }
+    },
+
+    "errorEvent": {
+      "type": "object",
+      "required": ["occurredAt", "exceptionType", "message"],
+      "properties": {
+        "occurredAt": { "$ref": "#/$defs/timestamp" },
+        "exceptionType": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "message": { "type": "string", "minLength": 1 },
+        "endpoint": { "type": ["string", "null"] },
+        "httpMethod": { "type": ["string", "null"] },
+        "statusCode": { "type": ["integer", "null"] },
+        "stackTrace": { "type": ["string", "null"] },
+        "requestId": { "type": ["string", "null"] },
+        "traceId": { "type": ["string", "null"] },
+        "context": {
+          "type": ["object", "null"],
+          "description": "Scrubbed store-side. Never a request body, never a credential."
+        }
+      }
+    },
+
+    "errorIngestRequest": {
+      "type": "object",
+      "required": ["environment", "events"],
+      "properties": {
+        "environment": { "$ref": "#/$defs/environment" },
+        "version": { "type": ["string", "null"] },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/errorEvent" }
+        }
+      }
+    },
+
+    "storeEvent": {
+      "type": "object",
+      "required": ["occurredAt", "type"],
+      "properties": {
+        "occurredAt": { "$ref": "#/$defs/timestamp" },
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Dotted, lowercase. KNIGHT stores unknown types rather than refusing them; it acts only on deployment.completed and deployment.failed."
+        },
+        "severity": { "type": ["string", "null"], "enum": ["Info", "Warning", "Error", null] },
+        "summary": { "type": ["string", "null"] },
+        "traceId": { "type": ["string", "null"] },
+        "payload": { "type": ["object", "null"] }
+      }
+    },
+
+    "eventIngestRequest": {
+      "type": "object",
+      "required": ["environment", "events"],
+      "properties": {
+        "environment": { "$ref": "#/$defs/environment" },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/storeEvent" }
+        }
+      }
+    },
+
+    "logEntry": {
+      "type": "object",
+      "required": ["timestamp", "level", "message"],
+      "properties": {
+        "timestamp": { "$ref": "#/$defs/timestamp" },
+        "level": { "type": "string", "minLength": 1, "maxLength": 20 },
+        "message": { "type": "string", "minLength": 1 },
+        "service": { "type": ["string", "null"] },
+        "requestId": { "type": ["string", "null"] },
+        "traceId": { "type": ["string", "null"] },
+        "exception": { "type": ["string", "null"] },
+        "attributes": { "type": ["object", "null"] }
+      }
+    },
+
+    "logIngestRequest": {
+      "type": "object",
+      "required": ["environment", "entries"],
+      "properties": {
+        "environment": { "$ref": "#/$defs/environment" },
+        "version": { "type": ["string", "null"] },
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 500,
+          "items": { "$ref": "#/$defs/logEntry" }
+        }
+      }
+    },
+
+    "ingestReceipt": {
+      "type": "object",
+      "required": ["accepted", "rejected", "duplicate", "errors"],
+      "properties": {
+        "accepted": { "type": "integer", "minimum": 0 },
+        "rejected": { "type": "integer", "minimum": 0 },
+        "duplicate": {
+          "type": "boolean",
+          "description": "True when the batch was recognised by its Idempotency-Key and not written again."
+        },
+        "errors": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "entitledFeature": {
+      "type": "object",
+      "required": ["featureId", "slug", "name", "source", "grantedAt"],
+      "properties": {
+        "featureId": { "type": "string", "format": "uuid" },
+        "slug": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "source": { "type": "string", "enum": ["Plan", "Optional", "Grant"] },
+        "grantedAt": { "$ref": "#/$defs/timestamp" },
+        "expiresAt": { "type": ["string", "null"] }
+      }
+    },
+
+    "entitlementSet": {
+      "type": "object",
+      "required": [
+        "storeId",
+        "customerId",
+        "environment",
+        "issuedAt",
+        "staleAfter",
+        "features",
+        "signature",
+        "signatureVersion"
+      ],
+      "properties": {
+        "storeId": { "type": "string", "format": "uuid" },
+        "customerId": { "type": "string", "format": "uuid" },
+        "environment": { "$ref": "#/$defs/environment" },
+        "issuedAt": { "$ref": "#/$defs/timestamp" },
+        "staleAfter": {
+          "$ref": "#/$defs/timestamp",
+          "description": "After this the cached set is stale. A store may still enforce it for a bounded grace period while KNIGHT is unreachable, then falls back to the minimum safe set."
+        },
+        "features": { "type": "array", "items": { "$ref": "#/$defs/entitledFeature" } },
+        "signature": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Base64 HMAC-SHA256 over entitlementCanonicalForm, with the store's derived key."
+        },
+        "signatureVersion": { "type": "string", "const": "1" }
+      }
+    },
+
+    "storeHealthResponse": {
+      "description": "What the store answers at GET /api/knight/health. The request must be signed; an unsigned one is refused with 401.",
+      "type": "object",
+      "required": ["status", "checkedAt", "version", "environment", "dependencies"],
+      "properties": {
+        "status": { "$ref": "#/$defs/healthStatus" },
+        "checkedAt": { "$ref": "#/$defs/timestamp" },
+        "version": { "type": "string", "minLength": 1 },
+        "environment": { "$ref": "#/$defs/environment" },
+        "dependencies": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["status"],
+            "properties": {
+              "status": { "$ref": "#/$defs/healthStatus" },
+              "latencyMs": { "type": "integer", "minimum": 0 },
+              "detail": { "type": "string" }
+            }
+          }
+        },
+        "features": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+
+  "properties": {
+    "canonicalForms": {
+      "description": [
+        "The two strings that are signed. Both are pipe-separated, versioned, and",
+        "carry Unix seconds rather than ISO timestamps so that C# and Python",
+        "produce identical bytes.",
+        "",
+        "entitlements: knight-entitlements|1|{storeId}|{customerId}|{environment}|{issuedAt}|{staleAfter}|{slug}:{expiresAt or -},...",
+        "  Features are sorted by slug, ordinal. Signed by KNIGHT, verified by the store.",
+        "",
+        "request: knight-request|1|{METHOD}|{path}|{timestamp}|{nonce}",
+        "  The path only, never the host, so a proxy in front of the store cannot",
+        "  invalidate the signature. Signed by KNIGHT, verified by the store, and",
+        "  accepted only inside the store's clock-skew window."
+      ]
+    }
+  }
+}

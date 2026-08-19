@@ -18,6 +18,10 @@ namespace Knight.Infrastructure.ControlPlane.Integration;
 /// an error page echoing the request, say — is not proof of anything
 /// (docs/security-threat-model.md).
 ///
+/// The request is deliberately unsigned, unlike the health probe: this is the
+/// bootstrap step, run before the store has been through a handshake and
+/// therefore before it holds any key to verify a signature with.
+///
 /// Only the HTTP method is implemented. The DNS TXT alternative is recorded in
 /// the model because it is how a store with no HTTP surface yet will prove
 /// itself during provisioning (phase 9); until that exists, offering it here

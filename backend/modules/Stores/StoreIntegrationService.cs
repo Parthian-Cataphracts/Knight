@@ -307,6 +307,28 @@ internal sealed class StoreIntegrationService : IStoreIntegrationService
         var store = await RequireAsync(input.StoreId, cancellationToken);
         var now = _clock.UtcNow;
 
+        // A store that reports a deployment has usually already been noticed
+        // running the new version — the same handshake that carried the report
+        // carried the version. One deployment, so one row: the observation is
+        // upgraded rather than duplicated.
+        var latest = await _telemetry.GetLatestDeploymentAsync(store.Id, cancellationToken);
+        if (latest is { Status: StoreDeploymentStatus.Detected }
+            && string.Equals(latest.Version, StoreNormalization.NormalizeVersion(input.Version), StringComparison.Ordinal))
+        {
+            latest.Confirm(input.Status, input.DeployedAt, input.Notes);
+            await _telemetry.SaveChangesAsync(cancellationToken);
+
+            await _audit.RecordAsync(
+                "store.deployment.recorded",
+                nameof(StoreDeployment),
+                latest.Id.ToString(),
+                store.CustomerId,
+                cancellationToken,
+                newValue: new { storeId = store.Id, latest.Version, latest.PreviousVersion, Status = latest.Status.ToString() });
+
+            return latest;
+        }
+
         var deployment = StoreDeployment.Reported(
             Guid.NewGuid(),
             store.Id,

@@ -1,0 +1,72 @@
+{
+  "$comment": [
+    "Worked examples both sides test against.",
+    "",
+    "The schema next to this file says what the payloads look like; this says what",
+    "the signed strings are, byte for byte. Two implementations in two languages",
+    "can agree on a schema and still disagree on a signature — over date",
+    "formatting, property order, or how an absent value is rendered — and a",
+    "signature that only sometimes verifies is worse than none at all.",
+    "",
+    "So each sample carries a payload and the exact canonical string that must be",
+    "produced from it. KNIGHT asserts it in Knight.IntegrationTests; the reference",
+    "store asserts it in knight_integration/tests. A change to either",
+    "implementation that alters the string fails on both sides immediately."
+  ],
+
+  "entitlementCanonicalForm": {
+    "payload": {
+      "storeId": "9f1d3b0e-5c4a-4c1e-9b7a-2f6d8e0a1c34",
+      "customerId": "3a2b1c0d-4e5f-6a7b-8c9d-0e1f2a3b4c5d",
+      "environment": "Production",
+      "issuedAt": "2026-08-19T12:00:00Z",
+      "staleAfter": "2026-08-19T12:10:00Z",
+      "features": [
+        {
+          "featureId": "11111111-1111-1111-1111-111111111111",
+          "slug": "storefront",
+          "name": "Storefront",
+          "source": "Plan",
+          "grantedAt": "2026-01-01T00:00:00Z",
+          "expiresAt": null
+        },
+        {
+          "featureId": "22222222-2222-2222-2222-222222222222",
+          "slug": "analytics",
+          "name": "Analytics",
+          "source": "Optional",
+          "grantedAt": "2026-02-01T00:00:00Z",
+          "expiresAt": "2026-12-31T23:59:59Z"
+        }
+      ],
+      "signature": "",
+      "signatureVersion": "1"
+    },
+    "expected": "knight-entitlements|1|9f1d3b0e-5c4a-4c1e-9b7a-2f6d8e0a1c34|3a2b1c0d-4e5f-6a7b-8c9d-0e1f2a3b4c5d|Production|1787140800|1787141400|analytics:1798761599,storefront:-",
+    "notes": [
+      "Features are sorted by slug with an ordinal comparison, so the order never",
+      "depends on a database collation or the culture the process runs in.",
+      "An absent expiry is a single hyphen, not an empty string, so it cannot be",
+      "confused with a missing field.",
+      "Timestamps are Unix seconds: integers mean the same thing in both languages.",
+      "The signature itself is empty in the sample: it is what the canonical form",
+      "produces, so it cannot also be an input to it."
+    ]
+  },
+
+  "requestCanonicalForm": {
+    "payload": {
+      "method": "GET",
+      "path": "/api/knight/health",
+      "timestamp": "1787140800",
+      "nonce": "6f1a2b3c4d5e6f708192a3b4"
+    },
+    "expected": "knight-request|1|GET|/api/knight/health|1787140800|6f1a2b3c4d5e6f708192a3b4",
+    "notes": [
+      "The path only, never the host: a proxy in front of a store may rewrite the",
+      "host, and binding the signature to it would break every store behind one.",
+      "The store accepts the signature only inside its clock-skew window, so a",
+      "captured request cannot be replayed tomorrow."
+    ]
+  }
+}

@@ -44,6 +44,12 @@ internal sealed class StoreTelemetryRepository : IStoreTelemetryRepository
             .Take(limit)
             .ToArrayAsync(cancellationToken);
 
+    public Task<StoreDeployment?> GetLatestDeploymentAsync(Guid storeId, CancellationToken cancellationToken) =>
+        _context.StoreDeployments
+            .Where(deployment => deployment.StoreId == storeId)
+            .OrderByDescending(deployment => deployment.DetectedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
     /// <summary>
     /// One row per store, read in a single query. The alternative — a query per
     /// store — is what turns a stores list into a hundred round trips as soon as
