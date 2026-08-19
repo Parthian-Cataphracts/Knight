@@ -55,6 +55,18 @@
       ]
     },
     {
+      "slug": "log-shipping",
+      "name": "Log shipping",
+      "description": "The store streams its structured logs to KNIGHT, where they are searchable and retained.",
+      "category": "Insight",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true,
+      "prices": [
+        { "amount": 19.00, "billingPeriod": "Monthly" }
+      ]
+    },
+    {
       "slug": "ai-recommendations",
       "name": "AI recommendations",
       "description": "Model-backed product recommendations. Runs its own workers and cannot share a host.",
@@ -89,7 +101,8 @@
         { "slug": "storefront", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "order-management", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "analytics", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "loyalty", "isIncluded": false, "isCustomerToggleable": true }
+        { "slug": "loyalty", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "log-shipping", "isIncluded": false, "isCustomerToggleable": true }
       ]
     },
     {
@@ -102,6 +115,7 @@
         { "slug": "storefront", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "order-management", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "analytics", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "log-shipping", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "loyalty", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "ai-recommendations", "isIncluded": false, "isCustomerToggleable": true }
       ]

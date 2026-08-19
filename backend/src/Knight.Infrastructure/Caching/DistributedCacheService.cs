@@ -3,11 +3,11 @@ using Microsoft.Extensions.Caching.Distributed;
 
 namespace Knight.Infrastructure.Caching;
 
-internal sealed class RedisCacheService : ICacheService
+internal sealed class DistributedCacheService : ICacheService
 {
     private readonly IDistributedCache _distributedCache;
 
-    public RedisCacheService(IDistributedCache distributedCache)
+    public DistributedCacheService(IDistributedCache distributedCache)
     {
         _distributedCache = distributedCache;
     }

@@ -14,8 +14,21 @@ public interface IStoreRepository
 
     Task<Store?> GetByPrimaryDomainAsync(string normalizedHost, CancellationToken cancellationToken);
 
-    /// <summary>Resolves a store from a credential's client id; used by the ingestion handshake.</summary>
+    /// <summary>
+    /// Resolves a store from a credential's client id, deliberately without a
+    /// customer scope: this is the lookup that establishes the scope in the first
+    /// place, the same way a login resolves an account before anyone knows who is
+    /// calling. Nothing is returned to the caller from it until the secret has
+    /// been verified.
+    /// </summary>
     Task<Store?> GetByClientIdAsync(string clientId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Stores the health poller should ask about: registered with KNIGHT and not
+    /// archived. Ordered by how long it has been since anything was heard from
+    /// them, so a backlog drains oldest-first instead of starving one store.
+    /// </summary>
+    Task<IReadOnlyCollection<Store>> ListForHealthPollingAsync(int limit, CancellationToken cancellationToken);
 
     Task<(IReadOnlyCollection<Store> Items, long TotalCount)> ListAsync(
         int page,

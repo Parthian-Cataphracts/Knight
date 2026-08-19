@@ -51,6 +51,9 @@ internal sealed class StoreConfiguration : IEntityTypeConfiguration<Store>
         builder.Property(s => s.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(s => s.IntegrationStatus).HasConversion<string>().HasMaxLength(20).IsRequired();
 
+        builder.Property(s => s.DomainVerificationToken).HasMaxLength(100);
+        builder.Property(s => s.DomainVerificationMethod).HasConversion<string>().HasMaxLength(20);
+
         builder.HasIndex(s => s.Slug).IsUnique();
         builder.HasIndex(s => s.PrimaryDomain).IsUnique();
         builder.HasIndex(s => s.CustomerId);

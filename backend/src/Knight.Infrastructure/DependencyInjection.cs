@@ -29,11 +29,7 @@ public static class DependencyInjection
         services.AddDbContext<PlatformDbContext>(options =>
             options.UseNpgsql(connectionString, npgsql => npgsql.MigrationsHistoryTable("__ef_migrations_history", "platform")));
 
-        services.AddStackExchangeRedisCache(options =>
-        {
-            options.Configuration = configuration.GetConnectionString("Redis");
-        });
-        services.AddSingleton<ICacheService, RedisCacheService>();
+        services.AddSharedInfrastructureCache(configuration);
 
         services.AddOptions<JwtOptions>()
             .Bind(configuration.GetSection(JwtOptions.SectionName))

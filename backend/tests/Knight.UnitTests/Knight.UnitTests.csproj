@@ -31,6 +31,7 @@
     <ProjectReference Include="..\..\modules\Tenancy\Tenancy.csproj" />
     <ProjectReference Include="..\..\modules\Customers\Customers.csproj" />
     <ProjectReference Include="..\..\modules\Stores\Stores.csproj" />
+    <ProjectReference Include="..\..\modules\Ingestion\Ingestion.csproj" />
     <ProjectReference Include="..\..\modules\FeatureManagement\FeatureManagement.csproj" />
     <ProjectReference Include="..\..\modules\Catalog\Catalog.csproj" />
     <ProjectReference Include="..\..\modules\Ordering\Ordering.csproj" />

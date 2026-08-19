@@ -10,6 +10,7 @@
     <Project Path="modules/FeatureManagement/FeatureManagement.csproj" />
     <Project Path="modules/Fulfillment/Fulfillment.csproj" />
     <Project Path="modules/Identity/Identity.csproj" />
+    <Project Path="modules/Ingestion/Ingestion.csproj" />
     <Project Path="modules/Ordering/Ordering.csproj" />
     <Project Path="modules/Payment/Payment.csproj" />
     <Project Path="modules/Promotions/Promotions.csproj" />

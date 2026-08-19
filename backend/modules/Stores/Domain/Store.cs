@@ -4,6 +4,18 @@ using Knight.Domain.Exceptions;
 namespace Stores.Domain;
 
 /// <summary>
+/// What one contact with a store did to the link: the state it left the store
+/// in, whether the store is still waiting for its domain to be proven, and
+/// whether it announced a version KNIGHT had not seen. The caller turns the last
+/// of those into a <see cref="StoreDeployment"/>; the aggregate only reports it.
+/// </summary>
+public sealed record StoreContactOutcome(
+    IntegrationStatus Status,
+    bool DomainVerificationOutstanding,
+    bool VersionChanged,
+    string? PreviousVersion);
+
+/// <summary>
 /// A customer's store as KNIGHT knows it: an independent Django application with
 /// its own domain, database and deployment. KNIGHT holds only the management
 /// metadata — never the store's business data, and never a connection to its
@@ -36,6 +48,22 @@ public sealed class Store : AuditableEntity, ICustomerOwned
     public DateTimeOffset? LastSeenAt { get; private set; }
 
     public Guid? ServerId { get; private set; }
+
+    /// <summary>
+    /// The token whoever controls <see cref="PrimaryDomain"/> must publish to
+    /// prove they do. Null until an operator asks for one; it is not a secret in
+    /// the credential sense — publishing it is the whole point — but it is
+    /// single-purpose and is replaced whenever verification is restarted.
+    /// </summary>
+    public string? DomainVerificationToken { get; private set; }
+
+    public DateTimeOffset? DomainVerificationIssuedAt { get; private set; }
+
+    public DateTimeOffset? DomainVerifiedAt { get; private set; }
+
+    public DomainVerificationMethod? DomainVerificationMethod { get; private set; }
+
+    public bool IsDomainVerified => DomainVerifiedAt is not null;
 
     private readonly List<StoreCredential> _credentials = [];
 
@@ -99,7 +127,17 @@ public sealed class Store : AuditableEntity, ICustomerOwned
     {
         EnsureNotArchived();
         Name = StoreNormalization.ValidateName(name);
-        PrimaryDomain = StoreNormalization.NormalizeHost(primaryDomain);
+
+        var host = StoreNormalization.NormalizeHost(primaryDomain);
+        if (!string.Equals(host, PrimaryDomain, StringComparison.Ordinal))
+        {
+            // Ownership was proven for the old domain and says nothing about the
+            // new one. Carrying the proof across would let a store move itself to
+            // a domain nobody checked.
+            PrimaryDomain = host;
+            ClearDomainVerification();
+        }
+
         MarkUpdated(now);
     }
 
@@ -161,8 +199,19 @@ public sealed class Store : AuditableEntity, ICustomerOwned
     /// Records a successful handshake. The reported environment must match the
     /// registered one: a production store may never report into a non-production
     /// control plane, even with valid credentials (docs/architecture.md section 8).
+    ///
+    /// A store whose primary domain has not been proven does not reach
+    /// <see cref="IntegrationStatus.Connected"/>; it waits in
+    /// <see cref="IntegrationStatus.Pending"/>. Credentials prove that the caller
+    /// holds a secret KNIGHT issued — they say nothing about who controls the
+    /// domain that traffic will be sent to, and KNIGHT polls that domain
+    /// (docs/security-threat-model.md).
     /// </summary>
-    public void MarkConnected(StoreEnvironment reportedEnvironment, string? applicationVersion, DateTimeOffset now)
+    public StoreContactOutcome CompleteHandshake(
+        StoreEnvironment reportedEnvironment,
+        string? applicationVersion,
+        bool requireDomainVerification,
+        DateTimeOffset now)
     {
         if (Status is StoreStatus.Archived)
         {
@@ -175,10 +224,52 @@ public sealed class Store : AuditableEntity, ICustomerOwned
                 $"Environment mismatch: the store reported '{reportedEnvironment}' but is registered as '{Environment}'.");
         }
 
-        IntegrationStatus = IntegrationStatus.Connected;
-        ApplicationVersion = StoreNormalization.NormalizeVersion(applicationVersion) ?? ApplicationVersion;
-        LastSeenAt = now;
+        return RecordObservation(StoreHealthStatus.Healthy, applicationVersion, requireDomainVerification, now);
+    }
+
+    /// <summary>
+    /// Applies what a health observation saw — whether KNIGHT polled the store or
+    /// the store sent a heartbeat. The mapping from one observation to the
+    /// settled link state lives here so a poller and an ingestion endpoint cannot
+    /// disagree about what "degraded" means.
+    /// </summary>
+    public StoreContactOutcome RecordObservation(
+        StoreHealthStatus observed,
+        string? applicationVersion,
+        bool requireDomainVerification,
+        DateTimeOffset now)
+    {
+        EnsureNotArchived();
+
+        var previousVersion = ApplicationVersion;
+        var reported = StoreNormalization.NormalizeVersion(applicationVersion);
+        if (reported is not null)
+        {
+            ApplicationVersion = reported;
+        }
+
+        var outstanding = requireDomainVerification && !IsDomainVerified;
+
+        IntegrationStatus = observed switch
+        {
+            // An unanswered poll is the one observation that does not mean the
+            // store spoke to us, so it neither advances LastSeenAt below nor
+            // clears an outstanding verification.
+            StoreHealthStatus.Unreachable => IntegrationStatus.Disconnected,
+            _ when outstanding => IntegrationStatus.Pending,
+            StoreHealthStatus.Healthy => IntegrationStatus.Connected,
+            _ => IntegrationStatus.Degraded,
+        };
+
+        if (observed is not StoreHealthStatus.Unreachable)
+        {
+            LastSeenAt = now;
+        }
+
         MarkUpdated(now);
+
+        var changed = reported is not null && !string.Equals(reported, previousVersion, StringComparison.Ordinal);
+        return new StoreContactOutcome(IntegrationStatus, outstanding, changed, changed ? previousVersion : null);
     }
 
     public void MarkPendingRegistration(DateTimeOffset now)
@@ -201,6 +292,56 @@ public sealed class Store : AuditableEntity, ICustomerOwned
         EnsureNotArchived();
         IntegrationStatus = IntegrationStatus.Disconnected;
         MarkUpdated(now);
+    }
+
+    // --- Domain ownership ------------------------------------------------
+
+    /// <summary>
+    /// Starts (or restarts) proof of ownership for the primary domain. Any
+    /// earlier proof is dropped: the point of re-issuing is that the previous
+    /// answer is no longer trusted.
+    /// </summary>
+    public void IssueDomainVerification(string token, DateTimeOffset now)
+    {
+        EnsureNotArchived();
+
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            throw DomainException.Validation("A domain verification token is required.");
+        }
+
+        DomainVerificationToken = token.Trim();
+        DomainVerificationIssuedAt = now;
+        DomainVerifiedAt = null;
+        DomainVerificationMethod = null;
+        MarkUpdated(now);
+    }
+
+    /// <summary>
+    /// Records that the issued token was found published on the domain. Verifying
+    /// without an outstanding token is refused rather than treated as success:
+    /// there would be nothing that could have been checked.
+    /// </summary>
+    public void MarkDomainVerified(DomainVerificationMethod method, DateTimeOffset now)
+    {
+        EnsureNotArchived();
+
+        if (DomainVerificationToken is null)
+        {
+            throw DomainException.Conflict("No domain verification has been started for this store.");
+        }
+
+        DomainVerifiedAt = now;
+        DomainVerificationMethod = method;
+        MarkUpdated(now);
+    }
+
+    private void ClearDomainVerification()
+    {
+        DomainVerificationToken = null;
+        DomainVerificationIssuedAt = null;
+        DomainVerifiedAt = null;
+        DomainVerificationMethod = null;
     }
 
     // --- Credentials -----------------------------------------------------
