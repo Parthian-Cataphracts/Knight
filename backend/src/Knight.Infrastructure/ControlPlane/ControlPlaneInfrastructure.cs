@@ -1,6 +1,7 @@
 using AccessControl.Abstractions;
 using AccessControl.Domain;
 using Knight.Application.Abstractions.ControlPlane;
+using Knight.Application.Abstractions.Security;
 using Knight.Infrastructure.Caching;
 using Knight.Infrastructure.ControlPlane.Adapters;
 using Knight.Infrastructure.ControlPlane.Integration;
@@ -67,6 +68,23 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<Billing.Domain.IBillingAccountRepository, BillingAccountRepository>();
         services.AddScoped<Billing.Domain.IInvoiceRepository, InvoiceRepository>();
 
+        services.AddScoped<FeatureRegistry.Domain.IFeatureVersionRepository, FeatureVersionRepository>();
+        services.AddScoped<FeatureDelivery.Domain.IFeatureInstallationRepository, FeatureInstallationRepository>();
+        services.AddScoped<FeatureDelivery.Domain.IFeatureInstallationJobRepository, FeatureInstallationJobRepository>();
+        services.AddScoped<FeatureDelivery.Domain.IFeatureConfigurationRepository, FeatureConfigurationRepository>();
+
+        // Both of these are joins between the registry and delivery, which are
+        // not allowed to know about each other, so they live here.
+        services.AddScoped<IStoreDeliveryReader, StoreDeliveryReader>();
+        services.AddScoped<FeatureDelivery.IFeatureVersionReader, FeatureVersionReader>();
+
+        services.AddOptions<FeatureArtifactOptions>()
+            .Bind(configuration.GetSection(FeatureArtifactOptions.SectionName));
+
+        services.AddScoped<IFeatureArtifactSigner, EcdsaArtifactSigner>();
+        services.AddScoped<IFeatureArtifactStore, FileSystemArtifactStore>();
+        services.AddSingleton<ISecretProtector>(_ => new AesGcmSecretProtector(ResolveSecretKey(configuration)));
+
         // Ports that let one control-plane module read another's data without
         // referencing it.
         services.AddScoped<IPlanCatalogReader, PlanCatalogReader>();
@@ -117,4 +135,38 @@ public static class ControlPlaneInfrastructure
 
     private static string? FirstConfigured(params string?[] candidates) =>
         candidates.FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate));
+
+    /// <summary>
+    /// The key that encrypts feature configuration secrets.
+    ///
+    /// Derived from the configured value with a fixed label rather than used raw,
+    /// so that a deployment which sets a passphrase rather than 32 random bytes
+    /// still gets a full-length key instead of an argument exception at startup.
+    /// Development falls back to a fixed key with no ceremony: local secrets are
+    /// not secrets, and making developers manage one would only teach them to
+    /// paste a real key into a config file.
+    /// </summary>
+    private static byte[] ResolveSecretKey(IConfiguration configuration)
+    {
+        var configured = FirstConfigured(
+            configuration["FeatureArtifacts:SecretProtectionKey"],
+            configuration["Security:SecretProtectionKey"]);
+
+        if (string.IsNullOrWhiteSpace(configured))
+        {
+            var environment = configuration["ASPNETCORE_ENVIRONMENT"] ?? configuration["DOTNET_ENVIRONMENT"];
+
+            if (!string.Equals(environment, "Development", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(environment, "Testing", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "FeatureArtifacts:SecretProtectionKey must be configured outside Development. " +
+                    "Feature configuration secrets cannot be stored without it.");
+            }
+
+            configured = "knight-development-secret-protection-key";
+        }
+
+        return System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(configured));
+    }
 }
