@@ -1,4 +1,5 @@
 using AccessControl.Domain;
+using Ingestion;
 using Knight.Application.Abstractions.ControlPlane;
 using Knight.Application.Abstractions.Time;
 using Knight.Contracts.Common;
@@ -148,6 +149,207 @@ public static class ControlPlaneStoreEndpoints
             await service.RevokeCredentialAsync(id, credentialId, cancellationToken);
             return Results.NoContent();
         }).RequirePermission(ControlPlanePermissions.StoreCredentialsManage);
+
+        // --- The integration link -------------------------------------------
+
+        group.MapGet("/{id:guid}/health", async (
+            Guid id,
+            int? limit,
+            IStoreManagementService stores,
+            IStoreIntegrationService integration,
+            CancellationToken cancellationToken) =>
+        {
+            var store = await stores.GetAsync(id, cancellationToken);
+            if (store is null)
+            {
+                return Results.NotFound();
+            }
+
+            var history = await integration.ListHealthChecksAsync(id, limit ?? 20, cancellationToken);
+            var checks = history.Select(ToResponse).ToArray();
+
+            return Results.Ok(new StoreHealthResponse
+            {
+                StoreId = store.Id,
+                IntegrationStatus = store.IntegrationStatus.ToString(),
+                LastSeenAt = store.LastSeenAt,
+                ApplicationVersion = store.ApplicationVersion,
+                Latest = checks.FirstOrDefault(),
+                History = checks,
+            });
+        }).RequirePermission(ControlPlanePermissions.StoreView);
+
+        group.MapGet("/{id:guid}/deployments", async (
+            Guid id,
+            int? limit,
+            IStoreIntegrationService integration,
+            CancellationToken cancellationToken) =>
+        {
+            var deployments = await integration.ListDeploymentsAsync(id, limit ?? 25, cancellationToken);
+            return Results.Ok(deployments.Select(ToResponse).ToArray());
+        }).RequirePermission(ControlPlanePermissions.StoreView);
+
+        group.MapGet("/{id:guid}/events", async (
+            Guid id,
+            int? page,
+            int? pageSize,
+            IIngestionService ingestion,
+            CancellationToken cancellationToken) =>
+        {
+            var (items, total) = await ingestion.ListEventsAsync(id, page ?? 1, pageSize ?? 25, cancellationToken);
+
+            return Results.Ok(PagedResponse<StoreEventResponse>.Create(
+                items.Select(ToResponse).ToArray(),
+                page ?? 1,
+                pageSize ?? 25,
+                total));
+        }).RequirePermission(ControlPlanePermissions.StoreView);
+
+        // Raw, ungrouped, and deliberately labelled as such: grouping arrives in
+        // phase 5, and showing the stream is more honest than showing a screen
+        // that pretends counts exist.
+        group.MapGet("/{id:guid}/errors", async (
+            Guid id,
+            int? page,
+            int? pageSize,
+            IIngestionService ingestion,
+            CancellationToken cancellationToken) =>
+        {
+            var (items, total) = await ingestion.ListErrorsAsync(id, page ?? 1, pageSize ?? 25, cancellationToken);
+
+            return Results.Ok(PagedResponse<StoreErrorEventResponse>.Create(
+                items.Select(ToResponse).ToArray(),
+                page ?? 1,
+                pageSize ?? 25,
+                total));
+        }).RequirePermission(ControlPlanePermissions.ErrorsView);
+
+        // --- Domain ownership ------------------------------------------------
+
+        group.MapGet("/{id:guid}/domain-verification", async (
+            Guid id,
+            IStoreIntegrationService integration,
+            CancellationToken cancellationToken) =>
+        {
+            var challenge = await integration.GetDomainVerificationAsync(id, cancellationToken);
+            return challenge is null ? Results.NoContent() : Results.Ok(ToResponse(challenge));
+        }).RequirePermission(ControlPlanePermissions.StoreView);
+
+        group.MapPost("/{id:guid}/domain-verification", async (
+            Guid id,
+            IStoreIntegrationService integration,
+            CancellationToken cancellationToken) =>
+            Results.Ok(ToResponse(await integration.StartDomainVerificationAsync(id, cancellationToken))))
+            .RequirePermission(ControlPlanePermissions.StoreManage);
+
+        group.MapPost("/{id:guid}/domain-verification/verify", async (
+            Guid id,
+            IStoreIntegrationService integration,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await integration.VerifyDomainAsync(id, cancellationToken);
+
+            return Results.Ok(new DomainVerificationAttemptResponse
+            {
+                Verified = result.Verified,
+                Method = result.Method,
+                Detail = result.Detail,
+                VerifiedAt = result.VerifiedAt,
+            });
+        }).RequirePermission(ControlPlanePermissions.StoreManage);
+    }
+
+    /// <summary>
+    /// The store's dependency and feature blocks are re-emitted as JSON rather
+    /// than as a string, so the dashboard receives the document the store sent
+    /// instead of a quoted blob it has to parse itself.
+    /// </summary>
+    private static StoreHealthCheckResponse ToResponse(StoreHealthCheck check) => new()
+    {
+        Id = check.Id,
+        CheckedAt = check.CheckedAt,
+        Status = check.Status.ToString(),
+        Source = check.Source.ToString(),
+        ResponseTimeMs = check.ResponseTimeMs,
+        ReportedVersion = check.ReportedVersion,
+        Dependencies = AsDocument(check.Dependencies),
+        ReportedFeatures = AsDocument(check.ReportedFeatures),
+        Detail = check.Detail,
+    };
+
+    private static StoreDeploymentResponse ToResponse(StoreDeployment deployment) => new()
+    {
+        Id = deployment.Id,
+        Version = deployment.Version,
+        PreviousVersion = deployment.PreviousVersion,
+        DeployedAt = deployment.DeployedAt,
+        DetectedAt = deployment.DetectedAt,
+        Source = deployment.Source.ToString(),
+        Status = deployment.Status.ToString(),
+        Notes = deployment.Notes,
+    };
+
+    private static DomainVerificationResponse ToResponse(DomainVerificationChallenge challenge) => new()
+    {
+        StoreId = challenge.StoreId,
+        Domain = challenge.Domain,
+        Token = challenge.Token,
+        HttpPath = challenge.HttpPath,
+        DnsRecordName = challenge.DnsRecordName,
+        IssuedAt = challenge.IssuedAt,
+        VerifiedAt = challenge.VerifiedAt,
+    };
+
+    private static StoreErrorEventResponse ToResponse(Ingestion.Domain.StoreErrorEvent error) => new()
+    {
+        Id = error.Id,
+        StoreId = error.StoreId,
+        OccurredAt = error.OccurredAt,
+        ReceivedAt = error.ReceivedAt,
+        Environment = error.Environment,
+        StoreVersion = error.StoreVersion,
+        ExceptionType = error.ExceptionType,
+        Message = error.Message,
+        Endpoint = error.Endpoint,
+        HttpMethod = error.HttpMethod,
+        StatusCode = error.StatusCode,
+        StackTrace = error.StackTrace,
+        RequestId = error.RequestId,
+        TraceId = error.TraceId,
+    };
+
+    private static StoreEventResponse ToResponse(Ingestion.Domain.StoreLifecycleEvent @event) => new()
+    {
+        Id = @event.Id,
+        StoreId = @event.StoreId,
+        OccurredAt = @event.OccurredAt,
+        ReceivedAt = @event.ReceivedAt,
+        Type = @event.Type,
+        Severity = @event.Severity.ToString(),
+        Summary = @event.Summary,
+        TraceId = @event.TraceId,
+    };
+
+    /// <summary>
+    /// Stored JSON is re-parsed on the way out. A store that managed to store
+    /// something unparseable gets it dropped rather than breaking the page it
+    /// appears on.
+    /// </summary>
+    private static object? AsDocument(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(json);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
     }
 
     private static bool TryParse<TEnum>(string? value, out TEnum? parsed) where TEnum : struct, Enum

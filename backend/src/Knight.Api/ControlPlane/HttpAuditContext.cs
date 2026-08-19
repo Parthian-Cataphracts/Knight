@@ -1,3 +1,4 @@
+using Knight.Api.Ingest;
 using Knight.Api.Middleware;
 using Knight.Application.Abstractions.ControlPlane;
 
@@ -12,19 +13,31 @@ namespace Knight.Api.ControlPlane;
 internal sealed class HttpAuditContext : IAuditContext
 {
     private readonly IControlPlanePrincipal _principal;
+    private readonly IStorePrincipal _store;
     private readonly IHttpContextAccessor _accessor;
 
-    public HttpAuditContext(IControlPlanePrincipal principal, IHttpContextAccessor accessor)
+    public HttpAuditContext(IControlPlanePrincipal principal, IStorePrincipal store, IHttpContextAccessor accessor)
     {
         _principal = principal;
+        _store = store;
         _accessor = accessor;
     }
 
-    public AuditActorType ActorType => _principal.IsControlPlaneUser ? AuditActorType.User : AuditActorType.System;
+    public AuditActorType ActorType => this switch
+    {
+        _ when _principal.IsControlPlaneUser => AuditActorType.User,
+        _ when _store.IsStore => AuditActorType.Store,
+        _ => AuditActorType.System,
+    };
 
     public Guid? ActorUserId => _principal.IsControlPlaneUser ? _principal.UserId : null;
 
-    public string? ActorDisplay => _principal.Email;
+    /// <summary>
+    /// A store is identified by its client id, which is not a secret and is what
+    /// an operator reads in the store's own configuration. The secret behind it
+    /// never reaches an audit entry.
+    /// </summary>
+    public string? ActorDisplay => _principal.Email ?? (_store.IsStore ? _store.ClientId : null);
 
     public string? CorrelationId =>
         _accessor.HttpContext?.Response.Headers[CorrelationIdMiddleware.HeaderName].ToString();

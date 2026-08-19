@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\modules\FeatureRegistry\FeatureRegistry.csproj" />
     <ProjectReference Include="..\..\modules\Plans\Plans.csproj" />
     <ProjectReference Include="..\..\modules\Subscriptions\Subscriptions.csproj" />
+    <ProjectReference Include="..\..\modules\Ingestion\Ingestion.csproj" />
     <ProjectReference Include="..\..\modules\Billing\Billing.csproj" />
     <ProjectReference Include="..\..\modules\Identity\Identity.csproj" />
     <ProjectReference Include="..\..\modules\Tenancy\Tenancy.csproj" />

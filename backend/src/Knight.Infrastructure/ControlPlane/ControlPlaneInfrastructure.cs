@@ -1,7 +1,9 @@
 using AccessControl.Abstractions;
 using AccessControl.Domain;
 using Knight.Application.Abstractions.ControlPlane;
+using Knight.Infrastructure.Caching;
 using Knight.Infrastructure.ControlPlane.Adapters;
+using Knight.Infrastructure.ControlPlane.Integration;
 using Knight.Infrastructure.ControlPlane.Repositories;
 using Knight.Infrastructure.ControlPlane.Security;
 using Knight.Infrastructure.ControlPlane.Seed;
@@ -45,6 +47,8 @@ public static class ControlPlaneInfrastructure
 
         services.AddScoped<Customers.Domain.ICustomerRepository, ControlPlaneCustomerRepository>();
         services.AddScoped<Stores.Domain.IStoreRepository, ControlPlaneStoreRepository>();
+        services.AddScoped<Stores.Domain.IStoreTelemetryRepository, StoreTelemetryRepository>();
+        services.AddScoped<Ingestion.Domain.IIngestionRepository, IngestionRepository>();
         services.AddScoped<IControlPlaneUserRepository, ControlPlaneUserRepository>();
         services.AddScoped<IRoleRepository, ControlPlaneRoleRepository>();
         services.AddScoped<IUserSessionRepository, UserSessionRepository>();
@@ -70,7 +74,28 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<IPricingReader, PricingReader>();
         services.AddScoped<ISubscriptionReader, SubscriptionReader>();
         services.AddScoped<IStoreHostingReader, StoreHostingReader>();
+        services.AddScoped<ICustomerStatusReader, CustomerStatusReader>();
+        services.AddScoped<ICustomerEntitlementReader, CustomerEntitlementReader>();
         services.AddScoped<IEntitlementEventPublisher, LoggingEntitlementEventPublisher>();
+
+        // Everything the store link needs to leave the process: the token it
+        // hands out, the key it signs with, and the guarded HTTP client it calls
+        // stores on. The address policy and the outbound client are registered
+        // together on purpose — there is no way to make a store call that skips
+        // the policy.
+        services.AddOptions<StoreProbeOptions>()
+            .Bind(configuration.GetSection(StoreProbeOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddSharedInfrastructureCache(configuration);
+        services.AddSingleton<IStoreTokenIssuer, StoreTokenIssuer>();
+        services.AddSingleton<IStorePayloadSigner, StorePayloadSigner>();
+        services.AddSingleton<IOutboundAddressPolicy, OutboundAddressPolicy>();
+        services.AddSingleton<StoreEndpointResolver>();
+        services.AddSingleton<IStoreHealthProbe, StoreHealthProbe>();
+        services.AddSingleton<IDomainOwnershipVerifier, DomainOwnershipVerifier>();
+        services.AddStoreOutboundHttp();
 
         // The control plane's security primitives are adapters over the shared
         // implementations, so those have to exist even in a host that wires

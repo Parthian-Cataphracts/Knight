@@ -52,6 +52,16 @@ public sealed class ControlPlaneDbContext : DbContext
 
     public DbSet<StoreCredential> StoreCredentials => Set<StoreCredential>();
 
+    public DbSet<StoreHealthCheck> StoreHealthChecks => Set<StoreHealthCheck>();
+
+    public DbSet<StoreDeployment> StoreDeployments => Set<StoreDeployment>();
+
+    public DbSet<Ingestion.Domain.StoreErrorEvent> StoreErrorEvents => Set<Ingestion.Domain.StoreErrorEvent>();
+
+    public DbSet<Ingestion.Domain.StoreLifecycleEvent> StoreEvents => Set<Ingestion.Domain.StoreLifecycleEvent>();
+
+    public DbSet<Ingestion.Domain.StoreLogEntry> StoreLogEntries => Set<Ingestion.Domain.StoreLogEntry>();
+
     public DbSet<ControlPlaneUser> Users => Set<ControlPlaneUser>();
 
     public DbSet<UserRoleAssignment> UserRoleAssignments => Set<UserRoleAssignment>();
@@ -94,6 +104,12 @@ public sealed class ControlPlaneDbContext : DbContext
         modelBuilder.ApplyConfiguration(new RolePermissionConfiguration());
         modelBuilder.ApplyConfiguration(new UserSessionConfiguration());
         modelBuilder.ApplyConfiguration(new AuditLogConfiguration());
+
+        modelBuilder.ApplyConfiguration(new StoreHealthCheckConfiguration());
+        modelBuilder.ApplyConfiguration(new StoreDeploymentConfiguration());
+        modelBuilder.ApplyConfiguration(new StoreErrorEventConfiguration());
+        modelBuilder.ApplyConfiguration(new StoreLifecycleEventConfiguration());
+        modelBuilder.ApplyConfiguration(new StoreLogEntryConfiguration());
 
         modelBuilder.ApplyConfiguration(new FeatureConfiguration());
         modelBuilder.ApplyConfiguration(new PlanConfiguration());

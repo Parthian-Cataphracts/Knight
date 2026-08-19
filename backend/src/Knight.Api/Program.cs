@@ -8,8 +8,10 @@ using Microsoft.IdentityModel.Tokens;
 using AccessControl;
 using Knight.Api.Authorization;
 using Knight.Api.Composition;
+using Knight.Api.BackgroundServices;
 using Knight.Api.ControlPlane;
 using Knight.Api.Endpoints;
+using Knight.Api.Ingest;
 using Knight.Api.Middleware;
 using Knight.Application;
 using Knight.Application.Abstractions.ControlPlane;
@@ -18,10 +20,12 @@ using Knight.Application.Abstractions.Tenancy;
 using Knight.Application.Abstractions.Time;
 using Knight.Infrastructure;
 using Knight.Infrastructure.ControlPlane;
+using Knight.Infrastructure.ControlPlane.Security;
 using Knight.Infrastructure.HealthChecks;
 using Knight.Infrastructure.Security;
 using Scalar.AspNetCore;
 using Serilog;
+using Stores;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,6 +61,10 @@ builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 // Production must fail fast rather than silently accept a development
 // signing-key placeholder — see docs/security/README.md.
 builder.Services.AddSingleton<IValidateOptions<JwtOptions>, JwtProductionSigningKeyValidator>();
+
+// The same rule for the key stores verify signed payloads with: a laptop may
+// derive it from the token key, a deployment may not.
+builder.Services.AddSingleton<IValidateOptions<StoreOptions>, StoreSigningKeyValidator>();
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>();
 
@@ -97,7 +105,13 @@ builder.Services.AddAuthorizationBuilder()
     // (docs/authentication.md section 4).
     .AddPolicy(ControlPlaneAuthorizationExtensions.UserPolicy, policy => policy
         .RequireAuthenticatedUser()
-        .RequireClaim(PrincipalTypes.ClaimType, PrincipalTypes.User));
+        .RequireClaim(PrincipalTypes.ClaimType, PrincipalTypes.User))
+
+    // The mirror image for ingestion: a dashboard token is refused here just as
+    // firmly as a store token is refused above.
+    .AddPolicy(StoreAuthorization.Policy, policy => policy
+        .RequireAuthenticatedUser()
+        .RequireClaim(PrincipalTypes.ClaimType, PrincipalTypes.Store));
 
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, ControlPlanePermissionHandler>();
@@ -155,6 +169,16 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("auth-refresh", PartitionByClientIp(rateLimitOptions.RefreshPermitLimit, window));
     options.AddPolicy("checkout_quote", PartitionByTenantAndClientIp(rateLimitOptions.CheckoutQuotePermitLimit, window));
     options.AddPolicy("checkout_submit", PartitionByTenantAndClientIp(rateLimitOptions.CheckoutSubmitPermitLimit, window));
+
+    // The handshake is unauthenticated, so there is no store to partition by
+    // yet: an address it is. This is the credential-guessing surface, and the
+    // limit is deliberately tighter than ingestion's.
+    options.AddPolicy(StoreIngestEndpoints.HandshakePolicy, PartitionByClientIp(rateLimitOptions.IngestHandshakePermitLimit, window));
+
+    // Authenticated ingestion is partitioned by store id. Per-address would be
+    // wrong in both directions: stores on one shared host would share a budget,
+    // and one store behind several addresses would multiply its own.
+    options.AddPolicy(StoreIngestEndpoints.IngestPolicy, PartitionByStore(rateLimitOptions.IngestPermitLimit, window));
 });
 
 var app = builder.Build();
@@ -195,6 +219,7 @@ app.UseMiddleware<ControlPlaneScopeMiddleware>();
 app.UseAuthorization();
 
 app.MapControlPlaneAuthEndpoints();
+app.MapStoreIngestEndpoints();
 app.MapControlPlaneCustomerEndpoints();
 app.MapControlPlaneStoreEndpoints();
 app.MapControlPlaneAuditLogEndpoints();
@@ -243,6 +268,26 @@ app.Run();
 static Func<HttpContext, RateLimitPartition<string>> PartitionByClientIp(int permitLimit, TimeSpan window) => httpContext =>
 {
     var key = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
+    {
+        PermitLimit = permitLimit,
+        Window = window,
+        QueueLimit = 0
+    });
+};
+
+static Func<HttpContext, RateLimitPartition<string>> PartitionByStore(int permitLimit, TimeSpan window) => httpContext =>
+{
+    // Read straight off the validated token: the rate limiter runs after
+    // authentication, and the store id in the payload is never trusted for
+    // anything, least of all for deciding whose budget to spend.
+    var storeId = httpContext.User.FindFirst(StoreClaims.StoreId)?.Value;
+
+    // A request with no store claim cannot reach an ingestion handler — the
+    // policy rejects it — but it still passes through the limiter, so it gets a
+    // shared bucket rather than a free pass.
+    var key = string.IsNullOrWhiteSpace(storeId) ? "unauthenticated" : storeId;
+
     return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
     {
         PermitLimit = permitLimit,

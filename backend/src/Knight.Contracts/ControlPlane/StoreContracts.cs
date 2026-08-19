@@ -106,3 +106,160 @@ public sealed record StoreResponse
 
     public DateTimeOffset? UpdatedAt { get; init; }
 }
+
+/// <summary>One health observation as the dashboard shows it.</summary>
+public sealed record StoreHealthCheckResponse
+{
+    public required Guid Id { get; init; }
+
+    public required DateTimeOffset CheckedAt { get; init; }
+
+    /// <summary>Healthy, Degraded, Unhealthy or Unreachable.</summary>
+    public required string Status { get; init; }
+
+    /// <summary>Poll, Heartbeat or Handshake — whether KNIGHT asked or the store told.</summary>
+    public required string Source { get; init; }
+
+    public int? ResponseTimeMs { get; init; }
+
+    public string? ReportedVersion { get; init; }
+
+    /// <summary>The store's own dependency block, passed through untouched.</summary>
+    public object? Dependencies { get; init; }
+
+    /// <summary>Feature slugs the store reports as installed.</summary>
+    public object? ReportedFeatures { get; init; }
+
+    public string? Detail { get; init; }
+}
+
+/// <summary>
+/// The link as it stands, plus the observations behind it. Both are returned
+/// together because a status without its evidence is the thing operators
+/// distrust.
+/// </summary>
+public sealed record StoreHealthResponse
+{
+    public required Guid StoreId { get; init; }
+
+    public required string IntegrationStatus { get; init; }
+
+    public DateTimeOffset? LastSeenAt { get; init; }
+
+    public string? ApplicationVersion { get; init; }
+
+    public StoreHealthCheckResponse? Latest { get; init; }
+
+    public required IReadOnlyCollection<StoreHealthCheckResponse> History { get; init; }
+}
+
+public sealed record StoreDeploymentResponse
+{
+    public required Guid Id { get; init; }
+
+    public required string Version { get; init; }
+
+    public string? PreviousVersion { get; init; }
+
+    public required DateTimeOffset DeployedAt { get; init; }
+
+    public required DateTimeOffset DetectedAt { get; init; }
+
+    /// <summary>VersionChange when KNIGHT noticed it, StoreReported when the store announced it.</summary>
+    public required string Source { get; init; }
+
+    /// <summary>Detected, Succeeded, Failed or RolledBack.</summary>
+    public required string Status { get; init; }
+
+    public string? Notes { get; init; }
+}
+
+/// <summary>
+/// What has to be published on the store's domain, and where. The token is not a
+/// secret: publishing it is the proof.
+/// </summary>
+public sealed record DomainVerificationResponse
+{
+    public required Guid StoreId { get; init; }
+
+    public required string Domain { get; init; }
+
+    public required string Token { get; init; }
+
+    /// <summary>The path the token must be served from over HTTP.</summary>
+    public required string HttpPath { get; init; }
+
+    /// <summary>The TXT record name carrying the token, for stores with no HTTP surface yet.</summary>
+    public required string DnsRecordName { get; init; }
+
+    public required DateTimeOffset IssuedAt { get; init; }
+
+    public DateTimeOffset? VerifiedAt { get; init; }
+}
+
+public sealed record DomainVerificationAttemptResponse
+{
+    public required bool Verified { get; init; }
+
+    public string? Method { get; init; }
+
+    /// <summary>Why it failed, in one line an operator can act on.</summary>
+    public string? Detail { get; init; }
+
+    public DateTimeOffset? VerifiedAt { get; init; }
+}
+
+/// <summary>
+/// An error a store reported, before grouping exists. Phase 5 turns these into
+/// groups with counts and a lifecycle; until then the dashboard shows the raw
+/// stream rather than pretending the feature is missing.
+/// </summary>
+public sealed record StoreErrorEventResponse
+{
+    public required Guid Id { get; init; }
+
+    public required Guid StoreId { get; init; }
+
+    public required DateTimeOffset OccurredAt { get; init; }
+
+    public required DateTimeOffset ReceivedAt { get; init; }
+
+    public required string Environment { get; init; }
+
+    public string? StoreVersion { get; init; }
+
+    public required string ExceptionType { get; init; }
+
+    public required string Message { get; init; }
+
+    public string? Endpoint { get; init; }
+
+    public string? HttpMethod { get; init; }
+
+    public int? StatusCode { get; init; }
+
+    public string? StackTrace { get; init; }
+
+    public string? RequestId { get; init; }
+
+    public string? TraceId { get; init; }
+}
+
+public sealed record StoreEventResponse
+{
+    public required Guid Id { get; init; }
+
+    public required Guid StoreId { get; init; }
+
+    public required DateTimeOffset OccurredAt { get; init; }
+
+    public required DateTimeOffset ReceivedAt { get; init; }
+
+    public required string Type { get; init; }
+
+    public required string Severity { get; init; }
+
+    public required string Summary { get; init; }
+
+    public string? TraceId { get; init; }
+}

@@ -37,5 +37,19 @@ public sealed class RateLimitOptions
     /// </summary>
     public int ControlPlaneLoginPermitLimit { get; init; } = 10;
 
+    /// <summary>
+    /// Handshakes per window from one address. A store handshakes twice an hour;
+    /// anything doing it thirty times a minute is guessing credentials
+    /// (docs/authentication.md section 2).
+    /// </summary>
+    public int IngestHandshakePermitLimit { get; init; } = 30;
+
+    /// <summary>
+    /// Ingestion requests per window for one store. Generous enough for a busy
+    /// store batching errors and heartbeating, bounded so a store in a crash loop
+    /// cannot spend the control plane's capacity.
+    /// </summary>
+    public int IngestPermitLimit { get; init; } = 600;
+
     public int WindowSeconds { get; init; } = 60;
 }

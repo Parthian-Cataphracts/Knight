@@ -2,8 +2,12 @@ using AccessControl;
 using Billing;
 using Customers;
 using FeatureRegistry;
+using Ingestion;
 using Plans;
+using Knight.Api.BackgroundServices;
+using Knight.Api.Ingest;
 using Knight.Application.Abstractions.ControlPlane;
+using Knight.Infrastructure.Caching;
 using Stores;
 using Subscriptions;
 
@@ -25,9 +29,16 @@ public static class ControlPlaneComposition
         services.AddPlansModule();
         services.AddSubscriptionsModule(configuration);
         services.AddBillingModule(configuration);
+        services.AddIngestionModule(configuration);
 
         services.AddScoped<IControlPlanePrincipal, HttpControlPlanePrincipal>();
+        services.AddScoped<IStorePrincipal, HttpStorePrincipal>();
         services.AddScoped<IAuditContext, HttpAuditContext>();
+
+        // Refuses to start a non-development host with no Redis, where replay
+        // protection would silently degrade to per-instance memory.
+        services.AddHostedService<ReplayGuardGuardrail>();
+        services.AddHostedService<StoreHealthPoller>();
 
         return services;
     }

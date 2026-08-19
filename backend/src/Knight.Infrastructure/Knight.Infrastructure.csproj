@@ -6,6 +6,7 @@
     <ProjectReference Include="..\..\modules\AccessControl\AccessControl.csproj" />
     <ProjectReference Include="..\..\modules\Customers\Customers.csproj" />
     <ProjectReference Include="..\..\modules\Stores\Stores.csproj" />
+    <ProjectReference Include="..\..\modules\Ingestion\Ingestion.csproj" />
     <ProjectReference Include="..\..\modules\FeatureRegistry\FeatureRegistry.csproj" />
     <ProjectReference Include="..\..\modules\Plans\Plans.csproj" />
     <ProjectReference Include="..\..\modules\Subscriptions\Subscriptions.csproj" />
@@ -30,6 +31,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.11" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.11" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.11" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.22.0" />

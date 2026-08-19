@@ -92,27 +92,154 @@ public sealed class StoreTests
     }
 
     [Fact]
-    public void MarkConnected_WithMatchingEnvironment_RecordsVersionAndContact()
+    public void CompleteHandshake_WithMatchingEnvironment_RecordsVersionAndContact()
     {
         var store = CreateStore();
 
-        store.MarkConnected(StoreEnvironment.Production, "4.2.0", Now);
+        var outcome = store.CompleteHandshake(StoreEnvironment.Production, "4.2.0", requireDomainVerification: false, Now);
 
         Assert.Equal(IntegrationStatus.Connected, store.IntegrationStatus);
         Assert.Equal("4.2.0", store.ApplicationVersion);
         Assert.Equal(Now, store.LastSeenAt);
+        Assert.True(outcome.VersionChanged);
+        Assert.Null(outcome.PreviousVersion);
     }
 
     [Fact]
-    public void MarkConnected_WithMismatchedEnvironment_IsRejected()
+    public void CompleteHandshake_WithMismatchedEnvironment_IsRejected()
     {
         var store = CreateStore(environment: StoreEnvironment.Production);
 
         var exception = Assert.Throws<DomainException>(() =>
-            store.MarkConnected(StoreEnvironment.Staging, "4.2.0", Now));
+            store.CompleteHandshake(StoreEnvironment.Staging, "4.2.0", requireDomainVerification: false, Now));
 
         Assert.Equal(DomainErrorCategory.Conflict, exception.Category);
         Assert.Equal(IntegrationStatus.NotRegistered, store.IntegrationStatus);
+    }
+
+    /// <summary>
+    /// Credentials prove possession of a secret; they say nothing about who
+    /// answers on the domain KNIGHT will call back on. Until that is proven the
+    /// link is Pending, not Connected.
+    /// </summary>
+    [Fact]
+    public void CompleteHandshake_WithoutDomainVerification_StaysPending()
+    {
+        var store = CreateStore();
+
+        var outcome = store.CompleteHandshake(StoreEnvironment.Production, "4.2.0", requireDomainVerification: true, Now);
+
+        Assert.Equal(IntegrationStatus.Pending, store.IntegrationStatus);
+        Assert.True(outcome.DomainVerificationOutstanding);
+        Assert.Equal(Now, store.LastSeenAt);
+    }
+
+    [Fact]
+    public void CompleteHandshake_AfterDomainVerification_Connects()
+    {
+        var store = CreateStore();
+        store.IssueDomainVerification("knight-verify-abc", Now);
+        store.MarkDomainVerified(DomainVerificationMethod.HttpToken, Now);
+
+        var outcome = store.CompleteHandshake(StoreEnvironment.Production, "4.2.0", requireDomainVerification: true, Now);
+
+        Assert.Equal(IntegrationStatus.Connected, store.IntegrationStatus);
+        Assert.False(outcome.DomainVerificationOutstanding);
+    }
+
+    [Fact]
+    public void MarkDomainVerified_WithoutAnIssuedToken_IsRejected()
+    {
+        var store = CreateStore();
+
+        var exception = Assert.Throws<DomainException>(() =>
+            store.MarkDomainVerified(DomainVerificationMethod.HttpToken, Now));
+
+        Assert.Equal(DomainErrorCategory.Conflict, exception.Category);
+    }
+
+    /// <summary>
+    /// Proof is about one domain. Moving the store to another must not carry the
+    /// old proof across, or a store could verify a domain it controls and then
+    /// point KNIGHT at one it does not.
+    /// </summary>
+    [Fact]
+    public void UpdateProfile_WithANewDomain_DropsTheProofOfTheOldOne()
+    {
+        var store = CreateStore();
+        store.IssueDomainVerification("knight-verify-abc", Now);
+        store.MarkDomainVerified(DomainVerificationMethod.HttpToken, Now);
+
+        store.UpdateProfile(store.Name, "elsewhere.example.test", Now);
+
+        Assert.False(store.IsDomainVerified);
+        Assert.Null(store.DomainVerificationToken);
+    }
+
+    [Fact]
+    public void UpdateProfile_WithTheSameDomain_KeepsTheProof()
+    {
+        var store = CreateStore();
+        store.IssueDomainVerification("knight-verify-abc", Now);
+        store.MarkDomainVerified(DomainVerificationMethod.HttpToken, Now);
+
+        store.UpdateProfile("Renamed", store.PrimaryDomain, Now);
+
+        Assert.True(store.IsDomainVerified);
+    }
+
+    [Theory]
+    [InlineData(StoreHealthStatus.Healthy, IntegrationStatus.Connected)]
+    [InlineData(StoreHealthStatus.Degraded, IntegrationStatus.Degraded)]
+    [InlineData(StoreHealthStatus.Unhealthy, IntegrationStatus.Degraded)]
+    [InlineData(StoreHealthStatus.Unreachable, IntegrationStatus.Disconnected)]
+    public void RecordObservation_MapsWhatWasSeenToTheLinkState(StoreHealthStatus observed, IntegrationStatus expected)
+    {
+        var store = CreateStore();
+
+        store.RecordObservation(observed, "4.2.0", requireDomainVerification: false, Now);
+
+        Assert.Equal(expected, store.IntegrationStatus);
+    }
+
+    /// <summary>
+    /// A poll that never got an answer is not contact. Advancing LastSeenAt on it
+    /// would make a store that has been down for a week look freshly seen.
+    /// </summary>
+    [Fact]
+    public void RecordObservation_WhenUnreachable_DoesNotAdvanceLastSeen()
+    {
+        var store = CreateStore();
+        store.CompleteHandshake(StoreEnvironment.Production, "4.2.0", requireDomainVerification: false, Now);
+
+        store.RecordObservation(StoreHealthStatus.Unreachable, null, requireDomainVerification: false, Now.AddHours(1));
+
+        Assert.Equal(Now, store.LastSeenAt);
+        Assert.Equal(IntegrationStatus.Disconnected, store.IntegrationStatus);
+    }
+
+    [Fact]
+    public void RecordObservation_WithAnUnchangedVersion_ReportsNoDeployment()
+    {
+        var store = CreateStore();
+        store.CompleteHandshake(StoreEnvironment.Production, "4.2.0", requireDomainVerification: false, Now);
+
+        var outcome = store.RecordObservation(StoreHealthStatus.Healthy, "4.2.0", requireDomainVerification: false, Now);
+
+        Assert.False(outcome.VersionChanged);
+    }
+
+    [Fact]
+    public void RecordObservation_WithANewVersion_ReportsThePreviousOne()
+    {
+        var store = CreateStore();
+        store.CompleteHandshake(StoreEnvironment.Production, "4.2.0", requireDomainVerification: false, Now);
+
+        var outcome = store.RecordObservation(StoreHealthStatus.Healthy, "4.3.0", requireDomainVerification: false, Now);
+
+        Assert.True(outcome.VersionChanged);
+        Assert.Equal("4.2.0", outcome.PreviousVersion);
+        Assert.Equal("4.3.0", store.ApplicationVersion);
     }
 
     [Fact]
