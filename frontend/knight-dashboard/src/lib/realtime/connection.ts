@@ -43,10 +43,14 @@ export interface RealtimeNotification {
 let connection: HubConnection | null = null;
 
 function hubUrl(): string {
-  const base = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
+  const configured = import.meta.env.VITE_SIGNALR_URL;
+
+  if (configured) return configured;
 
   // The hub is not under the versioned API prefix — it is a transport, not a
   // resource — so the prefix is stripped rather than appended to.
+  const base = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
+
   return `${base.replace(/\/api\/v1\/?$/, "")}${HUB_PATH}`;
 }
 

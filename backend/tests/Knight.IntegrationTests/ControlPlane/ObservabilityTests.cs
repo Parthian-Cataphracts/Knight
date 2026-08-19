@@ -131,7 +131,11 @@ public sealed class ObservabilityTests
         var response = await client.GetAsync($"/api/v1/errors/groups/{group.GetProperty("id").GetGuid()}/events");
         response.EnsureSuccessStatusCode();
 
-        var samples = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        // The same paged envelope every other collection endpoint returns; a
+        // bare array here would be a second, undocumented shape for the client.
+        var samples = JsonDocument.Parse(await response.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("items");
+
         var sample = Assert.Single(samples.EnumerateArray().ToArray());
 
         Assert.Contains("views.py", sample.GetProperty("stackTrace").GetString()!, StringComparison.Ordinal);
@@ -286,7 +290,8 @@ public sealed class ObservabilityTests
         var timeline = await client.GetAsync($"/api/v1/incidents/{id}/events");
         timeline.EnsureSuccessStatusCode();
 
-        var entries = JsonDocument.Parse(await timeline.Content.ReadAsStringAsync()).RootElement;
+        var entries = JsonDocument.Parse(await timeline.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("items");
 
         Assert.Equal(5, entries.GetArrayLength());
         Assert.Equal("Opened", entries[0].GetProperty("type").GetString());

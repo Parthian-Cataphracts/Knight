@@ -91,6 +91,26 @@ builder.Services
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions?.SigningKey ?? string.Empty)),
             ClockSkew = TimeSpan.FromSeconds(30)
         };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                // A browser cannot set an Authorization header on a WebSocket or
+                // an EventSource, so SignalR puts the token in the query string
+                // instead. It is read here for the hub path and nowhere else:
+                // accepting query-string tokens on ordinary endpoints would put
+                // credentials into every proxy log and browser history entry
+                // that ever saw the URL (docs/security-threat-model.md).
+                if (context.Request.Path.StartsWithSegments(ControlPlaneHub.Path) &&
+                    context.Request.Query.TryGetValue("access_token", out var token))
+                {
+                    context.Token = token;
+                }
+
+                return Task.CompletedTask;
+            },
+        };
     });
 
 // Platform and tenant callers are distinguished solely by the "principal_type"
@@ -243,7 +263,7 @@ app.MapControlPlaneAccessEndpoints();
 
 // The connection is placed into its groups from its own claims on connect; there
 // is deliberately no hub method a client can call to choose what it receives.
-app.MapHub<ControlPlaneHub>(ControlPlaneHub.Path);
+app.MapHub<ControlPlaneHub>(ControlPlaneHub.Path).RequireCors("Default");
 
 app.MapPlatformHealthEndpoints();
 app.MapPlatformTenantEndpoints();

@@ -22,9 +22,9 @@ const statusTone: Record<Incident["status"], Tone> = {
 };
 
 const severityTone: Record<Incident["severity"], Tone> = {
-  critical: "danger",
-  warning: "warning",
-  info: "info",
+  Critical: "danger",
+  Warning: "warning",
+  Info: "info",
 };
 
 export function IncidentsPage() {
@@ -32,7 +32,10 @@ export function IncidentsPage() {
   const query = useCollection<Incident>("/incidents");
   const can = useAuthStore((state) => state.can);
   const [selected, setSelected] = useState<Incident | null>(null);
-  const timeline = useCollection<IncidentEvent>(`/incidents/${selected?.id ?? "none"}/events`);
+  const timeline = useCollection<IncidentEvent>(
+    `/incidents/${selected?.id ?? "none"}/events`,
+    selected !== null,
+  );
   const [note, setNote] = useState("");
 
   // Both lists are invalidated: an action changes the incident's status on the
@@ -65,7 +68,7 @@ export function IncidentsPage() {
       key: "severity",
       header: t("incidents.severity"),
       render: (row) => (
-        <StatusChip tone={severityTone[row.severity]}>{t(`severity.${row.severity}`)}</StatusChip>
+        <StatusChip tone={severityTone[row.severity]}>{t(`severity.${row.severity.toLowerCase()}`)}</StatusChip>
       ),
     },
     {
@@ -167,7 +170,7 @@ export function IncidentsPage() {
             <dl className="divide-y divide-outline-variant">
               <KeyValue label={t("incidents.severity")}>
                 <StatusChip tone={severityTone[selected.severity]}>
-                  {t(`severity.${selected.severity}`)}
+                  {t(`severity.${selected.severity.toLowerCase()}`)}
                 </StatusChip>
               </KeyValue>
               <KeyValue label={t("common.status")}>

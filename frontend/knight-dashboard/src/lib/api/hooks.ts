@@ -8,14 +8,22 @@ import {
 import { apiRequest, type RequestOptions } from "./client";
 import type { Paged } from "./types";
 
-/** Reads a paged collection endpoint. Keys are the path, so caches stay distinct. */
-export function useCollection<T>(path: string): UseQueryResult<T[], Error> {
+/**
+ * Reads a paged collection endpoint. Keys are the path, so caches stay distinct.
+ *
+ * `enabled` exists for the detail panels, whose path depends on a selection that
+ * may not have been made yet. Without it they request a placeholder id on every
+ * page load — which a fixture happily answers and the real API correctly
+ * refuses, so the fault only ever appears in a browser against a live server.
+ */
+export function useCollection<T>(path: string, enabled = true): UseQueryResult<T[], Error> {
   return useQuery({
     queryKey: ["collection", path],
     queryFn: async () => {
       const response = await apiRequest<Paged<T>>(path);
       return response.items;
     },
+    enabled,
   });
 }
 

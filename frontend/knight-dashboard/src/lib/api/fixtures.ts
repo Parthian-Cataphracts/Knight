@@ -165,10 +165,10 @@ export const errorGroups: ErrorGroup[] = [
 ];
 
 export const incidents: Incident[] = [
-  { id: "in1", reference: "INC-0142", title: "نصب تحلیل پیشرفته روی cafe1.ir ناموفق ماند", severity: "critical", status: "Investigating", storeName: "cafe1.ir", serverName: "prod-cafe1-dedicated", openedAt: minutesAgo(12), resolvedAt: null },
-  { id: "in2", reference: "INC-0141", title: "افزایش تاخیر پاسخ Redis", severity: "warning", status: "Mitigated", storeName: null, serverName: "prod-shared-01", openedAt: minutesAgo(120), resolvedAt: null },
-  { id: "in3", reference: "INC-0140", title: "قطع ارتباط با سرور مشتری‌محور", severity: "critical", status: "Open", storeName: "alborz.ir", serverName: "legacy-alborz", openedAt: daysAgo(6), resolvedAt: null },
-  { id: "in4", reference: "INC-0139", title: "توقف کوتاه صف پردازش", severity: "info", status: "Resolved", storeName: null, serverName: "prod-shared-01", openedAt: daysAgo(3), resolvedAt: daysAgo(3) },
+  { id: "in1", reference: "INC-0142", title: "نصب تحلیل پیشرفته روی cafe1.ir ناموفق ماند", severity: "Critical", status: "Investigating", storeName: "cafe1.ir", serverName: "prod-cafe1-dedicated", openedAt: minutesAgo(12), resolvedAt: null },
+  { id: "in2", reference: "INC-0141", title: "افزایش تاخیر پاسخ Redis", severity: "Warning", status: "Mitigated", storeName: null, serverName: "prod-shared-01", openedAt: minutesAgo(120), resolvedAt: null },
+  { id: "in3", reference: "INC-0140", title: "قطع ارتباط با سرور مشتری‌محور", severity: "Critical", status: "Open", storeName: "alborz.ir", serverName: "legacy-alborz", openedAt: daysAgo(6), resolvedAt: null },
+  { id: "in4", reference: "INC-0139", title: "توقف کوتاه صف پردازش", severity: "Info", status: "Resolved", storeName: null, serverName: "prod-shared-01", openedAt: daysAgo(3), resolvedAt: daysAgo(3) },
 ];
 
 export const logs: LogEntry[] = [

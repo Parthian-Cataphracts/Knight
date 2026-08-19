@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-19** (revision 13 — phase 4 complete)
+Last updated: **2026-08-20** (revision 14 — phase 5 complete)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,9 +11,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 4 — Servers, agents, monitoring (complete)** |
-| **Next phase** | Phase 5 — Errors, incidents, notifications |
-| **Overall progress** | ~78% (features are delivered end to end, and the machines they run on are now registered, agent-reported and monitored — an outage is detected, alerted and resolved without anybody watching) |
+| **Current phase** | **Phase 5 — Errors, incidents, notifications (complete)** |
+| **Next phase** | Phase 7 — Observability of KNIGHT itself |
+| **Overall progress** | ~84% (a hundred identical errors are now one problem with a count, an outage opens an incident with a timeline, and somebody is told — over a realtime channel whose subscriptions the server assigns) |
 | **Blocking decisions** | 7 open questions in [`docs/risks.md`](docs/risks.md) §3 — R14, R21 and questions 8–10 now resolved |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -29,8 +29,8 @@ Phase 2    Plans, subscriptions, entitlements ██████ 100%
 Phase 3    Store integration              ██████████ 100%
 Phase 3.5  Feature registry & delivery    ██████████ 100%
 Phase 4    Servers, agents, monitoring    ██████████ 100%
-Phase 5    Errors & incidents             ░░░░░░░░░░   0%
-Phase 6    Frontend dashboard             █████████░  92%
+Phase 5    Errors & incidents             ██████████ 100%
+Phase 6    Frontend dashboard             █████████░  94%
 Phase 7    Observability                  ░░░░░░░░░░   0%
 Phase 8    Business-domain port to Django ░░░░░░░░░░   0%
 Phase 9    Provisioning & professional infra ░░░░░░░   0%
@@ -365,16 +365,80 @@ row however long the outage lasts, and closes when the agent reports again.
 
 ---
 
-## Phase 5 — Errors, incidents, notifications
+## Phase 5 — Errors, incidents, notifications ✅
 
-- [ ] Fingerprinting + normalisation per ADR 0013 (`fingerprintVersion` stored)
-- [ ] `ErrorGroup` upsert with counters and bounded event samples
-- [ ] Group lifecycle: acknowledge / resolve / ignore / regression reopen
-- [ ] `Incidents` from rules and manual creation, `IncidentEvent` timeline
-- [ ] Alert rules incl. `feature.install.failed`, `feature.entitled_not_installed`, `feature.drift`, `job.stuck`
-- [ ] `Notifications`: channels, delivery, retry, preferences
-- [ ] SignalR hub with server-side authorised subscriptions
-- [ ] Tests: grouping, spike detection, incident lifecycle, delivery, isolation
+**Exit criteria:** a hundred identical errors read as one problem with a count,
+an outage opens an incident with a timeline, and somebody is told.
+
+**Verified on 2026-08-20** against the running system: 20 checks over HTTP, 0
+failures, then the screens driven in a browser against the live API. See
+§"How to repeat the verification" below.
+
+- [x] Fingerprinting + normalisation per [`adr/0013`](docs/adr/0013-error-grouping-strategy.md) (`fingerprintVersion` stored on every group)
+- [x] `ErrorGroup` upsert with counters and bounded event samples — unsampled
+      occurrences keep their count and drop their payload, so the table does not
+      grow with the hundredth identical traceback
+- [x] Group lifecycle: acknowledge / resolve / ignore / reopen, and a resolved
+      group that recurs reopens itself as a **regression** rather than counting
+      up while displaying "Resolved"
+- [x] `Incident` from rules and manual creation, with an append-only
+      `IncidentEvent` timeline; only a person resolves one
+- [x] Per-year incident references (`INC-2026-0042`), allocated atomically so two
+      rules firing in the same second cannot share one
+- [x] Alert rules: `errors.spike`, `errors.regression`, `feature.install.failed`,
+      `feature.entitled_not_installed`, `feature.drift`, `job.stuck`
+- [x] Spike detection compares a group against **its own** baseline, not a fixed
+      threshold, with a floor so a group going from one error to four never pages
+- [x] `Notifications`: channels (in-app, webhook, email), routing by severity and
+      rule, queued delivery with capped exponential backoff, and a channel that
+      keeps failing is switched off rather than retried forever
+- [x] Webhooks reuse the store poller's hardened client — a webhook URL is
+      untrusted input exactly as a store URL is (SSRF)
+- [x] SignalR hub with server-side assigned subscriptions ([`adr/0022`](docs/adr/0022-realtime-subscriptions-are-server-assigned.md))
+- [x] Notification centre in the dashboard, and the error and incident screens
+      wired to the real API with working write paths
+- [x] Tests: fingerprint stability, grouping, group and incident lifecycles,
+      delivery retry and the channel circuit breaker, reference uniqueness under
+      concurrency, and customer isolation on both screens
+- [ ] Email delivery — the channel kind exists and reports honestly that no mail
+      transport is configured rather than reporting a message delivered that went
+      nowhere. Wiring SMTP belongs with the deployment work in phase 9
+- [ ] Manual merge/split of error groups — `adr/0013` names it as the mitigation
+      for over- and under-grouping; nothing has needed it yet, and the
+      `fingerprintVersion` escape hatch is in place
+
+### How to repeat the verification
+
+```bash
+# 1. Infrastructure, schema and a platform admin (see phase 3.5 above), then:
+CONTROL_PLANE_DB_CONNECTION_STRING="Host=localhost;Port=5433;Database=knight;Username=knight;Password=knight"   dotnet ef database update --project src/Knight.Infrastructure   --startup-project src/Knight.Api --context ControlPlaneDbContext
+
+# 2. The API, and the dashboard against it (not against fixtures).
+ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5008   dotnet run --project backend/src/Knight.Api
+#   frontend/knight-dashboard/.env must read
+#   VITE_API_BASE_URL=http://localhost:5008/api/v1
+#   VITE_SIGNALR_URL=http://localhost:5008/hubs/control-plane
+#   VITE_USE_MOCKS=false
+npm --prefix frontend/knight-dashboard run dev
+```
+
+Then sign in at http://localhost:5173 and walk:
+
+1. **Errors.** A store shipping twenty occurrences of one problem across a
+   line-number shift and twenty different order ids must show **one** group with
+   a count of twenty and the endpoint templated as `/api/orders/{id}/items`, not
+   twenty rows. Two unrelated exceptions stay two more groups.
+2. Open the group: the drawer lists sampled events with real stack traces.
+   Press **حل شد**; the filter counts move from New to Resolved.
+3. Have the store report the same problem again. The group returns to New and is
+   labelled **بازگشت خطا** — a fix that did not hold is not a new problem.
+4. **Incidents.** Open one, acknowledge, add a note, mitigate, then resolve with a
+   root cause. The timeline shows all five entries in order, attributed by name.
+5. **The bell.** Create an in-app notification channel and send a test through it:
+   the unread badge increments without reloading the page.
+
+**Full suites at the same commit:** 835 unit, 36 architecture, 427 integration
+(PostgreSQL-backed) — all passing.
 
 ---
 

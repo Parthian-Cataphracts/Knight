@@ -15,9 +15,9 @@ import { useAuthStore } from "@/store/auth";
 import { formatDateTime, formatNumber, formatRelative } from "@/lib/utils/format";
 
 const severityTone: Record<Alert["severity"], Tone> = {
-  critical: "danger",
-  warning: "warning",
-  info: "info",
+  Critical: "danger",
+  Warning: "warning",
+  Info: "info",
 };
 
 const statusTone: Record<Alert["status"], Tone> = {
@@ -41,9 +41,9 @@ export function AlertsPage() {
   const count = (severity: Alert["severity"]) => all.filter((a) => a.severity === severity).length;
 
   const tiles = [
-    { key: "critical", icon: AlertOctagon, tone: "danger" as Tone, value: count("critical") },
-    { key: "warning", icon: AlertTriangle, tone: "warning" as Tone, value: count("warning") },
-    { key: "info", icon: Info, tone: "info" as Tone, value: count("info") },
+    { key: "critical", icon: AlertOctagon, tone: "danger" as Tone, value: count("Critical") },
+    { key: "warning", icon: AlertTriangle, tone: "warning" as Tone, value: count("Warning") },
+    { key: "info", icon: Info, tone: "info" as Tone, value: count("Info") },
     {
       key: "resolved",
       icon: CheckCheck,
@@ -67,7 +67,7 @@ export function AlertsPage() {
       key: "severity",
       header: t("alerts.severity"),
       render: (row) => (
-        <StatusChip tone={severityTone[row.severity]}>{t(`severity.${row.severity}`)}</StatusChip>
+        <StatusChip tone={severityTone[row.severity]}>{t(`severity.${row.severity.toLowerCase()}`)}</StatusChip>
       ),
     },
     { key: "source", header: t("alerts.source"), mono: true, render: (row) => row.source },
@@ -118,9 +118,9 @@ export function AlertsPage() {
               onChange={setFilter}
               options={[
                 { value: "all", label: t("common.all"), count: all.length },
-                { value: "critical", label: t("severity.critical"), count: count("critical") },
-                { value: "warning", label: t("severity.warning"), count: count("warning") },
-                { value: "info", label: t("severity.info"), count: count("info") },
+                { value: "Critical", label: t("severity.critical"), count: count("Critical") },
+                { value: "Warning", label: t("severity.warning"), count: count("Warning") },
+                { value: "Info", label: t("severity.info"), count: count("Info") },
               ]}
             />
           </Toolbar>
@@ -163,7 +163,7 @@ export function AlertsPage() {
                 series={selected.series}
                 threshold={selected.threshold}
                 label={t("alerts.metricTrend")}
-                tone={selected.severity === "critical" ? "danger" : "warning"}
+                tone={selected.severity === "Critical" ? "danger" : "warning"}
                 unit={selected.metricKey?.endsWith("ms") ? "ms" : undefined}
               />
             ) : null}
@@ -171,7 +171,7 @@ export function AlertsPage() {
             <dl className="divide-y divide-outline-variant">
               <KeyValue label={t("alerts.severity")}>
                 <StatusChip tone={severityTone[selected.severity]}>
-                  {t(`severity.${selected.severity}`)}
+                  {t(`severity.${selected.severity.toLowerCase()}`)}
                 </StatusChip>
               </KeyValue>
               <KeyValue label={t("common.status")}>

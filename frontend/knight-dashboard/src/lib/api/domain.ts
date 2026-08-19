@@ -235,7 +235,7 @@ export interface Incident {
   id: string;
   reference: string;
   title: string;
-  severity: "critical" | "warning" | "info";
+  severity: "Critical" | "Warning" | "Info";
   status: "Open" | "Investigating" | "Mitigated" | "Resolved";
   storeName: string | null;
   serverName: string | null;

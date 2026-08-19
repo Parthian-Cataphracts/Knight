@@ -10,7 +10,7 @@ const daysAhead = (d: number): string => new Date(now + d * 86_400_000).toISOStr
 export interface Alert {
   id: string;
   reference: string;
-  severity: "critical" | "warning" | "info";
+  severity: "Critical" | "Warning" | "Info";
   title: string;
   detail: string;
   source: string;
@@ -28,7 +28,7 @@ export interface Alert {
 
 export const alerts: Alert[] = [
   {
-    id: "al1", reference: "ALT-8492", severity: "critical",
+    id: "al1", reference: "ALT-8492", severity: "Critical",
     title: "نصب قابلیت روی فروشگاه ناموفق ماند",
     detail: "مهاجرت ۰۰۰۳ برگشت‌ناپذیر بود و بازگردانی خودکار متوقف شد.",
     source: "knight-delivery", scope: "cafe1.ir", environment: "Production",
@@ -41,7 +41,7 @@ export const alerts: Alert[] = [
     ],
   },
   {
-    id: "al2", reference: "ALT-8491", severity: "warning",
+    id: "al2", reference: "ALT-8491", severity: "Warning",
     title: "تأخیر پاسخ Redis از آستانه گذشت",
     detail: "میانگین زمان پاسخ در ۱۵ دقیقه گذشته بالای ۱۰۰ میلی‌ثانیه مانده است.",
     source: "prod-shared-01", scope: "زیرساخت مشترک", environment: "Production",
@@ -51,7 +51,7 @@ export const alerts: Alert[] = [
     logTail: ["redis: slowlog entries increased", "worker: queue backlog 1200"],
   },
   {
-    id: "al3", reference: "ALT-8490", severity: "warning",
+    id: "al3", reference: "ALT-8490", severity: "Warning",
     title: "قابلیت خریداری‌شده نصب نشده است",
     detail: "بیش از ۲۴ ساعت از فعال‌سازی اشتراک گذشته و نصب انجام نشده.",
     source: "knight-delivery", scope: "cafe2.ir", environment: "Production",
@@ -59,7 +59,7 @@ export const alerts: Alert[] = [
     status: "Open", assignee: null, raisedAt: minutesAgo(180), logTail: [],
   },
   {
-    id: "al4", reference: "ALT-8489", severity: "critical",
+    id: "al4", reference: "ALT-8489", severity: "Critical",
     title: "سرور مشتری‌محور از دسترس خارج شد",
     detail: "سه ضربان پیاپی از ایجنت دریافت نشد.",
     source: "legacy-alborz", scope: "alborz.ir", environment: "Production",
@@ -68,7 +68,7 @@ export const alerts: Alert[] = [
     status: "Acknowledged", assignee: "تیم پشتیبانی", raisedAt: daysAgo(6), logTail: [],
   },
   {
-    id: "al5", reference: "ALT-8488", severity: "info",
+    id: "al5", reference: "ALT-8488", severity: "Info",
     title: "پشتیبان‌گیری روزانه با موفقیت انجام شد",
     detail: "حجم ۲.۱ گیگابایت روی استوریج ثبت شد.",
     source: "backup-job-42", scope: "parsbakery.ir", environment: "Production",

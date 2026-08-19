@@ -110,6 +110,27 @@ internal sealed class LabelReader : ILabelReader
         return rows.ToDictionary(row => row.Id, row => row.PrimaryDomain);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, string>> UserNamesAsync(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken)
+    {
+        if (userIds.Count == 0)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        // Filters ignored deliberately: an incident timeline must name the
+        // platform engineer who mitigated it even when the incident belongs to a
+        // customer, and a display name is not customer data.
+        var rows = await _context.Users
+            .IgnoreQueryFilters()
+            .Where(user => userIds.Contains(user.Id))
+            .Select(user => new { user.Id, user.DisplayName })
+            .ToArrayAsync(cancellationToken);
+
+        return rows.ToDictionary(row => row.Id, row => row.DisplayName);
+    }
+
     public async Task<IReadOnlyDictionary<Guid, int>> RoleMemberCountsAsync(CancellationToken cancellationToken)
     {
         var rows = await _context.UserRoleAssignments

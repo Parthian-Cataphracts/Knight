@@ -37,6 +37,7 @@ export function InfrastructurePage() {
   const [selected, setSelected] = useState<Server | null>(null);
   const metrics = useCollection<{ cpu: number[]; memory: number[] }>(
     `/servers/${selected?.id ?? "none"}/metrics`,
+    selected !== null,
   );
   const series = metrics.data?.[0];
 
