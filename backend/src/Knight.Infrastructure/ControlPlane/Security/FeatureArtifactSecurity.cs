@@ -56,6 +56,12 @@ public sealed class FeatureSigningKey
 /// <see cref="IFeatureArtifactSigner"/> exists precisely so this can change
 /// without anything above it noticing.
 ///
+/// Signatures are DER-encoded (RFC 3279), which has to be said explicitly: .NET
+/// defaults to the IEEE P1363 fixed-width r||s encoding while OpenSSL, Python's
+/// `cryptography` and most other ecosystems produce DER. The two carry the same
+/// signature and neither verifies the other, so the format is pinned here rather
+/// than left to a default that only agrees with itself.
+///
 /// The signature is over the digest rather than over the artifact bytes, which is
 /// the standard detached arrangement and matters operationally: a store verifying
 /// a 40MB wheel hashes it once for the digest check and then verifies a short
@@ -89,7 +95,8 @@ internal sealed class EcdsaArtifactSigner : IFeatureArtifactSigner
 
         return Convert.ToBase64String(algorithm.SignData(
             Encoding.UTF8.GetBytes(Normalise(artifactDigest)),
-            HashAlgorithmName.SHA256));
+            HashAlgorithmName.SHA256,
+            DSASignatureFormat.Rfc3279DerSequence));
     }
 
     public bool Verify(string artifactDigest, string signature, string keyId)
@@ -112,7 +119,8 @@ internal sealed class EcdsaArtifactSigner : IFeatureArtifactSigner
             return algorithm.VerifyData(
                 Encoding.UTF8.GetBytes(Normalise(artifactDigest)),
                 Convert.FromBase64String(signature),
-                HashAlgorithmName.SHA256);
+                HashAlgorithmName.SHA256,
+                DSASignatureFormat.Rfc3279DerSequence);
         }
         catch (FormatException)
         {

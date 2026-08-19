@@ -1,0 +1,51 @@
+# A Feature that depends on another. This is the one that exercises dependency
+# resolution end to end: installing it must install analytics-core first, and
+# uninstalling analytics-core while this is present must be refused
+# (docs/adr/0017-feature-compatibility-and-dependencies.md).
+apiVersion: knight.dev/v1
+slug: knight-feature-analytics-reports
+version: 1.0.0
+name: Analytics Reports
+description: >-
+  A reporting surface over the analytics event stream: a daily summary endpoint
+  built from the rollups analytics-core maintains.
+
+django:
+  app_label: knight_analytics_reports
+  installed_app: knight_feature_analytics_reports
+  urls:
+    include: knight_feature_analytics_reports.urls
+    prefix: analytics/
+
+compatibility:
+  storeVersion: ">=1.0.0"
+  python: ">=3.12"
+  django: ">=5.0,<6.0"
+
+dependencies:
+  features:
+    # A range rather than a pin. Analytics Core may fix bugs without this
+    # feature needing a release, but a 2.0.0 could move the surface this reads.
+    - { slug: knight-feature-analytics-core, version: ">=1.0.0,<2.0.0" }
+
+migrations:
+  # This feature stores nothing of its own — it reads what analytics-core wrote.
+  # Declaring no migrations means the installer skips that step entirely, and a
+  # rollback has no schema to worry about.
+  required: false
+  reversible: true
+  estimatedDurationSeconds: 0
+  requiresMaintenanceWindow: false
+
+configuration:
+  defaults:
+    default_window_days: 7
+
+install:
+  strategy: package-install
+  requiresRestart: true
+  healthCheck: knight_feature_analytics_reports.checks.health
+
+uninstall:
+  strategy: disable-then-remove
+  dataRetentionDays: 0

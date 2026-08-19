@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "knight-feature-analytics-reports"
+version = "1.0.0"
+description = "Reporting over the KNIGHT analytics event stream."
+requires-python = ">=3.12"
+dependencies = ["Django>=5.0,<6.0", "knight-feature-analytics-core>=1.0.0,<2.0.0"]
+
+[tool.setuptools]
+packages = ["knight_feature_analytics_reports"]

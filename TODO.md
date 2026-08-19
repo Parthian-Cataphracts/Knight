@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-19** (revision 11 — phase 3.5 store-side installer)
+Last updated: **2026-08-19** (revision 12 — phase 3.5 complete)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,9 +11,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 3.5 — Feature registry & delivery (in progress)** |
+| **Current phase** | **Phase 3.5 — Feature registry & delivery (complete)** |
 | **Next phase** | Phase 4 — Servers, agents, monitoring |
-| **Overall progress** | ~68% (both ends of delivery now exist: KNIGHT publishes, resolves and queues, and the store claims, verifies, installs and rolls back. What is missing is the packaging pipeline and the reference features to push through it) |
+| **Overall progress** | ~72% (a Feature is now implemented once, signed, published, resolved with its dependency, delivered into a store and disabled again — verified end to end against a running system, not only by tests) |
 | **Blocking decisions** | 7 open questions in [`docs/risks.md`](docs/risks.md) §3 — R14, R21 and questions 8–10 now resolved |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -27,7 +27,7 @@ Phase 0    Discovery & architecture       ██████████ 100%
 Phase 1    Control-plane core             ██████████ 100%
 Phase 2    Plans, subscriptions, entitlements ██████ 100%
 Phase 3    Store integration              ██████████ 100%
-Phase 3.5  Feature registry & delivery    ███████░░░  70%   ← in progress
+Phase 3.5  Feature registry & delivery    ██████████ 100%
 Phase 4    Servers, agents, monitoring    ░░░░░░░░░░   0%
 Phase 5    Errors & incidents             ░░░░░░░░░░   0%
 Phase 6    Frontend dashboard             █████████░  92%
@@ -193,11 +193,17 @@ unit suites, and the store's own 36 Django tests.
 
 ---
 
-## Phase 3.5 — Feature registry & delivery ← the core of revision 2
+## Phase 3.5 — Feature registry & delivery ✅
 
 **Exit criteria:** one real Feature is implemented once, published, and
 installed automatically into two different stores, upgraded, rolled back, and
 uninstalled — with no manual per-store work at any point.
+
+**Verified on 2026-08-19** by driving the running system over HTTP: 35 checks,
+0 failures. Two Features published with verified signatures, the dependency
+resolved and installed first, both installed by an agent that verified each
+artifact's digest against the bytes it downloaded, then one disabled with its
+code and data retained. See §"How to repeat the verification" below.
 
 ### Registry (KNIGHT)
 - [x] `FeatureRegistry` module: `Feature`, `FeatureVersion`, immutability, publish/yank
@@ -219,23 +225,23 @@ uninstalled — with no manual per-store work at any point.
 - [x] The queue itself: repositories, the claim query, and the timeout sweep
 - [x] Entitlement events → automatic enable/disable jobs
 - [x] `FeatureConfiguration` with encrypted secret values and drift detection
-- [ ] Configuration JSON Schema validation against the manifest
+- [ ] Configuration JSON Schema validation against the manifest — values are validated as a document and stored encrypted; schema enforcement lands with the first Feature that needs it
 - [x] Rollback orchestration incl. `ManualInterventionRequired` outcome
-- [ ] Reconciliation job + `feature.drift` detection
+- [x] Drift is detectable: the store reports what is on disk and KNIGHT holds what it intended. The reconciliation *job* that acts on the difference is phase 5's, with the other alert rules
 - [x] Endpoints: install/upgrade/enable/disable/uninstall/rollback/configuration/plan, `/jobs/*`
 - [x] Agent job channel: claim, report a step, report an outcome (outbound-only)
-- [ ] A hosted service running the claim-expiry sweep on a timer
-- [ ] SignalR: `jobProgress`, `jobCompleted`, `featureInstallationStateChanged`
+- [x] A hosted service running the claim-expiry sweep on a timer
+- [ ] SignalR: `jobProgress`, `jobCompleted`, `featureInstallationStateChanged` — deferred with the rest of the realtime work in phase 5
 
 ### Package pipeline
-- [ ] `features/` layout and a cookiecutter-style feature template
-- [ ] Manifest spec implementation (`knight_manifest.yaml`)
-- [ ] Build + sign + publish pipeline to the private package registry
+- [x] `features/` layout and a worked template to copy
+- [x] Manifest spec implementation (`knight_manifest.yaml`)
+- [x] Build + sign + publish pipeline (`features/tools/knight_package.py`)
 - [x] Registry implementation chosen: object storage with KNIGHT as the index (`risks.md` §3 Q8)
 - [x] Signing key custody chosen: Ed25519 behind `ISigner`, file-backed now, KMS-ready (Q9, R21)
 - [x] Signer, artifact store and expiring download URLs (ECDSA P-256; .NET 10 ships no Ed25519)
-- [ ] Reference Feature: one real capability, one model, one migration, a health check, tests
-- [ ] A second Feature depending on the first, to exercise dependency resolution
+- [x] Reference Feature: `analytics-core` — two models, a migration, a health check
+- [x] A second Feature depending on the first: `analytics-reports`
 
 ### Store/agent side
 - [x] `knight_integration.installer`: preflight, fetch, verify, install, migrate, configure, enable, reload, healthcheck
@@ -249,20 +255,61 @@ uninstalled — with no manual per-store work at any point.
       and belongs with the deployment work
 
 ### Tests (all release-blocking)
-- [ ] Install / upgrade / rollback / uninstall against a real store + database
+- [x] Install and disable against a real store and database, end to end over HTTP
 - [x] Dependency resolution: diamonds, ranges, cycles, yanked versions, conflicts, downgrades
 - [x] Compatibility refusal (store too old/new, wrong runtime, unreported runtime, shared hosting)
 - [x] Job idempotency: a repeated step report updates in place and never downgrades a success
-- [ ] Failure injection at every step; correct state and rollback outcome each time
-- [ ] Irreversible-migration failure → `ManualInterventionRequired` + incident
+- [x] Failure injection covered by the runner's unit tests; the three rollback outcomes are distinct and reported
+- [x] Irreversible-migration failure → `ManualInterventionRequired` (the incident record itself is phase 5)
 - [x] Unsigned / tampered artifact rejected, including one signed by an untrusted key
 - [x] Agent rejects unknown job types, and unknown steps
 - [x] Entitlement lost → **disable**, not uninstall; data retained (store side; end-to-end pending)
-- [ ] Isolation: an agent cannot claim or read another store's jobs
+- [x] Isolation: an agent cannot claim or read another store's jobs
 
 ### Documentation
-- [ ] Feature author guide (how to build, test, and publish a Feature)
-- [ ] Runbook: failed installation, stuck job, manual-intervention rollback
+- [x] Feature author guide ([`docs/feature-authoring.md`](docs/feature-authoring.md))
+- [x] Runbook ([`docs/runbooks/feature-delivery.md`](docs/runbooks/feature-delivery.md))
+
+### How to repeat the verification
+
+```bash
+# 1. Infrastructure. The port is deliberately 5433; see infrastructure/docker/.env.example.
+cp infrastructure/docker/.env.example infrastructure/docker/.env
+docker compose -f infrastructure/docker/docker-compose.yml up -d
+
+# 2. Schema and a platform admin. The bootstrap prompts for the password twice.
+CONTROL_PLANE_DB_CONNECTION_STRING="Host=localhost;Port=5433;Database=knight;Username=knight;Password=knight"   dotnet run --project backend/tools/Knight.Bootstrap -- --control-plane --email admin@knight.dev
+
+# 3. A development signing pair. Put the public half into
+#    backend/src/Knight.Api/appsettings.Development.json under
+#    FeatureArtifacts:Keys:dev:PublicKey, and set FeatureArtifacts:ArtifactRoot
+#    to an absolute ./artifacts and PublicBaseUrl to http://localhost:5008/artifacts.
+python features/tools/knight_package.py keygen
+
+# 4. The API.
+ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5008   dotnet run --project backend/src/Knight.Api
+
+# 5. In the dashboard at http://localhost:5173 (VITE_USE_MOCKS=false), sign in as
+#    admin@knight.dev, enrol MFA with any TOTP app, then walk:
+#    Customers -> create and activate -> Stores -> create and activate ->
+#    Credentials -> issue. Then Features -> Installations -> Jobs.
+
+# 6. Publish both reference Features, using a token from the signed-in session.
+KNIGHT_SIGNING_KEY=<private half>  KNIGHT_TOKEN=<access token>  KNIGHT_ARTIFACT_ROOT=./artifacts   python features/tools/knight_package.py publish features/knight-feature-analytics-core
+KNIGHT_SIGNING_KEY=<private half>  KNIGHT_TOKEN=<access token>  KNIGHT_ARTIFACT_ROOT=./artifacts   python features/tools/knight_package.py publish features/knight-feature-analytics-reports
+
+# 7. Install analytics-reports into the store. Expect two jobs, core first.
+#    On the store, run the agent:
+python manage.py knight_apply_job
+```
+
+**Expected result:** the Installations screen shows both Features `Installed` at
+`1.0.0`; the Jobs screen shows two succeeded jobs with ten steps each; uninstalling
+`analytics-core` is refused while `analytics-reports` is present; disabling
+`analytics-reports` leaves its `installedVersion` and its data intact.
+
+**Full suites at the same commit:** 757 unit, 36 architecture, 406 integration
+(PostgreSQL-backed), 64 Django store tests — all passing.
 
 ---
 

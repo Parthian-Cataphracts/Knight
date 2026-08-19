@@ -72,6 +72,17 @@ public interface IFeatureInstallationJobRepository
 
     Task AddAsync(FeatureInstallationJob job, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Registers a step the aggregate has just created.
+    ///
+    /// A child added to an already-loaded aggregate is not reliably picked up as
+    /// an insert: the key is assigned in the domain rather than by the database,
+    /// so the change tracker can take the new row for an existing one and issue
+    /// an update that matches nothing. Saying so explicitly is the same fix the
+    /// plan and subscription repositories use for their own child collections.
+    /// </summary>
+    void RegisterNewStep(JobStepResult step);
+
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
 

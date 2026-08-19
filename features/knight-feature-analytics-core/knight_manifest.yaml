@@ -1,0 +1,44 @@
+# The contract between this Feature and everything that handles it: KNIGHT
+# validates it at publish, the resolver reads its dependencies, and the store's
+# installer reads its install and migration declarations
+# (docs/feature-delivery.md section 5).
+apiVersion: knight.dev/v1
+slug: knight-feature-analytics-core
+version: 1.0.0
+name: Analytics Core
+description: >-
+  Records events for a store and rolls them into daily counters. Everything else
+  analytics-related builds on this; it owns the event table.
+
+django:
+  app_label: knight_analytics_core
+  installed_app: knight_feature_analytics_core
+
+compatibility:
+  # Deliberately open at the top end: this feature touches no store internals,
+  # so pinning it to a store major version would create upgrade work for nothing.
+  storeVersion: ">=1.0.0"
+  python: ">=3.12"
+  django: ">=5.0,<6.0"
+
+migrations:
+  required: true
+  # Every operation is a plain CreateModel, so the reverse exists and a failed
+  # upgrade can put the schema back. Declaring this honestly is what decides
+  # whether a rollback is possible at all.
+  reversible: true
+  estimatedDurationSeconds: 5
+  requiresMaintenanceWindow: false
+
+configuration:
+  defaults:
+    retention_days: 90
+
+install:
+  strategy: package-install
+  requiresRestart: true
+  healthCheck: knight_feature_analytics_core.checks.health
+
+uninstall:
+  strategy: disable-then-remove
+  dataRetentionDays: 30

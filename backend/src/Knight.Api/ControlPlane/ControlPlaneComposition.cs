@@ -42,6 +42,11 @@ public static class ControlPlaneComposition
         services.AddHostedService<ReplayGuardGuardrail>();
         services.AddHostedService<StoreHealthPoller>();
 
+        // Recovers installation jobs whose agent stopped reporting. Without it a
+        // dead agent holds its store's queue forever and every later install for
+        // that store silently never happens.
+        services.AddHostedService<FeatureJobSweeper>();
+
         return services;
     }
 }
