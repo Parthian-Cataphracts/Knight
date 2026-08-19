@@ -26,6 +26,9 @@ public interface IStoreTelemetryRepository
         int limit,
         CancellationToken cancellationToken);
 
+    /// <summary>The store's most recent deployment, so a reported one can be matched to a detected one.</summary>
+    Task<StoreDeployment?> GetLatestDeploymentAsync(Guid storeId, CancellationToken cancellationToken);
+
     /// <summary>The most recent health observation per store, for the stores listed.</summary>
     Task<IReadOnlyDictionary<Guid, StoreHealthCheck>> LatestHealthChecksAsync(
         IReadOnlyCollection<Guid> storeIds,

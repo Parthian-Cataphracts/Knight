@@ -51,22 +51,29 @@ internal sealed class StoreHealthProbe : IStoreHealthProbe
 {
     private readonly IHttpClientFactory _clients;
     private readonly StoreEndpointResolver _endpoints;
+    private readonly IStorePayloadSigner _signer;
     private readonly ILogger<StoreHealthProbe> _logger;
     private readonly StoreProbeOptions _options;
 
     public StoreHealthProbe(
         IHttpClientFactory clients,
         StoreEndpointResolver endpoints,
+        IStorePayloadSigner signer,
         ILogger<StoreHealthProbe> logger,
         IOptions<StoreProbeOptions> options)
     {
         _clients = clients;
         _endpoints = endpoints;
+        _signer = signer;
         _logger = logger;
         _options = options.Value;
     }
 
-    public async Task<StoreProbeResult> ProbeAsync(string domain, CancellationToken cancellationToken)
+    public async Task<StoreProbeResult> ProbeAsync(
+        Guid storeId,
+        string domain,
+        string environment,
+        CancellationToken cancellationToken)
     {
         var url = _endpoints.Resolve(domain, _options.HealthPath);
         var client = _clients.CreateClient(StoreOutboundHttp.ClientName);
@@ -79,7 +86,14 @@ internal sealed class StoreHealthProbe : IStoreHealthProbe
 
             try
             {
-                using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                using var request = StoreRequestSignature.Sign(
+                    HttpMethod.Get,
+                    url,
+                    storeId,
+                    environment,
+                    _signer);
+
+                using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                 var body = await ReadCappedAsync(response, cancellationToken);
                 stopwatch.Stop();
 

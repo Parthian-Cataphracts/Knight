@@ -63,20 +63,35 @@ internal sealed class CustomerEntitlementReader : ICustomerEntitlementReader
     {
         var now = _clock.UtcNow;
 
-        return await ActiveEntitlements(customerId, now)
+        // Projected to plain columns and ordered in SQL, then shaped in memory.
+        // Constructing the record inside the query would make the ordering and
+        // the enum's ToString client-side, which EF refuses to translate at all.
+        var rows = await ActiveEntitlements(customerId, now)
             .Join(
                 _context.Features.Where(feature => EntitlingStatuses.Contains(feature.Status)),
                 entitlement => entitlement.FeatureId,
                 feature => feature.Id,
-                (entitlement, feature) => new EntitledFeature(
+                (entitlement, feature) => new
+                {
                     feature.Id,
                     feature.Slug,
                     feature.Name,
-                    entitlement.Source.ToString(),
+                    entitlement.Source,
                     entitlement.GrantedAt,
-                    entitlement.ExpiresAt))
-            .OrderBy(entitled => entitled.Slug)
+                    entitlement.ExpiresAt,
+                })
+            .OrderBy(row => row.Slug)
             .ToArrayAsync(cancellationToken);
+
+        return rows
+            .Select(row => new EntitledFeature(
+                row.Id,
+                row.Slug,
+                row.Name,
+                row.Source.ToString(),
+                row.GrantedAt,
+                row.ExpiresAt))
+            .ToArray();
     }
 
     public async Task<bool> IsEntitledAsync(Guid customerId, string featureSlug, CancellationToken cancellationToken)
@@ -85,12 +100,12 @@ internal sealed class CustomerEntitlementReader : ICustomerEntitlementReader
         var now = _clock.UtcNow;
 
         return await ActiveEntitlements(customerId, now)
-            .AnyAsync(
-                entitlement => _context.Features.Any(feature =>
-                    feature.Id == entitlement.FeatureId
-                    && feature.Slug == slug
-                    && EntitlingStatuses.Contains(feature.Status)),
-                cancellationToken);
+            .Join(
+                _context.Features.Where(feature => feature.Slug == slug && EntitlingStatuses.Contains(feature.Status)),
+                entitlement => entitlement.FeatureId,
+                feature => feature.Id,
+                (_, feature) => feature.Id)
+            .AnyAsync(cancellationToken);
     }
 
     /// <summary>

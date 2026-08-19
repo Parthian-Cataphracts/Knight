@@ -43,6 +43,15 @@
     <EmbeddedResource Include="ControlPlane\Seed\commercial-catalogue.json" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The egress policy and the replay guard are internal because nothing in
+         the application layer may construct them, and release-blocking because
+         of what they prevent. The tests reach them directly rather than through
+         a public shim that would exist only for testing. -->
+    <InternalsVisibleTo Include="Knight.UnitTests" />
+    <InternalsVisibleTo Include="Knight.IntegrationTests" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

@@ -118,7 +118,7 @@ public sealed class StoreHealthPoller : BackgroundService
 
             var probe = await scope.ServiceProvider
                 .GetRequiredService<IStoreHealthProbe>()
-                .ProbeAsync(target.Domain, cancellationToken);
+                .ProbeAsync(target.StoreId, target.Domain, target.Environment.ToString(), cancellationToken);
 
             var status = Enum.TryParse<StoreHealthStatus>(probe.Status, ignoreCase: true, out var parsed)
                 ? parsed
