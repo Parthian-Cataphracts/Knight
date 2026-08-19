@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 
 namespace Knight.Infrastructure.ControlPlane;
 
@@ -83,7 +84,8 @@ public static class ControlPlaneInfrastructure
 
         services.AddScoped<IFeatureArtifactSigner, EcdsaArtifactSigner>();
         services.AddScoped<IFeatureArtifactStore, FileSystemArtifactStore>();
-        services.AddSingleton<ISecretProtector>(_ => new AesGcmSecretProtector(ResolveSecretKey(configuration)));
+        services.AddSingleton<ISecretProtector>(provider =>
+            new AesGcmSecretProtector(ResolveSecretKey(configuration, provider.GetService<IHostEnvironment>())));
 
         // Ports that let one control-plane module read another's data without
         // referencing it.
@@ -94,7 +96,7 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<IStoreHostingReader, StoreHostingReader>();
         services.AddScoped<ICustomerStatusReader, CustomerStatusReader>();
         services.AddScoped<ICustomerEntitlementReader, CustomerEntitlementReader>();
-        services.AddScoped<IEntitlementEventPublisher, LoggingEntitlementEventPublisher>();
+        services.AddScoped<IEntitlementEventPublisher, DeliveryEntitlementEventPublisher>();
 
         // Everything the store link needs to leave the process: the token it
         // hands out, the key it signs with, and the guarded HTTP client it calls
@@ -139,14 +141,21 @@ public static class ControlPlaneInfrastructure
     /// <summary>
     /// The key that encrypts feature configuration secrets.
     ///
-    /// Derived from the configured value with a fixed label rather than used raw,
-    /// so that a deployment which sets a passphrase rather than 32 random bytes
-    /// still gets a full-length key instead of an argument exception at startup.
-    /// Development falls back to a fixed key with no ceremony: local secrets are
-    /// not secrets, and making developers manage one would only teach them to
-    /// paste a real key into a config file.
+    /// Derived from the configured value with SHA-256 rather than used raw, so a
+    /// deployment that sets a passphrase instead of exactly 32 random bytes still
+    /// gets a full-length key rather than an argument exception at startup.
+    ///
+    /// The environment comes from <see cref="IHostEnvironment"/> and not from a
+    /// configuration key. Reading "ASPNETCORE_ENVIRONMENT" out of configuration
+    /// looks equivalent and is not: a test host sets the environment on the host
+    /// builder without that key ever appearing in configuration, so the guard
+    /// below would have refused to start every integration test.
+    ///
+    /// Development and Testing fall back to a fixed key with no ceremony. Local
+    /// secrets are not secrets, and making developers manage one only teaches
+    /// them to paste a real key into a config file.
     /// </summary>
-    private static byte[] ResolveSecretKey(IConfiguration configuration)
+    private static byte[] ResolveSecretKey(IConfiguration configuration, IHostEnvironment? environment)
     {
         var configured = FirstConfigured(
             configuration["FeatureArtifacts:SecretProtectionKey"],
@@ -154,10 +163,11 @@ public static class ControlPlaneInfrastructure
 
         if (string.IsNullOrWhiteSpace(configured))
         {
-            var environment = configuration["ASPNETCORE_ENVIRONMENT"] ?? configuration["DOTNET_ENVIRONMENT"];
+            var isLocal = environment is null
+                || environment.IsDevelopment()
+                || environment.IsEnvironment("Testing");
 
-            if (!string.Equals(environment, "Development", StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(environment, "Testing", StringComparison.OrdinalIgnoreCase))
+            if (!isLocal)
             {
                 throw new InvalidOperationException(
                     "FeatureArtifacts:SecretProtectionKey must be configured outside Development. " +
