@@ -35,6 +35,11 @@ regexes = [
   # Local development credentials for containers bound to localhost only.
   '''(Username|Password)=platform''',
 
+  # The domain-verification token in the store contract tests. The token is a
+  # public challenge value: KNIGHT publishes it and then fetches it back over
+  # HTTP to prove domain control, so it is meant to be readable by anyone.
+  '''knight-verify-[a-z0-9]+''',
+
   # Idempotency keys in the checkout tests. An idempotency key is a
   # client-chosen request identifier, deliberately visible to whoever makes the
   # request — it authenticates nothing.
