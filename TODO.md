@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-19** (revision 10 — phase 3.5 services and endpoints)
+Last updated: **2026-08-19** (revision 11 — phase 3.5 store-side installer)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -13,7 +13,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 |---|---|
 | **Current phase** | **Phase 3.5 — Feature registry & delivery (in progress)** |
 | **Next phase** | Phase 4 — Servers, agents, monitoring |
-| **Overall progress** | ~65% (KNIGHT's side of delivery is complete and runs: publish, resolve, queue, and the agent job channel. The store-side installer and the reference feature packages are the remaining half) |
+| **Overall progress** | ~68% (both ends of delivery now exist: KNIGHT publishes, resolves and queues, and the store claims, verifies, installs and rolls back. What is missing is the packaging pipeline and the reference features to push through it) |
 | **Blocking decisions** | 7 open questions in [`docs/risks.md`](docs/risks.md) §3 — R14, R21 and questions 8–10 now resolved |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -27,7 +27,7 @@ Phase 0    Discovery & architecture       ██████████ 100%
 Phase 1    Control-plane core             ██████████ 100%
 Phase 2    Plans, subscriptions, entitlements ██████ 100%
 Phase 3    Store integration              ██████████ 100%
-Phase 3.5  Feature registry & delivery    ██████░░░░  55%   ← in progress
+Phase 3.5  Feature registry & delivery    ███████░░░  70%   ← in progress
 Phase 4    Servers, agents, monitoring    ░░░░░░░░░░   0%
 Phase 5    Errors & incidents             ░░░░░░░░░░   0%
 Phase 6    Frontend dashboard             █████████░  92%
@@ -238,13 +238,15 @@ uninstalled — with no manual per-store work at any point.
 - [ ] A second Feature depending on the first, to exercise dependency resolution
 
 ### Store/agent side
-- [ ] `knight_integration.installer`: preflight, fetch, verify, install, migrate, configure, enable, reload, healthcheck
-- [ ] Signature + digest verification before any install (refuse and report on mismatch)
-- [ ] `knight_integration.features.loader`: dynamic INSTALLED_APPS/URLs/settings from installed features
-- [ ] Local installation registry, written only by the installer
-- [ ] `knight_apply_job` management command
-- [ ] Rollback implementation honouring declared reversibility
-- [ ] Restart/reload strategy that does not drop live traffic
+- [x] `knight_integration.installer`: preflight, fetch, verify, install, migrate, configure, enable, reload, healthcheck
+- [x] Signature + digest verification before any install (refuse and report on mismatch)
+- [x] `knight_integration.features.loader`: dynamic INSTALLED_APPS and URLs from installed features
+- [x] Local installation registry, written only by the installer, atomically
+- [x] `knight_apply_job` management command
+- [x] Rollback implementation honouring declared reversibility
+- [ ] Restart/reload strategy that does not drop live traffic — the installer writes a
+      reload trigger and reports honestly; wiring it to a real reload is per-environment
+      and belongs with the deployment work
 
 ### Tests (all release-blocking)
 - [ ] Install / upgrade / rollback / uninstall against a real store + database
@@ -253,9 +255,9 @@ uninstalled — with no manual per-store work at any point.
 - [x] Job idempotency: a repeated step report updates in place and never downgrades a success
 - [ ] Failure injection at every step; correct state and rollback outcome each time
 - [ ] Irreversible-migration failure → `ManualInterventionRequired` + incident
-- [ ] Unsigned / tampered artifact rejected
-- [ ] Agent rejects unknown job types
-- [ ] Entitlement lost → **disable**, not uninstall; data retained
+- [x] Unsigned / tampered artifact rejected, including one signed by an untrusted key
+- [x] Agent rejects unknown job types, and unknown steps
+- [x] Entitlement lost → **disable**, not uninstall; data retained (store side; end-to-end pending)
 - [ ] Isolation: an agent cannot claim or read another store's jobs
 
 ### Documentation

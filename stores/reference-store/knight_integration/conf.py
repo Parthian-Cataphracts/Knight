@@ -13,6 +13,7 @@ apps imports this module (docs/store-integration.md §1).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from django.conf import settings
 
@@ -42,6 +43,20 @@ class KnightSettings:
     error_flush_seconds: int
     domain_verification_token: str
     request_signature_skew_seconds: int
+
+    #: Where installed feature packages live. Its own directory rather than the
+    #: store's site-packages so that "what did KNIGHT put here" is answerable by
+    #: looking, and so removing a feature cannot take a store dependency with it.
+    feature_root: str
+
+    #: Public keys KNIGHT signs artifacts with, by key id. An artifact signed by
+    #: a key that is not here is refused: trusting the delivery channel to vouch
+    #: for its own payload is the one thing signing exists to avoid.
+    signing_keys: dict
+
+    #: Largest artifact this store will download, in bytes. A store with a full
+    #: disk is an outage, and the size is known before the fetch begins.
+    max_artifact_bytes: int
 
     @property
     def is_registered(self) -> bool:
@@ -90,4 +105,19 @@ def get_settings() -> KnightSettings:
         error_flush_seconds=int(raw.get("ERROR_FLUSH_SECONDS", 10)),
         domain_verification_token=str(raw.get("DOMAIN_VERIFICATION_TOKEN", "")),
         request_signature_skew_seconds=int(raw.get("REQUEST_SIGNATURE_SKEW_SECONDS", 300)),
+        feature_root=str(raw.get("FEATURE_ROOT", "") or _default_feature_root()),
+        signing_keys=dict(raw.get("SIGNING_KEYS", {})),
+        max_artifact_bytes=int(raw.get("MAX_ARTIFACT_BYTES", 256 * 1024 * 1024)),
     )
+
+
+def _default_feature_root() -> str:
+    """
+    Where features land when the store has not said otherwise: a directory beside
+    the project, not inside it. Feature code is delivered, not checked in, and
+    putting it under the repository invites somebody to commit it.
+    """
+    from django.conf import settings as django_settings
+
+    base = getattr(django_settings, "BASE_DIR", None)
+    return str(Path(base).parent / "knight-features") if base else str(Path.cwd() / "knight-features")

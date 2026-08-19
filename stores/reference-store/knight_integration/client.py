@@ -120,6 +120,76 @@ class KnightClient:
 
         return self._request("POST", "/api/v1/ingest/logs", json=payload, idempotency_key=idempotency_key)
 
+    # --- The job channel -----------------------------------------------------
+    #
+    # Outbound only. The store asks for work; KNIGHT never connects inward. That
+    # is what lets a store sit behind a firewall with no inbound port and still
+    # receive features (docs/feature-delivery.md §7).
+
+    def claim_job(self) -> dict[str, Any] | None:
+        """
+        Claims this store's next installation job, or returns None.
+
+        None is the overwhelmingly common answer and is not an error: KNIGHT
+        answers 204 when there is nothing queued, and the client turns that into
+        an empty result rather than something the caller has to catch.
+        """
+        result = self._request("POST", "/api/v1/ingest/jobs/next")
+        return result or None
+
+    def report_step(
+        self,
+        job_id: str,
+        step: str,
+        status: str,
+        output: str | None = None,
+        error_code: str | None = None,
+        duration_ms: int | None = None,
+    ) -> None:
+        """
+        Reports one step's outcome.
+
+        Safe to call twice for the same step. KNIGHT updates the step in place
+        rather than appending, because an agent that completed a step and lost
+        the reply will report it again, and a job that treated the repeat as a
+        second execution would be a job that ran a migration twice.
+        """
+        self._request(
+            "POST",
+            f"/api/v1/ingest/jobs/{job_id}/steps",
+            json={
+                "step": step,
+                "status": status,
+                "output": output,
+                "errorCode": error_code,
+                "durationMilliseconds": duration_ms,
+            },
+        )
+
+    def complete_job(
+        self,
+        job_id: str,
+        succeeded: bool,
+        failure_code: str | None = None,
+        failure_message: str | None = None,
+        rollback_outcome: str | None = None,
+        installed_version: str | None = None,
+        health: str | None = None,
+    ) -> None:
+        """Reports the final outcome, including how far any rollback got."""
+        self._request(
+            "POST",
+            f"/api/v1/ingest/jobs/{job_id}/complete",
+            json={
+                "succeeded": succeeded,
+                "failureCode": failure_code,
+                "failureMessage": failure_message,
+                "rollbackOutcome": rollback_outcome,
+                "installedVersion": installed_version,
+                "health": health,
+            },
+        )
+
     def fetch_entitlements(self) -> dict[str, Any]:
         return self._request("GET", "/api/v1/ingest/features")
 

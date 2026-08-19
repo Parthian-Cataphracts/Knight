@@ -9,7 +9,13 @@ knight_integration and is never mixed into business routing
 
 from django.urls import include, path
 
+from knight_integration.features.loader import feature_urlpatterns
+
 urlpatterns = [
     path("", include("apps.shop.urls")),
     path("", include("knight_integration.urls")),
 ]
+
+# Installed features mount themselves under their own declared prefixes. Added
+# last so a feature cannot shadow a route the store already serves.
+urlpatterns += feature_urlpatterns()
