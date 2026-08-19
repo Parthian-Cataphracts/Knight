@@ -13,6 +13,22 @@ public static partial class FeatureSlug
 {
     public const int MaxLength = 100;
 
+    /// <summary>
+    /// Whether a slug would normalise successfully. Manifest validation reports
+    /// every bad field at once, so it needs to ask the question without an
+    /// exception being the answer.
+    /// </summary>
+    public static bool IsValid(string? slug)
+    {
+        if (string.IsNullOrWhiteSpace(slug))
+        {
+            return false;
+        }
+
+        var normalized = slug.Trim().ToLowerInvariant();
+        return normalized.Length <= MaxLength && Pattern().IsMatch(normalized);
+    }
+
     public static string Normalize(string? slug)
     {
         if (string.IsNullOrWhiteSpace(slug))
