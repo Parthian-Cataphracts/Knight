@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\src\Knight.Application\Knight.Application.csproj" />
     <ProjectReference Include="..\..\modules\AccessControl\AccessControl.csproj" />
     <ProjectReference Include="..\..\modules\FeatureRegistry\FeatureRegistry.csproj" />
+    <ProjectReference Include="..\..\modules\FeatureDelivery\FeatureDelivery.csproj" />
     <ProjectReference Include="..\..\modules\Plans\Plans.csproj" />
     <ProjectReference Include="..\..\modules\Subscriptions\Subscriptions.csproj" />
     <ProjectReference Include="..\..\modules\Billing\Billing.csproj" />

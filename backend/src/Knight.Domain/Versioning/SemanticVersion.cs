@@ -1,6 +1,6 @@
 using Knight.Domain.Exceptions;
 
-namespace FeatureRegistry.Domain;
+namespace Knight.Domain.Versioning;
 
 /// <summary>
 /// A feature version, parsed rather than compared as a string.
