@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-20** (revision 14 — phase 5 complete)
+Last updated: **2026-08-20** (revision 15 — phases 5 and 7 complete)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,9 +11,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 5 — Errors, incidents, notifications (complete)** |
-| **Next phase** | Phase 7 — Observability of KNIGHT itself |
-| **Overall progress** | ~84% (a hundred identical errors are now one problem with a count, an outage opens an incident with a timeline, and somebody is told — over a realtime channel whose subscriptions the server assigns) |
+| **Current phase** | **Phase 7 — Observability of KNIGHT itself (complete)** |
+| **Next phase** | Phase 6 — the remaining dashboard write paths, then phase 8 |
+| **Overall progress** | ~88% (KNIGHT now watches the stores it manages *and* itself: traces, its own metrics, redaction on every sink, and retention that keeps its tables bounded) |
 | **Blocking decisions** | 7 open questions in [`docs/risks.md`](docs/risks.md) §3 — R14, R21 and questions 8–10 now resolved |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -30,8 +30,8 @@ Phase 3    Store integration              ██████████ 100%
 Phase 3.5  Feature registry & delivery    ██████████ 100%
 Phase 4    Servers, agents, monitoring    ██████████ 100%
 Phase 5    Errors & incidents             ██████████ 100%
-Phase 6    Frontend dashboard             █████████░  94%
-Phase 7    Observability                  ░░░░░░░░░░   0%
+Phase 6    Frontend dashboard             █████████░  96%
+Phase 7    Observability                  ██████████ 100%
 Phase 8    Business-domain port to Django ░░░░░░░░░░   0%
 Phase 9    Provisioning & professional infra ░░░░░░░   0%
 Phase 10   Optimisation & hardening       ░░░░░░░░░░   0%
@@ -488,21 +488,88 @@ Then sign in at http://localhost:5173 and walk:
 - [x] MFA step on login
 - [x] Logs screen (level filter and search; time filtering and export land with phase 7)
 - [x] Store detail against the real API: health history, deployments, domains with ownership state, credentials by state, activity
-- [ ] Edit/save write paths for every form (blocked on the API)
-- [ ] Subscription change flow with live price quote (blocked on `/subscriptions/quote`)
-- [ ] Live job progress over SignalR (currently one-shot fetch)
+- [x] Notification channels: create, test, enable, disable, with the rule
+      catalogue fetched from the server so a filter cannot name a rule that does
+      not exist
+- [x] Write paths wired: alert acknowledge and resolve, incident open, note,
+      mitigate, resolve and reopen, error group acknowledge/resolve/ignore/reopen,
+      installation enable and disable, job cancel, customer and store activate,
+      suspend and archive, domain verification, credential issue, customer notes
+- [x] Every screen reconciled against the contract the API actually serves —
+      alerts, installations and jobs had been written against fixtures whose
+      shape the control plane never produced
+- [x] Every route opened against a live API with no failing request: 20 routes,
+      32 calls, 0 failures, 0 script errors
+- [ ] Remaining write paths: plan and price editing, subscription change with a
+      live quote from `/subscriptions/quote`, invoice issue/void/payment, feature
+      publish and yank from the registry screen, server and agent management,
+      entitlement grant and revoke, user and role management (the last needs the
+      `/users` and `/roles` write endpoints, which do not exist yet)
+- [ ] Live job progress over SignalR (the hub and client exist; jobs still fetch
+      once rather than subscribing)
 - [ ] Component and Playwright test suites
 
 ---
 
-## Phase 7 — Observability of KNIGHT itself
+## Phase 7 — Observability of KNIGHT itself ✅
 
-- [ ] Structured JSON logging with the full correlation context
-- [ ] OpenTelemetry traces across HTTP, EF Core, Redis, outbound store calls, jobs
-- [ ] Self-metrics per `docs/observability.md` §3, including job/installation metrics
-- [ ] `traceparent` propagation to stores and into job execution
-- [ ] Central redaction helper + a test that no secret can reach a log sink or job output
-- [ ] Retention jobs for metrics, health checks, error events, logs, job history
+**Exit criteria:** KNIGHT can be diagnosed the way it lets operators diagnose a
+store — traces, metrics and logs about itself — and its own tables stay bounded.
+
+**Verified on 2026-08-20**: the gauges read real counts from a live database, the
+retention sweep deletes what is expired and refuses to touch audit entries or
+incidents, and a credential shipped inside a reported error never reaches the
+database. See §"How to repeat the verification".
+
+- [x] Structured JSON logging with the full correlation context — correlation id,
+      trace id, principal type, user, customer and store on every line. JSON
+      outside Development, human-readable text inside it
+- [x] OpenTelemetry traces across HTTP, outbound store calls and EF Core, with a
+      dedicated activity source for background work. Off by default, including in
+      Development: an SDK that cannot reach a collector spends the process's time
+      retrying and fills the log with its own failures
+- [x] Self-metrics per [`docs/observability.md`](docs/observability.md) §3 —
+      ingest volume, store-probe latency, new error groups and regressions, job
+      duration by type and outcome, failed steps by error code, rollbacks by
+      outcome, notification deliveries, alerts raised
+- [x] Gauges for the things whose *value now* is what matters: open incidents,
+      queued and running jobs, pending notifications, open alerts, installations
+      by state, stores connected, servers offline. Pull-based and cached briefly,
+      because a scrape must not become a burst of database queries
+- [x] `traceparent` propagation — to stores via the instrumented client, and into
+      job execution by carrying the queuing request's traceparent on the job
+- [x] Central redaction helper, applied to the audit trail, reported error
+      messages and stack traces, store log lines and agent job output. It redacts
+      **on the way in**: a secret written to the database is already in every
+      backup taken since, whatever a screen shows afterwards
+- [x] 25 redaction unit tests, plus an integration test proving a credential in a
+      store's reported error never reaches the database
+- [x] Retention per table, in bounded batches so a first sweep cannot take a
+      table-wide lock. Audit entries and incidents are never deleted; error
+      groups outlive their events
+- [ ] Redis instrumentation — the cache is optional and behind an abstraction, so
+      its spans arrive with the phase 9 deployment work that decides whether Redis
+      is mandatory
+- [ ] A metrics scrape endpoint — the meter is published and any collector can
+      subscribe; exposing `/metrics` in-process is a deployment decision that
+      belongs with the same work
+
+### How to repeat the verification
+
+```bash
+# The full suite, including the retention and redaction cases.
+REQUIRE_POSTGRES_TESTS=1 dotnet test Knight.slnx
+
+# To see traces, point the host at a collector and switch it on:
+#   Telemetry:Enabled=true
+#   Telemetry:OtlpEndpoint=http://localhost:4317
+# Then drive any screen and read the spans; nothing in code changes.
+```
+
+**Expected result:** `SelfObservabilityTests` passes seven cases — gauges report
+what is in the database and read in platform scope, retention removes expired
+telemetry while keeping fresh rows, audit entries and incidents survive it, and a
+`Password=` in a reported error is stored as `***`.
 
 ---
 
