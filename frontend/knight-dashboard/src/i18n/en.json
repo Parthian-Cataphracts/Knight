@@ -554,7 +554,10 @@
     "requests": "Requests (24h)",
     "errors": "Errors (24h)",
     "storage": "Storage",
-    "usageUnavailable": "Usage metrics arrive with server monitoring in a later phase."
+    "usageUnavailable": "Usage metrics arrive with server monitoring in a later phase.",
+    "logVolume": "Log volume",
+    "probeLatency": "Health probe latency (ms)",
+    "usageWindow": "Last {{hours}}h: {{errors}} error(s), {{logs}} log line(s). Stores do not report request volume or storage."
   },
   "customerDetail": {
     "open": "Open customer",

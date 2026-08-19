@@ -109,7 +109,7 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
     "/users": fixtures.admins,
     "/roles": fixtures.roles,
     "/reports": fixtures.reports,
-    "/alerts": detail.alerts,
+    "/monitoring/alerts": detail.alerts,
     "/notifications": detail.notifications,
   };
 

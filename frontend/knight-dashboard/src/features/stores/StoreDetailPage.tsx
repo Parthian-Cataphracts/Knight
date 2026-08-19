@@ -12,7 +12,6 @@ import { Tabs, Timeline } from "@/components/data/Tabs";
 import { AreaChart } from "@/components/data/Sparkline";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { StatusChip, type Tone } from "@/components/ui/StatusChip";
-import { Meter } from "@/components/ui/Meter";
 import { Button } from "@/components/ui/Button";
 import { LoadingBlock, ErrorBlock } from "@/components/ui/StateBlock";
 import { useAuthStore } from "@/store/auth";
@@ -21,11 +20,20 @@ import { installationTone } from "@/features/installations/installationTone";
 
 type Tab = "overview" | "features" | "domains" | "credentials" | "deployments" | "activity";
 
+/**
+ * What the store detail page can honestly show.
+ *
+ * There is no request count and no storage figure because stores report
+ * neither: a dashboard number that was estimated rather than measured is worse
+ * than one fewer panel.
+ */
 interface UsageResponse {
-  requests: number[];
   errors: number[];
-  storageGb: number;
-  storageQuotaGb: number;
+  logs: number[];
+  healthLatencyMs: number[];
+  windowHours: number;
+  totalErrors: number;
+  totalLogs: number;
 }
 
 const verificationTone: Record<StoreDomain["verification"], Tone> = {
@@ -239,12 +247,16 @@ export function StoreDetailPage() {
             <CardBody className="flex flex-col gap-5">
               {usageData ? (
                 <>
-                  <AreaChart series={usageData.requests} label={t("storeDetail.requests")} />
                   <AreaChart series={usageData.errors} label={t("storeDetail.errors")} tone="danger" />
-                  <Meter
-                    label={`${t("storeDetail.storage")} (${usageData.storageGb}/${usageData.storageQuotaGb} GB)`}
-                    value={Math.round((usageData.storageGb / usageData.storageQuotaGb) * 100)}
-                  />
+                  <AreaChart series={usageData.logs} label={t("storeDetail.logVolume")} />
+                  <AreaChart series={usageData.healthLatencyMs} label={t("storeDetail.probeLatency")} />
+                  <p className="text-body-sm text-on-surface-variant">
+                    {t("storeDetail.usageWindow", {
+                      hours: usageData.windowHours,
+                      errors: usageData.totalErrors,
+                      logs: usageData.totalLogs,
+                    })}
+                  </p>
                 </>
               ) : (
                 <p className="text-body-sm text-on-surface-variant">{t("storeDetail.usageUnavailable")}</p>

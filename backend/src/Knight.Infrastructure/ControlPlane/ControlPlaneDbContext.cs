@@ -50,6 +50,8 @@ public sealed class ControlPlaneDbContext : DbContext
 
     public DbSet<Store> Stores => Set<Store>();
 
+    public DbSet<Customers.Domain.CustomerNote> CustomerNotes => Set<Customers.Domain.CustomerNote>();
+
     public DbSet<StoreCredential> StoreCredentials => Set<StoreCredential>();
 
     public DbSet<StoreHealthCheck> StoreHealthChecks => Set<StoreHealthCheck>();
@@ -127,6 +129,7 @@ public sealed class ControlPlaneDbContext : DbContext
         // not bleed into each other.
         modelBuilder.ApplyConfiguration(new CustomerConfiguration());
         modelBuilder.ApplyConfiguration(new StoreConfiguration());
+        modelBuilder.ApplyConfiguration(new CustomerNoteConfiguration());
         modelBuilder.ApplyConfiguration(new StoreCredentialConfiguration());
         modelBuilder.ApplyConfiguration(new ControlPlaneUserConfiguration());
         modelBuilder.ApplyConfiguration(new UserRoleAssignmentConfiguration());

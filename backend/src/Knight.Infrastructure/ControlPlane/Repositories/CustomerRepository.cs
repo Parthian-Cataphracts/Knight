@@ -84,3 +84,32 @@ internal sealed class ControlPlaneCustomerRepository : ICustomerRepository
     private static bool IsUniqueViolation(DbUpdateException exception) =>
         exception.InnerException is PostgresException { SqlState: PostgresUniqueViolationSqlState };
 }
+
+/// <summary>
+/// Notes are append-only, so this has a list and an add and nothing else.
+/// </summary>
+internal sealed class CustomerNoteRepository : ICustomerNoteRepository
+{
+    private readonly ControlPlaneDbContext _context;
+
+    public CustomerNoteRepository(ControlPlaneDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<IReadOnlyCollection<CustomerNote>> ListAsync(
+        Guid customerId,
+        int limit,
+        CancellationToken cancellationToken) =>
+        await _context.CustomerNotes
+            .AsNoTracking()
+            .Where(note => note.CustomerId == customerId)
+            .OrderByDescending(note => note.CreatedAt)
+            .Take(limit)
+            .ToArrayAsync(cancellationToken);
+
+    public async Task AddAsync(CustomerNote note, CancellationToken cancellationToken) =>
+        await _context.CustomerNotes.AddAsync(note, cancellationToken);
+
+    public Task SaveChangesAsync(CancellationToken cancellationToken) => _context.SaveChangesAsync(cancellationToken);
+}

@@ -31,7 +31,7 @@ type Filter = "all" | Alert["severity"];
 
 export function AlertsPage() {
   const { t } = useTranslation();
-  const query = useCollection<Alert>("/alerts");
+  const query = useCollection<Alert>("/monitoring/alerts");
   const can = useAuthStore((state) => state.can);
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<Alert | null>(null);
