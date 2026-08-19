@@ -134,7 +134,12 @@ internal sealed class IncidentService : IIncidentService
             // and possibly an escalation, and nothing else.
             var existing = await _incidents.GetWithTimelineAsync(open.Id, cancellationToken) ?? open;
 
+            var before = existing.Timeline.Select(entry => entry.Id).ToHashSet();
+
             existing.Escalate(severity, now, detail);
+
+            _incidents.RegisterNewEvents(
+                [.. existing.Timeline.Where(entry => !before.Contains(entry.Id))]);
 
             await _incidents.SaveChangesAsync(cancellationToken);
 
@@ -204,7 +209,15 @@ internal sealed class IncidentService : IIncidentService
         var incident = await _incidents.GetWithTimelineAsync(id, cancellationToken)
             ?? throw new NotFoundException("Incident", id);
 
+        var before = incident.Timeline.Select(entry => entry.Id).ToHashSet();
+
         change(incident, _clock.UtcNow);
+
+        // Whatever the change appended has to be declared new explicitly: the
+        // domain assigns its own ids, and persistence would otherwise read a set
+        // id as "this row already exists".
+        _incidents.RegisterNewEvents(
+            [.. incident.Timeline.Where(entry => !before.Contains(entry.Id))]);
 
         await _incidents.SaveChangesAsync(cancellationToken);
 

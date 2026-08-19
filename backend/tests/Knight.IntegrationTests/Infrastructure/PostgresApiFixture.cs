@@ -116,6 +116,13 @@ public sealed class PostgresApiFixture : IAsyncLifetime
             builder.UseSetting("RateLimiting:TenantPublicPermitLimit", "1000000");
             builder.UseSetting("RateLimiting:CheckoutQuotePermitLimit", "1000000");
             builder.UseSetting("RateLimiting:CheckoutSubmitPermitLimit", "1000000");
+
+            // The store handshake partitions by client IP too, and every store in
+            // the suite presents the same one. Its production default is a
+            // deliberately tight 30 per minute, which the ingestion and
+            // observability suites together exceed on suite size alone.
+            builder.UseSetting("RateLimiting:IngestHandshakePermitLimit", "1000000");
+            builder.UseSetting("RateLimiting:IngestPermitLimit", "1000000");
         });
 
         using var scope = Factory.Services.CreateScope();
