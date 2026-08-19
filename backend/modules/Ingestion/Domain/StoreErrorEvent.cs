@@ -1,3 +1,4 @@
+using Knight.Application.Abstractions.Observability;
 using Knight.Domain.Common;
 using Knight.Domain.Exceptions;
 
@@ -158,14 +159,24 @@ public sealed class StoreErrorEvent : Entity, ICustomerOwned
             IngestionText.Require(environment, 20, "environment"),
             IngestionText.Clip(storeVersion, 50),
             IngestionText.Require(exceptionType, 200, "exceptionType"),
-            IngestionText.Clip(message, MaxMessageLength)!,
+
+            // Redacted on the way in. An exception message is one of the most
+            // common places a credential escapes — a failed connection quoting
+            // its connection string, a rejected request echoing its own header —
+            // and storing it first would put the secret in the database and in
+            // every backup regardless of what any screen later shows.
+            //
+            // Grouping is unaffected: the fingerprint normalises literals out of
+            // the message anyway, and redaction is deterministic, so identical
+            // errors stay identical.
+            Redaction.Text(IngestionText.Clip(message, MaxMessageLength))!,
             IngestionText.Clip(endpoint, 500),
             IngestionText.Clip(httpMethod, 10),
             statusCode,
-            IngestionText.Clip(stackTrace, MaxStackTraceLength),
+            Redaction.Text(IngestionText.Clip(stackTrace, MaxStackTraceLength)),
             IngestionText.Clip(requestId, 100),
             IngestionText.Clip(traceId, 100),
-            IngestionText.Clip(context, MaxContextLength));
+            Redaction.Json(IngestionText.Clip(context, MaxContextLength)));
     }
 
     /// <summary>

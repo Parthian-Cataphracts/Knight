@@ -5,6 +5,7 @@ using Knight.Application.Abstractions.ControlPlane;
 using Knight.Application.Abstractions.Time;
 using Knight.Application.Exceptions;
 using Knight.Infrastructure.Caching;
+using Knight.Infrastructure.Telemetry;
 using Knight.Infrastructure.ControlPlane.Integration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -43,6 +44,7 @@ public sealed class IngestionServiceTests
             _entitlements,
             _replay,
             _grouping,
+            new NullKnightMetrics(),
             clock,
             NullLogger<IngestionService>.Instance,
             Options.Create(options ?? new IngestionOptions()));

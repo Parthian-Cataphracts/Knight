@@ -1,3 +1,4 @@
+using Knight.Application.Abstractions.Observability;
 using Knight.Domain.Common;
 using Knight.Domain.Exceptions;
 
@@ -131,7 +132,11 @@ public sealed class JobStepResult : Entity
             return null;
         }
 
-        var trimmed = output.Trim();
+        // Redacted before truncation, so a secret cannot survive by sitting past
+        // the cut. This text comes from an agent running on somebody else's
+        // machine and echoing whatever a migration or a health check printed.
+        var trimmed = (Redaction.Text(output) ?? string.Empty).Trim();
+
         return trimmed.Length <= MaxOutputLength ? trimmed : trimmed[..MaxOutputLength];
     }
 }

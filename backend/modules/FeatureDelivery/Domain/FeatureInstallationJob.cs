@@ -50,6 +50,18 @@ public sealed class FeatureInstallationJob : AuditableEntity, ICustomerOwned
     /// <summary>Ties every step, log line and audit entry of this job to the request that started it.</summary>
     public string CorrelationId { get; private set; }
 
+    /// <summary>
+    /// The W3C <c>traceparent</c> of the request that queued this job, handed to
+    /// the agent so its own spans join that trace instead of starting an
+    /// unrelated one (docs/observability.md §4).
+    ///
+    /// Stored rather than recomputed because the agent runs minutes or hours
+    /// later, in a different process, long after the originating request has
+    /// finished — the trace it belongs to is a historical fact about why the job
+    /// exists, not something the claim can derive.
+    /// </summary>
+    public string? TraceParent { get; private set; }
+
     public DateTimeOffset QueuedAt { get; private set; }
 
     public DateTimeOffset? ClaimedAt { get; private set; }
@@ -147,7 +159,8 @@ public sealed class FeatureInstallationJob : AuditableEntity, ICustomerOwned
         string correlationId,
         Guid requestedBy,
         JobTrigger trigger,
-        int maxAttempts = 3)
+        int maxAttempts = 3,
+        string? traceParent = null)
     {
         if (type is not JobType.Uninstall && string.IsNullOrWhiteSpace(targetVersion))
         {
@@ -175,7 +188,14 @@ public sealed class FeatureInstallationJob : AuditableEntity, ICustomerOwned
             requestedBy,
             trigger,
             maxAttempts,
-            JobPipeline.StepsFor(type).Count);
+            JobPipeline.StepsFor(type).Count)
+        {
+            // Length-capped: a traceparent is a fixed 55-character header, and
+            // anything longer did not come from a tracing library.
+            TraceParent = string.IsNullOrWhiteSpace(traceParent) || traceParent.Length > 64
+                ? null
+                : traceParent.Trim(),
+        };
     }
 
     /// <summary>

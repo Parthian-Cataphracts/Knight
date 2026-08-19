@@ -1,5 +1,6 @@
 using Knight.Application.Abstractions.ControlPlane;
 using Knight.Application.Abstractions.Identity;
+using Knight.Application.Abstractions.Observability;
 using Knight.Application.Abstractions.Time;
 using Knight.Application.Exceptions;
 using Microsoft.Extensions.Logging;
@@ -29,6 +30,7 @@ internal sealed class MonitoringService : IMonitoringService
     private readonly ICurrentUser _currentUser;
     private readonly IAlertEventPublisher _alertEvents;
     private readonly ILogger<MonitoringService> _logger;
+    private readonly IKnightMetrics _telemetry;
     private readonly ServerOptions _options;
 
     public MonitoringService(
@@ -41,6 +43,7 @@ internal sealed class MonitoringService : IMonitoringService
         ICurrentUser currentUser,
         IAlertEventPublisher alertEvents,
         ILogger<MonitoringService> logger,
+        IKnightMetrics telemetry,
         IOptions<ServerOptions> options)
     {
         _servers = servers;
@@ -52,6 +55,7 @@ internal sealed class MonitoringService : IMonitoringService
         _currentUser = currentUser;
         _alertEvents = alertEvents;
         _logger = logger;
+        _telemetry = telemetry;
         _options = options.Value;
     }
 
@@ -288,6 +292,10 @@ internal sealed class MonitoringService : IMonitoringService
             customerId,
             cancellationToken,
             newValue: new { ruleKey, Severity = severity.ToString(), Source = source.ToString(), sourceId });
+
+        // Only genuinely new alerts are counted. Counting re-observations would
+        // make a single six-hour outage look like a rising alert rate.
+        _telemetry.AlertRaised(ruleKey, severity.ToString());
 
         await PublishRaisedAsync(alert, isNew: true, cancellationToken);
 

@@ -116,9 +116,20 @@ public sealed class StoreHealthPoller : BackgroundService
             using var scope = _scopes.CreateScope();
             scope.ServiceProvider.GetRequiredService<ICustomerScopeAccessor>().SetPlatformScope();
 
+            // Timed here rather than inside the probe: what matters operationally
+            // is how long the whole attempt took including its retries, which is
+            // what an operator experiences as "the store is slow".
+            var started = System.Diagnostics.Stopwatch.GetTimestamp();
+
             var probe = await scope.ServiceProvider
                 .GetRequiredService<IStoreHealthProbe>()
                 .ProbeAsync(target.StoreId, target.Domain, target.Environment.ToString(), cancellationToken);
+
+            scope.ServiceProvider
+                .GetRequiredService<Knight.Application.Abstractions.Observability.IKnightMetrics>()
+                .StoreHealthChecked(
+                    probe.Status,
+                    System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
 
             var status = Enum.TryParse<StoreHealthStatus>(probe.Status, ignoreCase: true, out var parsed)
                 ? parsed

@@ -166,7 +166,8 @@ internal sealed class FeatureDeliveryService : IFeatureDeliveryService
                 stepKey,
                 CorrelationId(),
                 _currentUser.UserId ?? Guid.Empty,
-                input.Trigger);
+                input.Trigger,
+                traceParent: TraceParent());
 
             stepInstallation.QueueJob(job.Id, step.VersionId, step.Version, now);
 
@@ -465,7 +466,8 @@ internal sealed class FeatureDeliveryService : IFeatureDeliveryService
             $"{type}:{installation.Id}:{now.ToUnixTimeMilliseconds()}",
             CorrelationId(),
             _currentUser.UserId ?? Guid.Empty,
-            JobTrigger.Manual);
+            JobTrigger.Manual,
+            traceParent: TraceParent());
 
         await _jobs.AddAsync(job, cancellationToken);
 
@@ -569,6 +571,16 @@ internal sealed class FeatureDeliveryService : IFeatureDeliveryService
         ?? throw new NotFoundException($"Store '{storeId}' was not found.");
 
     private static string CorrelationId() => Guid.CreateVersion7().ToString("n");
+
+    /// <summary>
+    /// The current request's W3C traceparent, if anything is tracing.
+    ///
+    /// Read from the ambient activity rather than passed in, because every
+    /// caller of this service is either an HTTP request or a background sweep
+    /// and both already have one — threading it through every signature would
+    /// add a parameter that is never anything but this.
+    /// </summary>
+    private static string? TraceParent() => System.Diagnostics.Activity.Current?.Id;
 
     private static bool IsJsonObject(string json)
     {

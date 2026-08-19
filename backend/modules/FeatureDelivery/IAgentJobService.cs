@@ -16,6 +16,13 @@ public sealed record AgentJobAssignment(
     string FeatureSlug,
     string? TargetVersion,
     string CorrelationId,
+
+    /// <summary>
+    /// The W3C traceparent of the request that queued this job. An agent that
+    /// understands it continues that trace; one that does not ignores a string,
+    /// which is why it is optional and carried rather than negotiated.
+    /// </summary>
+    string? TraceParent,
     IReadOnlyList<string> Steps,
     string? NextStep,
     AgentArtifact? Artifact,
