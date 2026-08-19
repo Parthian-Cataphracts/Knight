@@ -160,7 +160,12 @@ public static class ControlPlaneServerEndpoints
             .RequireRateLimiting("control-plane")
             .WithTags("Monitoring");
 
-        group.MapGet("/overview", async (IMonitoringService service, CancellationToken cancellationToken) =>
+        // "/fleet" rather than "/overview": that path already serves the
+        // business overview the dashboard reads — customers, stores,
+        // subscriptions — and this is the infrastructure one. Two different
+        // questions deserve two paths, and renaming the older one would break a
+        // screen that is already shipped.
+        group.MapGet("/fleet", async (IMonitoringService service, CancellationToken cancellationToken) =>
             Results.Ok(ServerMapping.ToResponse(await service.GetOverviewAsync(cancellationToken))))
             .RequirePermission(ControlPlanePermissions.ServerView);
 

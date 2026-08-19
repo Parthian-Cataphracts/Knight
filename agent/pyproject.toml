@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "knight-agent"
+version = "1.0.0"
+description = "The KNIGHT agent: telemetry and typed job execution on a managed server."
+requires-python = ">=3.12"
+
+# Deliberately empty. The agent runs on infrastructure KNIGHT does not own, and
+# every dependency is something somebody else has to install and keep current.
+dependencies = []
+
+[project.scripts]
+knight-agent = "knight_agent.__main__:main"
+
+[tool.setuptools]
+packages = ["knight_agent"]
