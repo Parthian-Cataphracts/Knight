@@ -115,6 +115,23 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
 
   // The notification centre asks with a query string; the fixture set is small
   // enough that the filter would only hide the thing being demonstrated.
+  if (path.startsWith("/notifications/channels")) {
+    return json({ items: detail.notificationChannels });
+  }
+
+  if (path === "/notifications/rules") {
+    return json({
+      items: [
+        "errors.spike",
+        "errors.regression",
+        "feature.install.failed",
+        "feature.entitled_not_installed",
+        "feature.drift",
+        "job.stuck",
+      ],
+    });
+  }
+
   if (path.startsWith("/notifications?")) {
     return json({
       items: detail.notifications,

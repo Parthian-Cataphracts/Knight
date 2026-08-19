@@ -116,7 +116,13 @@ public static class ControlPlaneServerEndpoints
             CancellationToken cancellationToken) =>
         {
             var metrics = await service.ListMetricsAsync(id, limit ?? 100, cancellationToken);
-            return Results.Ok(metrics.Select(ServerMapping.ToResponse).ToList());
+            // The same paged envelope every other collection returns. A bare
+            // array is a second shape for the client to handle, and the screen
+            // that reads it renders empty rather than failing.
+            var mapped = metrics.Select(ServerMapping.ToResponse).ToArray();
+
+            return Results.Ok(PagedResponse<ServerMetricResponse>.Create(
+                mapped, 1, mapped.Length, mapped.Length));
         }).RequirePermission(ControlPlanePermissions.ServerView);
 
         group.MapGet("/{id:guid}/agents", async (
@@ -125,7 +131,10 @@ public static class ControlPlaneServerEndpoints
             CancellationToken cancellationToken) =>
         {
             var agents = await service.ListAgentsAsync(id, cancellationToken);
-            return Results.Ok(agents.Select(ServerMapping.ToResponse).ToList());
+            var mapped = agents.Select(ServerMapping.ToResponse).ToArray();
+
+            return Results.Ok(PagedResponse<AgentResponse>.Create(
+                mapped, 1, mapped.Length, mapped.Length));
         }).RequirePermission(ControlPlanePermissions.ServerView);
 
         // Issuing a provisioning token is the one action here that hands out a

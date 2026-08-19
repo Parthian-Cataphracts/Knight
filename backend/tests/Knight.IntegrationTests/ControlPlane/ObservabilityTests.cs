@@ -462,7 +462,7 @@ public sealed class ObservabilityTests
         response.EnsureSuccessStatusCode();
 
         var rules = JsonDocument.Parse(await response.Content.ReadAsStringAsync())
-            .RootElement.EnumerateArray().Select(rule => rule.GetString()).ToArray();
+            .RootElement.GetProperty("items").EnumerateArray().Select(rule => rule.GetString()).ToArray();
 
         Assert.Contains("feature.entitled_not_installed", rules);
         Assert.Contains("feature.drift", rules);

@@ -48,7 +48,13 @@
     "identifier": "Identifier",
     "correlationId": "Correlation id",
     "notAvailableYet": "Not available yet — this arrives in a later phase.",
-    "screenFailed": "This screen failed to render."
+    "screenFailed": "This screen failed to render.",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "enable": "Enable",
+    "disable": "Disable",
+    "save": "Save",
+    "name": "Name"
   },
   "auth": {
     "title": "Sign in to Knight",
@@ -627,6 +633,27 @@
     "empty": "Nothing to report.",
     "markRead": "Mark as read",
     "unread": "Unread",
-    "open": "Open notifications"
+    "open": "Open notifications",
+    "channels": "Notification channels",
+    "addChannel": "Add channel",
+    "noChannels": "No channels yet. Nothing will be sent anywhere.",
+    "test": "Test",
+    "testSucceeded": "Delivered.",
+    "kind": "Kind",
+    "kind_InApp": "In app",
+    "kind_Email": "Email",
+    "kind_Webhook": "Webhook",
+    "destination": "Destination",
+    "inAppDestination": "The notification centre",
+    "inAppHint": "In-app notifications appear behind the bell. They have no destination outside KNIGHT.",
+    "minimumSeverity": "Minimum severity",
+    "ruleFilter": "Rules",
+    "allRules": "All rules",
+    "ruleFilterHint": "Leave empty to receive every rule at or above the severity floor.",
+    "secret": "Signing secret",
+    "signed": "Payloads signed",
+    "lastDelivered": "Last delivered",
+    "consecutiveFailures": "Consecutive failures",
+    "disabledReason": "Why it is off"
   }
 }

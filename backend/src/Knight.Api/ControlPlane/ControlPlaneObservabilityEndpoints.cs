@@ -360,7 +360,10 @@ public static class ControlPlaneObservabilityEndpoints
             var channels = await notifications.ListChannelsAsync(
                 principal.CustomerId, includeDisabled ?? true, cancellationToken);
 
-            return Results.Ok(channels.Select(ToResponse).ToArray());
+            var mapped = channels.Select(ToResponse).ToArray();
+
+            return Results.Ok(PagedResponse<NotificationChannelResponse>.Create(
+                mapped, 1, mapped.Length, mapped.Length));
         }).RequirePermission(ControlPlanePermissions.NotificationManage);
 
         group.MapPost("/channels", async (
@@ -475,7 +478,9 @@ public static class ControlPlaneObservabilityEndpoints
 
         // The rule catalogue, so the settings screen can offer real keys rather
         // than a free-text box that silently accepts a typo.
-        group.MapGet("/rules", () => Results.Ok(ObservabilityRules.All))
+        group.MapGet("/rules", () =>
+                Results.Ok(PagedResponse<string>.Create(
+                    [.. ObservabilityRules.All], 1, ObservabilityRules.All.Count, ObservabilityRules.All.Count)))
             .RequirePermission(ControlPlanePermissions.NotificationManage);
     }
 
