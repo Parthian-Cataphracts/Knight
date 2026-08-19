@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-19** (revision 8 — phase 3 store integration complete)
+Last updated: **2026-08-19** (revision 9 — phase 3.5 registry and delivery core)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,10 +11,10 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 3 — Store integration (complete)** |
-| **Next phase** | Phase 3.5 — Feature registry & delivery |
-| **Overall progress** | ~55% (a real Django store now registers with KNIGHT, is observed by it, and enforces entitlements server-side; feature delivery and the agent remain greenfield) |
-| **Blocking decisions** | 10 open questions in [`docs/risks.md`](docs/risks.md) §3 — R14 (billing scope) resolved as invoicing only |
+| **Current phase** | **Phase 3.5 — Feature registry & delivery (in progress)** |
+| **Next phase** | Phase 4 — Servers, agents, monitoring |
+| **Overall progress** | ~60% (the registry's deployable half, the dependency resolver and the delivery state machine exist and are tested against a real database; the publish pipeline, the endpoints and the store-side installer do not yet) |
+| **Blocking decisions** | 7 open questions in [`docs/risks.md`](docs/risks.md) §3 — R14, R21 and questions 8–10 now resolved |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
 > not a boolean flag ([`docs/adr/0014`](docs/adr/0014-features-as-deployable-packages.md)).
@@ -27,7 +27,7 @@ Phase 0    Discovery & architecture       ██████████ 100%
 Phase 1    Control-plane core             ██████████ 100%
 Phase 2    Plans, subscriptions, entitlements ██████ 100%
 Phase 3    Store integration              ██████████ 100%
-Phase 3.5  Feature registry & delivery    ░░░░░░░░░░   0%   ← new in revision 2
+Phase 3.5  Feature registry & delivery    ███░░░░░░░  30%   ← in progress
 Phase 4    Servers, agents, monitoring    ░░░░░░░░░░   0%
 Phase 5    Errors & incidents             ░░░░░░░░░░   0%
 Phase 6    Frontend dashboard             █████████░  92%
@@ -200,22 +200,26 @@ installed automatically into two different stores, upgraded, rolled back, and
 uninstalled — with no manual per-store work at any point.
 
 ### Registry (KNIGHT)
-- [ ] `FeatureRegistry` module: `Feature`, `FeatureVersion`, immutability, publish/yank
-- [ ] Manifest JSON Schema + validator; `POST /api/v1/features/manifest/validate`
-- [ ] Artifact digest + signature recorded on the version; publish refuses unsigned artifacts
-- [ ] `FeatureDependency` / `FeatureCompatibility` persistence
-- [ ] Dependency resolver: transitive graph, topological plan, cycle detection at publish
-- [ ] Compatibility checker: store version, python, django, hosting model, conflicts
+- [x] `FeatureRegistry` module: `Feature`, `FeatureVersion`, immutability, publish/yank
+- [x] Manifest model and error-collecting validator (reports every bad field at once, not the first)
+- [ ] `POST /api/v1/features/manifest/validate` endpoint over that validator
+- [x] Artifact digest + signature recorded on the version; publish refuses unsigned artifacts
+- [x] `FeatureDependency` persistence, denormalised from the manifest at publish
+- [x] Dependency resolver: constraint fixpoint, topological plan, cycle detection
+- [x] Compatibility checker: store version, python, django, hosting model, conflicts, downgrade refusal
 - [ ] Dry-run endpoint returning the resolved plan and verdict
 - [ ] Registry endpoints + audit for publish/yank
+- [ ] Registry service and repositories over the aggregates
 
 ### Delivery engine (KNIGHT)
-- [ ] `FeatureDelivery` module: `FeatureInstallation` aggregate with the full state machine
-- [ ] Illegal-transition rejection in the aggregate (unit-tested exhaustively)
-- [ ] `FeatureInstallationJob` + `JobStepResult`, idempotency, one active job per store
-- [ ] Job queue, claiming, timeouts, bounded retry with backoff, cancellation
+- [x] `FeatureDelivery` module: `FeatureInstallation` aggregate with the full state machine
+- [x] Illegal-transition rejection in the aggregate (unit-tested exhaustively)
+- [x] `FeatureInstallationJob` + `JobStepResult`, idempotent step reporting, one active job per store
+- [x] Claiming, claim expiry, bounded retry, cancellation — in the aggregate
+- [ ] The queue itself: repositories, the claim query, and the timeout sweep
 - [ ] Entitlement events → automatic install/disable jobs
-- [ ] `FeatureConfiguration` with schema validation and encrypted secret values
+- [x] `FeatureConfiguration` with encrypted secret values and drift detection
+- [ ] Configuration JSON Schema validation against the manifest
 - [ ] Rollback orchestration incl. `ManualInterventionRequired` outcome
 - [ ] Reconciliation job + `feature.drift` detection
 - [ ] Endpoints: install/upgrade/enable/disable/uninstall/rollback/configuration/plan, `/jobs/*`
@@ -225,8 +229,9 @@ uninstalled — with no manual per-store work at any point.
 - [ ] `features/` layout and a cookiecutter-style feature template
 - [ ] Manifest spec implementation (`knight_manifest.yaml`)
 - [ ] Build + sign + publish pipeline to the private package registry
-- [ ] `[!]` Choose the registry implementation (`risks.md` §3 Q8)
-- [ ] `[!]` Define signing key custody and rotation (Q9)
+- [x] Registry implementation chosen: object storage with KNIGHT as the index (`risks.md` §3 Q8)
+- [x] Signing key custody chosen: Ed25519 behind `ISigner`, file-backed now, KMS-ready (Q9, R21)
+- [ ] Implement the signer, the artifact store and the signed-URL fetch
 - [ ] Reference Feature: one real capability, one model, one migration, a health check, tests
 - [ ] A second Feature depending on the first, to exercise dependency resolution
 
@@ -241,9 +246,9 @@ uninstalled — with no manual per-store work at any point.
 
 ### Tests (all release-blocking)
 - [ ] Install / upgrade / rollback / uninstall against a real store + database
-- [ ] Dependency resolution: diamonds, ranges, cycles, yanked versions, conflicts
-- [ ] Compatibility refusal (store too old/new, wrong runtime, shared hosting)
-- [ ] Job idempotency: re-running a step never double-applies
+- [x] Dependency resolution: diamonds, ranges, cycles, yanked versions, conflicts, downgrades
+- [x] Compatibility refusal (store too old/new, wrong runtime, unreported runtime, shared hosting)
+- [x] Job idempotency: a repeated step report updates in place and never downgrades a success
 - [ ] Failure injection at every step; correct state and rollback outcome each time
 - [ ] Irreversible-migration failure → `ManualInterventionRequired` + incident
 - [ ] Unsigned / tampered artifact rejected

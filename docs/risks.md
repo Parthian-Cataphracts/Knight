@@ -36,7 +36,7 @@ Status: **living document**. Update whenever a risk is resolved or discovered.
 | R18 | Dependency/compatibility resolver complexity (diamonds, ranges, yanks) | Wrong plans, blocked installs, or bad installs | Resolve centrally before job creation, extensive unit tests, dry-run `plan` endpoint, refuse rather than guess |
 | R19 | Feature ↔ store version matrix grows combinatorially | Untestable surface | Narrow supported store-version ranges, a compatibility test matrix in CI, deprecate old store versions deliberately |
 | R20 | Feature installations drift from KNIGHT's record (manual edits on a server) | KNIGHT's view becomes fiction | Periodic reconciliation, `feature.drift` alert, store reports its true installed set on every health check |
-| R21 | Signing key custody and rotation are undefined | Compromise cannot be contained | Decide custody model before the first publish; ability to yank everything signed by a key |
+| R21 | ~~Signing key custody and rotation are undefined~~ **Resolved in phase 3.5** | Compromise cannot be contained | Ed25519 detached signatures behind an `ISigner` abstraction: file/environment-backed in development and CI, with a documented path to a cloud KMS or HSM. Every `FeatureVersion` records the `signingKeyId` that signed it, and that column is indexed, so revoking a key means yanking everything it ever signed in one query |
 | R22 | Agent privilege on customer servers | Highest-value target in the system | Least privilege, no shell, signed agent releases, auditable job history, per-store scoping |
 | R23 | Feature packages could drift toward becoming microservices | Operational explosion the spec forbids | Explicit rule in [`adr/0014`](adr/0014-features-as-deployable-packages.md); a network service requires its own ADR |
 | R24 | Delivery scope may dominate the roadmap | Core control plane slips | Phase 3.5 is scoped to a single reference feature end to end before breadth |
@@ -55,13 +55,18 @@ Status: **living document**. Update whenever a risk is resolved or discovered.
 7. **Store provisioning** — how much is automated in the first release?
    (`store-provisioning.md` §2 proposes: store record, credentials, agent, and
    base Feature installation automated; VM/DB/TLS creation manual at first)
-8. **Package registry** — private PyPI index, or object storage with an index?
-   Who hosts it?
-9. **Signing key custody** — where do the signing keys live, who can publish,
-   and what is the rotation procedure? (blocks the first publish)
-10. **First feature** — which real capability is built first as the reference
-    Feature end to end (proposal: a small "Advanced Analytics" or similar with
-    one model and one migration)?
+8. ~~**Package registry**~~ **Resolved:** object storage with KNIGHT as the
+   index. KNIGHT already owns the version records, digests and signatures, so a
+   separate index service would be a second source of truth to keep in step.
+   Artifacts live in S3-compatible storage — MinIO locally — and an agent
+   fetches one through a short-lived signed URL minted per job, never a stored
+   URL.
+9. ~~**Signing key custody**~~ **Resolved:** see R21.
+10. ~~**First feature**~~ **Resolved:** `knight-feature-analytics-core` and
+    `knight-feature-analytics-reports`, the second depending on the first. Two
+    features rather than one because dependency resolution is the part of the
+    phase most likely to be wrong, and a single feature never exercises it
+    against a real package.
 11. **Uninstall data policy** — default retention window after uninstall, and
     whether customers may request immediate purge.
 
