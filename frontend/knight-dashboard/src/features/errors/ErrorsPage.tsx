@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useCollection } from "@/lib/api/hooks";
+import { useAction, useCollection } from "@/lib/api/hooks";
 import type { ErrorGroup } from "@/lib/api/domain";
 import type { ErrorEventSample } from "@/lib/api/fixtures-detail";
 import { PageShell, PageHeader, Toolbar, FilterTabs, KeyValue, Mono } from "@/components/data/PageShell";
@@ -29,11 +29,26 @@ export function ErrorsPage() {
     `/errors/groups/${selectedId ?? "none"}/events`,
   );
   const can = useAuthStore((state) => state.can);
+
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelectedGroup] = useState<ErrorGroup | null>(null);
   const setSelected = (group: ErrorGroup | null) => {
     setSelectedGroup(group);
     setSelectedId(group?.id ?? null);
+  };
+
+  // The server decides what the status becomes — resolving a group that has
+  // recurred since reopens it as a regression — so the list is refetched rather
+  // than patched locally.
+  const act = useAction<unknown, { id: string; action: string }>(
+    ({ id, action }) => ({ path: `/errors/groups/${id}/${action}` }),
+    ["/errors/groups"],
+  );
+
+  const run = (action: string) => {
+    if (!selected) return;
+
+    act.mutate({ id: selected.id, action }, { onSuccess: () => setSelected(null) });
   };
 
   const all = query.data ?? [];
@@ -49,6 +64,9 @@ export function ErrorsPage() {
             {row.exceptionType}
           </span>
           <span className="line-clamp-1 text-body-sm text-on-surface-variant">{row.title}</span>
+          {row.isRegression ? (
+            <span className="text-label text-error">{t("errors.regression")}</span>
+          ) : null}
         </span>
       ),
     },
@@ -136,12 +154,29 @@ export function ErrorsPage() {
         subtitle={selected?.storeName}
         onClose={() => setSelected(null)}
         footer={
-          can("errors.manage") ? (
+          can("errors.manage") && selected ? (
             <>
-              <Button variant="outline" size="sm">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={act.isPending}
+                onClick={() => run("ignore")}
+              >
                 {t("errors.ignore")}
               </Button>
-              <Button size="sm">{t("errors.resolve")}</Button>
+              {selected.status === "New" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={act.isPending}
+                  onClick={() => run("acknowledge")}
+                >
+                  {t("errors.acknowledge")}
+                </Button>
+              ) : null}
+              <Button size="sm" disabled={act.isPending} onClick={() => run("resolve")}>
+                {t("errors.resolve")}
+              </Button>
             </>
           ) : undefined
         }
@@ -154,11 +189,19 @@ export function ErrorsPage() {
             >
               {selected.title}
             </p>
+            {act.isError ? (
+              <p role="alert" className="rounded-md bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+                {act.error.message}
+              </p>
+            ) : null}
             <dl className="divide-y divide-outline-variant">
               <KeyValue label={t("common.status")}>
                 <StatusChip tone={groupTone[selected.status]}>
                   {t(`errorStatus.${selected.status}`)}
                 </StatusChip>
+                {selected.isRegression ? (
+                  <span className="ms-2 text-label text-error">{t("errors.regression")}</span>
+                ) : null}
               </KeyValue>
               <KeyValue label={t("errors.endpoint")}>
                 <Mono>{selected.endpoint ?? "—"}</Mono>
@@ -176,7 +219,7 @@ export function ErrorsPage() {
                 <Mono>{formatDateTime(selected.lastSeenAt)}</Mono>
               </KeyValue>
               <KeyValue label={t("errors.firstSeenVersion")}>
-                <Mono>{selected.firstSeenVersion}</Mono>
+                <Mono>{selected.firstSeenVersion ?? "—"}</Mono>
               </KeyValue>
             </dl>
 

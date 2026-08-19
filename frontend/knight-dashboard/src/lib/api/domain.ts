@@ -223,7 +223,12 @@ export interface ErrorGroup {
   status: "New" | "Acknowledged" | "Resolved" | "Ignored";
   firstSeenAt: string;
   lastSeenAt: string;
-  firstSeenVersion: string;
+  firstSeenVersion: string | null;
+  lastSeenVersion: string | null;
+
+  /** Resolved once, and back again. A fix that did not hold is not the same as a new problem. */
+  isRegression: boolean;
+  incidentId: string | null;
 }
 
 export interface Incident {

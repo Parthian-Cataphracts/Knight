@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Menu, X, Moon, Sun, Search, Bell, PanelLeftClose, PanelLeftOpen, Globe } from "lucide-react";
+import { Menu, X, Moon, Sun, Search, PanelLeftClose, PanelLeftOpen, Globe } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { useUiStore } from "@/store/ui";
+import { NotificationCentre } from "@/features/shared/NotificationCentre";
 import { cn } from "@/lib/utils/cn";
 
 export function AppLayout() {
@@ -109,13 +110,7 @@ export function AppLayout() {
             >
               {theme === "dark" ? <Sun className="size-5" /> : <Moon className="size-5" />}
             </button>
-            <button
-              type="button"
-              className="grid size-10 place-items-center rounded-md text-on-surface-variant hover:bg-surface-high"
-              aria-label={t("dashboard.alerts")}
-            >
-              <Bell className="size-5" />
-            </button>
+            <NotificationCentre />
           </div>
         </header>
 

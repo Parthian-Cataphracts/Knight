@@ -110,7 +110,20 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
     "/roles": fixtures.roles,
     "/reports": fixtures.reports,
     "/alerts": detail.alerts,
+    "/notifications": detail.notifications,
   };
+
+  // The notification centre asks with a query string; the fixture set is small
+  // enough that the filter would only hide the thing being demonstrated.
+  if (path.startsWith("/notifications?")) {
+    return json({
+      items: detail.notifications,
+      page: 1,
+      pageSize: detail.notifications.length,
+      totalCount: detail.notifications.length,
+      totalPages: 1,
+    });
+  }
 
   const collection = collections[path];
   if (collection) {

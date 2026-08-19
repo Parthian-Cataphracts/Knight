@@ -11,6 +11,16 @@ export function setAccessToken(token: string | null): void {
   accessToken = token;
 }
 
+/**
+ * The current bearer token, for the one caller that cannot go through
+ * <see cref="apiRequest"/>: the realtime connection, which must hand the token
+ * to its own transport. Kept as a getter rather than exported state so nothing
+ * can hold a stale copy across a refresh.
+ */
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
 export function setUnauthorizedHandler(handler: () => void): void {
   onUnauthorized = handler;
 }

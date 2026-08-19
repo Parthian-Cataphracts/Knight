@@ -287,3 +287,49 @@ export const installPlans: Record<string, InstallPlan> = {
     blockingReason: "این قابلیت زیرساخت اختصاصی می‌خواهد؛ میزبانی این فروشگاه اشتراکی است.",
   },
 };
+
+// --- Notifications -----------------------------------------------------------
+
+export interface NotificationDeliveryFixture {
+  id: string;
+  severity: "Info" | "Warning" | "Critical";
+  ruleKey: string;
+  title: string;
+  body: string;
+  status: string;
+  createdAt: string;
+  readAt: string | null;
+}
+
+export const notifications: NotificationDeliveryFixture[] = [
+  {
+    id: "nd1",
+    severity: "Critical",
+    ruleKey: "server.offline",
+    title: "web-01 has not reported for 5 minutes.",
+    body: "Rule server.offline fired on Server web-01.",
+    status: "Delivered",
+    createdAt: minutesAgo(6),
+    readAt: null,
+  },
+  {
+    id: "nd2",
+    severity: "Warning",
+    ruleKey: "feature.entitled_not_installed",
+    title: "cafe2.ir is entitled to analytics-reports but it is not installed.",
+    body: "No installation record exists at all.",
+    status: "Delivered",
+    createdAt: minutesAgo(45),
+    readAt: null,
+  },
+  {
+    id: "nd3",
+    severity: "Info",
+    ruleKey: "server.offline",
+    title: "Resolved: web-02 has not reported for 12 minutes.",
+    body: "The condition behind server.offline has cleared.",
+    status: "Delivered",
+    createdAt: minutesAgo(180),
+    readAt: minutesAgo(170),
+  },
+];
