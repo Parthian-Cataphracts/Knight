@@ -2,6 +2,7 @@ using FeatureDelivery;
 using FeatureRegistry.Domain;
 using Knight.Application.Abstractions.ControlPlane;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Stores.Domain;
 
 namespace Knight.Infrastructure.ControlPlane.Adapters;
@@ -165,5 +166,81 @@ internal sealed class FeatureVersionReader : IFeatureVersionReader
             migrations.Reversible,
             migrations.RequiresMaintenanceWindow,
             retentionDays);
+    }
+}
+
+/// <summary>
+/// Connects entitlement changes to delivery — the seam phase 2 left open on
+/// purpose (docs/feature-delivery.md §2).
+///
+/// It still logs, because the log line is what makes the commercial decision
+/// legible on its own, and it now also acts. The two halves are kept in that
+/// order deliberately: an entitlement change is a commercial fact that has
+/// already happened, so failing to act on it must never look like it did not
+/// happen.
+///
+/// A delivery failure here is logged rather than thrown. The alternative is that
+/// a subscription renewal fails because one of a customer's six stores is mid-job
+/// — which would make the billing path depend on the health of the delivery path,
+/// exactly the coupling that keeping entitlement and installation separate exists
+/// to prevent. Reconciliation catches whatever this missed.
+/// </summary>
+internal sealed class DeliveryEntitlementEventPublisher : IEntitlementEventPublisher
+{
+    private readonly IFeatureDeliveryService _delivery;
+    private readonly ILogger<DeliveryEntitlementEventPublisher> _logger;
+
+    public DeliveryEntitlementEventPublisher(
+        IFeatureDeliveryService delivery,
+        ILogger<DeliveryEntitlementEventPublisher> logger)
+    {
+        _delivery = delivery;
+        _logger = logger;
+    }
+
+    public async Task PublishAsync(FeatureEntitlementGranted @event, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Entitlement granted: customer {CustomerId} feature {FeatureId} source {Source} at {OccurredAt}",
+            @event.CustomerId,
+            @event.FeatureId,
+            @event.Source,
+            @event.OccurredAt);
+
+        await ApplyAsync(@event.CustomerId, @event.FeatureId, entitled: true, @event.Source, cancellationToken);
+    }
+
+    public async Task PublishAsync(FeatureEntitlementRevoked @event, CancellationToken cancellationToken)
+    {
+        // Disable, never uninstall, and never delete data (docs/adr/0016).
+        _logger.LogInformation(
+            "Entitlement revoked: customer {CustomerId} feature {FeatureId} reason {Reason} at {OccurredAt}",
+            @event.CustomerId,
+            @event.FeatureId,
+            @event.Reason,
+            @event.OccurredAt);
+
+        await ApplyAsync(@event.CustomerId, @event.FeatureId, entitled: false, @event.Reason, cancellationToken);
+    }
+
+    private async Task ApplyAsync(
+        Guid customerId,
+        Guid featureId,
+        bool entitled,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _delivery.ApplyEntitlementChangeAsync(customerId, featureId, entitled, reason, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogError(
+                exception,
+                "Entitlement change for customer {CustomerId} feature {FeatureId} was recorded but delivery could not act on it. Reconciliation will retry.",
+                customerId,
+                featureId);
+        }
     }
 }

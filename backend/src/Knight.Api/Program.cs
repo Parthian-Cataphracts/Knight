@@ -220,11 +220,13 @@ app.UseAuthorization();
 
 app.MapControlPlaneAuthEndpoints();
 app.MapStoreIngestEndpoints();
+app.MapStoreJobEndpoints();
 app.MapControlPlaneCustomerEndpoints();
 app.MapControlPlaneStoreEndpoints();
 app.MapControlPlaneAuditLogEndpoints();
 app.MapControlPlaneLogEndpoints();
 app.MapControlPlanePlanEndpoints();
+app.MapControlPlaneDeliveryEndpoints();
 app.MapControlPlaneSubscriptionEndpoints();
 app.MapControlPlaneBillingEndpoints();
 app.MapControlPlaneAccessEndpoints();

@@ -1,3 +1,4 @@
+using FeatureDelivery;
 using AccessControl;
 using Billing;
 using Customers;
@@ -26,6 +27,7 @@ public static class ControlPlaneComposition
         services.AddCustomersModule();
         services.AddStoresModule(configuration);
         services.AddFeatureRegistryModule();
+        services.AddFeatureDeliveryModule(configuration);
         services.AddPlansModule();
         services.AddSubscriptionsModule(configuration);
         services.AddBillingModule(configuration);
