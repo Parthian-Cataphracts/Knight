@@ -69,7 +69,18 @@ dist/
 .env.local
 
 # Built feature artifacts and the local package store. Delivered code is built,
-# signed and published — never committed.
+# signed and published — never committed. The rule applies wherever a store
+# keeps its own registry, not only at the repository root: a checked-in
+# installed.json would tell a fresh clone that features are present which are
+# not, and the store reporting its true state is what makes drift detectable.
 /dist/
 /artifacts/
 /knight-features/
+stores/knight-features/
+
+# Python build and cache output.
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
