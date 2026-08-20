@@ -8,29 +8,56 @@ that an order priced by them stays explicable once they are gone
 
 Skipped when the packages are not installed, which is the honest thing for a
 suite that must also pass on a base store with no Features on it.
+
+"Installed" here means installed *as a Feature* — present in the store's
+feature registry and therefore in `INSTALLED_APPS` — not merely importable.
+The two are different states, and only the first one makes the models usable:
+a package that pip has put on the path but the installer has never registered
+raises `RuntimeError` from the model metaclass, not `ImportError`. Asking
+Django's app registry is the only check that distinguishes them.
 """
 
+import os
 from decimal import Decimal
 from unittest import skipUnless
 
+from django.apps import apps as django_apps
 from django.test import TestCase
 from django.utils import timezone
 
-try:  # pragma: no cover - the import itself is the capability check
+PROMOTIONS_INSTALLED = django_apps.is_installed("knight_feature_promotions")
+DELIVERY_INSTALLED = django_apps.is_installed("knight_feature_delivery")
+
+# CI installs both Features and must therefore run both suites. Skipping is the
+# right behaviour on a base store and the wrong behaviour there, and the
+# difference is invisible in a green run — the same reason the backend suite
+# refuses to skip its PostgreSQL tests when REQUIRE_POSTGRES_TESTS is set
+# ([`adr/0005`](../../../../../docs/adr/0005-postgresql-integration-testing.md)).
+if os.environ.get("REQUIRE_FEATURE_TESTS") == "1":
+    missing = [
+        name
+        for name, installed in (
+            ("knight-feature-promotions", PROMOTIONS_INSTALLED),
+            ("knight-feature-delivery", DELIVERY_INSTALLED),
+        )
+        if not installed
+    ]
+
+    if missing:
+        raise RuntimeError(
+            "REQUIRE_FEATURE_TESTS=1 but these Features are not installed on this store: "
+            + ", ".join(missing)
+            + ". Register them with `manage.py knight_install_local` before running the suite; "
+            "letting these tests skip here would report a pass for code nothing ran."
+        )
+
+if PROMOTIONS_INSTALLED:  # pragma: no cover - guarded by the registry above
     from knight_feature_promotions import services as promotions
     from knight_feature_promotions.models import Coupon, DiscountType, Promotion, PromotionStatus
 
-    PROMOTIONS_INSTALLED = True
-except ImportError:  # pragma: no cover
-    PROMOTIONS_INSTALLED = False
-
-try:  # pragma: no cover
+if DELIVERY_INSTALLED:  # pragma: no cover
     from knight_feature_delivery import services as delivery
     from knight_feature_delivery.models import DeliverySettings, DeliveryZone
-
-    DELIVERY_INSTALLED = True
-except ImportError:  # pragma: no cover
-    DELIVERY_INSTALLED = False
 
 
 @skipUnless(PROMOTIONS_INSTALLED, "The promotions Feature is not installed.")

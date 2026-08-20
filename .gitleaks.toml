@@ -44,4 +44,9 @@ regexes = [
   # client-chosen request identifier, deliberately visible to whoever makes the
   # request — it authenticates nothing.
   '''idemp-[a-z0-9-]+''',
+
+  # The webhook signing secret in the notification tests. The test writes
+  # this literal and then asserts the API response does not contain it, so
+  # the value exists precisely to prove that secrets are redacted.
+  '''s3cret-signing-key''',
 ]
