@@ -116,6 +116,11 @@ internal sealed class ControlPlaneUserConfiguration : IEntityTypeConfiguration<C
         builder.Property(u => u.MfaSecret).HasMaxLength(200);
         builder.Property(u => u.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
 
+        // A hash, never the token. Indexed because following an invitation link
+        // is a lookup by exactly this value.
+        builder.Property(u => u.ActivationTokenHash).HasMaxLength(200);
+        builder.HasIndex(u => u.ActivationTokenHash);
+
         builder.HasIndex(u => u.NormalizedEmail).IsUnique();
         builder.HasIndex(u => u.CustomerId);
 

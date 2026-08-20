@@ -24,6 +24,14 @@ public interface IControlPlaneUserRepository
     /// </summary>
     Task<ControlPlaneUser?> FindForAuthenticationByIdAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Resolves an account from the hash of an activation token. Runs before any
+    /// scope exists — whoever follows an invitation link is not signed in — so
+    /// it is deliberately not customer-filtered, and it matches on the hash
+    /// rather than on anything the caller could enumerate.
+    /// </summary>
+    Task<ControlPlaneUser?> FindByActivationTokenAsync(string tokenHash, CancellationToken cancellationToken);
+
     Task<bool> ExistsWithEmailAsync(string normalizedEmail, CancellationToken cancellationToken);
 
     Task<(IReadOnlyCollection<ControlPlaneUser> Items, long TotalCount)> ListAsync(

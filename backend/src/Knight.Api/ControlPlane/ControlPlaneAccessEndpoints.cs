@@ -63,9 +63,10 @@ public static class ControlPlaneAccessEndpoints
             // customer, whatever the body asks for.
             var customerId = principal.CustomerId ?? request.CustomerId;
 
-            var (user, password) = await administration.CreateAsync(
+            var created = await administration.CreateAsync(
                 request.Email, request.DisplayName, customerId, request.RoleIds, cancellationToken);
 
+            var user = created.User;
             var roleNames = await labels.RoleNamesForUsersAsync([user.Id], cancellationToken);
             var customerNames = customerId is { } id
                 ? await labels.CustomerNamesAsync([id], cancellationToken)
@@ -76,7 +77,12 @@ public static class ControlPlaneAccessEndpoints
                 new CreatedAccountResponse
                 {
                     Account = ToResponse(user, roleNames, customerNames),
-                    TemporaryPassword = password,
+
+                    // Present only where no invitation could be sent. The two
+                    // are deliberately exclusive: a response carrying both would
+                    // mean a password existed that nobody needed to know.
+                    TemporaryPassword = created.TemporaryPassword,
+                    InvitationSent = created.InvitationSent,
                 });
         }).RequirePermission(ControlPlanePermissions.UserManage);
 
@@ -142,10 +148,18 @@ public static class ControlPlaneAccessEndpoints
             IAccountAdministration administration,
             CancellationToken cancellationToken) =>
         {
+            // An account that has not activated yet gets a fresh invitation
+            // rather than a password: it never had one, and handing one over
+            // would undo the reason the invitation exists.
+            if (await administration.ResendInvitationAsync(id, cancellationToken))
+            {
+                return Results.Ok(new TemporaryPasswordResponse { TemporaryPassword = null, InvitationSent = true });
+            }
+
             var password = await administration.ResetPasswordAsync(id, cancellationToken);
 
             // Returned once. There is no endpoint that reads it back.
-            return Results.Ok(new TemporaryPasswordResponse { TemporaryPassword = password });
+            return Results.Ok(new TemporaryPasswordResponse { TemporaryPassword = password, InvitationSent = false });
         }).RequirePermission(ControlPlanePermissions.UserManage);
 
         var roles = endpoints.MapGroup("/api/v1/roles")

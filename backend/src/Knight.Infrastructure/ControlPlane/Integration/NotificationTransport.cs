@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Knight.Application.Abstractions.ControlPlane;
 using Knight.Application.Abstractions.Security;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -21,26 +22,29 @@ namespace Knight.Infrastructure.ControlPlane.Integration;
 /// created a second, unguarded egress path out of the control plane
 /// (docs/security-threat-model.md, SSRF).
 ///
-/// Email has no SMTP implementation yet and says so plainly rather than
-/// pretending: it records the message and reports success only for the in-app
-/// and webhook kinds. A transport that silently swallowed mail would be worse
-/// than one that is honestly not built — the failure would surface as "nobody
-/// was told" during the first incident that needed it.
+/// Email goes out through the deployment's mail transport where one is
+/// configured, and is refused — loudly, as a fatal delivery — where none is. A
+/// transport that silently swallowed mail would be worse than one that is
+/// honestly absent: the failure would surface as "nobody was told" during the
+/// first incident that needed it.
 /// </summary>
 internal sealed class NotificationTransport : INotificationTransport
 {
     private readonly IHttpClientFactory _clients;
+    private readonly IEmailSender _email;
     private readonly ISecretProtector _secrets;
     private readonly ILogger<NotificationTransport> _logger;
     private readonly ObservabilityOptions _options;
 
     public NotificationTransport(
         IHttpClientFactory clients,
+        IEmailSender email,
         ISecretProtector secrets,
         ILogger<NotificationTransport> logger,
         IOptions<ObservabilityOptions> options)
     {
         _clients = clients;
+        _email = email;
         _secrets = secrets;
         _logger = logger;
         _options = options.Value;
@@ -57,7 +61,7 @@ internal sealed class NotificationTransport : INotificationTransport
             // it never touches one.
             NotificationChannelKind.InApp => Task.FromResult(NotificationSendResult.Success),
             NotificationChannelKind.Webhook => SendWebhookAsync(channel, delivery, cancellationToken),
-            NotificationChannelKind.Email => Task.FromResult(SendEmail(channel, delivery)),
+            NotificationChannelKind.Email => SendEmailAsync(channel, delivery, cancellationToken),
             _ => Task.FromResult(NotificationSendResult.Fatal($"Unsupported channel kind '{channel.Kind}'.")),
         };
 
@@ -151,19 +155,53 @@ internal sealed class NotificationTransport : INotificationTransport
         }
     }
 
-    private NotificationSendResult SendEmail(NotificationChannel channel, NotificationDelivery delivery)
+    private async Task<NotificationSendResult> SendEmailAsync(
+        NotificationChannel channel,
+        NotificationDelivery delivery,
+        CancellationToken cancellationToken)
     {
-        // Deliberately a refusal, not a silent success. KNIGHT has no mail
-        // transport configured, and reporting "delivered" for a message that went
-        // nowhere would make the delivery log — the record of who was told what —
-        // a lie exactly where it matters most.
-        _logger.LogWarning(
-            "Email channel {ChannelId} cannot deliver {DeliveryId}: no mail transport is configured on this host.",
-            channel.Id,
-            delivery.Id);
+        if (string.IsNullOrWhiteSpace(channel.Endpoint))
+        {
+            return NotificationSendResult.Fatal("The channel has no destination address.");
+        }
 
-        return NotificationSendResult.Fatal(
-            "No mail transport is configured. Use a webhook or the in-app channel until one is.");
+        if (!_email.IsConfigured)
+        {
+            // A refusal, not a silent success. Reporting "delivered" for a
+            // message that went nowhere would make the delivery log — the record
+            // of who was told what — a lie exactly where it matters most.
+            _logger.LogWarning(
+                "Email channel {ChannelId} cannot deliver {DeliveryId}: no mail transport is configured on this host.",
+                channel.Id,
+                delivery.Id);
+
+            return NotificationSendResult.Fatal(
+                "No mail transport is configured. Use a webhook or the in-app channel until one is.");
+        }
+
+        var body = string.Join(
+            Environment.NewLine + Environment.NewLine,
+            delivery.Title,
+            delivery.Body,
+            $"Severity: {delivery.Severity}",
+            $"Rule: {delivery.RuleKey}",
+            $"Subject: {delivery.Subject} {delivery.SubjectId}",
+            $"Occurred: {delivery.CreatedAt:u}");
+
+        var result = await _email.SendAsync(
+            new EmailMessage(channel.Endpoint, $"[KNIGHT {delivery.Severity}] {delivery.Title}", body),
+            cancellationToken);
+
+        if (result.Delivered)
+        {
+            return NotificationSendResult.Success;
+        }
+
+        // A bad address stays bad; a busy mail server does not. Retrying the
+        // first forever is how a queue fills with messages nobody will read.
+        return result.IsPermanent
+            ? NotificationSendResult.Fatal(result.Error ?? "The message was refused.")
+            : NotificationSendResult.Transient(result.Error ?? "The mail server did not accept the message.");
     }
 
     private string Sign(string cipher, string payload)

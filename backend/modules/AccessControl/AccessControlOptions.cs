@@ -23,4 +23,12 @@ public sealed class AccessControlOptions
 
     /// <summary>Shown in the authenticator app during enrolment.</summary>
     public string MfaIssuer { get; init; } = "KNIGHT";
+
+    /// <summary>
+    /// How long an emailed invitation stays usable. Two days by default: long
+    /// enough to survive a weekend, short enough that a forwarded mail sitting
+    /// in an old inbox is not a way into an account nobody has claimed yet.
+    /// </summary>
+    [Range(typeof(TimeSpan), "01:00:00", "14.00:00:00")]
+    public TimeSpan InvitationLifetime { get; init; } = TimeSpan.FromDays(2);
 }

@@ -41,6 +41,15 @@ public sealed class ControlPlaneUser : AuditableEntity, ICustomerScoped
 
     public DateTimeOffset? LastLoginAt { get; private set; }
 
+    /// <summary>
+    /// Hash of the outstanding activation token. The plaintext is in exactly one
+    /// place — the link in the invitation mail — and never here, so a leak of
+    /// this table cannot be used to activate anybody's account.
+    /// </summary>
+    public string? ActivationTokenHash { get; private set; }
+
+    public DateTimeOffset? ActivationExpiresAt { get; private set; }
+
     private readonly List<UserRoleAssignment> _roles = [];
 
     public IReadOnlyCollection<UserRoleAssignment> Roles => _roles.AsReadOnly();
@@ -162,6 +171,63 @@ public sealed class ControlPlaneUser : AuditableEntity, ICustomerScoped
         DisplayName = displayName.Trim();
         MarkUpdated(now);
     }
+
+    /// <summary>
+    /// Arms an invitation: the account waits, unable to sign in, until whoever
+    /// holds the emailed link sets a password.
+    ///
+    /// The account is left with a password hash nobody knows — one is generated
+    /// and discarded — rather than with none, so there is never a moment where
+    /// an account exists that can be signed into without a credential.
+    /// </summary>
+    public void BeginActivation(string tokenHash, DateTimeOffset expiresAt, DateTimeOffset now)
+    {
+        if (string.IsNullOrWhiteSpace(tokenHash))
+        {
+            throw DomainException.Validation("An activation token hash is required.");
+        }
+
+        if (Status is AccountStatus.Disabled)
+        {
+            throw DomainException.Conflict("A disabled account cannot be invited.");
+        }
+
+        ActivationTokenHash = tokenHash;
+        ActivationExpiresAt = expiresAt;
+        Status = AccountStatus.Invited;
+        MarkUpdated(now);
+    }
+
+    /// <summary>
+    /// Consumes the invitation: the account gets the password its holder chose
+    /// and becomes usable.
+    ///
+    /// The token is cleared rather than marked used, so a captured link cannot
+    /// be replayed even against the hash. An expired one is refused: an
+    /// invitation that never expired would be a permanent way into an account
+    /// nobody has signed into yet.
+    /// </summary>
+    public void CompleteActivation(string passwordHash, DateTimeOffset now)
+    {
+        if (ActivationTokenHash is null)
+        {
+            throw DomainException.Conflict("This account has no outstanding invitation.");
+        }
+
+        if (ActivationExpiresAt is { } expiry && now > expiry)
+        {
+            throw DomainException.Conflict("The invitation has expired. Ask an administrator for a new one.");
+        }
+
+        ChangePasswordHash(passwordHash, now);
+        ActivationTokenHash = null;
+        ActivationExpiresAt = null;
+        Status = AccountStatus.Active;
+        MarkUpdated(now);
+    }
+
+    public bool HasOutstandingInvitation(DateTimeOffset now) =>
+        ActivationTokenHash is not null && (ActivationExpiresAt is null || now <= ActivationExpiresAt);
 
     public void ChangePasswordHash(string passwordHash, DateTimeOffset now)
     {

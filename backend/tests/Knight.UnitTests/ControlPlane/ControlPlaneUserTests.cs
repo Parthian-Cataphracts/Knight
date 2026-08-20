@@ -197,4 +197,51 @@ public sealed class ControlPlaneUserTests
 
         Assert.Throws<DomainException>(() => user.RemoveRole(Guid.NewGuid(), Now));
     }
+
+    // --- Invitations -------------------------------------------------------
+
+    [Fact]
+    public void AnInvitedAccount_CannotAuthenticateUntilItIsActivated()
+    {
+        var user = PlatformUser();
+        user.BeginActivation("token-hash", Now.AddDays(2), Now);
+
+        Assert.Equal(AccountStatus.Invited, user.Status);
+        Assert.False(user.CanAuthenticate(Now));
+        Assert.True(user.HasOutstandingInvitation(Now));
+    }
+
+    [Fact]
+    public void CompletingAnInvitation_SetsThePasswordAndBurnsTheToken()
+    {
+        var user = PlatformUser();
+        user.BeginActivation("token-hash", Now.AddDays(2), Now);
+
+        user.CompleteActivation("chosen-hash", Now.AddHours(1));
+
+        Assert.Equal(AccountStatus.Active, user.Status);
+        Assert.Equal("chosen-hash", user.PasswordHash);
+
+        // Cleared rather than marked used: a captured link must not be
+        // replayable even against the stored hash.
+        Assert.Null(user.ActivationTokenHash);
+        Assert.False(user.HasOutstandingInvitation(Now.AddHours(1)));
+    }
+
+    [Fact]
+    public void AnExpiredInvitation_IsRefused()
+    {
+        var user = PlatformUser();
+        user.BeginActivation("token-hash", Now.AddDays(2), Now);
+
+        Assert.Throws<DomainException>(() => user.CompleteActivation("chosen-hash", Now.AddDays(3)));
+    }
+
+    [Fact]
+    public void AnAccountWithNoInvitation_CannotBeActivatedByToken()
+    {
+        var user = PlatformUser();
+
+        Assert.Throws<DomainException>(() => user.CompleteActivation("chosen-hash", Now));
+    }
 }
