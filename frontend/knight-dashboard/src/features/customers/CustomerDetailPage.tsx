@@ -44,6 +44,26 @@ export function CustomerDetailPage() {
   );
 
   const [noteBody, setNoteBody] = useState("");
+
+  // A manual grant is deliberately its own act, separate from the plan.
+  // Entitlement resolution reconciles what a subscription implies; a grant is a
+  // human overriding that, and the two must stay distinguishable in the record
+  // (docs/adr/0019-entitlement-as-an-explicit-record.md).
+  const grant = useAction<unknown, string>(
+    (featureId) => ({
+      path: `/customers/${customerId}/entitlements`,
+      options: { body: { featureId } },
+    }),
+    ["/installations", "/customers"],
+  );
+
+  const revoke = useAction<unknown, string>(
+    (featureId) => ({
+      path: `/customers/${customerId}/entitlements/${featureId}/revoke`,
+      options: { body: { reason: "Revoked from the dashboard." } },
+    }),
+    ["/installations", "/customers"],
+  );
   const [noteError, setNoteError] = useState<string | null>(null);
 
   const addNote = async () => {
@@ -384,13 +404,48 @@ export function CustomerDetailPage() {
             <>
               <CardHeader title={t("customerDetail.entitlements")} />
               <DataTable
-                columns={entitlementColumns}
+                columns={
+                  can("subscription.manage")
+                    ? [
+                        ...entitlementColumns,
+                        {
+                          key: "grant",
+                          header: t("customerDetail.manualGrant"),
+                          render: (row: Installation) =>
+                            row.entitled ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={revoke.isPending}
+                                onClick={() => revoke.mutate(row.featureId)}
+                              >
+                                {t("customerDetail.revoke")}
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={grant.isPending}
+                                onClick={() => grant.mutate(row.featureId)}
+                              >
+                                {t("customerDetail.grant")}
+                              </Button>
+                            ),
+                        },
+                      ]
+                    : entitlementColumns
+                }
                 rows={customerInstallations}
                 rowKey={(row) => row.id}
-                cardTitle={(row) => row.featureName}
+                cardTitle={(row) => row.featureName ?? row.featureSlug}
                 emptyMessage={t("common.noResults")}
               />
               <CardBody className="border-t border-outline-variant text-body-sm text-on-surface-variant">
+                {grant.isError || revoke.isError ? (
+                  <p role="alert" className="mb-2 text-error">
+                    {(grant.error ?? revoke.error)?.message}
+                  </p>
+                ) : null}
                 {t("customerDetail.entitlementNote")}
               </CardBody>
             </>

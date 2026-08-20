@@ -193,7 +193,10 @@
     "irreversible": "irreversible",
     "dependencies": "Dependencies",
     "publishedAt": "Published",
-    "publishWarning": "Publishing ships executable code to every entitled store."
+    "publishWarning": "Publishing ships executable code to every entitled store.",
+    "deprecate": "Deprecate",
+    "activate": "Make available",
+    "withdraw": "Withdraw"
   },
   "featureStatus": {
     "Published": "Published",
@@ -306,7 +309,11 @@
     "plan": "Plan",
     "optionalFeatures": "Optional features",
     "monthlyTotal": "Monthly total",
-    "periodEnd": "Period ends"
+    "periodEnd": "Period ends",
+    "change": "Change plan",
+    "applyChange": "Apply change",
+    "quote": "Price",
+    "quoteHint": "This is the figure the next invoice will carry: the quote and the invoice share one calculation."
   },
   "subscriptionStatus": {
     "Active": "Active",
@@ -322,7 +329,13 @@
     "period": "Period",
     "total": "Total",
     "issuedAt": "Issued",
-    "currency": "IRT"
+    "currency": "IRT",
+    "issue": "Issue",
+    "void": "Void",
+    "recordPayment": "Record payment",
+    "recordPaymentHint": "KNIGHT records payments that happened elsewhere. It does not take one.",
+    "amount": "Amount",
+    "reference": "Reference"
   },
   "invoiceStatus": {
     "Draft": "Draft",
@@ -343,7 +356,14 @@
     "uptime": "Uptime",
     "agentNote": "The agent only reports and runs typed jobs; it has no shell and executes no arbitrary commands.",
     "cpuTrend": "CPU trend (last 12 samples)",
-    "memoryTrend": "Memory trend"
+    "memoryTrend": "Memory trend",
+    "registerServer": "Register server",
+    "addAgent": "Add agent",
+    "decommission": "Decommission",
+    "hostingModel": "Hosting model",
+    "provider": "Provider",
+    "region": "Region",
+    "tokenShownOnce": "This provisioning token is shown once and is burned on first use. Copy it now."
   },
   "monitoring": {
     "subtitle": "Store health and the active alert rules.",
@@ -603,7 +623,10 @@
     "noStores": "No stores registered.",
     "noAdmins": "No admins recorded.",
     "entitlementNote": "Entitlement is the right to use; installation is the capability actually running in the store. Both are tracked separately.",
-    "isolationNote": "Per-customer data access is enforced by the API; this page only displays it."
+    "isolationNote": "Per-customer data access is enforced by the API; this page only displays it.",
+    "manualGrant": "Manual grant",
+    "grant": "Grant",
+    "revoke": "Revoke"
   },
   "createCustomer": {
     "title": "Create customer",
@@ -681,5 +704,12 @@
     "open": "Open",
     "acknowledged": "Acknowledged",
     "resolved": "Resolved"
+  },
+  "paymentMethod": {
+    "BankTransfer": "Bank transfer",
+    "Card": "Card",
+    "Cash": "Cash",
+    "Credit": "Credit",
+    "Other": "Other"
   }
 }
