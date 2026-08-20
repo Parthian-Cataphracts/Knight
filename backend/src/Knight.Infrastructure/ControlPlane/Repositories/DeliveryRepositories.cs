@@ -164,6 +164,7 @@ internal sealed class FeatureInstallationRepository : IFeatureInstallationReposi
 
         var items = await query
             .OrderBy(installation => installation.FeatureSlug)
+            .ThenBy(installation => installation.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
@@ -277,6 +278,7 @@ internal sealed class FeatureInstallationJobRepository : IFeatureInstallationJob
 
         var items = await query
             .OrderByDescending(job => job.QueuedAt)
+            .ThenBy(job => job.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);

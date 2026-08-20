@@ -52,6 +52,7 @@ internal sealed class ServerRepository : IServerRepository
 
         var items = await query
             .OrderBy(server => server.Name)
+            .ThenBy(server => server.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
@@ -258,6 +259,7 @@ internal sealed class AlertRepository : IAlertRepository
         var items = await query
             .OrderByDescending(alert => alert.Severity)
             .ThenByDescending(alert => alert.RaisedAt)
+            .ThenBy(alert => alert.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
