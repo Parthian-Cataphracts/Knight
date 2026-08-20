@@ -67,7 +67,7 @@ export function MonitoringPage() {
       key: "features",
       header: t("monitoring.installedFeatures"),
       numeric: true,
-      render: (row) => row.installedFeatureCount,
+      render: (row) => row.installedFeatureCount ?? "—",
     },
     {
       key: "lastSeen",

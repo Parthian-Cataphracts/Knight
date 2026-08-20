@@ -54,15 +54,41 @@ public interface IPlanSubscriberReader
 }
 
 /// <summary>
-/// The commercial facts about a feature that the catalogue screen shows beside
-/// each row: which plans offer it, and how many customers hold it.
+/// The facts about a feature that the catalogue screen shows beside each row.
+///
+/// Two of them are commercial — which plans offer it, how many customers hold
+/// it — and two are about delivery: the newest version an operator could install
+/// and how many stores are running it today. Entitlement and installation are
+/// separate facts (docs/README.md), so a feature can perfectly well be sold to
+/// twenty customers and installed nowhere.
 /// </summary>
-public sealed record FeatureUsage(Guid FeatureId, IReadOnlyCollection<string> PlanKeys, int EntitledCount);
+public sealed record FeatureUsage(
+    Guid FeatureId,
+    IReadOnlyCollection<string> PlanKeys,
+    int EntitledCount,
+    string? LatestVersion,
+    int InstallCount);
 
 public interface IFeatureUsageReader
 {
     Task<IReadOnlyDictionary<Guid, FeatureUsage>> SummariseAsync(
         IReadOnlyCollection<Guid> featureIds,
+        CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// How many features are actually installed on each store, for the store list
+/// and the fleet health screen.
+///
+/// A separate read rather than a column on the store: installation is owned by
+/// the delivery subsystem and is a different fact from entitlement, so a store
+/// entitled to six features and running two is a perfectly ordinary state that
+/// the store aggregate has no business knowing about.
+/// </summary>
+public interface IStoreFeatureCountReader
+{
+    Task<IReadOnlyDictionary<Guid, int>> CountInstalledAsync(
+        IReadOnlyCollection<Guid> storeIds,
         CancellationToken cancellationToken);
 }
 

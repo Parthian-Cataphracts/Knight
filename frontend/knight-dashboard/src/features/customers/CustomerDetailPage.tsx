@@ -136,7 +136,7 @@ export function CustomerDetailPage() {
       ),
     },
     { key: "version", header: t("stores.version"), mono: true, render: (row) => row.applicationVersion ?? "—" },
-    { key: "features", header: t("stores.features"), numeric: true, render: (row) => row.installedFeatureCount },
+    { key: "features", header: t("stores.features"), numeric: true, render: (row) => row.installedFeatureCount ?? "—" },
   ];
 
   const entitlementColumns: Column<Installation>[] = [
@@ -193,7 +193,7 @@ export function CustomerDetailPage() {
         </StatusChip>
       ),
     },
-    { key: "lastSeen", header: t("access.lastSeen"), render: (row) => (row.lastSeenAt ? formatRelative(row.lastSeenAt) : "—") },
+    { key: "lastSeen", header: t("access.lastSeen"), render: (row) => formatRelative(row.lastLoginAt) },
   ];
 
   const invoiceColumns: Column<Invoice>[] = [
