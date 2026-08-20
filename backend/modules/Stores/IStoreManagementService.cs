@@ -10,7 +10,17 @@ public sealed record CreateStoreInput(
     StoreEnvironment Environment,
     HostingModel HostingModel);
 
-public sealed record UpdateStoreInput(string Name, string PrimaryDomain, Guid? ServerId);
+/// <summary>
+/// <paramref name="Environment"/> is null when the caller is not changing it.
+/// Distinguishing "leave it alone" from "set it to Development" matters here,
+/// because setting it resets the store's integration link
+/// (<see cref="Domain.Store.ChangeEnvironment"/>).
+/// </summary>
+public sealed record UpdateStoreInput(
+    string Name,
+    string PrimaryDomain,
+    Guid? ServerId,
+    Domain.StoreEnvironment? Environment = null);
 
 public sealed record StoreListQuery(int Page, int PageSize, Guid? CustomerId, StoreEnvironment? Environment, StoreStatus? Status);
 

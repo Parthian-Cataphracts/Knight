@@ -13,6 +13,10 @@ export interface EditField {
   ltr?: boolean;
   required?: boolean;
   placeholder?: string;
+  /** Renders a select instead of a text box. For fields the API only accepts a fixed set of values for. */
+  choices?: { value: string; label: string }[];
+  /** Shown under the field. Use it where saving a value has a consequence worth stating before the operator saves. */
+  note?: string;
 }
 
 /**
@@ -26,9 +30,9 @@ export interface EditField {
  * server makes, and a form that swallowed them would leave an operator pressing
  * save and watching nothing happen.
  *
- * Deliberately not a generic form builder. It takes flat text fields because
- * that is what these aggregates expose; anything richer belongs on its own
- * screen where it can be designed properly.
+ * Deliberately not a generic form builder. It takes flat fields — text, or a
+ * fixed set of choices — because that is what these aggregates expose; anything
+ * richer belongs on its own screen where it can be designed properly.
  */
 export function EditDrawer({
   open,
@@ -108,16 +112,46 @@ export function EditDrawer({
         ) : null}
 
         {fields.map((field) => (
-          <TextField
-            key={field.key}
-            label={field.label}
-            value={values[field.key] ?? ""}
-            dir={field.ltr ? "ltr" : undefined}
-            placeholder={field.placeholder}
-            onChange={(event) =>
-              setValues((current) => ({ ...current, [field.key]: event.target.value }))
-            }
-          />
+          <div key={field.key} className="flex flex-col gap-1.5">
+            {field.choices ? (
+              <>
+                <label
+                  htmlFor={`edit-${field.key}`}
+                  className="text-body-sm font-medium text-on-surface-variant"
+                >
+                  {field.label}
+                </label>
+                <select
+                  id={`edit-${field.key}`}
+                  value={values[field.key] ?? ""}
+                  onChange={(event) =>
+                    setValues((current) => ({ ...current, [field.key]: event.target.value }))
+                  }
+                  className="h-11 w-full rounded-md border border-outline-variant bg-surface-low px-3 text-body text-on-surface focus:border-primary focus:outline-none"
+                >
+                  {field.choices.map((choice) => (
+                    <option key={choice.value} value={choice.value}>
+                      {choice.label}
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <TextField
+                label={field.label}
+                value={values[field.key] ?? ""}
+                dir={field.ltr ? "ltr" : undefined}
+                placeholder={field.placeholder}
+                onChange={(event) =>
+                  setValues((current) => ({ ...current, [field.key]: event.target.value }))
+                }
+              />
+            )}
+
+            {field.note ? (
+              <p className="text-body-sm text-on-surface-variant">{field.note}</p>
+            ) : null}
+          </div>
         ))}
       </div>
     </Drawer>

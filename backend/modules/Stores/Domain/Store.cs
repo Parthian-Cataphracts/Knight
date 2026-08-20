@@ -141,6 +141,42 @@ public sealed class Store : AuditableEntity, ICustomerOwned
         MarkUpdated(now);
     }
 
+    /// <summary>
+    /// Moves the store to a different environment.
+    ///
+    /// This is not a label change. A store's session tokens and its entitlement
+    /// signing key are both derived from its environment, so every credential
+    /// the store currently holds stops verifying the moment this returns — which
+    /// is the property that keeps a staging store from ever reporting into
+    /// production, and it must not be quietly weakened just because an operator
+    /// picked the wrong value on the creation form.
+    ///
+    /// So the link is reset rather than left claiming to be connected: the store
+    /// must handshake again, and until it does the dashboard says so. Domain
+    /// verification is cleared for the same reason it is cleared on a domain
+    /// change — the proof was given under the old identity.
+    /// </summary>
+    public void ChangeEnvironment(StoreEnvironment environment, DateTimeOffset now)
+    {
+        EnsureNotArchived();
+
+        if (environment == Environment)
+        {
+            return;
+        }
+
+        Environment = environment;
+
+        // Back to square one, deliberately. Anything else would show a link
+        // state that the store's own credentials can no longer produce.
+        IntegrationStatus = IntegrationStatus.NotRegistered;
+        ApplicationVersion = null;
+        LastSeenAt = null;
+        ClearDomainVerification();
+
+        MarkUpdated(now);
+    }
+
     public void AssignServer(Guid? serverId, DateTimeOffset now)
     {
         EnsureNotArchived();

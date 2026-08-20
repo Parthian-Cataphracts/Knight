@@ -24,6 +24,16 @@ public sealed record UpdateStoreRequest
     public required string PrimaryDomain { get; init; }
 
     public Guid? ServerId { get; init; }
+
+    /// <summary>
+    /// Development, Staging or Production. Omit to leave it unchanged.
+    ///
+    /// Changing it invalidates every credential the store currently holds and
+    /// resets its integration link, because both its session tokens and its
+    /// entitlement signing key are derived from the environment. The store must
+    /// handshake again afterwards.
+    /// </summary>
+    public string? Environment { get; init; }
 }
 
 public sealed record StoreCredentialResponse

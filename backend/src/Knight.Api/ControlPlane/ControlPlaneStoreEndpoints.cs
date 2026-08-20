@@ -128,7 +128,23 @@ public static class ControlPlaneStoreEndpoints
             IDateTimeProvider clock,
             CancellationToken cancellationToken) =>
         {
-            var store = await service.UpdateAsync(id, new UpdateStoreInput(request.Name, request.PrimaryDomain, request.ServerId), cancellationToken);
+            StoreEnvironment? environment = null;
+
+            if (!string.IsNullOrWhiteSpace(request.Environment))
+            {
+                if (!Enum.TryParse<StoreEnvironment>(request.Environment, ignoreCase: true, out var parsed))
+                {
+                    return ValidationProblem("environment", $"'{request.Environment}' is not a recognised environment.");
+                }
+
+                environment = parsed;
+            }
+
+            var store = await service.UpdateAsync(
+                id,
+                new UpdateStoreInput(request.Name, request.PrimaryDomain, request.ServerId, environment),
+                cancellationToken);
+
             return Results.Ok(ToResponse(store, clock.UtcNow));
         }).RequirePermission(ControlPlanePermissions.StoreManage);
 
