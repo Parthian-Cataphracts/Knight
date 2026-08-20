@@ -16,7 +16,8 @@ export interface Customer {
   name: string;
   contactEmail: string;
   status: CustomerStatus;
-  planKey: string;
+  /** Absent until the customer has a subscription. */
+  planKey: string | null;
   storeCount: number;
   createdAt: string;
 }

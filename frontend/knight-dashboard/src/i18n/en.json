@@ -128,7 +128,8 @@
     "activate": "Activate",
     "archive": "Archive",
     "edit": "Edit customer",
-    "contactEmail": "Contact email"
+    "contactEmail": "Contact email",
+    "noPlan": "No plan"
   },
   "customerStatus": {
     "Active": "Active",

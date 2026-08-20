@@ -19,6 +19,7 @@ import { LoadingBlock, ErrorBlock } from "@/components/ui/StateBlock";
 import { useAuthStore } from "@/store/auth";
 import { formatDateTime, formatNumber, formatRelative } from "@/lib/utils/format";
 import { installationTone } from "@/features/installations/installationTone";
+import { planLabel } from "@/lib/utils/planLabel";
 
 type Tab = "overview" | "stores" | "entitlements" | "admins" | "billing" | "activity";
 
@@ -227,7 +228,7 @@ export function CustomerDetailPage() {
 
       <PageHeader
         title={customer.name}
-        subtitle={`${customer.contactEmail} · ${t(`planKey.${customer.planKey}`)}`}
+        subtitle={`${customer.contactEmail} · ${planLabel(t, customer.planKey)}`}
         actions={
           can("customer.update") ? (
             <>
@@ -314,7 +315,7 @@ export function CustomerDetailPage() {
                     {t(`customerStatus.${customer.status}`)}
                   </StatusChip>
                 </KeyValue>
-                <KeyValue label={t("customers.plan")}>{t(`planKey.${customer.planKey}`)}</KeyValue>
+                <KeyValue label={t("customers.plan")}>{planLabel(t, customer.planKey)}</KeyValue>
                 <KeyValue label={t("customers.stores")}>{formatNumber(customer.storeCount)}</KeyValue>
                 <KeyValue label={t("customers.createdAt")}>
                   <Mono>{formatDateTime(customer.createdAt)}</Mono>

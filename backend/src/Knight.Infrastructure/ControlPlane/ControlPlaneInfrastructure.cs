@@ -31,8 +31,7 @@ public static class ControlPlaneInfrastructure
         // environment, and a "" that survived to Npgsql fails much later and far
         // less clearly than it does here.
         var connectionString = FirstConfigured(
-            configuration.GetConnectionString("ControlPlane"),
-            configuration.GetConnectionString("Platform"))
+            configuration.GetConnectionString("ControlPlane"))
             ?? throw new InvalidOperationException(
                 "Missing connection string 'ControlPlane'. Set it via configuration or the CONTROL_PLANE_DB_CONNECTION_STRING environment variable.");
 

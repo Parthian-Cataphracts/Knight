@@ -128,7 +128,8 @@
     "activate": "فعال‌سازی",
     "archive": "بایگانی",
     "edit": "ویرایش مشتری",
-    "contactEmail": "ایمیل تماس"
+    "contactEmail": "ایمیل تماس",
+    "noPlan": "بدون پلن"
   },
   "customerStatus": {
     "Active": "فعال",
