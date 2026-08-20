@@ -14,7 +14,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 | **Current phase** | **Phase 7 — Observability of KNIGHT itself (complete)** |
 | **Next phase** | Phase 6 — the remaining dashboard write paths, then phase 8 |
 | **Overall progress** | ~91% (every dashboard screen now reads and writes through the real API: 20 routes opened against a live server, 0 failing requests) |
-| **Blocking decisions** | 7 open questions in [`docs/risks.md`](docs/risks.md) §3 — R14, R21 and questions 8–10 now resolved |
+| **Blocking decisions** | 5 open questions in [`docs/risks.md`](docs/risks.md) §3. R1 resolved (the legacy schema holds nothing real), email deferred to phase 9, file-backed signing keys accepted for the first release (R25). A **restore drill** stands as the one proposed release blocker |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
 > not a boolean flag ([`docs/adr/0014`](docs/adr/0014-features-as-deployable-packages.md)).
@@ -400,9 +400,11 @@ failures, then the screens driven in a browser against the live API. See
 - [x] Tests: fingerprint stability, grouping, group and incident lifecycles,
       delivery retry and the channel circuit breaker, reference uniqueness under
       concurrency, and customer isolation on both screens
-- [ ] Email delivery — the channel kind exists and reports honestly that no mail
-      transport is configured rather than reporting a message delivered that went
-      nowhere. Wiring SMTP belongs with the deployment work in phase 9
+- [ ] Email delivery — **deferred to phase 9 by decision (2026-08-20)**. The
+      channel kind exists and refuses honestly rather than reporting a message
+      delivered that went nowhere; SMTP is wired where the mail host and its
+      credentials are chosen. Webhook and in-app channels carry alerting until
+      then
 - [ ] Manual merge/split of error groups — `adr/0013` names it as the mitigation
       for over- and under-grouping; nothing has needed it yet, and the
       `fingerprintVersion` escape hatch is in place
@@ -619,7 +621,7 @@ telemetry while keeping fresh rows, audit entries and incidents survive it, and 
 - [ ] Remove store modules, endpoints, contracts, legacy migrations from .NET
 - [ ] Architecture test forbidding business modules in the control plane
 - [ ] Drop the legacy shared schema
-- [ ] `[!]` Confirm no real tenant data exists first (`risks.md` R1)
+- [x] `[!]` ~~Confirm no real tenant data exists first~~ — confirmed 2026-08-20: the frozen modules and legacy schema hold only development and test data, so the tables may be dropped without an export path (`risks.md` R1)
 
 ---
 
@@ -642,7 +644,9 @@ telemetry while keeping fresh rows, audit entries and incidents survive it, and 
 - [ ] Caching for entitlements, installation state, monitoring overview
 - [ ] Staged/canary feature rollout across stores
 - [ ] Full CI/CD pipeline per `docs/deployment.md` §8 (including the feature publish pipeline)
-- [ ] Restore drill for the KNIGHT database
+- [ ] **Restore drill for the KNIGHT database** — proposed as the one release
+      blocker (`risks.md` §3 question 13). A backup nobody has restored is not a
+      backup, and everything else depends on this database
 - [ ] External security review, focused on the code-delivery path
 
 ---

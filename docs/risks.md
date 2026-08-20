@@ -16,7 +16,7 @@ Status: **living document**. Update whenever a risk is resolved or discovered.
 
 | # | Risk | Impact | Mitigation / owner decision needed |
 |---|---|---|---|
-| R1 | Existing tenant data may be real production data | A clean-schema pivot would destroy it | Confirm before Stage E; if real, design a data export path first |
+| R1 | ~~Existing tenant data may be real production data~~ **Resolved 2026-08-20** | A clean-schema pivot would destroy it | The product owner confirms the frozen store modules and the legacy shared schema hold only development and test data. Phase 8 may drop them without an export path, which removes the largest unknown from that phase. The confirmation is recorded here rather than assumed: dropping a schema is not reversible, and the next person to read this needs to know somebody actually checked |
 | R2 | Porting 7 modules to Django is a large, easily underestimated effort | Pivot stalls half-finished, leaving two incoherent halves | Stage-gated plan; store modules frozen, not deleted, until Django parity |
 | R3 | KNIGHT must reach store management APIs across customer networks | Firewalls/NAT make polling impossible for some customers | Support both pull (poll) and push (store heartbeat) from day one |
 | R4 | Ingestion volume (errors, logs, metrics) can outgrow PostgreSQL | Slow dashboards, storage blowout | Partitioning + retention from the first migration; measure before adding a broker or a TSDB |
@@ -40,10 +40,11 @@ Status: **living document**. Update whenever a risk is resolved or discovered.
 | R22 | Agent privilege on customer servers | Highest-value target in the system | Least privilege, no shell, signed agent releases, auditable job history, per-store scoping |
 | R23 | Feature packages could drift toward becoming microservices | Operational explosion the spec forbids | Explicit rule in [`adr/0014`](adr/0014-features-as-deployable-packages.md); a network service requires its own ADR |
 | R24 | Delivery scope may dominate the roadmap | Core control plane slips | Phase 3.5 is scoped to a single reference feature end to end before breadth |
+| R25 | File-backed signing keys are accepted for the first release | A compromise of the API host becomes arbitrary code on every store it manages — the highest-value key in the system | **Accepted 2026-08-20** by the product owner, deliberately and with the consequence understood. Conditions: the private key lives outside the repository, the host is hardened, and the position is revisited before the first customer who is not the company itself. The `ISigner` abstraction and the indexed `signingKeyId` mean moving to a KMS is a hosting change rather than a code change, and revoking a compromised key yanks everything it signed in one query |
 
 ## 3. Decisions still needed from the product owner
 
-1. **R1** — is there any real customer data in the current schema?
+1. ~~**R1** — is there any real customer data in the current schema?~~ **Resolved:** no. See R1.
 2. **Billing** — does KNIGHT need to take payments, or only issue invoices?
 3. **Currency and tax** — IRR/Toman only, or multi-currency? Tax rules?
 4. **Log shipping** — is centralised log ingestion in scope for the first
@@ -69,6 +70,20 @@ Status: **living document**. Update whenever a risk is resolved or discovered.
     against a real package.
 11. **Uninstall data policy** — default retention window after uninstall, and
     whether customers may request immediate purge.
+12. ~~**Email delivery**~~ **Resolved 2026-08-20:** the email channel stays as
+    it is — it refuses honestly rather than reporting a message delivered that
+    went nowhere — and SMTP is wired in phase 9, where the mail host and its
+    credentials are chosen alongside the rest of the deployment. Webhook and
+    in-app channels carry alerting until then.
+13. **Pre-release verification** — the product owner expressed no preference, so
+    this stands as the team's own proposal rather than a decision taken:
+    **a restore drill for the KNIGHT database is the one thing that should block
+    a release.** A backup nobody has restored is not a backup, and every other
+    part of the product depends on that database. An external review of the
+    delivery path and a load test on ingestion are strongly advised but can
+    follow the first release; a full provisioning run cannot happen before phase
+    9 builds it, so launching with stores registered by hand is the assumption
+    unless somebody says otherwise.
 
 ## 4. Things deliberately not being done yet
 
