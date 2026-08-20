@@ -256,11 +256,11 @@ export const auditEntries: AuditEntry[] = [
 ];
 
 export const admins: AdminUser[] = [
-  { id: "u1", displayName: "علی محمدی", email: "ali@knight.local", scope: "Platform", customerName: null, roles: ["SuperAdmin"], mfaEnabled: true, status: "Active", lastSeenAt: minutesAgo(5) },
-  { id: "u2", displayName: "سارا رضایی", email: "sara@knight.local", scope: "Platform", customerName: null, roles: ["Admin"], mfaEnabled: true, status: "Active", lastSeenAt: minutesAgo(45) },
-  { id: "u3", displayName: "رضا کریمی", email: "reza@knight.local", scope: "Platform", customerName: null, roles: ["Developer"], mfaEnabled: false, status: "Active", lastSeenAt: daysAgo(1) },
-  { id: "u4", displayName: "مالک کافه وان", email: "owner@cafe1.ir", scope: "Customer", customerName: "کافه وان", roles: ["CustomerOwner"], mfaEnabled: false, status: "Active", lastSeenAt: daysAgo(2) },
-  { id: "u5", displayName: "پشتیبان کافه تو", email: "staff@cafe2.ir", scope: "Customer", customerName: "کافه تو", roles: ["CustomerStaff"], mfaEnabled: false, status: "Suspended", lastSeenAt: daysAgo(20) },
+  { id: "u1", displayName: "علی محمدی", email: "ali@knight.local", scope: "Platform", customerName: null, roles: ["SuperAdmin"], mfaEnabled: true, status: "Active", lastLoginAt: minutesAgo(5) },
+  { id: "u2", displayName: "سارا رضایی", email: "sara@knight.local", scope: "Platform", customerName: null, roles: ["Admin"], mfaEnabled: true, status: "Active", lastLoginAt: minutesAgo(45) },
+  { id: "u3", displayName: "رضا کریمی", email: "reza@knight.local", scope: "Platform", customerName: null, roles: ["Developer"], mfaEnabled: false, status: "Active", lastLoginAt: daysAgo(1) },
+  { id: "u4", displayName: "مالک کافه وان", email: "owner@cafe1.ir", scope: "Customer", customerName: "کافه وان", roles: ["CustomerOwner"], mfaEnabled: false, status: "Active", lastLoginAt: daysAgo(2) },
+  { id: "u5", displayName: "پشتیبان کافه تو", email: "staff@cafe2.ir", scope: "Customer", customerName: "کافه تو", roles: ["CustomerStaff"], mfaEnabled: false, status: "Suspended", lastLoginAt: daysAgo(20) },
 ];
 
 export const roles: Role[] = [

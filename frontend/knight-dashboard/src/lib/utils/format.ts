@@ -18,9 +18,28 @@ export function formatDateTime(iso: string, locale = document.documentElement.la
   }).format(new Date(iso));
 }
 
-export function formatRelative(iso: string, locale = document.documentElement.lang): string {
+/**
+ * Accepts null because plenty of timestamps in the API are genuinely absent —
+ * a report with no data behind it yet, an installation that has never
+ * transitioned. Passing one of those through produced "20,685 days ago", the
+ * epoch rendered as though it were a fact, which is worse than saying nothing.
+ */
+export function formatRelative(
+  iso: string | null | undefined,
+  locale = document.documentElement.lang,
+): string {
+  if (!iso) {
+    return "—";
+  }
+
+  const at = new Date(iso).getTime();
+
+  if (Number.isNaN(at)) {
+    return "—";
+  }
+
   const rtf = new Intl.RelativeTimeFormat(localeTag(locale), { numeric: "auto" });
-  const diffMs = new Date(iso).getTime() - Date.now();
+  const diffMs = at - Date.now();
   const units: [Intl.RelativeTimeFormatUnit, number][] = [
     ["day", 86_400_000],
     ["hour", 3_600_000],

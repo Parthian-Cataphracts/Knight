@@ -78,6 +78,10 @@ public sealed class StoreHealthPoller : BackgroundService
 
     private async Task PollAsync(CancellationToken cancellationToken)
     {
+            // One identity per pass, so everything this pass writes can be
+            // tied back together — see BackgroundCorrelation.
+        using var pass = BackgroundCorrelation.BeginPass("store health poll");
+
         PollTarget[] targets;
 
         using (var scope = _scopes.CreateScope())

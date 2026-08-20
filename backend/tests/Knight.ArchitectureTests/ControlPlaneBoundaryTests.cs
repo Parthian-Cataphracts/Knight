@@ -6,18 +6,20 @@ namespace Knight.ArchitectureTests;
 
 /// <summary>
 /// KNIGHT is a control plane, never a store's business backend
-/// (docs/README.md, rule 1). The store-side modules are frozen and will be ported
-/// to Django in phase 8; if a control-plane module ever reaches into one of them,
-/// that removal stops being possible and the rule has already been broken in code.
+/// (docs/README.md, rule 1). Phase 8 ported the store-side modules to Django and
+/// deleted them from this solution; these tests are what stops them growing back
+/// one convenient class at a time.
 /// </summary>
 public sealed class ControlPlaneBoundaryTests
 {
     /// <summary>
-    /// The frozen store-side modules, by root namespace. "Customer" here is the
-    /// store's own end consumers — an entirely different concept from the
-    /// control plane's paying "Customers" (docs/migration-plan.md, terminology).
+    /// The store-side modules removed in phase 8, by root namespace. "Customer"
+    /// here is the store's own end consumers — an entirely different concept from
+    /// the control plane's paying "Customers" (docs/migration-plan.md,
+    /// terminology), which is why the singular/plural distinction is load-bearing
+    /// rather than sloppy naming.
     /// </summary>
-    private static readonly string[] FrozenStoreModules =
+    private static readonly string[] RemovedStoreModules =
     [
         "Catalog", "Checkout", "Customer", "Delivery", "Fulfillment",
         "Ordering", "Payment", "Promotions", "Tenancy", "FeatureManagement",
@@ -41,7 +43,7 @@ public sealed class ControlPlaneBoundaryTests
     {
         foreach (var assembly in ControlPlaneModules)
         {
-            foreach (var frozenModule in FrozenStoreModules)
+            foreach (var frozenModule in RemovedStoreModules)
             {
                 var result = Types.InAssembly(assembly)
                     .Should()
@@ -50,7 +52,7 @@ public sealed class ControlPlaneBoundaryTests
 
                 Assert.True(
                     result.IsSuccessful,
-                    $"{assembly.GetName().Name} depends on the frozen store module '{frozenModule}': {Describe(result)}");
+                    $"{assembly.GetName().Name} depends on the removed store module '{frozenModule}': {Describe(result)}");
             }
         }
     }
@@ -115,6 +117,44 @@ public sealed class ControlPlaneBoundaryTests
                     .GetResult();
 
                 Assert.True(result.IsSuccessful, $"{ownNamespace} depends on {other}: {Describe(result)}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// The removal itself, asserted.
+    ///
+    /// A store's catalogue, orders, checkout and payments belong to the store's
+    /// own Django application and its own database. Re-adding any of them here —
+    /// even "just a small read model, for the dashboard" — would put the control
+    /// plane back in the business-backend role that ADR 0023 spent a phase
+    /// getting it out of. The failure message is deliberately blunt, because the
+    /// person who trips this will be midway through something that felt
+    /// reasonable.
+    /// </summary>
+    [Fact]
+    public void StoreBusinessDomains_ShouldNotExist_InTheControlPlane()
+    {
+        var assemblies = ControlPlaneModules
+            .Append(typeof(Knight.Infrastructure.ControlPlane.ControlPlaneInfrastructure).Assembly)
+            .Append(typeof(Program).Assembly)
+            .Distinct();
+
+        foreach (var assembly in assemblies)
+        {
+            foreach (var removed in RemovedStoreModules)
+            {
+                var offenders = assembly.GetTypes()
+                    .Where(type => type.Namespace is not null)
+                    .Where(type => type.Namespace == removed || type.Namespace!.StartsWith(removed + ".", StringComparison.Ordinal))
+                    .Select(type => type.FullName)
+                    .ToArray();
+
+                Assert.True(
+                    offenders.Length == 0,
+                    $"'{removed}' is a store business domain and was removed from the control plane in phase 8. "
+                        + $"{assembly.GetName().Name} defines it again: {string.Join(", ", offenders!)}. "
+                        + "It belongs in the store's Django application, not here.");
             }
         }
     }

@@ -50,6 +50,10 @@ public sealed class FeatureJobSweeper : BackgroundService
         {
             try
             {
+            // One identity per pass, so everything this pass writes can be
+            // tied back together — see BackgroundCorrelation.
+                using var pass = BackgroundCorrelation.BeginPass("job claim sweep");
+
                 using var scope = _scopes.CreateScope();
 
                 // The sweep is platform work, not a customer's request, so it

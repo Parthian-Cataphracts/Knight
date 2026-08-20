@@ -1,7 +1,11 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
+using System.Security.Claims;
+using System.Text;
 using System.Net.Http.Json;
 using AccessControl.Domain;
 using Knight.IntegrationTests.Infrastructure;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Knight.IntegrationTests.ControlPlane;
 
@@ -168,15 +172,22 @@ public sealed class ControlPlaneIsolationTests
     }
 
     [Fact]
-    public async Task ALegacyTenantTokenCannotReachTheDashboardApi()
+    public async Task ATokenForAnotherPrincipalTypeCannotReachTheDashboardApi()
     {
         if (!_fixture.IsAvailable) return;
 
         // Cross-principal access is refused at the policy layer: a token minted
         // for a different principal type is not a dashboard user
         // (docs/authentication.md section 4).
-        var tenantToken = _fixture.CreateTenantUserToken(Guid.NewGuid(), permissions: ["customer.view"]);
-        var client = _fixture.CreateClient(tenantToken);
+        //
+        // The token is forged here rather than obtained from an issuer. Phase 8
+        // removed the store-side issuer that used to mint these, but the rule it
+        // was checking outlives it: a correctly signed token is still not a
+        // dashboard session unless it says it is. Signing it with the host's own
+        // key is the point — a test that presented an unsigned token would pass
+        // for the wrong reason.
+        var token = ForgeToken(principalType: "tenant_user");
+        var client = _fixture.CreateClient(token);
 
         var response = await client.GetAsync("/api/v1/customers");
 
@@ -185,20 +196,23 @@ public sealed class ControlPlaneIsolationTests
             $"Expected the request to be refused, got {response.StatusCode}.");
     }
 
-    [Fact]
-    public async Task ADashboardTokenCannotReachTheLegacyPlatformApi()
+    private static string ForgeToken(string principalType)
     {
-        if (!_fixture.IsAvailable) return;
+        var key = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(PostgresApiFixture.TestSigningKey));
 
-        var email = Email();
-        await _fixture.SeedUserAsync(email, Password, SystemRoles.Admin);
-        var client = _fixture.CreateClient(await _fixture.SignInAsync(email, Password));
+        var token = new JwtSecurityToken(
+            issuer: PostgresApiFixture.TestIssuer,
+            audience: PostgresApiFixture.TestAudience,
+            claims:
+            [
+                new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()),
+                new Claim("principal_type", principalType),
+            ],
+            expires: DateTime.UtcNow.AddMinutes(5),
+            signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
 
-        var response = await client.GetAsync("/api/platform/tenants");
-
-        Assert.True(
-            response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden,
-            $"Expected the request to be refused, got {response.StatusCode}.");
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
     private sealed record PagedBody<T>(IReadOnlyCollection<T> Items, long TotalCount);

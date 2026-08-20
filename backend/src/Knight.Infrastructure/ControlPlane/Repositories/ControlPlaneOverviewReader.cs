@@ -1,6 +1,7 @@
 using AccessControl.Domain;
 using Billing.Domain;
 using Customers.Domain;
+using Knight.Domain.Versioning;
 using Knight.Application.Abstractions.ControlPlane;
 using Microsoft.EntityFrameworkCore;
 using Stores.Domain;
@@ -220,11 +221,96 @@ internal sealed class FeatureUsageReader : IFeatureUsageReader
             .Select(group => new { FeatureId = group.Key, Count = group.Select(e => e.CustomerId).Distinct().Count() })
             .ToArrayAsync(cancellationToken);
 
+        // Published only: a draft version is not something an operator can
+        // install, so offering it as "the latest" would be a promise the
+        // delivery subsystem then refuses to keep.
+        var versions = await _context.FeatureVersions
+            .Where(version => featureIds.Contains(version.FeatureId)
+                && version.Status == FeatureRegistry.Domain.FeatureVersionStatus.Published)
+            .Select(version => new { version.FeatureId, version.Version })
+            .ToArrayAsync(cancellationToken);
+
+        // Counted where the feature is actually running. A pending or failed
+        // installation is a job in progress, not an install, and counting it
+        // would tell an operator a rollout finished when it has not.
+        var installed = await _context.FeatureInstallations
+            .Where(installation => featureIds.Contains(installation.FeatureId)
+                && installation.State == FeatureDelivery.Domain.InstallationState.Installed)
+            .GroupBy(installation => installation.FeatureId)
+            .Select(group => new { FeatureId = group.Key, Count = group.Select(i => i.StoreId).Distinct().Count() })
+            .ToArrayAsync(cancellationToken);
+
         return featureIds.ToDictionary(
             id => id,
             id => new FeatureUsage(
                 id,
                 offerings.Where(row => row.FeatureId == id).Select(row => row.Key).Distinct().ToArray(),
-                entitled.FirstOrDefault(row => row.FeatureId == id)?.Count ?? 0));
+                entitled.FirstOrDefault(row => row.FeatureId == id)?.Count ?? 0,
+                Newest(versions.Where(row => row.FeatureId == id).Select(row => row.Version)),
+                installed.FirstOrDefault(row => row.FeatureId == id)?.Count ?? 0));
+    }
+
+    /// <summary>
+    /// Ordered by precedence, not alphabetically: "10.0.0" sorts before "9.0.0"
+    /// as a string, and shipping that number to an operator as "the latest" is
+    /// the kind of wrong that is only noticed after someone acts on it.
+    /// </summary>
+    private static string? Newest(IEnumerable<string> versions)
+    {
+        string? newest = null;
+        SemanticVersion? newestParsed = null;
+
+        foreach (var candidate in versions)
+        {
+            if (!SemanticVersion.TryParse(candidate, out var parsed))
+            {
+                continue;
+            }
+
+            if (newestParsed is null || parsed.CompareTo(newestParsed) > 0)
+            {
+                newest = candidate;
+                newestParsed = parsed;
+            }
+        }
+
+        return newest;
+    }
+}
+
+internal sealed class StoreFeatureCountReader : IStoreFeatureCountReader
+{
+    private readonly ControlPlaneDbContext _context;
+
+    public StoreFeatureCountReader(ControlPlaneDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, int>> CountInstalledAsync(
+        IReadOnlyCollection<Guid> storeIds,
+        CancellationToken cancellationToken)
+    {
+        if (storeIds.Count == 0)
+        {
+            return new Dictionary<Guid, int>();
+        }
+
+        // Installed only. A disabled feature is present on the store but not
+        // running, and a pending one is a job in flight; counting either would
+        // tell an operator a store is doing something it is not.
+        var counts = await _context.FeatureInstallations
+            .AsNoTracking()
+            .Where(installation => storeIds.Contains(installation.StoreId)
+                && installation.State == FeatureDelivery.Domain.InstallationState.Installed)
+            .GroupBy(installation => installation.StoreId)
+            .Select(group => new { StoreId = group.Key, Count = group.Count() })
+            .ToArrayAsync(cancellationToken);
+
+        // Every requested store gets an entry: a store with nothing installed
+        // must read as zero, not as an absent row the caller renders as unknown.
+        return storeIds.ToDictionary(
+            id => id,
+            id => counts.FirstOrDefault(row => row.StoreId == id)?.Count ?? 0);
     }
 }

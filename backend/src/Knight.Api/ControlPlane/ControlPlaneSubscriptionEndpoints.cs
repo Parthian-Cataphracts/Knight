@@ -1,3 +1,4 @@
+using Knight.Application.Abstractions.Time;
 using AccessControl.Domain;
 using Knight.Application.Abstractions.ControlPlane;
 using Knight.Contracts.Common;
@@ -30,6 +31,8 @@ public static class ControlPlaneSubscriptionEndpoints
             string? status,
             ISubscriptionService service,
             ILabelReader labels,
+            IPricingReader pricing,
+            IDateTimeProvider clock,
             CancellationToken cancellationToken) =>
         {
             if (!TryParseStatus(status, out var parsedStatus))
@@ -49,8 +52,25 @@ public static class ControlPlaneSubscriptionEndpoints
                 result.Items.Select(subscription => subscription.PlanId).Distinct().ToArray(),
                 cancellationToken);
 
+            // Priced per row, because two subscriptions on the same plan can
+            // have different optional features switched on. The list page is
+            // bounded, and the calculator reads a price list the request has
+            // already loaded.
+            var priced = new Dictionary<Guid, QuotedPrice>();
+
+            foreach (var subscription in result.Items)
+            {
+                priced[subscription.Id] = await pricing.QuoteAsync(
+                    subscription.PlanId,
+                    subscription.EnabledFeatureIds,
+                    clock.UtcNow,
+                    cancellationToken);
+            }
+
             return Results.Ok(PagedResponse<SubscriptionResponse>.Create(
-                result.Items.Select(subscription => ToResponse(subscription, names, plans)).ToArray(),
+                result.Items
+                    .Select(subscription => ToResponse(subscription, names, plans, priced[subscription.Id]))
+                    .ToArray(),
                 result.Page,
                 result.PageSize,
                 result.TotalCount));
@@ -60,18 +80,22 @@ public static class ControlPlaneSubscriptionEndpoints
             Guid id,
             ISubscriptionService service,
             ILabelReader labels,
+            IPricingReader pricing,
+            IDateTimeProvider clock,
             CancellationToken cancellationToken) =>
         {
             var subscription = await service.GetAsync(id, cancellationToken);
             return subscription is null
                 ? Results.NotFound()
-                : Results.Ok(await DescribeAsync(subscription, labels, cancellationToken));
+                : Results.Ok(await DescribeAsync(subscription, labels, pricing, clock, cancellationToken));
         }).RequirePermission(ControlPlanePermissions.SubscriptionView);
 
         group.MapPost("/", async (
             CreateSubscriptionRequest request,
             ISubscriptionService service,
             ILabelReader labels,
+            IPricingReader pricing,
+            IDateTimeProvider clock,
             CancellationToken cancellationToken) =>
         {
             var subscription = await service.StartAsync(
@@ -80,7 +104,7 @@ public static class ControlPlaneSubscriptionEndpoints
 
             return Results.Created(
                 $"/api/v1/subscriptions/{subscription.Id}",
-                await DescribeAsync(subscription, labels, cancellationToken));
+                await DescribeAsync(subscription, labels, pricing, clock, cancellationToken));
         }).RequirePermission(ControlPlanePermissions.SubscriptionManage);
 
         group.MapPatch("/{id:guid}", async (
@@ -88,10 +112,14 @@ public static class ControlPlaneSubscriptionEndpoints
             ChangePlanRequest request,
             ISubscriptionService service,
             ILabelReader labels,
+            IPricingReader pricing,
+            IDateTimeProvider clock,
             CancellationToken cancellationToken) =>
             Results.Ok(await DescribeAsync(
                 await service.ChangePlanAsync(id, request.PlanId, cancellationToken),
                 labels,
+                pricing,
+                clock,
                 cancellationToken)))
             .RequirePermission(ControlPlanePermissions.SubscriptionManage);
 
@@ -100,10 +128,14 @@ public static class ControlPlaneSubscriptionEndpoints
             SetSubscriptionFeaturesRequest request,
             ISubscriptionService service,
             ILabelReader labels,
+            IPricingReader pricing,
+            IDateTimeProvider clock,
             CancellationToken cancellationToken) =>
             Results.Ok(await DescribeAsync(
                 await service.SetFeaturesAsync(id, request.FeatureIds, cancellationToken),
                 labels,
+                pricing,
+                clock,
                 cancellationToken)))
             .RequirePermission(ControlPlanePermissions.SubscriptionManage);
 
@@ -111,24 +143,30 @@ public static class ControlPlaneSubscriptionEndpoints
             Guid id,
             ISubscriptionService service,
             ILabelReader labels,
+            IPricingReader pricing,
+            IDateTimeProvider clock,
             CancellationToken cancellationToken) =>
-            Results.Ok(await DescribeAsync(await service.CancelAsync(id, cancellationToken), labels, cancellationToken)))
+            Results.Ok(await DescribeAsync(await service.CancelAsync(id, cancellationToken), labels, pricing, clock, cancellationToken)))
             .RequirePermission(ControlPlanePermissions.SubscriptionManage);
 
         group.MapPost("/{id:guid}/suspend", async (
             Guid id,
             ISubscriptionService service,
             ILabelReader labels,
+            IPricingReader pricing,
+            IDateTimeProvider clock,
             CancellationToken cancellationToken) =>
-            Results.Ok(await DescribeAsync(await service.SuspendAsync(id, cancellationToken), labels, cancellationToken)))
+            Results.Ok(await DescribeAsync(await service.SuspendAsync(id, cancellationToken), labels, pricing, clock, cancellationToken)))
             .RequirePermission(ControlPlanePermissions.SubscriptionManage);
 
         group.MapPost("/{id:guid}/activate", async (
             Guid id,
             ISubscriptionService service,
             ILabelReader labels,
+            IPricingReader pricing,
+            IDateTimeProvider clock,
             CancellationToken cancellationToken) =>
-            Results.Ok(await DescribeAsync(await service.ActivateAsync(id, cancellationToken), labels, cancellationToken)))
+            Results.Ok(await DescribeAsync(await service.ActivateAsync(id, cancellationToken), labels, pricing, clock, cancellationToken)))
             .RequirePermission(ControlPlanePermissions.SubscriptionManage);
 
         group.MapPost("/quote", async (
@@ -267,19 +305,30 @@ public static class ControlPlaneSubscriptionEndpoints
     private static async Task<SubscriptionResponse> DescribeAsync(
         Subscription subscription,
         ILabelReader labels,
+        IPricingReader pricing,
+        IDateTimeProvider clock,
         CancellationToken cancellationToken)
     {
         var names = await labels.CustomerNamesAsync([subscription.CustomerId], cancellationToken);
         var plans = await labels.PlanNamesAsync([subscription.PlanId], cancellationToken);
 
-        return ToResponse(subscription, names, plans);
+        var priced = await pricing.QuoteAsync(
+            subscription.PlanId,
+            subscription.EnabledFeatureIds,
+            clock.UtcNow,
+            cancellationToken);
+
+        return ToResponse(subscription, names, plans, priced);
     }
 
     internal static SubscriptionResponse ToResponse(
         Subscription subscription,
         IReadOnlyDictionary<Guid, string> customerNames,
-        IReadOnlyDictionary<Guid, (string Key, string Name)> plans) => new()
+        IReadOnlyDictionary<Guid, (string Key, string Name)> plans,
+        QuotedPrice priced) => new()
     {
+        MonthlyTotal = priced.Subtotal,
+        Currency = priced.Currency,
         Id = subscription.Id,
         CustomerId = subscription.CustomerId,
         CustomerName = customerNames.GetValueOrDefault(subscription.CustomerId) ?? string.Empty,

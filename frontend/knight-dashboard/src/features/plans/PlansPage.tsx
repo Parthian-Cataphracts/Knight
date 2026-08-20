@@ -14,6 +14,7 @@ import { StatusChip, type Tone } from "@/components/ui/StatusChip";
 import { Button } from "@/components/ui/Button";
 import { useAuthStore } from "@/store/auth";
 import { formatDateTime, formatNumber } from "@/lib/utils/format";
+import { planLabel } from "@/lib/utils/planLabel";
 
 const subscriptionTone: Record<Subscription["status"], Tone> = {
   Active: "success",
@@ -231,7 +232,7 @@ export function PlansPage() {
                         scope="col"
                         className="label-caps px-5 py-3 text-center text-on-surface-variant/80"
                       >
-                        {t(`planKey.${key}`)}
+                        {planLabel(t, key)}
                       </th>
                     ))}
                   </tr>

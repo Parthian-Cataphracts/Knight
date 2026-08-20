@@ -32,13 +32,6 @@
     <ProjectReference Include="..\..\modules\Ingestion\Ingestion.csproj" />
     <ProjectReference Include="..\..\modules\Observability\Observability.csproj" />
     <ProjectReference Include="..\..\modules\Billing\Billing.csproj" />
-    <ProjectReference Include="..\..\modules\Ordering\Ordering.csproj" />
-    <ProjectReference Include="..\..\modules\Customer\Customer.csproj" />
-    <ProjectReference Include="..\..\modules\Fulfillment\Fulfillment.csproj" />
-    <ProjectReference Include="..\..\modules\Delivery\Delivery.csproj" />
-    <ProjectReference Include="..\..\modules\Checkout\Checkout.csproj" />
-    <ProjectReference Include="..\..\modules\Payment\Payment.csproj" />
-    <ProjectReference Include="..\..\modules\Promotions\Promotions.csproj" />
   </ItemGroup>
 
 </Project>

@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, Info, ShieldCheck, Globe, CreditCard, Package } from "lucide-react";
 import { useCollection } from "@/lib/api/hooks";
+import { apiRequest } from "@/lib/api/client";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Feature, Plan } from "@/lib/api/domain";
 import { PageShell, PageHeader } from "@/components/data/PageShell";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -11,8 +13,19 @@ import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 
 /**
- * Create a customer together with its first store. Client validation is a
- * convenience only — the API validates and is the authority (docs/authorization.md).
+ * Create a customer together with its first store, administrator and
+ * subscription.
+ *
+ * The four writes are separate calls because they are four aggregates in four
+ * modules, and nothing in this system spans a transaction across modules. That
+ * makes the sequence interruptible: if the store call fails, the customer
+ * already exists. Rather than pretend otherwise with a rollback that could
+ * itself fail, a partial run reports which step stopped it and leaves the
+ * operator on the customer that was created, where the rest can be added by
+ * hand.
+ *
+ * Client validation is a convenience only — the API validates and is the
+ * authority (docs/authorization.md).
  */
 export function CreateCustomerPage() {
   const { t } = useTranslation();
@@ -31,6 +44,14 @@ export function CreateCustomerPage() {
   const [hosting, setHosting] = useState("SharedManaged");
   const [optional, setOptional] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [pending, setPending] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  // Shown once, after a successful run. There is no activation email yet, so the
+  // password an administrator hands over is this one, and it is never readable
+  // again from anywhere.
+  const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const selectedPlan = (plans.data ?? []).find((plan) => plan.key === planKey);
   const optionalFeatures = (features.data ?? []).filter(
@@ -40,16 +61,120 @@ export function CreateCustomerPage() {
     selectedPlan?.includedFeatures.includes(feature.slug),
   );
 
-  const onSubmit = (event: FormEvent) => {
+  const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
+
     const next: Record<string, string> = {};
     if (name.trim() === "") next["name"] = t("createCustomer.required");
     if (slug.trim() === "") next["slug"] = t("createCustomer.required");
     if (!contactEmail.includes("@")) next["contactEmail"] = t("createCustomer.invalidEmail");
     if (!adminEmail.includes("@")) next["adminEmail"] = t("createCustomer.invalidEmail");
+    if (domain.trim() === "") next["domain"] = t("createCustomer.required");
     setErrors(next);
-    if (Object.keys(next).length === 0) navigate("/customers");
+
+    if (Object.keys(next).length > 0) {
+      return;
+    }
+
+    setPending(true);
+    setFailure(null);
+
+    // Named so a partial run can say which step stopped it, rather than leaving
+    // the operator to work out how far it got.
+    let step = t("createCustomer.step1");
+    let customerId: string | null = null;
+
+    try {
+      const customer = await apiRequest<{ id: string }>("/customers", {
+        method: "POST",
+        body: { name: name.trim(), contactEmail: contactEmail.trim() },
+      });
+
+      customerId = customer.id;
+
+      step = t("createCustomer.step2");
+      await apiRequest("/stores", {
+        method: "POST",
+        body: {
+          customerId: customer.id,
+          name: name.trim(),
+          slug: slug.trim(),
+          primaryDomain: domain.trim(),
+          environment,
+          hostingModel: hosting,
+        },
+      });
+
+      step = t("createCustomer.step3");
+      const account = await apiRequest<{ temporaryPassword: string }>("/users", {
+        method: "POST",
+        body: {
+          email: adminEmail.trim(),
+          displayName: adminName.trim() === "" ? adminEmail.trim() : adminName.trim(),
+          customerId: customer.id,
+          roleIds: [],
+        },
+      });
+
+      step = t("createCustomer.step4");
+
+      if (selectedPlan) {
+        await apiRequest("/subscriptions", {
+          method: "POST",
+          body: {
+            customerId: customer.id,
+            planId: selectedPlan.id,
+            featureIds: (features.data ?? [])
+              .filter((feature) => optional.includes(feature.slug))
+              .map((feature) => feature.id),
+          },
+        });
+      }
+
+      // Everything the new customer touches is now stale.
+      await queryClient.invalidateQueries();
+
+      setTemporaryPassword(account.temporaryPassword);
+    } catch (error) {
+      setFailure(
+        t("createCustomer.failedAt", {
+          step,
+          message: error instanceof Error ? error.message : String(error),
+        }),
+      );
+
+      // The customer exists even though the run did not finish; sending the
+      // operator there beats leaving them on a form that would create a second
+      // one if they pressed the button again.
+      if (customerId) {
+        navigate(`/customers/${customerId}`);
+      }
+    } finally {
+      setPending(false);
+    }
   };
+
+  if (temporaryPassword) {
+    return (
+      <PageShell>
+        <PageHeader title={t("createCustomer.created")} subtitle={t("createCustomer.createdNote")} />
+        <Card>
+          <CardHeader title={t("createCustomer.firstAdmin")} icon={<ShieldCheck className="size-5" />} />
+          <CardBody className="flex flex-col gap-3">
+            <p className="text-body-sm text-on-surface-variant">{t("createCustomer.passwordNote")}</p>
+            <code dir="ltr" className="rounded-md bg-surface-low p-3 font-mono text-body text-on-surface">
+              {temporaryPassword}
+            </code>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" onClick={() => navigate("/customers")}>
+                {t("nav.customers")}
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
+      </PageShell>
+    );
+  }
 
   const selectClass =
     "h-11 w-full rounded-md border border-outline-variant bg-surface-low px-3 text-body text-on-surface focus:border-primary focus:outline-none";
@@ -146,6 +271,7 @@ export function CreateCustomerPage() {
                 placeholder="cafe1.ir"
                 value={domain}
                 onChange={(event) => setDomain(event.target.value)}
+                error={errors["domain"]}
               />
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="hosting" className="text-body-sm font-medium text-on-surface-variant">
@@ -266,8 +392,16 @@ export function CreateCustomerPage() {
             </CardBody>
           </Card>
 
+          {failure ? (
+            <p role="alert" className="text-body-sm text-error">
+              {failure}
+            </p>
+          ) : null}
+
           <div className="flex flex-wrap gap-2">
-            <Button type="submit">{t("createCustomer.submit")}</Button>
+            <Button type="submit" loading={pending}>
+              {t("createCustomer.submit")}
+            </Button>
             <Button type="button" variant="outline" onClick={() => navigate("/customers")}>
               {t("createCustomer.cancel")}
             </Button>

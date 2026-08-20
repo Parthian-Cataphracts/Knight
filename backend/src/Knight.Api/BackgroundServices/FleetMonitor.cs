@@ -83,6 +83,10 @@ public sealed class FleetMonitor : BackgroundService
     {
         try
         {
+            // One identity per pass, so everything this pass writes can be
+            // tied back together — see BackgroundCorrelation.
+            using var pass = BackgroundCorrelation.BeginPass(what);
+
             using var scope = _scopes.CreateScope();
 
             // Platform scope: this is not a customer's request. Without it the

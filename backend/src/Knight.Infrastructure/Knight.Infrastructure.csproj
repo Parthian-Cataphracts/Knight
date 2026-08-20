@@ -14,17 +14,6 @@
     <ProjectReference Include="..\..\modules\Plans\Plans.csproj" />
     <ProjectReference Include="..\..\modules\Subscriptions\Subscriptions.csproj" />
     <ProjectReference Include="..\..\modules\Billing\Billing.csproj" />
-    <ProjectReference Include="..\..\modules\Identity\Identity.csproj" />
-    <ProjectReference Include="..\..\modules\Tenancy\Tenancy.csproj" />
-    <ProjectReference Include="..\..\modules\FeatureManagement\FeatureManagement.csproj" />
-    <ProjectReference Include="..\..\modules\Catalog\Catalog.csproj" />
-    <ProjectReference Include="..\..\modules\Ordering\Ordering.csproj" />
-    <ProjectReference Include="..\..\modules\Customer\Customer.csproj" />
-    <ProjectReference Include="..\..\modules\Fulfillment\Fulfillment.csproj" />
-    <ProjectReference Include="..\..\modules\Delivery\Delivery.csproj" />
-    <ProjectReference Include="..\..\modules\Checkout\Checkout.csproj" />
-    <ProjectReference Include="..\..\modules\Payment\Payment.csproj" />
-    <ProjectReference Include="..\..\modules\Promotions\Promotions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

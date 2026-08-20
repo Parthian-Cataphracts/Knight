@@ -68,7 +68,7 @@ export function AuditPage() {
       header: t("common.correlationId"),
       mono: true,
       secondary: true,
-      render: (row) => row.correlationId,
+      render: (row) => row.correlationId || "—",
     },
   ];
 

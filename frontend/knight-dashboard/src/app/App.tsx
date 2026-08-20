@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { queryClient } from "@/lib/api/queryClient";
-import { setUnauthorizedHandler } from "@/lib/api/client";
+import { setSessionRefresher, setUnauthorizedHandler } from "@/lib/api/client";
 import { useAuthStore } from "@/store/auth";
 import { useUiStore } from "@/store/ui";
 import { DIRECTION } from "@/i18n";
@@ -30,10 +30,22 @@ function DocumentSettings() {
 
 export function App() {
   const signOut = useAuthStore((state) => state.signOut);
+  const restore = useAuthStore((state) => state.restore);
 
   useEffect(() => {
     setUnauthorizedHandler(signOut);
-  }, [signOut]);
+
+    // Renewal goes through the same de-duplicated path session restore uses, so
+    // several requests expiring at once produce one refresh rather than a burst
+    // that the server reads as a replayed token.
+    setSessionRefresher(async () => {
+      await restore();
+
+      if (useAuthStore.getState().status !== "authenticated") {
+        throw new Error("The session could not be renewed.");
+      }
+    });
+  }, [signOut, restore]);
 
   return (
     <QueryClientProvider client={queryClient}>
