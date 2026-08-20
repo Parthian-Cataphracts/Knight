@@ -58,6 +58,12 @@ public sealed class ControlPlaneDbContext : DbContext
 
     public DbSet<StoreDeployment> StoreDeployments => Set<StoreDeployment>();
 
+    public DbSet<StoreBackup> StoreBackups => Set<StoreBackup>();
+
+    public DbSet<Provisioning.Domain.ProvisioningJob> ProvisioningJobs => Set<Provisioning.Domain.ProvisioningJob>();
+
+    public DbSet<Provisioning.Domain.ProvisioningStepResult> ProvisioningJobSteps => Set<Provisioning.Domain.ProvisioningStepResult>();
+
     public DbSet<Ingestion.Domain.StoreErrorEvent> StoreErrorEvents => Set<Ingestion.Domain.StoreErrorEvent>();
 
     public DbSet<Ingestion.Domain.StoreLifecycleEvent> StoreEvents => Set<Ingestion.Domain.StoreLifecycleEvent>();
@@ -140,6 +146,9 @@ public sealed class ControlPlaneDbContext : DbContext
 
         modelBuilder.ApplyConfiguration(new StoreHealthCheckConfiguration());
         modelBuilder.ApplyConfiguration(new StoreDeploymentConfiguration());
+        modelBuilder.ApplyConfiguration(new StoreBackupConfiguration());
+        modelBuilder.ApplyConfiguration(new ProvisioningJobConfiguration());
+        modelBuilder.ApplyConfiguration(new ProvisioningStepResultConfiguration());
         modelBuilder.ApplyConfiguration(new StoreErrorEventConfiguration());
         modelBuilder.ApplyConfiguration(new StoreLifecycleEventConfiguration());
         modelBuilder.ApplyConfiguration(new StoreLogEntryConfiguration());

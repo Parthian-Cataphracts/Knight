@@ -28,6 +28,13 @@ public sealed class Plan : AuditableEntity
 
     public int SortOrder { get; private set; }
 
+    /// <summary>
+    /// How many days a customer on this plan keeps their data after a store is
+    /// deprovisioned. Null means the deployment's default: a plan that says
+    /// nothing about retention is not a plan that promises zero days.
+    /// </summary>
+    public int? DataRetentionDays { get; private set; }
+
     private readonly List<PlanFeature> _features = [];
 
     public IReadOnlyCollection<PlanFeature> Features => _features.AsReadOnly();
@@ -89,6 +96,24 @@ public sealed class Plan : AuditableEntity
     public void Deactivate(DateTimeOffset now)
     {
         IsActive = false;
+        MarkUpdated(now);
+    }
+
+    /// <summary>
+    /// Sets the retention the plan promises, in days.
+    ///
+    /// Commercial rather than technical: how long a customer's data survives
+    /// them leaving is something they were sold, which is why it lives on the
+    /// plan and can be overridden per customer when a contract says otherwise.
+    /// </summary>
+    public void SetDataRetention(int? days, DateTimeOffset now)
+    {
+        if (days is { } value and (< 1 or > 3650))
+        {
+            throw DomainException.Validation("A retention window must be between one day and ten years.");
+        }
+
+        DataRetentionDays = days;
         MarkUpdated(now);
     }
 

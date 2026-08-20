@@ -179,3 +179,30 @@ public interface IRealtimeNotifier
 /// it reaches platform principals and nobody else, never "everyone".
 /// </summary>
 public sealed record RealtimeMessage(string Event, Guid? CustomerId, object Payload);
+
+/// <summary>A store that has gone too long without a successful backup.</summary>
+public sealed record StoreWithoutBackup(
+    Guid StoreId,
+    Guid CustomerId,
+    string StoreName,
+    DateTimeOffset? LastSuccessfulBackupAt);
+
+/// <summary>
+/// Finds stores whose backups have stopped happening.
+///
+/// A port rather than a module reference for the usual reason: the rule belongs
+/// to observability, the data belongs to the Stores module, and neither should
+/// have to know about the other. The absence being looked for is the point — no
+/// store reports "my backup did not run", so only a sweep can notice.
+/// </summary>
+public interface IBackupHealthReader
+{
+    /// <summary>
+    /// Registered, non-archived stores whose newest successful backup is older
+    /// than <paramref name="olderThan"/> — including stores that have never
+    /// reported one at all.
+    /// </summary>
+    Task<IReadOnlyCollection<StoreWithoutBackup>> ListStoresWithoutRecentBackupAsync(
+        DateTimeOffset olderThan,
+        CancellationToken cancellationToken);
+}

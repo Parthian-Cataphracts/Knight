@@ -35,6 +35,13 @@ public static class ObservabilityRules
     /// <summary>A job was claimed and never reported again.</summary>
     public const string JobStuck = "job.stuck";
 
+    /// <summary>
+    /// No successful backup has been reported for a store in longer than the
+    /// configured window. The quiet failure: a backup job that stopped running
+    /// says nothing at all, which is why only a timer can find it.
+    /// </summary>
+    public const string BackupOverdue = "backup.overdue";
+
     /// <summary>Every rule this module can raise, for the settings screen and for validation.</summary>
     public static readonly IReadOnlyCollection<string> All =
     [
@@ -44,6 +51,7 @@ public static class ObservabilityRules
         FeatureEntitledNotInstalled,
         FeatureDrift,
         JobStuck,
+        BackupOverdue,
     ];
 }
 
@@ -96,6 +104,13 @@ public sealed class ObservabilityOptions
     /// <summary>How long a claimed job may go unreported before it is presumed stuck.</summary>
     [Range(typeof(TimeSpan), "00:05:00", "24:00:00")]
     public TimeSpan StuckJobThreshold { get; init; } = TimeSpan.FromMinutes(30);
+
+    /// <summary>
+    /// How long a store may go without a successful backup before KNIGHT says
+    /// so. Slightly more than a day by default, so a nightly backup that runs an
+    /// hour late does not page anybody, and one that did not run at all does.
+    /// </summary>
+    public TimeSpan BackupInterval { get; init; } = TimeSpan.FromHours(26);
 
     /// <summary>How far back the sweep looks for job failures it has not alerted on yet.</summary>
     [Range(typeof(TimeSpan), "00:05:00", "7.00:00:00")]

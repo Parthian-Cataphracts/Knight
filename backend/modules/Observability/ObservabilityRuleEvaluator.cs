@@ -32,9 +32,10 @@ public sealed record RuleEvaluationResult(
     int FailedInstalls,
     int EntitledNotInstalled,
     int Drifted,
-    int StuckJobs)
+    int StuckJobs,
+    int OverdueBackups)
 {
-    public int Total => Spikes + FailedInstalls + EntitledNotInstalled + Drifted + StuckJobs;
+    public int Total => Spikes + FailedInstalls + EntitledNotInstalled + Drifted + StuckJobs + OverdueBackups;
 }
 
 internal sealed class ObservabilityRuleEvaluator : IObservabilityRuleEvaluator
@@ -42,6 +43,7 @@ internal sealed class ObservabilityRuleEvaluator : IObservabilityRuleEvaluator
     private readonly IErrorGroupRepository _groups;
     private readonly IErrorGroupEventReader _events;
     private readonly IDeliveryHealthReader _delivery;
+    private readonly IBackupHealthReader _backups;
     private readonly IAlertRaiser _alerts;
     private readonly IDateTimeProvider _clock;
     private readonly ILogger<ObservabilityRuleEvaluator> _logger;
@@ -51,6 +53,7 @@ internal sealed class ObservabilityRuleEvaluator : IObservabilityRuleEvaluator
         IErrorGroupRepository groups,
         IErrorGroupEventReader events,
         IDeliveryHealthReader delivery,
+        IBackupHealthReader backups,
         IAlertRaiser alerts,
         IDateTimeProvider clock,
         ILogger<ObservabilityRuleEvaluator> logger,
@@ -59,6 +62,7 @@ internal sealed class ObservabilityRuleEvaluator : IObservabilityRuleEvaluator
         _groups = groups;
         _events = events;
         _delivery = delivery;
+        _backups = backups;
         _alerts = alerts;
         _clock = clock;
         _logger = logger;
@@ -74,8 +78,9 @@ internal sealed class ObservabilityRuleEvaluator : IObservabilityRuleEvaluator
         var missing = await EvaluateEntitledNotInstalledAsync(now, cancellationToken);
         var drifted = await EvaluateDriftAsync(cancellationToken);
         var stuck = await EvaluateStuckJobsAsync(now, cancellationToken);
+        var backups = await EvaluateOverdueBackupsAsync(now, cancellationToken);
 
-        return new RuleEvaluationResult(spikes, failed, missing, drifted, stuck);
+        return new RuleEvaluationResult(spikes, failed, missing, drifted, stuck, backups);
     }
 
     /// <summary>
@@ -206,6 +211,55 @@ internal sealed class ObservabilityRuleEvaluator : IObservabilityRuleEvaluator
             discrepancy =>
                 $"A {discrepancy.FeatureSlug} job on {discrepancy.StoreName} was claimed and never reported again. {discrepancy.Detail}",
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Stores whose backups have stopped happening.
+    ///
+    /// Alerting on an absence, which is why it needs a sweep at all: a failed
+    /// backup reports itself and raises <c>backup.failed</c> the moment it is
+    /// reported. A backup job that was switched off, or a store that quietly
+    /// stopped reporting, says nothing — and looks identical to a healthy store
+    /// on every other screen KNIGHT has.
+    /// </summary>
+    private async Task<int> EvaluateOverdueBackupsAsync(DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var stale = await _backups.ListStoresWithoutRecentBackupAsync(now - _options.BackupInterval, cancellationToken);
+        var raised = 0;
+
+        foreach (var store in stale)
+        {
+            var since = store.LastSuccessfulBackupAt is { } last
+                ? $"The last successful backup was {(now - last).TotalHours:0} hours ago."
+                : "No successful backup has ever been reported for it.";
+
+            try
+            {
+                var (_, isNew) = await _alerts.RaiseAsync(
+                    ObservabilityRules.BackupOverdue,
+                    nameof(NotificationSeverity.Critical),
+                    "Store",
+                    store.StoreId,
+                    store.CustomerId,
+                    $"'{store.StoreName}' has no recent backup. {since}",
+                    cancellationToken);
+
+                if (isNew)
+                {
+                    raised++;
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _logger.LogWarning(
+                    exception,
+                    "Failed to raise {RuleKey} for store {StoreId}; the rest of the pass continues.",
+                    ObservabilityRules.BackupOverdue,
+                    store.StoreId);
+            }
+        }
+
+        return raised;
     }
 
     /// <summary>

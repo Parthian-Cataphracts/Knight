@@ -2,6 +2,7 @@ using Customers.Domain;
 using FeatureRegistry.Domain;
 using Knight.Application.Abstractions.ControlPlane;
 using Knight.Application.Abstractions.Time;
+using Stores.Domain;
 using Microsoft.EntityFrameworkCore;
 
 namespace Knight.Infrastructure.ControlPlane.Repositories;
@@ -122,4 +123,47 @@ internal sealed class CustomerEntitlementReader : ICustomerEntitlementReader
                 && entitlement.RevokedAt == null
                 && entitlement.GrantedAt <= now
                 && (entitlement.ExpiresAt == null || entitlement.ExpiresAt > now));
+}
+
+/// <summary>
+/// Finds stores nobody has reported a successful backup for.
+///
+/// Archived stores are excluded — a store that was deprovisioned is meant to
+/// have stopped backing anything up — and so are stores that were never
+/// registered, which have nothing to back up yet. What is left is the set where
+/// silence is a problem rather than an expectation.
+/// </summary>
+internal sealed class BackupHealthReader : IBackupHealthReader
+{
+    private readonly ControlPlaneDbContext _context;
+
+    public BackupHealthReader(ControlPlaneDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<IReadOnlyCollection<StoreWithoutBackup>> ListStoresWithoutRecentBackupAsync(
+        DateTimeOffset olderThan,
+        CancellationToken cancellationToken)
+    {
+        var stores = await _context.Stores
+            .AsNoTracking()
+            .Where(store =>
+                store.Status != StoreStatus.Archived &&
+                store.Status != StoreStatus.Provisioning &&
+                store.IntegrationStatus != IntegrationStatus.NotRegistered)
+            .Select(store => new
+            {
+                store.Id,
+                store.CustomerId,
+                store.Name,
+                LastBackupAt = _context.StoreBackups
+                    .Where(backup => backup.StoreId == store.Id && backup.Status == BackupStatus.Succeeded)
+                    .Max(backup => (DateTimeOffset?)backup.StartedAt),
+            })
+            .Where(store => store.LastBackupAt == null || store.LastBackupAt < olderThan)
+            .ToListAsync(cancellationToken);
+
+        return [.. stores.Select(store => new StoreWithoutBackup(store.Id, store.CustomerId, store.Name, store.LastBackupAt))];
+    }
 }

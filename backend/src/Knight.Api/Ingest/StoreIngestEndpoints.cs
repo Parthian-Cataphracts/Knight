@@ -126,6 +126,51 @@ public static class StoreIngestEndpoints
         })
         .WithSummary("Records a store's own report of its health.");
 
+        authenticated.MapPost("/backups", async (
+            StoreBackupReportRequest request,
+            IStorePrincipal principal,
+            IStoreIntegrationService integration,
+            CancellationToken cancellationToken) =>
+        {
+            var store = Require(principal);
+            RequireEnvironment(store.Environment, request.Environment);
+
+            if (!Enum.TryParse<BackupStatus>(request.Status, ignoreCase: true, out var status))
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["status"] = [$"'{request.Status}' is not a recognised backup status."],
+                });
+            }
+
+            // An unrecognised kind is recorded as scheduled rather than refused.
+            // Losing the report — the only evidence that a backup happened at all
+            // — over a spelling is the worse of the two failures.
+            var kind = Enum.TryParse<BackupKind>(request.Kind, ignoreCase: true, out var parsedKind)
+                ? parsedKind
+                : BackupKind.Scheduled;
+
+            var backup = await integration.RecordBackupAsync(
+                new StoreBackupInput(
+                    store.StoreId,
+                    status,
+                    kind,
+                    request.StartedAt,
+                    request.CompletedAt,
+                    request.SizeBytes,
+                    request.Location,
+                    request.Detail),
+                cancellationToken);
+
+            return Results.Ok(new StoreBackupReportResponse
+            {
+                BackupId = backup.Id,
+                Status = backup.Status.ToString(),
+                RecordedAt = backup.ReportedAt,
+            });
+        })
+        .WithSummary("Records a backup a store says it took.");
+
         authenticated.MapPost("/errors", async (
             ErrorIngestRequest request,
             HttpContext context,
