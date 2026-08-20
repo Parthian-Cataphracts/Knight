@@ -89,3 +89,18 @@ generation, refresh-token rotation, and sessions
 (`docs/adr/0006-refresh-token-rotation-and-session-strategy.md`). It is kept
 and extended with `customerId` scoping, MFA, and the store/agent principal
 types.
+
+## Account invitations
+
+A new administrator receives an activation link by email and chooses their own
+password; nobody else ever learns it. The link carries a token whose hash is all
+KNIGHT stores, it works once, and it expires (two days by default) — an
+invitation that never expired would be a permanent way into an account nobody
+has claimed.
+
+Where a deployment has no mail transport configured, account creation falls back
+to the one-time password it always had: generated, returned exactly once, and
+never readable afterwards. The response says which of the two happened, so an
+operator is never left guessing whether to read a password out or wait for a
+mail. `POST /api/v1/auth/activate` completes an invitation and is anonymous by
+nature, rate-limited on the same policy as login.

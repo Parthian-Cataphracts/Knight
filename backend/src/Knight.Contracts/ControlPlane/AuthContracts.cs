@@ -83,18 +83,31 @@ public sealed record CreateAccountRequest
 }
 
 /// <summary>
-/// A created account, with the one-time password it was created with.
+/// Exactly one of the two ways a new account is handed over.
 ///
-/// The password appears here and nowhere else — not in the audit trail, not on a
-/// later read of the account. An administrator who loses it resets the account
-/// rather than looking it up, which is what stops "can reset an account" from
-/// also meaning "can silently become that account".
+/// Where mail can leave this deployment, the account's holder gets an activation
+/// link and nobody — including the administrator who created the account — ever
+/// learns a password. Where it cannot, a one-time password is returned here,
+/// once, and there is no endpoint that reads it back — an administrator who
+/// loses it resets the account rather than looking it up, which is what stops
+/// "can reset an account" from also meaning "can silently become that account".
 /// </summary>
 public sealed record CreatedAccountResponse
 {
     public required AccountResponse Account { get; init; }
 
-    public required string TemporaryPassword { get; init; }
+    /// <summary>Null when an invitation was emailed instead.</summary>
+    public string? TemporaryPassword { get; init; }
+
+    public required bool InvitationSent { get; init; }
+}
+
+/// <summary>Completes an invitation: the holder of the emailed token chooses the account's password.</summary>
+public sealed record ActivateAccountRequest
+{
+    public required string Token { get; init; }
+
+    public required string Password { get; init; }
 }
 
 public sealed record RenameAccountRequest
@@ -110,7 +123,10 @@ public sealed record SetAccountRolesRequest
 
 public sealed record TemporaryPasswordResponse
 {
-    public required string TemporaryPassword { get; init; }
+    /// <summary>Null when a fresh invitation was emailed instead of a password being generated.</summary>
+    public string? TemporaryPassword { get; init; }
+
+    public required bool InvitationSent { get; init; }
 }
 
 public sealed record CreateRoleRequest

@@ -18,22 +18,56 @@ namespace AccessControl;
 /// which the persistence filter enforces underneath rather than trusting this
 /// layer to remember (docs/authorization.md §3).
 /// </summary>
+/// <summary>
+/// What creating an account produced.
+///
+/// Exactly one of the two is set. <see cref="TemporaryPassword"/> is present
+/// only where no invitation could be emailed, and it is the one place that value
+/// ever appears.
+/// </summary>
+public sealed record AccountCreationResult(
+    ControlPlaneUser User,
+    string? TemporaryPassword,
+    bool InvitationSent);
+
 public interface IAccountAdministration
 {
     /// <summary>
-    /// Creates an account and returns it together with the one-time password it
-    /// was created with.
+    /// Creates an account, and either emails its holder an activation link or
+    /// hands the administrator a one-time password.
     ///
-    /// The password is returned exactly once, here, and never stored in a
-    /// readable form — the account holds only its hash. An administrator who
-    /// loses it resets the account rather than looking it up.
+    /// Which of the two happens depends on whether this deployment has a mail
+    /// transport, and the result says which — an invitation that was emailed
+    /// carries no password, and a password an administrator has to read out is
+    /// returned exactly once and never stored readably.
+    ///
+    /// The link is the better path and the default where it is possible: a
+    /// password read down a phone line is a password that exists in two people's
+    /// heads and usually in a chat log (TODO.md phase 9).
     /// </summary>
-    Task<(ControlPlaneUser User, string TemporaryPassword)> CreateAsync(
+    Task<AccountCreationResult> CreateAsync(
         string email,
         string displayName,
         Guid? customerId,
         IReadOnlyCollection<Guid> roleIds,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Completes an invitation: the holder of the emailed token sets the account's
+    /// password and the account becomes usable.
+    ///
+    /// Anonymous by nature — whoever follows the link is not signed in — so the
+    /// token is the whole of the proof, and a wrong or expired one is refused
+    /// without saying which.
+    /// </summary>
+    Task<ControlPlaneUser> CompleteActivationAsync(string token, string password, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Sends a fresh invitation to an account that has not activated yet.
+    /// Returns false when this deployment cannot send mail, so the caller can
+    /// fall back to a one-time password rather than pretending one was sent.
+    /// </summary>
+    Task<bool> ResendInvitationAsync(Guid userId, CancellationToken cancellationToken);
 
     Task<ControlPlaneUser> RenameAsync(Guid userId, string displayName, CancellationToken cancellationToken);
 

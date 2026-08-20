@@ -32,24 +32,33 @@ internal sealed class AccountAdministration : IAccountAdministration
     private readonly IControlPlaneUserRepository _users;
     private readonly IRoleRepository _roles;
     private readonly IControlPlanePasswordHasher _passwords;
+    private readonly ISecureTokenFactory _tokens;
+    private readonly IAccountInvitationSender _invitations;
     private readonly IAuditTrail _audit;
     private readonly IDateTimeProvider _clock;
+    private readonly AccessControlOptions _options;
 
     public AccountAdministration(
         IControlPlaneUserRepository users,
         IRoleRepository roles,
         IControlPlanePasswordHasher passwords,
+        ISecureTokenFactory tokens,
+        IAccountInvitationSender invitations,
         IAuditTrail audit,
-        IDateTimeProvider clock)
+        IDateTimeProvider clock,
+        Microsoft.Extensions.Options.IOptions<AccessControlOptions> options)
     {
         _users = users;
         _roles = roles;
         _passwords = passwords;
+        _tokens = tokens;
+        _invitations = invitations;
         _audit = audit;
         _clock = clock;
+        _options = options.Value;
     }
 
-    public async Task<(ControlPlaneUser User, string TemporaryPassword)> CreateAsync(
+    public async Task<AccountCreationResult> CreateAsync(
         string email,
         string displayName,
         Guid? customerId,
@@ -82,13 +91,22 @@ internal sealed class AccountAdministration : IAccountAdministration
             ? ControlPlaneUser.CreateCustomerUser(Guid.NewGuid(), now, customer, address, displayName, hash)
             : ControlPlaneUser.CreatePlatformStaff(Guid.NewGuid(), now, address, displayName, hash);
 
-        // The aggregate creates accounts as Invited, which is the right default
-        // for a self-service invitation where nobody has handed anything over.
-        // This path is the other one: an administrator has generated a
-        // credential and is about to pass it on, so the invitation is already
-        // complete and an account that could not sign in with the password it
-        // was just given would simply look broken.
-        user.Activate(now);
+        // Which of the two paths this is depends on whether mail can leave this
+        // deployment. Where it can, the account stays Invited and its holder
+        // sets their own password from the emailed link — nobody else ever knows
+        // it. Where it cannot, the administrator is handed the generated
+        // password and the account is activated, because an account that could
+        // not sign in with the password it was just given would look broken.
+        var invitation = _invitations.CanSend ? _tokens.Generate() : null;
+
+        if (invitation is null)
+        {
+            user.Activate(now);
+        }
+        else
+        {
+            user.BeginActivation(invitation.Hash, now.Add(_options.InvitationLifetime), now);
+        }
 
         await _users.AddAsync(user, cancellationToken);
 
@@ -107,9 +125,30 @@ internal sealed class AccountAdministration : IAccountAdministration
             cancellationToken,
             // The generated password is deliberately absent: the audit trail is
             // the last place a credential should end up.
-            newValue: new { user.Email, user.DisplayName, RoleCount = roleIds.Count });
+            // Neither the generated password nor the invitation token is here:
+            // the audit trail is the last place a credential should end up.
+            newValue: new { user.Email, user.DisplayName, RoleCount = roleIds.Count, invited = invitation is not null });
 
-        return (user, password);
+        if (invitation is null)
+        {
+            return new AccountCreationResult(user, password, false);
+        }
+
+        var sent = await _invitations.SendAsync(user, invitation.RawValue, cancellationToken);
+
+        if (!sent)
+        {
+            // The mail did not leave. Rather than leaving an account nobody can
+            // ever reach, the invitation is abandoned and the administrator gets
+            // the one-time password after all — with the account activated so it
+            // works.
+            user.CompleteActivation(hash, now);
+            await _users.SaveChangesAsync(cancellationToken);
+
+            return new AccountCreationResult(user, password, false);
+        }
+
+        return new AccountCreationResult(user, null, true);
     }
 
     public async Task<ControlPlaneUser> RenameAsync(Guid userId, string displayName, CancellationToken cancellationToken)
@@ -213,6 +252,67 @@ internal sealed class AccountAdministration : IAccountAdministration
             "user.password.reset", "ControlPlaneUser", user.Id.ToString(), user.CustomerId, cancellationToken);
 
         return password;
+    }
+
+    public async Task<ControlPlaneUser> CompleteActivationAsync(
+        string token,
+        string password,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(password))
+        {
+            throw new ValidationException(new Dictionary<string, string[]>
+            {
+                ["token"] = ["An activation token and a password are required."],
+            });
+        }
+
+        // Looked up by hash: the plaintext token exists only in the link, and
+        // this table holds nothing anybody could replay.
+        var user = await _users.FindByActivationTokenAsync(_tokens.Hash(token.Trim()), cancellationToken)
+            ?? throw new ConflictException("This invitation is no longer valid. Ask an administrator for a new one.");
+
+        user.CompleteActivation(_passwords.Hash(password), _clock.UtcNow);
+        await _users.SaveChangesAsync(cancellationToken);
+
+        await _audit.RecordAsync(
+            "user.activated",
+            "ControlPlaneUser",
+            user.Id.ToString(),
+            user.CustomerId,
+            cancellationToken,
+            newValue: new { user.Email });
+
+        return user;
+    }
+
+    public async Task<bool> ResendInvitationAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        if (!_invitations.CanSend)
+        {
+            return false;
+        }
+
+        var user = await RequireAsync(userId, cancellationToken);
+        var now = _clock.UtcNow;
+        var invitation = _tokens.Generate();
+
+        // Re-inviting replaces the outstanding token rather than adding one:
+        // two live invitations to the same account are two ways in.
+        user.BeginActivation(invitation.Hash, now.Add(_options.InvitationLifetime), now);
+        await _users.SaveChangesAsync(cancellationToken);
+
+        var sent = await _invitations.SendAsync(user, invitation.RawValue, cancellationToken);
+
+        await _audit.RecordAsync(
+            "user.invitation.sent",
+            "ControlPlaneUser",
+            user.Id.ToString(),
+            user.CustomerId,
+            cancellationToken,
+            newValue: new { user.Email, sent });
+
+        return sent;
     }
 
     public async Task<Role> CreateRoleAsync(

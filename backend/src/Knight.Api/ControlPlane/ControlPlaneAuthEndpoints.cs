@@ -85,6 +85,23 @@ public static class ControlPlaneAuthEndpoints
             return Results.NoContent();
         }).AllowAnonymous();
 
+        // Anonymous by nature: whoever follows an invitation link is not signed
+        // in yet. The token is the whole of the proof, and it is rate-limited on
+        // the same policy as login because it is a credential-guessing surface
+        // in exactly the same way.
+        group.MapPost("/activate", async (
+            ActivateAccountRequest request,
+            IAccountAdministration administration,
+            CancellationToken cancellationToken) =>
+        {
+            await administration.CompleteActivationAsync(request.Token, request.Password, cancellationToken);
+
+            // No session is issued here. The account signs in through the
+            // ordinary login, which is also what proves the password it just set
+            // is the one it thinks it set.
+            return Results.NoContent();
+        }).AllowAnonymous().RequireRateLimiting("auth-control-plane");
+
         group.MapGet("/me", async (
             IControlPlanePrincipal principal,
             IControlPlaneAuthenticationService service,

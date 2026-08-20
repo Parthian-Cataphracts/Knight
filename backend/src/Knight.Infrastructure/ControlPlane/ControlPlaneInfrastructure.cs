@@ -92,6 +92,16 @@ public static class ControlPlaneInfrastructure
         // store URL is (docs/security-threat-model.md, SSRF).
         services.AddScoped<Observability.Domain.INotificationTransport, Integration.NotificationTransport>();
 
+        // Mail leaves KNIGHT through one place, and it is off unless a host is
+        // configured — everything that would have sent some then says so rather
+        // than pretending.
+        services.AddOptions<Integration.EmailOptions>()
+            .Bind(configuration.GetSection(Integration.EmailOptions.SectionName))
+            .ValidateDataAnnotations();
+
+        services.AddScoped<IEmailSender, Integration.SmtpEmailSender>();
+        services.AddScoped<AccessControl.IAccountInvitationSender, Integration.AccountInvitationSender>();
+
         // The four delivery rules compare records owned by different modules, so
         // the comparison lives here, where the whole schema is visible.
         services.AddScoped<IDeliveryHealthReader, DeliveryHealthReader>();

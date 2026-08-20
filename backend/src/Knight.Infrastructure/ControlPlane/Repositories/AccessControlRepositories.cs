@@ -38,6 +38,17 @@ internal sealed class ControlPlaneUserRepository : IControlPlaneUserRepository
             .Include(u => u.Roles)
             .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
 
+    /// <summary>
+    /// Resolved by token hash, with roles loaded because completing an
+    /// invitation ends in a usable account rather than in a redirect back to a
+    /// login screen.
+    /// </summary>
+    public Task<ControlPlaneUser?> FindByActivationTokenAsync(string tokenHash, CancellationToken cancellationToken) =>
+        _context.Users
+            .IgnoreQueryFilters()
+            .Include(user => user.Roles)
+            .FirstOrDefaultAsync(user => user.ActivationTokenHash == tokenHash, cancellationToken);
+
     public Task<bool> ExistsWithEmailAsync(string normalizedEmail, CancellationToken cancellationToken) =>
         _context.Users.IgnoreQueryFilters().AnyAsync(u => u.NormalizedEmail == normalizedEmail, cancellationToken);
 
