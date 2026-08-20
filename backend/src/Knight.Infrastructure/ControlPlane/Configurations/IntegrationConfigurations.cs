@@ -92,6 +92,13 @@ internal sealed class StoreErrorEventConfiguration : IEntityTypeConfiguration<St
         builder.HasIndex(e => new { e.StoreId, e.OccurredAt }).IsDescending(false, true);
         builder.HasIndex(e => e.ErrorGroupId);
 
+        // The platform-wide error list, which names no store. The composite above
+        // cannot serve it — its leading column is not in the predicate — so
+        // without this the query is a sequential scan plus a sort over the whole
+        // table, measured at 8ms across 20k rows and growing linearly from there
+        // (docs/phase-10-verification.md).
+        builder.HasIndex(e => new { e.OccurredAt, e.Id }).IsDescending(true, false);
+
         builder.HasOne<Store>()
             .WithMany()
             .HasForeignKey(e => e.StoreId)
@@ -116,6 +123,9 @@ internal sealed class StoreLifecycleEventConfiguration : IEntityTypeConfiguratio
 
         builder.HasIndex(e => new { e.StoreId, e.OccurredAt }).IsDescending(false, true);
         builder.HasIndex(e => e.Type);
+
+        // As above, for the platform-wide event feed.
+        builder.HasIndex(e => e.OccurredAt).IsDescending(true);
 
         builder.HasOne<Store>()
             .WithMany()
@@ -144,6 +154,11 @@ internal sealed class StoreLogEntryConfiguration : IEntityTypeConfiguration<Stor
 
         builder.HasIndex(e => new { e.StoreId, e.Timestamp }).IsDescending(false, true);
         builder.HasIndex(e => new { e.StoreId, e.Level });
+
+        // As above, and this is the table it matters most on: logs are the
+        // highest-volume thing KNIGHT stores, so the sequential scan the
+        // platform-wide view used to do grew fastest here.
+        builder.HasIndex(e => e.Timestamp).IsDescending(true);
 
         builder.HasOne<Store>()
             .WithMany()

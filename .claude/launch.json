@@ -2,6 +2,19 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "knight-api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "src/Knight.Api",
+        "--launch-profile",
+        "http"
+      ],
+      "cwd": "backend",
+      "port": 5008
+    },
+    {
       "name": "knight-dashboard",
       "runtimeExecutable": "npm",
       "runtimeArgs": [

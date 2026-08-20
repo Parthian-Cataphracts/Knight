@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Knight.Infrastructure\Knight.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Knight.Application\Knight.Application.csproj" />
+    <ProjectReference Include="..\..\modules\AccessControl\AccessControl.csproj" />
+    <ProjectReference Include="..\..\modules\Customers\Customers.csproj" />
+    <ProjectReference Include="..\..\modules\Stores\Stores.csproj" />
+    <ProjectReference Include="..\..\modules\Servers\Servers.csproj" />
+    <ProjectReference Include="..\..\modules\FeatureRegistry\FeatureRegistry.csproj" />
+    <ProjectReference Include="..\..\modules\FeatureDelivery\FeatureDelivery.csproj" />
+    <ProjectReference Include="..\..\modules\Plans\Plans.csproj" />
+    <ProjectReference Include="..\..\modules\Subscriptions\Subscriptions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.11" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
