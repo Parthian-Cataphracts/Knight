@@ -180,6 +180,34 @@ POST   /api/v1/jobs/{id}/cancel          only while Queued or Claimed
 GET    /api/v1/stores/{id}/provisioning  provisioning job for this store
 ```
 
+### Staged rollouts
+
+Moving the whole fleet onto a version, a wave at a time
+([`adr/0028`](adr/0028-staged-rollouts-with-a-single-store-canary.md),
+[`feature-delivery.md`](feature-delivery.md) §10.1).
+
+```
+GET    /api/v1/rollouts?state=&page=&pageSize=
+GET    /api/v1/rollouts/{id}             waves, targets, per-store outcome
+POST   /api/v1/rollouts                  { slug, version, wavePercentages?, failureThreshold?,
+                                           storeIds?, canaryStoreId? } -> plans, does not start
+POST   /api/v1/rollouts/{id}/start       dispatches the canary wave
+POST   /api/v1/rollouts/{id}/halt        { reason }  queues nothing further
+POST   /api/v1/rollouts/{id}/resume      accepts the failures so far and continues
+POST   /api/v1/rollouts/{id}/cancel      { reason }  ends it; upgraded stores stay upgraded
+```
+
+**All of these require `feature.publish`**, not `installation.manage`. A rollout
+crosses customers and installs code into stores its caller does not own, so it is
+platform business of the same weight as publishing the version; no
+customer-scoped role holds that permission and a customer-scoped caller gets
+`403`.
+
+`POST /api/v1/rollouts` **plans without starting**, so an operator can see which
+store is the canary and how many go in each wave before any code is sent
+anywhere. `wavePercentages` describes the waves *after* the canary, which is
+always exactly one store.
+
 A mutating call returns `202 Accepted` with the created job:
 
 ```json

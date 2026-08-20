@@ -264,6 +264,48 @@ what succeeded. It is honest about limits:
 
 See [`adr/0016`](adr/0016-feature-migration-and-removal-policy.md).
 
+## 10.1 Staged rollout across the fleet
+
+Upgrading one store is reviewed and reversible. Moving **every** store onto a new
+version is the operation R16 in [`risks.md`](risks.md) is about, and it is a
+first-class object rather than a loop: a **rollout**, made of ordered **waves**
+of stores.
+
+```
+rollout: knight-feature-promotions 1.1.0, threshold 2
+  wave 0  canary      1 store    -> must succeed
+  wave 1  50%         12 stores
+  wave 2  the rest    13 stores
+```
+
+The rules, all enforced by the aggregate rather than by whoever is driving it
+([`adr/0028`](adr/0028-staged-rollouts-with-a-single-store-canary.md)):
+
+- **The canary is exactly one store**, never a percentage, and a non-production
+  one where the fleet has one.
+- **A wave does not begin until the previous wave has reported on every store.**
+- **A failed canary halts the rollout whatever the threshold says.**
+- **Failures are counted across the whole rollout**, not per wave.
+- **A rollout sequences; it does not install.** Each store gets an ordinary
+  upgrade job, so a rollout can ask an agent for nothing a hand-made upgrade
+  could not.
+
+| Action | What it does | What it deliberately does not do |
+|---|---|---|
+| Halt | Queues nothing further | Does not cancel a job already running inside a store — interrupting a migration half-way is worse than letting it finish |
+| Resume | Accepts the failures so far and continues | Does not clear them; the next failure halts it again |
+| Cancel | Ends the rollout | Does not downgrade stores already upgraded — a rollout is not a transaction |
+
+A rollout only ever targets stores that **already have the Feature** on a
+different version. Installing a Feature somewhere for the first time is an
+entitlement decision, and a version bump must never quietly become one.
+
+At most one rollout per Feature may be live at a time.
+
+Routes: `POST /api/v1/rollouts` (plan), `/{id}/start`, `/{id}/halt`,
+`/{id}/resume`, `/{id}/cancel`. All require `feature.publish` — a rollout crosses
+customers, and no customer-scoped role holds that permission.
+
 ## 11. Removal semantics
 
 "Turning a feature off" is four different operations. They are never conflated:
