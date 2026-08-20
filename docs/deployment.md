@@ -116,7 +116,12 @@ Dashboard build-time config: `VITE_API_BASE_URL`, `VITE_SIGNALR_URL`,
 
 - All schema change is EF Core migrations, reviewed in the PR that needs them.
 - Migrations run as an explicit deployment step, not silently at startup in
-  Production.
+  Production. The step is
+  `dotnet run --project backend/tools/Knight.Bootstrap -- --migrate-only`, which
+  applies the migrations and reconciles the seeded roles and catalogue without
+  creating an account or prompting for anything. It is idempotent, and CI proves
+  that by running it twice and requiring the second run to be a no-op — a deploy
+  runs it on every release, and most releases have no migration to apply.
 - Expand/contract for anything destructive: add → backfill → switch → remove in
   a later release.
 - High-volume tables (`ServerMetric`, `ErrorEvent`, `LogEntry`) are partitioned
@@ -163,9 +168,25 @@ migration, which is why destructive changes use expand/contract.
 
 ## 10. Backups
 
-Nightly `pg_dump` of the KNIGHT database with restore drills documented.
+Nightly `pg_dump` of the KNIGHT database. The scripts are in
+[`infrastructure/scripts/`](../infrastructure/scripts/) and the procedure — take,
+verify, drill, and restore for real during an incident — is
+[`runbooks/restore-drill.md`](runbooks/restore-drill.md).
+
+The restore drill is **a CI job, not a calendar entry**: it runs on every push,
+takes a real backup, restores it into a scratch database and compares the table
+list, every row count, the migration history and the constraints and indexes
+([`adr/0027`](adr/0027-the-restore-drill-is-the-backup-test.md)). Every dump
+carries a manifest with its SHA-256, and a restore refuses a dump whose checksum
+does not match.
+
+Still deployment configuration rather than code, and named here so it is not
+mistaken for done: the nightly schedule itself, the offsite copy of each dump,
+and how long copies are kept.
+
 Store backups are the store's responsibility; KNIGHT only records the reported
-backup status and raises `backup.failed` alerts.
+backup status and raises `backup.failed` alerts
+([`adr/0026`](adr/0026-knight-records-backups-it-does-not-take-them.md)).
 
 ## 11. Not yet
 

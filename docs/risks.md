@@ -75,15 +75,25 @@ Status: **living document**. Update whenever a risk is resolved or discovered.
     went nowhere — and SMTP is wired in phase 9, where the mail host and its
     credentials are chosen alongside the rest of the deployment. Webhook and
     in-app channels carry alerting until then.
-13. **Pre-release verification** — the product owner expressed no preference, so
-    this stands as the team's own proposal rather than a decision taken:
-    **a restore drill for the KNIGHT database is the one thing that should block
-    a release.** A backup nobody has restored is not a backup, and every other
-    part of the product depends on that database. An external review of the
-    delivery path and a load test on ingestion are strongly advised but can
-    follow the first release; a full provisioning run cannot happen before phase
-    9 builds it, so launching with stores registered by hand is the assumption
-    unless somebody says otherwise.
+13. **Pre-release verification** — *resolved in phase 10, by building it rather
+    than by a decision.* The proposal was that **a restore drill for the KNIGHT
+    database should be the one thing blocking a release**. That drill now exists
+    and runs in CI on every push, so it is a standing gate instead of a
+    ceremony performed once: it takes a real backup, restores it into a scratch
+    database and compares the table list, every row count, the migration history
+    and the constraints and indexes
+    ([`adr/0027`](adr/0027-the-restore-drill-is-the-backup-test.md),
+    [`runbooks/restore-drill.md`](runbooks/restore-drill.md)).
+
+    The load test on ingestion and delivery was also done in phase 10 rather
+    than deferred, and its numbers are in
+    [`phase-10-verification.md`](phase-10-verification.md). The **external
+    review of the delivery path remains outstanding and is the one item here
+    nobody inside the project can close** — its scope is prepared in
+    [`security/external-review-scope.md`](security/external-review-scope.md).
+    A full provisioning run against a real provider still cannot happen until
+    the provider integration exists, so launching with stores registered by hand
+    remains the assumption unless somebody says otherwise.
 
 ## 4. Things deliberately not being done yet
 

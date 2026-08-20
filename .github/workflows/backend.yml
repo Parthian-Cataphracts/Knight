@@ -51,3 +51,92 @@ jobs:
         env:
           REQUIRE_POSTGRES_TESTS: '1'
         run: dotnet test backend/Knight.slnx --configuration Release --no-build --verbosity normal
+
+  restore-drill:
+    name: Migrations and restore drill
+    runs-on: ubuntu-latest
+
+    # A backup nobody has restored is not a backup, and a restore drill nobody
+    # runs is not a drill. Running it on every push is the only version of this
+    # that stays true: the scripts, the schema and the dump format all change,
+    # and each of them can break a restore without breaking anything else.
+    # This is the release blocker recorded as question 13 in docs/risks.md.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: knight
+          POSTGRES_PASSWORD: knight
+          POSTGRES_DB: knight
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # Migration validation, the stage docs/deployment.md section 8 calls for:
+      # the migrations must apply to an empty database, not merely to whichever
+      # database a developer happens to have. Seeding runs too, so the drill
+      # below compares a database with real rows in it.
+      - name: Apply migrations to a fresh database
+        env:
+          CONTROL_PLANE_DB_CONNECTION_STRING: 'Host=localhost;Port=5432;Database=knight;Username=knight;Password=knight'
+        run: dotnet run --project backend/tools/Knight.Bootstrap -- --migrate-only
+
+      # Run twice on purpose: the second run must be a no-op. A deploy applies
+      # this on every release and most releases have no new migration, so a
+      # seeder that is not idempotent would corrupt data on an ordinary deploy.
+      - name: Apply them again, to prove it is idempotent
+        env:
+          CONTROL_PLANE_DB_CONNECTION_STRING: 'Host=localhost;Port=5432;Database=knight;Username=knight;Password=knight'
+        run: dotnet run --project backend/tools/Knight.Bootstrap -- --migrate-only
+
+      - name: Install PostgreSQL client tools
+        # Version-matched to the server. pg_dump refuses to dump a server newer
+        # than itself, and the runner's stock client is older than 17.
+        run: |
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+          pg_dump --version
+
+      - name: Restore drill
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: knight
+          PGPASSWORD: knight
+          KNIGHT_DB: knight
+          KNIGHT_DRILL_DB: knight_drill
+          KNIGHT_BACKUP_DIR: ${{ runner.temp }}/backups
+        run: infrastructure/scripts/restore-drill.sh
+
+      # Proves the checksum guard actually guards. A corrupt dump that restores
+      # anyway is the failure mode the manifest exists to prevent, so the
+      # negative case is worth a test of its own.
+      - name: A corrupted dump must be refused
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: knight
+          PGPASSWORD: knight
+        run: |
+          dump="$(ls -1t "${{ runner.temp }}"/backups/*.dump | head -n 1)"
+          printf 'corruption' >> "$dump"
+
+          if infrastructure/scripts/knight-restore.sh "$dump" knight_corrupt_drill --force; then
+            echo "The restore accepted a dump whose checksum does not match. That is the bug." >&2
+            exit 1
+          fi
+
+          echo "Refused, as it should."
+
