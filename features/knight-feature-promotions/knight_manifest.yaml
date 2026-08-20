@@ -1,0 +1,43 @@
+# The contract between this Feature and everything that handles it: KNIGHT
+# validates it at publish, the resolver reads its dependencies, and the store's
+# installer reads its install and migration declarations
+# (docs/feature-delivery.md section 5).
+apiVersion: knight.dev/v1
+slug: knight-feature-promotions
+version: 1.0.0
+name: Promotions
+description: >-
+  Promotions and coupon codes. A store without this sells at list price, which is
+  why it is a Feature rather than part of the base image
+  (docs/adr/0024-base-store-versus-optional-feature.md).
+
+django:
+  app_label: knight_promotions
+  installed_app: knight_feature_promotions
+
+compatibility:
+  # Needs a store new enough to carry the order promotion snapshot, which is what
+  # makes a discount survive this feature being uninstalled.
+  storeVersion: ">=2.0.0"
+  python: ">=3.12"
+  django: ">=5.0,<6.0"
+
+migrations:
+  required: true
+  # Plain CreateModel throughout, so the reverse exists and a failed upgrade can
+  # put the schema back. Declaring this honestly is what decides whether a
+  # rollback is possible at all.
+  reversible: true
+  estimatedDurationSeconds: 5
+  requiresMaintenanceWindow: false
+
+install:
+  strategy: package-install
+  requiresRestart: true
+  healthCheck: knight_feature_promotions.checks.health
+
+uninstall:
+  # Redemptions are a campaign's results, and a business will ask about them
+  # after the campaign is over. Kept for a year rather than the usual month.
+  strategy: disable-then-remove
+  dataRetentionDays: 365
