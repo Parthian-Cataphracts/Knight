@@ -60,6 +60,7 @@ public static class ControlPlaneComposition
         // Provisioning waits on facts that arrive from five other modules and
         // notify nobody, so something has to re-ask on a timer.
         services.AddHostedService<ProvisioningCoordinator>();
+        services.AddHostedService<RolloutCoordinator>();
 
         // Evaluates the rules nobody can evaluate at the moment something
         // happens — spikes, entitlements that were never installed, drift — and

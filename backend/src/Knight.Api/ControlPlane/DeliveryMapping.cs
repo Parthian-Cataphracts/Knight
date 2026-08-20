@@ -135,4 +135,48 @@ internal static class DeliveryMapping
         result.Plan.ToResponse(),
         [.. result.QueuedJobs.Select(job => job.ToResponse())],
         result.Installation.ToResponse());
+
+    public static RolloutResponse ToResponse(this FeatureRollout rollout) => new()
+    {
+        Id = rollout.Id,
+        FeatureId = rollout.FeatureId,
+        FeatureSlug = rollout.FeatureSlug,
+        TargetVersion = rollout.TargetVersion,
+        State = rollout.State.ToString(),
+        FailureThreshold = rollout.FailureThreshold,
+        TotalStores = rollout.TotalStores,
+        SucceededStores = rollout.SucceededStores,
+        FailedStores = rollout.FailedStores,
+        HaltReason = rollout.HaltReason,
+        CreatedBy = rollout.CreatedBy,
+        CreatedAt = rollout.CreatedAt,
+        StartedAt = rollout.StartedAt,
+        CompletedAt = rollout.CompletedAt,
+
+        // Ordered explicitly. The waves are the sequence, and a UI that showed
+        // them in whatever order the database returned would be showing the one
+        // thing about a rollout that must not be guessed at.
+        Waves = [.. rollout.Waves.OrderBy(wave => wave.Ordinal).Select(ToResponse)],
+    };
+
+    private static RolloutWaveResponse ToResponse(RolloutWave wave) => new()
+    {
+        Id = wave.Id,
+        Ordinal = wave.Ordinal,
+        IsCanary = wave.IsCanary,
+        State = wave.State.ToString(),
+        DispatchedAt = wave.DispatchedAt,
+        CompletedAt = wave.CompletedAt,
+        Targets =
+        [
+            .. wave.Targets.Select(target => new RolloutTargetResponse
+            {
+                StoreId = target.StoreId,
+                State = target.State.ToString(),
+                JobId = target.JobId,
+                Detail = target.Detail,
+                CompletedAt = target.CompletedAt,
+            }),
+        ],
+    };
 }

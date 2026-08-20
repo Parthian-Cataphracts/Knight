@@ -264,3 +264,95 @@ internal sealed class StoreImageConfiguration : IEntityTypeConfiguration<StoreIm
         builder.HasIndex(image => image.SigningKeyId);
     }
 }
+
+/// <summary>
+/// The staged rollout and its waves and targets.
+///
+/// A rollout is not customer-owned: it spans every store entitled to a Feature,
+/// across customers, and it is a platform operation. That is why there is no
+/// <c>customer_id</c> here and no isolation filter — and why the endpoints that
+/// reach it are platform-only. A customer-scoped caller has no business seeing
+/// which other stores a version reached.
+///
+/// Waves and targets cascade from the rollout: they have no life of their own,
+/// and a rollout deleted without them would leave rows nothing can reach.
+/// </summary>
+internal sealed class FeatureRolloutConfiguration : IEntityTypeConfiguration<FeatureRollout>
+{
+    public void Configure(EntityTypeBuilder<FeatureRollout> builder)
+    {
+        builder.ToTable("feature_rollouts");
+
+        builder.HasKey(rollout => rollout.Id);
+
+        builder.Property(rollout => rollout.FeatureSlug).HasMaxLength(100).IsRequired();
+        builder.Property(rollout => rollout.TargetVersion).HasMaxLength(50).IsRequired();
+        builder.Property(rollout => rollout.CreatedBy).HasMaxLength(320).IsRequired();
+        builder.Property(rollout => rollout.HaltReason).HasMaxLength(1000);
+
+        builder.Property(rollout => rollout.State).HasConversion<string>().HasMaxLength(20).IsRequired();
+
+        builder.HasMany(rollout => rollout.Waves)
+            .WithOne()
+            .HasForeignKey(wave => wave.RolloutId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(rollout => rollout.Waves).AutoInclude();
+
+        // The dashboard lists rollouts newest first, and the coordinator sweeps
+        // for unfinished ones.
+        builder.HasIndex(rollout => rollout.CreatedAt).IsDescending(true);
+        builder.HasIndex(rollout => new { rollout.State, rollout.CreatedAt }).IsDescending(false, true);
+        builder.HasIndex(rollout => rollout.FeatureId);
+
+        // At most one rollout of a Feature may be live at a time. Two concurrent
+        // rollouts of the same Feature would race each other onto the same
+        // stores, and the second one's jobs would fail against a version the
+        // first had already installed.
+        builder.HasIndex(rollout => rollout.FeatureId)
+            .HasDatabaseName("IX_feature_rollouts_FeatureId_active")
+            .HasFilter("\"State\" in ('Planned', 'InProgress', 'Halted')")
+            .IsUnique();
+    }
+}
+
+internal sealed class RolloutWaveConfiguration : IEntityTypeConfiguration<RolloutWave>
+{
+    public void Configure(EntityTypeBuilder<RolloutWave> builder)
+    {
+        builder.ToTable("rollout_waves");
+
+        builder.HasKey(wave => wave.Id);
+
+        builder.Property(wave => wave.State).HasConversion<string>().HasMaxLength(20).IsRequired();
+
+        builder.HasMany(wave => wave.Targets)
+            .WithOne()
+            .HasForeignKey(target => target.WaveId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(wave => wave.Targets).AutoInclude();
+
+        builder.HasIndex(wave => new { wave.RolloutId, wave.Ordinal }).IsUnique();
+    }
+}
+
+internal sealed class RolloutTargetConfiguration : IEntityTypeConfiguration<RolloutTarget>
+{
+    public void Configure(EntityTypeBuilder<RolloutTarget> builder)
+    {
+        builder.ToTable("rollout_targets");
+
+        builder.HasKey(target => target.Id);
+
+        builder.Property(target => target.State).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(target => target.Detail).HasMaxLength(2000);
+
+        // A store appears at most once in a rollout, which the domain enforces on
+        // the way in; this is the same rule where it cannot be bypassed.
+        builder.HasIndex(target => new { target.WaveId, target.StoreId }).IsUnique();
+
+        // The result path looks a target up by the job that reported.
+        builder.HasIndex(target => target.JobId);
+    }
+}

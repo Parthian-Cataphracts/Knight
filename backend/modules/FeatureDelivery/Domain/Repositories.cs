@@ -96,3 +96,38 @@ public interface IFeatureConfigurationRepository
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// Persistence for staged rollouts.
+///
+/// Deliberately *not* customer-scoped. A rollout spans every store entitled to a
+/// Feature, across customers, and is a platform operation — which is also why the
+/// endpoints that reach it are platform-only.
+/// </summary>
+public interface IFeatureRolloutRepository
+{
+    Task<FeatureRollout?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The live rollout of a Feature, if there is one. Two concurrent rollouts of
+    /// the same Feature would race each other onto the same stores, so planning
+    /// one checks here first.
+    /// </summary>
+    Task<FeatureRollout?> FindActiveForFeatureAsync(Guid featureId, CancellationToken cancellationToken);
+
+    /// <summary>The rollout a given installation job belongs to, if any — the result-reporting path.</summary>
+    Task<FeatureRollout?> FindByJobAsync(Guid jobId, CancellationToken cancellationToken);
+
+    /// <summary>Rollouts with waves still to dispatch, for the coordinator sweep.</summary>
+    Task<IReadOnlyCollection<FeatureRollout>> ListAdvanceableAsync(CancellationToken cancellationToken);
+
+    Task<(IReadOnlyCollection<FeatureRollout> Items, long TotalCount)> ListAsync(
+        int page,
+        int pageSize,
+        RolloutState? state,
+        CancellationToken cancellationToken);
+
+    Task AddAsync(FeatureRollout rollout, CancellationToken cancellationToken);
+
+    Task SaveChangesAsync(CancellationToken cancellationToken);
+}

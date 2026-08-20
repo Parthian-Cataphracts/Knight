@@ -101,7 +101,41 @@ public interface IStoreDeliveryReader
 
     /// <summary>The customer that owns the store, or null when there is no such store.</summary>
     Task<Guid?> GetOwningCustomerAsync(Guid storeId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every store a rollout of this Feature could target: one that already has
+    /// the Feature installed and is not already on the target version.
+    ///
+    /// Crosses customers, which nothing else in delivery does — a rollout is a
+    /// platform operation over the whole fleet. The caller is platform-only for
+    /// that reason.
+    ///
+    /// Stores that do not have the Feature at all are excluded. A rollout moves a
+    /// version forward; installing a Feature somewhere for the first time is an
+    /// entitlement decision, and folding the two together would let a version
+    /// bump quietly install software into stores that never had it.
+    /// </summary>
+    Task<IReadOnlyCollection<RolloutCandidateStore>> ListRolloutCandidatesAsync(
+        string featureSlug,
+        string targetVersion,
+        CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// A store a rollout could move onto a new version.
+///
+/// <paramref name="IsProduction"/> is carried so the canary can be chosen
+/// safely: given the choice, the first store to receive an unproven version
+/// should not be somebody's live shop.
+/// </summary>
+public sealed record RolloutCandidateStore(
+    Guid FeatureId,
+    Guid StoreId,
+    Guid CustomerId,
+    string StoreName,
+    string Environment,
+    bool IsProduction,
+    string? InstalledVersion);
 
 /// <summary>
 /// Signs and verifies feature artifacts.

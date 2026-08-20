@@ -1,9 +1,9 @@
+using FeatureDelivery;
+using FeatureDelivery.Domain;
 using Knight.Application.Abstractions.ControlPlane;
 using Knight.Application.Abstractions.Observability;
 using Knight.Application.Abstractions.Security;
 using Knight.Application.Abstractions.Time;
-using FeatureDelivery;
-using FeatureDelivery.Domain;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using Xunit;
@@ -137,6 +137,7 @@ public sealed class JobBroadcastTests
         clock.UtcNow.Returns(now);
 
         var service = new AgentJobService(
+            Substitute.For<IFeatureRolloutService>(),
             jobs,
             Substitute.For<IFeatureInstallationRepository>(),
             Substitute.For<IFeatureConfigurationRepository>(),

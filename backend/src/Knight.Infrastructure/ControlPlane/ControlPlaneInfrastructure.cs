@@ -77,6 +77,7 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<FeatureRegistry.Domain.IStoreImageRepository, StoreImageRepository>();
         services.AddScoped<FeatureDelivery.Domain.IFeatureInstallationRepository, FeatureInstallationRepository>();
         services.AddScoped<FeatureDelivery.Domain.IFeatureInstallationJobRepository, FeatureInstallationJobRepository>();
+        services.AddScoped<FeatureDelivery.Domain.IFeatureRolloutRepository, FeatureRolloutRepository>();
         services.AddScoped<FeatureDelivery.Domain.IFeatureConfigurationRepository, FeatureConfigurationRepository>();
 
         services.AddScoped<Servers.Domain.IServerRepository, ServerRepository>();

@@ -20,6 +20,59 @@ internal sealed class StoreDeliveryReader : IStoreDeliveryReader
         _context = context;
     }
 
+    /// <summary>
+    /// Candidate stores for a rollout, across every customer.
+    ///
+    /// <c>IgnoreQueryFilters</c> is deliberate and is the only place in delivery
+    /// that uses it: the customer-isolation filter exists so a customer-scoped
+    /// principal cannot see another customer's rows, and a fleet-wide rollout is
+    /// by definition not a customer-scoped operation. The endpoints that reach
+    /// this are platform-only, which is what makes the bypass safe.
+    /// </summary>
+    public async Task<IReadOnlyCollection<RolloutCandidateStore>> ListRolloutCandidatesAsync(
+        string featureSlug,
+        string targetVersion,
+        CancellationToken cancellationToken)
+    {
+        var rows = await _context.FeatureInstallations
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .Where(installation =>
+                installation.FeatureSlug == featureSlug &&
+                installation.InstalledVersion != null &&
+                installation.InstalledVersion != targetVersion)
+            .Join(
+                _context.Stores.AsNoTracking().IgnoreQueryFilters(),
+                installation => installation.StoreId,
+                store => store.Id,
+                (installation, store) => new
+                {
+                    installation.FeatureId,
+                    store.Id,
+                    store.CustomerId,
+                    store.Name,
+                    store.Environment,
+                    store.Status,
+                    installation.InstalledVersion,
+                })
+            // A suspended or archived store must not be rolled out to. It is not
+            // supposed to be serving at all, and queueing work for it would leave
+            // a job nobody will ever run holding up the rollout.
+            .Where(row => row.Status == StoreStatus.Active)
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(row => new RolloutCandidateStore(
+                row.FeatureId,
+                row.Id,
+                row.CustomerId,
+                row.Name,
+                row.Environment.ToString(),
+                row.Environment is StoreEnvironment.Production,
+                row.InstalledVersion))
+            .ToArray();
+    }
+
     public async Task<FeaturePlanContext?> GetPlanContextAsync(Guid storeId, CancellationToken cancellationToken)
     {
         var store = await _context.Stores

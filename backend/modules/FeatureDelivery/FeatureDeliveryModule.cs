@@ -46,6 +46,7 @@ public static class FeatureDeliveryModule
             .ValidateOnStart();
 
         services.AddScoped<IFeatureDeliveryService, FeatureDeliveryService>();
+        services.AddScoped<IFeatureRolloutService, FeatureRolloutService>();
         services.AddScoped<IAgentJobService, AgentJobService>();
 
         return services;

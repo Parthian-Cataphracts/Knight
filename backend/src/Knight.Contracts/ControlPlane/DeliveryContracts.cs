@@ -302,3 +302,87 @@ public sealed record AgentJobResponse(
     AgentConfigurationResponse? Configuration,
     AgentMigrationResponse? Migrations,
     DateTimeOffset ClaimExpiresAt);
+
+// --- Staged rollouts -------------------------------------------------------
+
+/// <summary>
+/// Asks for a rollout of one Feature version across the fleet.
+///
+/// <see cref="WavePercentages"/> describes the waves *after* the canary, which is
+/// always exactly one store. Empty means everything else goes in one wave, which
+/// is reasonable for a handful of stores and reckless for hundreds.
+/// </summary>
+public sealed record PlanRolloutRequest(
+    string Slug,
+    string Version,
+    IReadOnlyList<int>? WavePercentages,
+    int? FailureThreshold,
+    IReadOnlyList<Guid>? StoreIds,
+    Guid? CanaryStoreId);
+
+public sealed record RolloutActionRequest(string Reason);
+
+public sealed record RolloutTargetResponse
+{
+    public required Guid StoreId { get; init; }
+
+    public required string State { get; init; }
+
+    public Guid? JobId { get; init; }
+
+    public string? Detail { get; init; }
+
+    public DateTimeOffset? CompletedAt { get; init; }
+}
+
+public sealed record RolloutWaveResponse
+{
+    public required Guid Id { get; init; }
+
+    public required int Ordinal { get; init; }
+
+    /// <summary>True for wave 0, the single store an unproven version reaches first.</summary>
+    public required bool IsCanary { get; init; }
+
+    public required string State { get; init; }
+
+    public DateTimeOffset? DispatchedAt { get; init; }
+
+    public DateTimeOffset? CompletedAt { get; init; }
+
+    public required RolloutTargetResponse[] Targets { get; init; }
+}
+
+public sealed record RolloutResponse
+{
+    public required Guid Id { get; init; }
+
+    public required Guid FeatureId { get; init; }
+
+    public required string FeatureSlug { get; init; }
+
+    public required string TargetVersion { get; init; }
+
+    public required string State { get; init; }
+
+    public required int FailureThreshold { get; init; }
+
+    public required int TotalStores { get; init; }
+
+    public required int SucceededStores { get; init; }
+
+    public required int FailedStores { get; init; }
+
+    /// <summary>Why a halted rollout halted, so the dashboard can say so rather than showing a stopped bar.</summary>
+    public string? HaltReason { get; init; }
+
+    public required string CreatedBy { get; init; }
+
+    public required DateTimeOffset CreatedAt { get; init; }
+
+    public DateTimeOffset? StartedAt { get; init; }
+
+    public DateTimeOffset? CompletedAt { get; init; }
+
+    public required RolloutWaveResponse[] Waves { get; init; }
+}

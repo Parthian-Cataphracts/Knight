@@ -106,6 +106,12 @@ public sealed class ControlPlaneDbContext : DbContext
 
     public DbSet<FeatureDelivery.Domain.FeatureConfiguration> FeatureConfigurations => Set<FeatureDelivery.Domain.FeatureConfiguration>();
 
+    public DbSet<FeatureDelivery.Domain.FeatureRollout> FeatureRollouts => Set<FeatureDelivery.Domain.FeatureRollout>();
+
+    public DbSet<FeatureDelivery.Domain.RolloutWave> RolloutWaves => Set<FeatureDelivery.Domain.RolloutWave>();
+
+    public DbSet<FeatureDelivery.Domain.RolloutTarget> RolloutTargets => Set<FeatureDelivery.Domain.RolloutTarget>();
+
     public DbSet<Servers.Domain.Server> Servers => Set<Servers.Domain.Server>();
 
     public DbSet<Servers.Domain.Agent> Agents => Set<Servers.Domain.Agent>();
@@ -175,6 +181,9 @@ public sealed class ControlPlaneDbContext : DbContext
         modelBuilder.ApplyConfiguration(new FeatureInstallationJobConfiguration());
         modelBuilder.ApplyConfiguration(new JobStepResultConfiguration());
         modelBuilder.ApplyConfiguration(new StoreFeatureConfigurationConfiguration());
+        modelBuilder.ApplyConfiguration(new FeatureRolloutConfiguration());
+        modelBuilder.ApplyConfiguration(new RolloutWaveConfiguration());
+        modelBuilder.ApplyConfiguration(new RolloutTargetConfiguration());
 
         modelBuilder.ApplyConfiguration(new ServerConfiguration());
         modelBuilder.ApplyConfiguration(new AgentConfiguration());
