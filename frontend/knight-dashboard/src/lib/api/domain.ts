@@ -184,6 +184,10 @@ export interface Plan {
   description: string;
   basePrice: number;
   currency: string;
+
+  /** Whether the plan may currently be sold. Withdrawing one leaves existing subscriptions alone. */
+  isActive: boolean;
+  sortOrder: number;
   customerCount: number;
   includedFeatures: string[];
   optionalFeatures: string[];

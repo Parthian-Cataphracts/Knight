@@ -190,9 +190,9 @@ export const jobs: Job[] = [
 ];
 
 export const plans: Plan[] = [
-  { id: "p1", key: "basic", name: "پایه", description: "مجموعه‌ی پایه و اجباری برای هر فروشگاه.", basePrice: 0, currency: "IRT", customerCount: 2, includedFeatures: ["knight-feature-analytics-core"], optionalFeatures: [] },
-  { id: "p2", key: "custom", name: "سفارشی", description: "پایه به‌علاوه‌ی قابلیت‌های انتخابی مشتری.", basePrice: 2_990_000, currency: "IRT", customerCount: 1, includedFeatures: ["knight-feature-analytics-core"], optionalFeatures: ["knight-feature-analytics", "knight-feature-sms"] },
-  { id: "p3", key: "professional", name: "حرفه‌ای", description: "زیرساخت اختصاصی به‌همراه تمام قابلیت‌ها.", basePrice: 8_900_000, currency: "IRT", customerCount: 1, includedFeatures: ["knight-feature-analytics-core", "knight-feature-analytics"], optionalFeatures: ["knight-feature-ai-reports", "knight-feature-sms", "knight-feature-webhooks"] },
+  { id: "p1", key: "basic", name: "پایه", description: "مجموعه‌ی پایه و اجباری برای هر فروشگاه.", basePrice: 0, currency: "IRT", isActive: true, sortOrder: 0, customerCount: 2, includedFeatures: ["knight-feature-analytics-core"], optionalFeatures: [] },
+  { id: "p2", key: "custom", name: "سفارشی", description: "پایه به‌علاوه‌ی قابلیت‌های انتخابی مشتری.", basePrice: 2_990_000, currency: "IRT", isActive: true, sortOrder: 1, customerCount: 1, includedFeatures: ["knight-feature-analytics-core"], optionalFeatures: ["knight-feature-analytics", "knight-feature-sms"] },
+  { id: "p3", key: "professional", name: "حرفه‌ای", description: "زیرساخت اختصاصی به‌همراه تمام قابلیت‌ها.", basePrice: 8_900_000, currency: "IRT", isActive: true, sortOrder: 2, customerCount: 1, includedFeatures: ["knight-feature-analytics-core", "knight-feature-analytics"], optionalFeatures: ["knight-feature-ai-reports", "knight-feature-sms", "knight-feature-webhooks"] },
 ];
 
 export const entitlementMatrix: EntitlementMatrixRow[] = [

@@ -29,6 +29,7 @@ internal sealed class AgentJobService : IAgentJobService
     private readonly ISecretProtector _secrets;
     private readonly IAuditTrail _audit;
     private readonly IKnightMetrics _metrics;
+    private readonly IRealtimeNotifier _realtime;
     private readonly IDateTimeProvider _clock;
     private readonly FeatureDeliveryOptions _options;
 
@@ -41,6 +42,7 @@ internal sealed class AgentJobService : IAgentJobService
         ISecretProtector secrets,
         IAuditTrail audit,
         IKnightMetrics metrics,
+        IRealtimeNotifier realtime,
         IDateTimeProvider clock,
         IOptions<FeatureDeliveryOptions> options)
     {
@@ -52,6 +54,7 @@ internal sealed class AgentJobService : IAgentJobService
         _secrets = secrets;
         _audit = audit;
         _metrics = metrics;
+        _realtime = realtime;
         _clock = clock;
         _options = options.Value;
     }
@@ -110,6 +113,19 @@ internal sealed class AgentJobService : IAgentJobService
         }
 
         await _jobs.SaveChangesAsync(cancellationToken);
+
+        // Broadcast after the save, never before: a screen must not be told a
+        // step succeeded that the database has not accepted yet.
+        await BroadcastAsync(
+            "jobProgress",
+            job,
+            new
+            {
+                step = report.Step,
+                status = status.ToString(),
+                errorCode = report.ErrorCode,
+            },
+            cancellationToken);
     }
 
     public async Task CompleteAsync(Guid storeId, Guid jobId, JobCompletionReport report, CancellationToken cancellationToken)
@@ -147,6 +163,26 @@ internal sealed class AgentJobService : IAgentJobService
 
         RecordMetrics(job, report, now);
 
+        await BroadcastAsync(
+            "jobCompleted",
+            job,
+            new
+            {
+                succeeded = report.Succeeded,
+                failureCode = job.FailureCode,
+                rollbackOutcome = job.RollbackOutcome.ToString(),
+            },
+            cancellationToken);
+
+        // The installation's state is what the installations screen shows, and
+        // it changes at the same moment. Sent as its own event so a screen can
+        // listen for one without parsing the other.
+        await BroadcastAsync(
+            "featureInstallationStateChanged",
+            job,
+            new { installationId = job.InstallationId, featureSlug = job.FeatureSlug },
+            cancellationToken);
+
         await _audit.RecordAsync(
             report.Succeeded ? "feature.job.succeeded" : "feature.job.failed",
             "FeatureInstallationJob",
@@ -161,6 +197,51 @@ internal sealed class AgentJobService : IAgentJobService
                 report.FailureCode,
                 RollbackOutcome = job.RollbackOutcome.ToString(),
             });
+    }
+
+    /// <summary>
+    /// Tells whoever is watching that this job moved.
+    ///
+    /// Addressed to the job's customer, so the routing rule that governs every
+    /// other broadcast governs this one too: the customer sees their own job,
+    /// platform staff see all of them, and nobody sees a neighbour's
+    /// ([`adr/0022`](../../../docs/adr/0022-realtime-subscriptions-are-server-assigned.md)).
+    ///
+    /// Failures are swallowed. Realtime is an improvement on polling and never
+    /// something correctness depends on — the job is already saved, and a screen
+    /// that missed the push catches up on its next fetch. Letting a dropped
+    /// websocket fail an agent's step report would be a far worse trade.
+    /// </summary>
+    private async Task BroadcastAsync(
+        string @event,
+        FeatureInstallationJob job,
+        object detail,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _realtime.BroadcastAsync(
+                new RealtimeMessage(
+                    @event,
+                    job.CustomerId,
+                    new
+                    {
+                        jobId = job.Id,
+                        storeId = job.StoreId,
+                        featureSlug = job.FeatureSlug,
+                        type = job.Type.ToString(),
+                        state = job.State.ToString(),
+                        completedStepCount = job.CompletedStepCount,
+                        totalStepCount = job.TotalStepCount,
+                        detail,
+                    }),
+                cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Deliberately not rethrown, and deliberately not logged as an
+            // error: a missing listener is the normal case.
+        }
     }
 
     /// <summary>

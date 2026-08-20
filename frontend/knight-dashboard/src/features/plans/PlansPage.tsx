@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Check, X, Plus } from "lucide-react";
 import { useCollection } from "@/lib/api/hooks";
 import { ChangeSubscriptionDialog } from "./ChangeSubscriptionDialog";
+import { EditDrawer } from "@/features/shared/EditDrawer";
+import { useAction } from "@/lib/api/hooks";
 import type { EntitlementMatrixRow, Plan, Subscription } from "@/lib/api/domain";
 import { PageShell, PageHeader, Mono } from "@/components/data/PageShell";
 import { CollectionCard } from "@/components/data/CollectionCard";
@@ -33,6 +35,16 @@ export function PlansPage() {
   const subscriptions = useCollection<Subscription>("/subscriptions");
   const can = useAuthStore((state) => state.can);
   const [changing, setChanging] = useState<Subscription | null>(null);
+  const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
+  const [creatingPlan, setCreatingPlan] = useState(false);
+
+  // Activation is what decides whether a plan can be sold. Kept apart from
+  // editing its price, because changing what a plan costs and deciding whether
+  // anybody may buy it are different decisions with different consequences.
+  const planLifecycle = useAction<unknown, { id: string; action: "activate" | "deactivate" }>(
+    ({ id, action }) => ({ path: `/plans/${id}/${action}` }),
+    ["/plans"],
+  );
 
   const planKeys = (plans.data ?? []).map((plan) => plan.key);
 
@@ -70,6 +82,53 @@ export function PlansPage() {
 
   return (
     <PageShell>
+      <EditDrawer
+        open={creatingPlan}
+        title={t("plans.create")}
+        path="/plans"
+        method="POST"
+        fields={[
+          { key: "key", label: t("plans.key"), value: "", ltr: true, placeholder: "professional" },
+          { key: "name", label: t("common.name"), value: "" },
+          { key: "description", label: t("plans.description"), value: "", required: false },
+          { key: "basePrice", label: t("plans.basePrice"), value: "0", ltr: true },
+          { key: "currency", label: t("plans.currency"), value: "IRR", ltr: true },
+        ]}
+        onClose={() => setCreatingPlan(false)}
+        onSaved={() => {
+          setCreatingPlan(false);
+          void plans.refetch();
+        }}
+      />
+
+      <EditDrawer
+        open={editingPlan !== null}
+        title={t("plans.edit")}
+        subtitle={editingPlan?.name}
+        path={`/plans/${editingPlan?.id ?? ""}`}
+        fields={[
+          { key: "name", label: t("common.name"), value: editingPlan?.name ?? "" },
+          {
+            key: "description",
+            label: t("plans.description"),
+            value: editingPlan?.description ?? "",
+            required: false,
+          },
+          {
+            key: "basePrice",
+            label: t("plans.basePrice"),
+            value: String(editingPlan?.basePrice ?? 0),
+            ltr: true,
+          },
+          { key: "currency", label: t("plans.currency"), value: editingPlan?.currency ?? "IRR", ltr: true },
+        ]}
+        onClose={() => setEditingPlan(null)}
+        onSaved={() => {
+          setEditingPlan(null);
+          void plans.refetch();
+        }}
+      />
+
       <ChangeSubscriptionDialog
         subscription={changing}
         onClose={() => setChanging(null)}
@@ -84,7 +143,7 @@ export function PlansPage() {
         subtitle={t("plans.subtitle")}
         actions={
           can("plan.manage") ? (
-            <Button size="sm">
+            <Button size="sm" onClick={() => setCreatingPlan(true)}>
               <Plus className="size-4" aria-hidden />
               {t("plans.create")}
             </Button>
@@ -131,9 +190,25 @@ export function PlansPage() {
               ))}
             </ul>
             {can("plan.manage") ? (
-              <Button variant="outline" size="sm" className="mt-5">
-                {t("plans.edit")}
-              </Button>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={() => setEditingPlan(plan)}>
+                  {t("plans.edit")}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={planLifecycle.isPending}
+                  onClick={() =>
+                    planLifecycle.mutate({
+                      id: plan.id,
+                      action: plan.isActive ? "deactivate" : "activate",
+                    })
+                  }
+                >
+                  {plan.isActive ? t("plans.deactivate") : t("plans.activate")}
+                </Button>
+              </div>
             ) : null}
           </Card>
         ))}

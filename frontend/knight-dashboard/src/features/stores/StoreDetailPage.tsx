@@ -13,6 +13,7 @@ import { AreaChart } from "@/components/data/Sparkline";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { StatusChip, type Tone } from "@/components/ui/StatusChip";
 import { Button } from "@/components/ui/Button";
+import { EditDrawer } from "@/features/shared/EditDrawer";
 import { LoadingBlock, ErrorBlock } from "@/components/ui/StateBlock";
 import { useAuthStore } from "@/store/auth";
 import { formatDateTime, formatRelative } from "@/lib/utils/format";
@@ -64,6 +65,7 @@ export function StoreDetailPage() {
   // anyone can read: the API returns it once and stores a hash. So it is held
   // here to be shown, and never fetched again.
   const [issued, setIssued] = useState<{ clientId: string; clientSecret: string } | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const issueCredential = useAction<{ clientId: string; clientSecret: string }, void>(
     () => ({ path: `/stores/${storeId}/credentials` }),
@@ -239,6 +241,10 @@ export function StoreDetailPage() {
                 </Button>
               )}
 
+              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                {t("common.edit")}
+              </Button>
+
               {store.status !== "Archived" ? (
                 <Button
                   variant="outline"
@@ -252,6 +258,27 @@ export function StoreDetailPage() {
             </>
           ) : undefined
         }
+      />
+
+      <EditDrawer
+        open={editing}
+        title={t("stores.edit")}
+        subtitle={store.primaryDomain}
+        path={`/stores/${storeId}`}
+        fields={[
+          { key: "name", label: t("common.name"), value: store.name },
+          {
+            key: "primaryDomain",
+            label: t("stores.primaryDomain"),
+            value: store.primaryDomain,
+            ltr: true,
+          },
+        ]}
+        onClose={() => setEditing(false)}
+        onSaved={() => {
+          setEditing(false);
+          void stores.refetch();
+        }}
       />
 
       <Tabs<Tab>
