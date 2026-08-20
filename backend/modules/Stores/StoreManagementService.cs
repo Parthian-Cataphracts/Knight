@@ -106,6 +106,11 @@ internal sealed class StoreManagementService : IStoreManagementService
 
         store.UpdateProfile(input.Name, input.PrimaryDomain, now);
         store.AssignServer(input.ServerId, now);
+
+        if (input.Environment is { } environment)
+        {
+            store.ChangeEnvironment(environment, now);
+        }
         await _stores.SaveChangesAsync(cancellationToken);
 
         await _audit.RecordAsync(

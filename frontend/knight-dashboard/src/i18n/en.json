@@ -632,7 +632,11 @@
     "usageUnavailable": "Usage metrics arrive with server monitoring in a later phase.",
     "logVolume": "Log volume per hour",
     "probeLatency": "Health probe latency (ms)",
-    "usageWindow": "Last {{hours}}h: {{errors}} error(s), {{logs}} log line(s). Stores do not report request volume or storage."
+    "usageWindow": "Last {{hours}}h: {{errors}} error(s), {{logs}} log line(s). Stores do not report request volume or storage.",
+    "environmentNote": "Changing the environment invalidates every credential this store currently holds and resets its connection; the store must handshake again.",
+    "blockedStoreInactive": "This store has not been activated yet, and cannot connect to KNIGHT until it is.",
+    "blockedCustomerInactive": "This store's customer is not active, so the store cannot connect until the customer is activated.",
+    "blockedDomainUnverified": "Domain ownership has not been verified yet, so the connection stays pending until it is."
   },
   "customerDetail": {
     "open": "Open customer",

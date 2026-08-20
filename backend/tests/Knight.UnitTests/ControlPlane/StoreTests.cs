@@ -303,4 +303,66 @@ public sealed class StoreTests
 
         Assert.Equal(DomainErrorCategory.Validation, exception.Category);
     }
+
+    [Fact]
+    public void ChangingEnvironment_ResetsTheIntegrationLink()
+    {
+        // The store's session tokens and entitlement signing key are derived
+        // from its environment, so after this change none of the credentials it
+        // holds can still verify. A link left reading "Connected" would be a
+        // claim the store can no longer make good on.
+        var store = CreateStore();
+        store.Activate(Now);
+        store.CompleteHandshake(StoreEnvironment.Production, "4.2.0", requireDomainVerification: false, Now);
+
+        Assert.Equal(IntegrationStatus.Connected, store.IntegrationStatus);
+
+        store.ChangeEnvironment(StoreEnvironment.Development, Now);
+
+        Assert.Equal(StoreEnvironment.Development, store.Environment);
+        Assert.Equal(IntegrationStatus.NotRegistered, store.IntegrationStatus);
+        Assert.Null(store.ApplicationVersion);
+        Assert.Null(store.LastSeenAt);
+    }
+
+    [Fact]
+    public void ChangingEnvironment_ClearsDomainVerification()
+    {
+        // The proof of ownership was given by a store under its old identity.
+        var store = CreateStore();
+        store.Activate(Now);
+        store.IssueDomainVerification("token-value", Now);
+        store.MarkDomainVerified(DomainVerificationMethod.HttpToken, Now);
+
+        Assert.NotNull(store.DomainVerifiedAt);
+
+        store.ChangeEnvironment(StoreEnvironment.Staging, Now);
+
+        Assert.Null(store.DomainVerifiedAt);
+        Assert.Null(store.DomainVerificationToken);
+    }
+
+    [Fact]
+    public void ChangingEnvironment_ToTheSameOne_ChangesNothing()
+    {
+        // Saving the edit form without touching the dropdown must not knock a
+        // healthy store offline.
+        var store = CreateStore();
+        store.Activate(Now);
+        store.CompleteHandshake(StoreEnvironment.Production, "4.2.0", requireDomainVerification: false, Now);
+
+        store.ChangeEnvironment(StoreEnvironment.Production, Now);
+
+        Assert.Equal(IntegrationStatus.Connected, store.IntegrationStatus);
+        Assert.Equal("4.2.0", store.ApplicationVersion);
+    }
+
+    [Fact]
+    public void ChangingEnvironment_OnAnArchivedStore_IsRefused()
+    {
+        var store = CreateStore();
+        store.Archive(Now);
+
+        Assert.ThrowsAny<Exception>(() => store.ChangeEnvironment(StoreEnvironment.Development, Now));
+    }
 }

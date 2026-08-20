@@ -678,6 +678,8 @@ this phase:
 - [ ] Backup status reporting and `backup.failed` alerting
 - [ ] Deprovisioning: disable → revoke → retain → export → purge
 - [ ] Per-customer retention overrides by plan
+- [ ] Publish a Feature version from the dashboard — the dashboard accepts an already-signed package and registers it. Signing stays offline in `knight_package.py`, so the signing key never reaches the web application (decided 2026-08-20)
+- [ ] Outbound email, so a new administrator receives an activation link instead of a password an operator reads out (decided 2026-08-20; until then the wizard shows the one-time password once)
 
 ---
 

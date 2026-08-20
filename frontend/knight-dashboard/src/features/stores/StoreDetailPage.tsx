@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, KeyRound, RefreshCw, Ban, Globe } from "lucide-react";
 import { useAction, useCollection } from "@/lib/api/hooks";
-import type { Installation, Store } from "@/lib/api/domain";
+import type { Customer, Installation, Store } from "@/lib/api/domain";
 import type { ActivityEntry, Deployment, StoreCredential, StoreDomain } from "@/lib/api/fixtures-detail";
 import { PageShell, PageHeader, KeyValue, Mono } from "@/components/data/PageShell";
 import { CollectionCard } from "@/components/data/CollectionCard";
@@ -84,6 +84,11 @@ export function StoreDetailPage() {
   const [tab, setTab] = useState<Tab>("overview");
 
   const stores = useCollection<Store>("/stores");
+
+  // Read for one field: whether the owning customer is active. A suspended
+  // customer stops its stores connecting, and the store's own record cannot say
+  // so.
+  const customers = useCollection<Customer>("/customers");
   const installations = useCollection<Installation>("/installations");
   const domains = useCollection<StoreDomain>(`/stores/${storeId}/domains`);
   const credentials = useCollection<StoreCredential>(`/stores/${storeId}/credentials`);
@@ -92,6 +97,28 @@ export function StoreDetailPage() {
   const usage = useCollection<UsageResponse>(`/stores/${storeId}/usage`);
 
   const store = (stores.data ?? []).find((item) => item.id === storeId);
+
+  // Why this store cannot connect, in one sentence, on the screen an operator is
+  // already looking at.
+  //
+  // A store that has been provisioned but never activated looks identical to a
+  // broken one: the integration status reads "not registered" and nothing says
+  // that the reason is a button on this page. Worse, the store's own logs say
+  // only "the credentials were refused" — deliberately, so a caller cannot tell
+  // a wrong secret from a store it is not allowed to reach. That secrecy is
+  // right at the edge and useless here, where the operator is entitled to know.
+  const customer = (customers.data ?? []).find((item) => item.id === store?.customerId);
+
+  const connectionBlocker =
+    store === undefined || store.integrationStatus === "Connected"
+      ? null
+      : customer !== undefined && customer.status !== "Active"
+        ? t("storeDetail.blockedCustomerInactive")
+        : store.status !== "Active"
+          ? t("storeDetail.blockedStoreInactive")
+          : store.integrationStatus === "Pending"
+            ? t("storeDetail.blockedDomainUnverified")
+            : null;
   const storeInstallations = (installations.data ?? []).filter((item) => item.storeId === storeId);
   const usageData = usage.data?.[0];
 
@@ -273,6 +300,17 @@ export function StoreDetailPage() {
             value: store.primaryDomain,
             ltr: true,
           },
+          {
+            key: "environment",
+            label: t("stores.environment"),
+            value: store.environment,
+            choices: [
+              { value: "Production", label: t("environment.Production") },
+              { value: "Staging", label: t("environment.Staging") },
+              { value: "Development", label: t("environment.Development") },
+            ],
+            note: t("storeDetail.environmentNote"),
+          },
         ]}
         onClose={() => setEditing(false)}
         onSaved={() => {
@@ -317,6 +355,12 @@ export function StoreDetailPage() {
                 </KeyValue>
                 <KeyValue label={t("stores.features")}>{store.installedFeatureCount ?? "—"}</KeyValue>
               </dl>
+
+              {connectionBlocker ? (
+                <p className="mt-3 rounded-md bg-surface-low px-3 py-2 text-body-sm text-on-surface-variant">
+                  {connectionBlocker}
+                </p>
+              ) : null}
             </CardBody>
           </Card>
 
