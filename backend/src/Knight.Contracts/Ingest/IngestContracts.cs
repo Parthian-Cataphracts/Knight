@@ -235,3 +235,44 @@ public sealed record EntitledFeatureResponse
 
     public DateTimeOffset? ExpiresAt { get; init; }
 }
+
+/// <summary>
+/// What a store tells KNIGHT about a backup it took.
+///
+/// A report, not a request to take one: KNIGHT has no route to a store's
+/// database and takes no backups (docs/README.md, rules 1 and 3). The location
+/// is a reference an operator can resolve — a bucket key, a volume name — and
+/// must never be a URL carrying credentials, because this value is shown in the
+/// dashboard and kept for as long as the report is.
+/// </summary>
+public sealed record StoreBackupReportRequest
+{
+    public required string Environment { get; init; }
+
+    /// <summary>Succeeded, Failed or Running.</summary>
+    public required string Status { get; init; }
+
+    /// <summary>Scheduled, Manual or PreDeployment. Defaults to Scheduled.</summary>
+    public string? Kind { get; init; }
+
+    public required DateTimeOffset StartedAt { get; init; }
+
+    public DateTimeOffset? CompletedAt { get; init; }
+
+    /// <summary>Required for a successful backup: "it worked and produced nothing" is a broken backup job.</summary>
+    public long? SizeBytes { get; init; }
+
+    public string? Location { get; init; }
+
+    /// <summary>Why it failed, in one line.</summary>
+    public string? Detail { get; init; }
+}
+
+public sealed record StoreBackupReportResponse
+{
+    public required Guid BackupId { get; init; }
+
+    public required string Status { get; init; }
+
+    public required DateTimeOffset RecordedAt { get; init; }
+}

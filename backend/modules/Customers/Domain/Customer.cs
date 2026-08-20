@@ -26,6 +26,13 @@ public sealed class Customer : AuditableEntity
 
     public string? Notes { get; private set; }
 
+    /// <summary>
+    /// A negotiated data-retention window, in days, that replaces the plan's.
+    /// Null means the plan decides. The override wins where it is set, because
+    /// it is the thing that was actually agreed with this customer.
+    /// </summary>
+    public int? DataRetentionOverrideDays { get; private set; }
+
     private Customer()
     {
         Name = string.Empty;
@@ -56,6 +63,24 @@ public sealed class Customer : AuditableEntity
         LegalName = string.IsNullOrWhiteSpace(legalName) ? null : legalName.Trim();
         ContactEmail = CustomerNormalization.NormalizeEmail(contactEmail);
         Phone = CustomerNormalization.NormalizePhone(phone);
+        MarkUpdated(now);
+    }
+
+    /// <summary>
+    /// Sets or clears the negotiated retention window. Audited by the caller:
+    /// shortening how long a customer's data is kept is a decision somebody has
+    /// to be answerable for.
+    /// </summary>
+    public void SetDataRetentionOverride(int? days, DateTimeOffset now)
+    {
+        EnsureNotArchived();
+
+        if (days is { } value and (< 1 or > 3650))
+        {
+            throw DomainException.Validation("A retention window must be between one day and ten years.");
+        }
+
+        DataRetentionOverrideDays = days;
         MarkUpdated(now);
     }
 

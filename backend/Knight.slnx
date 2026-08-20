@@ -11,6 +11,7 @@
     <Project Path="modules/Subscriptions/Subscriptions.csproj" />
     <Project Path="modules/Stores/Stores.csproj" />
     <Project Path="modules/Servers/Servers.csproj" />
+    <Project Path="modules/Provisioning/Provisioning.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Knight.Api/Knight.Api.csproj" />

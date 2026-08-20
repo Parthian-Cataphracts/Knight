@@ -26,6 +26,16 @@ public static class ControlPlanePermissions
     public const string StoreManage = "store.manage";
     public const string StoreCredentialsManage = "store.credentials.manage";
 
+    /// <summary>Start and drive a provisioning run, including ticking off its manual steps.</summary>
+    public const string StoreProvision = "store.provision";
+
+    /// <summary>
+    /// Start a deprovisioning run. Separate from every other store permission
+    /// because that path ends in deleted data: renaming a store and beginning
+    /// the countdown to purging it must not be the same grant.
+    /// </summary>
+    public const string StoreDeprovision = "store.deprovision";
+
     public const string PlanView = "plan.view";
     public const string PlanManage = "plan.manage";
 
@@ -83,6 +93,7 @@ public static class ControlPlanePermissions
     [
         CustomerView, CustomerCreate, CustomerUpdate, CustomerArchive,
         StoreView, StoreCreate, StoreManage, StoreCredentialsManage,
+        StoreProvision, StoreDeprovision,
         PlanView, PlanManage,
         FeatureView, FeatureManage, FeaturePublish, FeatureYank,
         InstallationView, InstallationManage, InstallationUninstall, InstallationRollback,

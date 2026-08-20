@@ -39,6 +39,7 @@ internal sealed class StoreIntegrationService : IStoreIntegrationService
     private readonly IReplayGuard _replay;
     private readonly ICustomerStatusReader _customers;
     private readonly IDomainOwnershipVerifier _domains;
+    private readonly IAlertRaiser _alerts;
     private readonly IAuditTrail _audit;
     private readonly IDateTimeProvider _clock;
     private readonly StoreOptions _options;
@@ -52,10 +53,12 @@ internal sealed class StoreIntegrationService : IStoreIntegrationService
         IReplayGuard replay,
         ICustomerStatusReader customers,
         IDomainOwnershipVerifier domains,
+        IAlertRaiser alerts,
         IAuditTrail audit,
         IDateTimeProvider clock,
         IOptions<StoreOptions> options)
     {
+        _alerts = alerts;
         _stores = stores;
         _telemetry = telemetry;
         _secrets = secrets;
@@ -362,6 +365,73 @@ internal sealed class StoreIntegrationService : IStoreIntegrationService
 
         return deployment;
     }
+
+    public async Task<StoreBackup> RecordBackupAsync(StoreBackupInput input, CancellationToken cancellationToken)
+    {
+        var store = await RequireAsync(input.StoreId, cancellationToken);
+        var now = _clock.UtcNow;
+
+        var backup = StoreBackup.Record(
+            Guid.NewGuid(),
+            store.Id,
+            store.CustomerId,
+            input.Status,
+            input.Kind,
+            input.StartedAt,
+            input.CompletedAt,
+            now,
+            input.SizeBytes,
+            input.Location,
+            input.Detail);
+
+        await _telemetry.AddBackupAsync(backup, cancellationToken);
+        await _telemetry.SaveChangesAsync(cancellationToken);
+
+        // Alerting on the report rather than on a sweep, because a failed backup
+        // is known the instant it is reported and waiting a quarter of an hour to
+        // say so buys nothing. The overdue case — nobody reporting at all — is
+        // the one that genuinely needs a timer, and lives with the other rules.
+        switch (input.Status)
+        {
+            case BackupStatus.Failed:
+                await _alerts.RaiseAsync(
+                    StoreAlertRules.BackupFailed,
+                    "Critical",
+                    "Store",
+                    store.Id,
+                    store.CustomerId,
+                    $"The {input.Kind.ToString().ToLowerInvariant()} backup of '{store.Name}' failed: " +
+                    $"{input.Detail ?? "the store reported no detail."}",
+                    cancellationToken);
+                break;
+
+            case BackupStatus.Succeeded:
+                await _alerts.ResolveAsync(StoreAlertRules.BackupFailed, store.Id, cancellationToken);
+                await _alerts.ResolveAsync(StoreAlertRules.BackupOverdue, store.Id, cancellationToken);
+                break;
+        }
+
+        await _audit.RecordAsync(
+            "store.backup.reported",
+            nameof(StoreBackup),
+            backup.Id.ToString(),
+            store.CustomerId,
+            cancellationToken,
+            newValue: new
+            {
+                storeId = store.Id,
+                Status = backup.Status.ToString(),
+                Kind = backup.Kind.ToString(),
+                backup.SizeBytes,
+                backup.StartedAt,
+                backup.CompletedAt,
+            });
+
+        return backup;
+    }
+
+    public Task<IReadOnlyCollection<StoreBackup>> ListBackupsAsync(Guid storeId, int limit, CancellationToken cancellationToken) =>
+        _telemetry.ListBackupsAsync(storeId, Math.Clamp(limit, 1, MaxHistoryPageSize), cancellationToken);
 
     public async Task<DomainVerificationChallenge> StartDomainVerificationAsync(Guid storeId, CancellationToken cancellationToken)
     {

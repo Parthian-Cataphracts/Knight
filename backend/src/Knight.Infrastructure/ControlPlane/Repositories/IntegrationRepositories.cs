@@ -73,6 +73,27 @@ internal sealed class StoreTelemetryRepository : IStoreTelemetryRepository
         return latest.ToDictionary(check => check.StoreId);
     }
 
+    public async Task AddBackupAsync(StoreBackup backup, CancellationToken cancellationToken) =>
+        await _context.StoreBackups.AddAsync(backup, cancellationToken);
+
+    public async Task<IReadOnlyCollection<StoreBackup>> ListBackupsAsync(
+        Guid storeId,
+        int limit,
+        CancellationToken cancellationToken) =>
+        await _context.StoreBackups
+            .AsNoTracking()
+            .Where(backup => backup.StoreId == storeId)
+            .OrderByDescending(backup => backup.StartedAt)
+            .Take(limit)
+            .ToArrayAsync(cancellationToken);
+
+    public Task<StoreBackup?> GetLatestBackupAsync(Guid storeId, CancellationToken cancellationToken) =>
+        _context.StoreBackups
+            .AsNoTracking()
+            .Where(backup => backup.StoreId == storeId)
+            .OrderByDescending(backup => backup.StartedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public Task SaveChangesAsync(CancellationToken cancellationToken) => _context.SaveChangesAsync(cancellationToken);
 }
 

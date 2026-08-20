@@ -64,6 +64,21 @@ public sealed record StoreContactResult(
     bool DomainVerificationOutstanding,
     DateTimeOffset ObservedAt);
 
+/// <summary>
+/// What a store says about a backup it took. KNIGHT never takes the backup and
+/// never holds it — it records that the store says one exists, and complains
+/// when nobody says so for too long.
+/// </summary>
+public sealed record StoreBackupInput(
+    Guid StoreId,
+    BackupStatus Status,
+    BackupKind Kind,
+    DateTimeOffset StartedAt,
+    DateTimeOffset? CompletedAt,
+    long? SizeBytes,
+    string? Location,
+    string? Detail);
+
 public sealed record StoreDeploymentInput(
     Guid StoreId,
     string Version,
@@ -117,6 +132,15 @@ public interface IStoreIntegrationService
         CancellationToken cancellationToken);
 
     Task<StoreDeployment> RecordDeploymentAsync(StoreDeploymentInput input, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Records a backup report. A failed report raises <c>backup.failed</c> for
+    /// the store; a successful one closes it, because a backup that worked is
+    /// the only thing that can honestly clear "this store's backups are broken".
+    /// </summary>
+    Task<StoreBackup> RecordBackupAsync(StoreBackupInput input, CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<StoreBackup>> ListBackupsAsync(Guid storeId, int limit, CancellationToken cancellationToken);
 
     Task<DomainVerificationChallenge> StartDomainVerificationAsync(Guid storeId, CancellationToken cancellationToken);
 

@@ -95,6 +95,19 @@ public static class ControlPlaneInfrastructure
         // the comparison lives here, where the whole schema is visible.
         services.AddScoped<IDeliveryHealthReader, DeliveryHealthReader>();
 
+        // The overdue-backup rule is about an absence, so it reads the store and
+        // backup tables together rather than being told by anybody.
+        services.AddScoped<IBackupHealthReader, BackupHealthReader>();
+
+        // Provisioning touches more modules than anything else in the system, so
+        // every one of its reads and writes crosses this boundary explicitly.
+        services.AddScoped<Provisioning.Domain.IProvisioningJobRepository, ProvisioningJobRepository>();
+        services.AddScoped<IStoreProvisioningPort, StoreProvisioningPort>();
+        services.AddScoped<IServerProvisioningPort, ServerProvisioningPort>();
+        services.AddScoped<IBaseFeatureInstaller, BaseFeatureInstaller>();
+        services.AddScoped<IStoreDataPurger, StoreDataPurger>();
+        services.AddScoped<IRetentionPolicyReader, RetentionPolicyReader>();
+
         // Both of these are joins between the registry and delivery, which are
         // not allowed to know about each other, so they live here.
         services.AddScoped<IStoreDeliveryReader, StoreDeliveryReader>();

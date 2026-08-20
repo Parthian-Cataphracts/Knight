@@ -37,6 +37,7 @@ public static class SystemRoles
                 ControlPlanePermissions.CustomerUpdate, ControlPlanePermissions.CustomerArchive,
                 ControlPlanePermissions.StoreView, ControlPlanePermissions.StoreCreate,
                 ControlPlanePermissions.StoreManage, ControlPlanePermissions.StoreCredentialsManage,
+                ControlPlanePermissions.StoreProvision,
                 ControlPlanePermissions.PlanView,
                 ControlPlanePermissions.FeatureView, ControlPlanePermissions.FeatureManage,
                 ControlPlanePermissions.InstallationView, ControlPlanePermissions.InstallationManage,

@@ -151,3 +151,30 @@ internal sealed class StoreLogEntryConfiguration : IEntityTypeConfiguration<Stor
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+internal sealed class StoreBackupConfiguration : IEntityTypeConfiguration<StoreBackup>
+{
+    public void Configure(EntityTypeBuilder<StoreBackup> builder)
+    {
+        builder.ToTable("store_backups");
+
+        builder.HasKey(backup => backup.Id);
+
+        builder.Property(backup => backup.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(backup => backup.Kind).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(backup => backup.Location).HasMaxLength(StoreBackup.MaxLocationLength);
+        builder.Property(backup => backup.Detail).HasMaxLength(1000);
+
+        builder.Ignore(backup => backup.Duration);
+
+        // Both reads this table serves: a store's backup history, newest first,
+        // and "when did this store last succeed" for the overdue sweep.
+        builder.HasIndex(backup => new { backup.StoreId, backup.StartedAt }).IsDescending(false, true);
+        builder.HasIndex(backup => new { backup.StoreId, backup.Status, backup.CompletedAt });
+
+        builder.HasOne<Store>()
+            .WithMany()
+            .HasForeignKey(backup => backup.StoreId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}

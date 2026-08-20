@@ -39,6 +39,34 @@ Health check                          step 8
 Each step is recorded on a `ProvisioningJob` with the same idempotency,
 progress reporting, audit, and failure semantics as an installation job.
 
+## 1a. The implemented pipeline
+
+The steps as they exist in code, in order, with who carries each one out
+([`adr/0025`](adr/0025-provisioning-is-a-job-with-manual-steps.md)):
+
+| Step | Mode | Finished when |
+|---|---|---|
+| `server` | manual | a machine is recorded against the store |
+| `instance` | manual | a store instance built from the base image answers |
+| `store-record` | automatic | the store is registered with KNIGHT |
+| `credentials` | automatic | the store holds a usable credential |
+| `agent` | automatic | an agent on the store's server has enrolled |
+| `base-features` | automatic | every entitled Feature is installed |
+| `configuration` | automatic | the store has completed a handshake |
+| `domain-tls` | manual | ownership of the primary domain is proven |
+| `healthcheck` | automatic | the link is `Connected` — and only then is the store activated |
+
+Deprovisioning runs `disable-features` → `revoke-access` → `stop-ingestion` →
+`retain` → `export` (manual) → `purge`.
+
+An automatic step is never completed by hand. A manual step holds the run in
+`AwaitingOperator` and is completed by a named operator, audited. A coordinator
+re-evaluates unfinished runs on a timer, because everything an automatic step
+waits for happens in another module and notifies nobody.
+
+Retention is resolved once, when a deprovisioning run starts: the customer's
+negotiated override wins, then the plan's promise, then the deployment default.
+
 ## 2. What is automated now vs later
 
 | Step | Initial release | Later |
@@ -71,6 +99,14 @@ A failed provisioning job leaves the store in `Provisioning` with a recorded
 failed step and reason. It is retryable from the failed step. A store never
 becomes `Active` without a passing health check, and a half-provisioned store
 is never billed as operational.
+
+## 4a. Backups
+
+KNIGHT records backup reports and never takes or holds a backup
+([`adr/0026`](adr/0026-knight-records-backups-it-does-not-take-them.md)). A
+store reports to `POST /api/v1/store/backups`; a failure raises `backup.failed`
+on the spot, and a store nobody has reported a successful backup for raises
+`backup.overdue` from the observability sweep.
 
 ## 5. Deprovisioning
 

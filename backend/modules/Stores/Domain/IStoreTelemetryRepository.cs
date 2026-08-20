@@ -16,6 +16,13 @@ public interface IStoreTelemetryRepository
 
     Task AddDeploymentAsync(StoreDeployment deployment, CancellationToken cancellationToken);
 
+    Task AddBackupAsync(StoreBackup backup, CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<StoreBackup>> ListBackupsAsync(Guid storeId, int limit, CancellationToken cancellationToken);
+
+    /// <summary>The store's most recent backup report of any status, or null when it has never reported one.</summary>
+    Task<StoreBackup?> GetLatestBackupAsync(Guid storeId, CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<StoreHealthCheck>> ListHealthChecksAsync(
         Guid storeId,
         int limit,

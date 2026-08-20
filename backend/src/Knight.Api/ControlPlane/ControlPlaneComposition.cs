@@ -7,6 +7,7 @@ using FeatureRegistry;
 using Ingestion;
 using Observability;
 using Plans;
+using Provisioning;
 using Knight.Api.BackgroundServices;
 using Knight.Api.Ingest;
 using Knight.Application.Abstractions.ControlPlane;
@@ -31,6 +32,7 @@ public static class ControlPlaneComposition
         services.AddFeatureRegistryModule();
         services.AddFeatureDeliveryModule(configuration);
         services.AddServersModule(configuration);
+        services.AddProvisioningModule(configuration);
         services.AddPlansModule();
         services.AddSubscriptionsModule(configuration);
         services.AddBillingModule(configuration);
@@ -54,6 +56,10 @@ public static class ControlPlaneComposition
         // The only thing that can decide a machine is offline: absence cannot be
         // reported by the thing that is absent.
         services.AddHostedService<FleetMonitor>();
+
+        // Provisioning waits on facts that arrive from five other modules and
+        // notify nobody, so something has to re-ask on a timer.
+        services.AddHostedService<ProvisioningCoordinator>();
 
         // Evaluates the rules nobody can evaluate at the moment something
         // happens — spikes, entitlements that were never installed, drift — and
