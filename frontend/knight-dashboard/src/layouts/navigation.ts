@@ -4,6 +4,7 @@ import {
   Store,
   Package,
   Boxes,
+  Rocket,
   PlayCircle,
   CreditCard,
   Receipt,
@@ -54,6 +55,7 @@ export const NAVIGATION: NavSection[] = [
     items: [
       { key: "features", to: "/features", icon: Package, permission: "feature.view" },
       { key: "storeImages", to: "/store-images", icon: Boxes, permission: "feature.view" },
+      { key: "rollouts", to: "/rollouts", icon: Rocket, permission: "feature.publish" },
       {
         key: "installations",
         to: "/installations",

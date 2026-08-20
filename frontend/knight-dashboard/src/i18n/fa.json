@@ -25,7 +25,8 @@
     "sectionInfra": "زیرساخت",
     "sectionGovernance": "راهبری",
     "alerts": "هشدارها",
-    "storeImages": "ایمیج‌های فروشگاه"
+    "storeImages": "ایمیج‌های فروشگاه",
+    "rollouts": "انتشار مرحله‌ای"
   },
   "common": {
     "search": "جستجو",
@@ -882,5 +883,47 @@
     "fromPlan": "طبق پلن",
     "days": "{{count}} روز",
     "note": "مدت نگهداری دادهٔ این مشتری پس از خارج‌سازی فروشگاه. خالی یعنی پلن تصمیم می‌گیرد."
+  },
+  "rollouts": {
+    "title": "انتشار مرحله‌ای",
+    "subtitle": "انتقال ناوگان به نسخهٔ جدید یک Feature، موج به موج و با شروع از فروشگاه آزمایشی.",
+    "plan": "طرح یک انتشار",
+    "planningNote": "طرح‌ریزی چیزی به هیچ فروشگاهی نمی‌فرستد. فقط موج‌ها را نشان می‌دهد تا پیش از هر تعهدی ببینید فروشگاه آزمایشی کدام است.",
+    "slug": "شناسهٔ Feature",
+    "version": "نسخهٔ مقصد",
+    "wavePercentages": "موج‌های پس از فروشگاه آزمایشی (٪)",
+    "failureThreshold": "توقف پس از این تعداد فروشگاه ناموفق",
+    "planAction": "طرح‌ریزی",
+    "start": "شروع",
+    "halt": "توقف",
+    "resume": "ادامه",
+    "cancel": "لغو",
+    "canaryWave": "آزمایشی — یک فروشگاه",
+    "wave": "موج {{waveNumber}}",
+    "storeCount": "{{count}} فروشگاه",
+    "progress": "{{succeeded}} موفق، {{failed}} ناموفق، از {{total}}",
+    "thresholdIs": "پس از {{count}} خطا متوقف می‌شود",
+    "haltedByOperator": "از داشبورد متوقف شد.",
+    "cancelledByOperator": "از داشبورد لغو شد.",
+    "none": "هنوز انتشاری ثبت نشده است.",
+    "notPermitted": "انتشار یک نسخه روی کل ناوگان به دسترسی feature.publish نیاز دارد که این حساب آن را ندارد."
+  },
+  "rolloutState": {
+    "Planned": "طرح‌ریزی‌شده",
+    "InProgress": "در حال انجام",
+    "Halted": "متوقف",
+    "Completed": "تکمیل‌شده",
+    "Cancelled": "لغوشده"
+  },
+  "rolloutWaveState": {
+    "Pending": "در انتظار",
+    "Dispatched": "ارسال‌شده",
+    "Completed": "تکمیل‌شده"
+  },
+  "rolloutTargetState": {
+    "Pending": "در انتظار",
+    "Dispatched": "ارسال‌شده",
+    "Succeeded": "موفق",
+    "Failed": "ناموفق"
   }
 }

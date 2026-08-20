@@ -25,7 +25,8 @@
     "sectionInfra": "Infrastructure",
     "sectionGovernance": "Governance",
     "alerts": "Alerts",
-    "storeImages": "Store images"
+    "storeImages": "Store images",
+    "rollouts": "Rollouts"
   },
   "common": {
     "search": "Search",
@@ -882,5 +883,47 @@
     "fromPlan": "From the plan",
     "days": "{{count}} days",
     "note": "How long this customer's data is kept after a store is deprovisioned. Empty means the plan decides."
+  },
+  "rollouts": {
+    "title": "Staged rollouts",
+    "subtitle": "Move the fleet onto a Feature version a wave at a time, canary first.",
+    "plan": "Plan a rollout",
+    "planningNote": "Planning sends nothing to any store. It answers with the waves so you can see which store is the canary before committing to anything.",
+    "slug": "Feature slug",
+    "version": "Target version",
+    "wavePercentages": "Waves after the canary (%)",
+    "failureThreshold": "Halt after this many failed stores",
+    "planAction": "Plan",
+    "start": "Start",
+    "halt": "Halt",
+    "resume": "Resume",
+    "cancel": "Cancel",
+    "canaryWave": "Canary — one store",
+    "wave": "Wave {{waveNumber}}",
+    "storeCount": "{{count}} store(s)",
+    "progress": "{{succeeded}} succeeded, {{failed}} failed, of {{total}}",
+    "thresholdIs": "halts after {{count}} failure(s)",
+    "haltedByOperator": "Halted from the dashboard.",
+    "cancelledByOperator": "Cancelled from the dashboard.",
+    "none": "No rollouts yet.",
+    "notPermitted": "Rolling a version across the fleet needs the feature.publish permission, which this account does not hold."
+  },
+  "rolloutState": {
+    "Planned": "Planned",
+    "InProgress": "In progress",
+    "Halted": "Halted",
+    "Completed": "Completed",
+    "Cancelled": "Cancelled"
+  },
+  "rolloutWaveState": {
+    "Pending": "Pending",
+    "Dispatched": "Dispatched",
+    "Completed": "Completed"
+  },
+  "rolloutTargetState": {
+    "Pending": "Pending",
+    "Dispatched": "Dispatched",
+    "Succeeded": "Succeeded",
+    "Failed": "Failed"
   }
 }

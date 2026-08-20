@@ -427,3 +427,55 @@ export interface Role {
   permissionCount: number;
   userCount: number;
 }
+
+// --- Staged rollouts -------------------------------------------------------
+
+export type RolloutState = "Planned" | "InProgress" | "Halted" | "Completed" | "Cancelled";
+
+export type RolloutWaveState = "Pending" | "Dispatched" | "Completed";
+
+export type RolloutTargetState = "Pending" | "Dispatched" | "Succeeded" | "Failed";
+
+export interface RolloutTarget {
+  storeId: string;
+  state: RolloutTargetState;
+  jobId: string | null;
+  detail: string | null;
+  completedAt: string | null;
+}
+
+export interface RolloutWave {
+  id: string;
+  ordinal: number;
+  /** True for wave 0 — the single store an unproven version reaches first. */
+  isCanary: boolean;
+  state: RolloutWaveState;
+  dispatchedAt: string | null;
+  completedAt: string | null;
+  targets: RolloutTarget[];
+}
+
+/**
+ * A staged rollout of one Feature version across the fleet
+ * (docs/adr/0028-staged-rollouts-with-a-single-store-canary.md).
+ *
+ * `haltReason` is the field the screen must never hide: a rollout that stopped
+ * looks the same as one that is between waves unless the reason is shown.
+ */
+export interface Rollout {
+  id: string;
+  featureId: string;
+  featureSlug: string;
+  targetVersion: string;
+  state: RolloutState;
+  failureThreshold: number;
+  totalStores: number;
+  succeededStores: number;
+  failedStores: number;
+  haltReason: string | null;
+  createdBy: string;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  waves: RolloutWave[];
+}
