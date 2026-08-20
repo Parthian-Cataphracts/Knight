@@ -67,7 +67,19 @@ public sealed class FeatureRollout : AuditableEntity
     /// <summary>Why a halted rollout halted. Null while it is not halted.</summary>
     public string? HaltReason { get; private set; }
 
-    public IReadOnlyList<RolloutWave> Waves => _waves;
+    /// <summary>
+    /// The waves, always in the order they must run in.
+    ///
+    /// Sorted rather than returned as loaded, and this is not a nicety. The
+    /// backing collection comes back from the database in whatever order the
+    /// query produced, which is not the insertion order and is not stable. Every
+    /// decision below — which wave is next, which one is the canary — is a
+    /// decision about sequence, so reading them unsorted let a reloaded rollout
+    /// dispatch wave 1 while the canary was still pending. That defeats the
+    /// entire point of a staged rollout, and it is invisible in memory because a
+    /// freshly planned rollout happens to be in order already.
+    /// </summary>
+    public IReadOnlyList<RolloutWave> Waves => [.. _waves.OrderBy(wave => wave.Ordinal)];
 
     public int TotalStores => _waves.Sum(wave => wave.Targets.Count);
 
@@ -199,15 +211,15 @@ public sealed class FeatureRollout : AuditableEntity
             return null;
         }
 
-        if (_waves.Any(wave => wave.State is RolloutWaveState.Dispatched))
+        if (Waves.Any(wave => wave.State is RolloutWaveState.Dispatched))
         {
             return null;
         }
 
-        return _waves.FirstOrDefault(wave => wave.State is RolloutWaveState.Pending);
+        return Waves.FirstOrDefault(wave => wave.State is RolloutWaveState.Pending);
     }
 
-    public RolloutWave? CurrentWave() => _waves.FirstOrDefault(wave => wave.State is RolloutWaveState.Dispatched);
+    public RolloutWave? CurrentWave() => Waves.FirstOrDefault(wave => wave.State is RolloutWaveState.Dispatched);
 
     public void Start(DateTimeOffset now)
     {
@@ -236,7 +248,7 @@ public sealed class FeatureRollout : AuditableEntity
     /// </summary>
     public bool RecordResult(Guid storeId, bool succeeded, string? detail, DateTimeOffset now)
     {
-        var wave = _waves.FirstOrDefault(candidate => candidate.Targets.Any(target => target.StoreId == storeId))
+        var wave = Waves.FirstOrDefault(candidate => candidate.Targets.Any(target => target.StoreId == storeId))
             ?? throw DomainException.Validation("That store is not part of this rollout.");
 
         wave.RecordResult(storeId, succeeded, detail, now);
@@ -267,7 +279,7 @@ public sealed class FeatureRollout : AuditableEntity
             return true;
         }
 
-        if (_waves.All(candidate => candidate.State is RolloutWaveState.Completed))
+        if (Waves.All(candidate => candidate.State is RolloutWaveState.Completed))
         {
             State = RolloutState.Completed;
             CompletedAt = now;

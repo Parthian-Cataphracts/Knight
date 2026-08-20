@@ -284,6 +284,41 @@ public sealed class FeatureRolloutTests
     }
 
     [Fact]
+    public void TheCanaryStillGoesFirstWhenTheWavesComeBackInAnotherOrder()
+    {
+        // The database returns a rollout's waves in whatever order the query
+        // produced, which is neither insertion order nor stable. A freshly
+        // planned rollout is in order by accident, so this defect is invisible
+        // in memory and appeared only after a reload: the aggregate dispatched
+        // wave 1 while the canary was still pending, which defeats the whole
+        // point of a staged rollout.
+        //
+        // Reversing the backing collection is the cheapest faithful stand-in for
+        // that reload.
+        var rollout = Plan(8, [50, 100]);
+
+        var backing = typeof(FeatureRollout)
+            .GetField("_waves", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .GetValue(rollout) as List<RolloutWave>;
+
+        backing!.Reverse();
+
+        rollout.Start(Now);
+
+        var first = rollout.NextWave() ?? rollout.CurrentWave();
+
+        Assert.NotNull(first);
+        Assert.True(first!.IsCanary, "The canary must be the first wave dispatched, whatever order the waves arrived in.");
+        Assert.Equal(0, first.Ordinal);
+
+        // And the ordered view is what callers see, so a dashboard cannot render
+        // the waves out of sequence either.
+        Assert.Equal(
+            Enumerable.Range(0, rollout.Waves.Count).ToArray(),
+            rollout.Waves.Select(wave => wave.Ordinal).ToArray());
+    }
+
+    [Fact]
     public void AWaveCannotBeDispatchedTwice()
     {
         var rollout = Plan(4);
