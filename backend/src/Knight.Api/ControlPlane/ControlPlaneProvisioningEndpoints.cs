@@ -142,7 +142,12 @@ public static class ControlPlaneProvisioningEndpoints
             CancellationToken cancellationToken) =>
         {
             var backups = await service.ListBackupsAsync(storeId, limit ?? 25, cancellationToken);
-            return Results.Ok(backups.Select(ProvisioningMapping.ToResponse).ToArray());
+
+            // Wrapped in an items envelope like every other collection the
+            // dashboard reads. A bare array is the one shape its collection
+            // hook cannot consume, and the mismatch only ever shows up in a
+            // browser.
+            return Results.Ok(new { items = backups.Select(ProvisioningMapping.ToResponse).ToArray() });
         }).RequirePermission(ControlPlanePermissions.StoreView);
     }
 

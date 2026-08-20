@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-20** (revision 16 — phases 5 and 7 complete, dashboard write paths connected)
+Last updated: **2026-08-20** (revision 17 — phase 9 complete: provisioning, base images, backups, deprovisioning, invitations)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,10 +11,10 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 7 — Observability of KNIGHT itself (complete)** |
-| **Next phase** | Phase 6 — the remaining dashboard write paths, then phase 8 |
-| **Overall progress** | ~91% (every dashboard screen now reads and writes through the real API: 20 routes opened against a live server, 0 failing requests) |
-| **Blocking decisions** | 5 open questions in [`docs/risks.md`](docs/risks.md) §3. R1 resolved (the legacy schema holds nothing real), email deferred to phase 9, file-backed signing keys accepted for the first release (R25). A **restore drill** stands as the one proposed release blocker |
+| **Current phase** | **Phase 9 — Provisioning & professional infrastructure (complete)** |
+| **Next phase** | Phase 10 — optimisation and hardening, starting with the restore drill |
+| **Overall progress** | ~96% (697 tests green; provisioning, deprovisioning, backups, mutual TLS and invitations driven through a browser against a live server — see [`docs/phase-9-verification.md`](docs/phase-9-verification.md)) |
+| **Blocking decisions** | 5 open questions in [`docs/risks.md`](docs/risks.md) §3. R1 resolved (the legacy schema holds nothing real), outbound email delivered in phase 9, file-backed signing keys accepted for the first release (R25). A **restore drill** stands as the one proposed release blocker |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
 > not a boolean flag ([`docs/adr/0014`](docs/adr/0014-features-as-deployable-packages.md)).
@@ -33,7 +33,7 @@ Phase 5    Errors & incidents             ██████████ 100%
 Phase 6    Frontend dashboard             ██████████  99%
 Phase 7    Observability                  ██████████ 100%
 Phase 8    Business-domain port to Django ██████████ 100%
-Phase 9    Provisioning & professional infra ░░░░░░░   0%
+Phase 9    Provisioning & professional infra ██████████ 100%
 Phase 10   Optimisation & hardening       ░░░░░░░░░░   0%
 ```
 
@@ -147,7 +147,7 @@ end by `ControlPlaneCommerceTests`.
 - [x] `Billing`: `BillingAccount`, `Invoice`, `InvoiceLine`, `PaymentRecord`, invoice issuing with gapless numbering
 - [x] Tests: pricing matrix, entitlement resolution and reconciliation, unauthorised enablement, plan changes, invoice lifecycle, isolation
 - [x] Billing scope decided: **invoicing only** — KNIGHT records invoices and observed payments and moves no money (`risks.md` R14)
-- [ ] A billing run that decides *when* to invoice and rolls the period forward — scheduled work, deferred to phase 9/10 rather than hidden inside issuing
+- [ ] A billing run that decides *when* to invoice and rolls the period forward — scheduled work, deferred to phase 10 rather than hidden inside issuing
 - [ ] Tax computation: the figure is settable on a draft, but KNIGHT does not calculate it (jurisdiction-specific, and wrong is a legal matter)
 
 ---
@@ -669,17 +669,25 @@ this phase:
 
 ---
 
-## Phase 9 — Provisioning & professional infrastructure
+## Phase 9 — Provisioning & professional infrastructure ✅
 
-- [ ] `ProvisioningJob` and the provisioning flow (`docs/store-provisioning.md`)
-- [ ] Versioned, signed base store image
-- [ ] Automated base-Feature installation at provisioning time
-- [ ] Dedicated-server metadata and workflow; optional mTLS for dedicated stores
-- [ ] Backup status reporting and `backup.failed` alerting
-- [ ] Deprovisioning: disable → revoke → retain → export → purge
-- [ ] Per-customer retention overrides by plan
-- [ ] Publish a Feature version from the dashboard — the dashboard accepts an already-signed package and registers it. Signing stays offline in `knight_package.py`, so the signing key never reaches the web application (decided 2026-08-20)
-- [ ] Outbound email, so a new administrator receives an activation link instead of a password an operator reads out (decided 2026-08-20; until then the wizard shows the one-time password once)
+**Exit criteria:** a store can be driven from registered to Active through a
+recorded run whose manual steps are represented rather than hidden, and back out
+again to purged data. Verified in a browser against a live server —
+[`docs/phase-9-verification.md`](docs/phase-9-verification.md).
+
+- [x] `ProvisioningJob` and the provisioning flow (`docs/store-provisioning.md`), with manual steps modelled as manual and an operator unable to tick off anything KNIGHT checks itself ([`adr/0025`](docs/adr/0025-provisioning-is-a-job-with-manual-steps.md))
+- [x] A coordinator that re-evaluates unfinished runs, because every fact a step waits for happens in another module and notifies nobody
+- [x] Versioned, signed base store image, carrying the `storeVersion` Feature ranges resolve against
+- [x] Automated base-Feature installation at provisioning time, through the ordinary delivery pipeline
+- [x] Dedicated-server metadata: a dedicated machine records its customer, and a store may only be placed on its own customer's machine, in its own environment
+- [x] Optional mTLS for dedicated and customer-managed stores, checked on the handshake **and** on every authenticated ingest call
+- [x] Backup status reporting, `backup.failed` on the report and `backup.overdue` from the sweep ([`adr/0026`](docs/adr/0026-knight-records-backups-it-does-not-take-them.md))
+- [x] Deprovisioning: disable → revoke → stop ingestion → retain → export → purge
+- [x] Per-customer retention overrides by plan; the override wins, then the plan, then the deployment default
+- [x] Publish a Feature version or a base image from the dashboard — an already-signed package is uploaded, KNIGHT computes the digest the signature is checked against, and signing stays offline in `knight_package.py`
+- [x] Outbound email: a new administrator receives an activation link and sets their own password. A deployment with no mail transport falls back to the one-time password and says which happened
+- [ ] Automating the manual steps — creating the machine, building the instance, wiring DNS and TLS. Deliberately out of scope for this release; each is one evaluator away once the provider integration exists
 
 ---
 

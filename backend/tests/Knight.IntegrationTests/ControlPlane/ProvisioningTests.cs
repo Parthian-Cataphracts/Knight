@@ -102,13 +102,52 @@ public sealed class ProvisioningTests
     }
 
     [Fact]
+    public async Task TheMachineStepCannotBeTickedOffWhileNoMachineIsRecorded()
+    {
+        if (!_fixture.IsAvailable) return;
+
+        var client = await ClientAsync();
+        var storeId = await _fixture.SeedStoreAsync(await _fixture.SeedCustomerAsync());
+
+        var job = await (await client.PostAsJsonAsync($"/api/v1/provisioning/stores/{storeId}", new { }))
+            .Content.ReadFromJsonAsync<JobBody>();
+
+        // An operator asserting "the box exists" while no server is recorded
+        // leaves a run that walks on and then stalls at the agent step for a
+        // reason nobody can act on.
+        var refused = await client.PostAsJsonAsync(
+            $"/api/v1/provisioning/{job!.Id}/steps",
+            new { step = "server", detail = "Trust me." });
+
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+    }
+
+    [Fact]
     public async Task CompletingTheManualSteps_MovesTheRunOnToWhatKnightIsWaitingFor()
     {
         if (!_fixture.IsAvailable) return;
 
         var client = await ClientAsync();
         var customerId = await _fixture.SeedCustomerAsync();
-        var storeId = await _fixture.SeedStoreAsync(customerId);
+        var storeId = await _fixture.SeedStoreAsync(customerId, hostingModel: HostingModel.DedicatedManaged);
+
+        var store = await (await client.GetAsync($"/api/v1/stores/{storeId}")).Content.ReadFromJsonAsync<StoreBody>();
+
+        var server = await (await client.PostAsJsonAsync("/api/v1/servers", new
+        {
+            name = $"dedicated-{Guid.NewGuid():n}"[..20],
+            hostingModel = "DedicatedManaged",
+            environment = "Production",
+        })).Content.ReadFromJsonAsync<ServerBody>();
+
+        await client.PutAsJsonAsync($"/api/v1/servers/{server!.Id}/dedication", new { customerId });
+
+        await client.PatchAsJsonAsync($"/api/v1/stores/{storeId}", new
+        {
+            name = "Provisioned store",
+            primaryDomain = store!.PrimaryDomain,
+            serverId = server.Id,
+        });
 
         var job = await (await client.PostAsJsonAsync($"/api/v1/provisioning/stores/{storeId}", new { }))
             .Content.ReadFromJsonAsync<JobBody>();
@@ -122,6 +161,38 @@ public sealed class ProvisioningTests
         // the store has never handshaked, so KNIGHT has no evidence it exists.
         Assert.Equal("instance", advanced!.CurrentStep);
         Assert.Equal("Succeeded", advanced.Steps.Single(step => step.Name == "server").Status);
+    }
+
+    [Fact]
+    public async Task AStoreCannotBePlacedOnAnotherCustomersDedicatedMachine()
+    {
+        if (!_fixture.IsAvailable) return;
+
+        var client = await ClientAsync();
+        var mine = await _fixture.SeedCustomerAsync();
+        var theirs = await _fixture.SeedCustomerAsync();
+        var storeId = await _fixture.SeedStoreAsync(mine, hostingModel: HostingModel.DedicatedManaged);
+
+        var store = await (await client.GetAsync($"/api/v1/stores/{storeId}")).Content.ReadFromJsonAsync<StoreBody>();
+
+        var server = await (await client.PostAsJsonAsync("/api/v1/servers", new
+        {
+            name = $"theirs-{Guid.NewGuid():n}"[..20],
+            hostingModel = "DedicatedManaged",
+            environment = "Production",
+        })).Content.ReadFromJsonAsync<ServerBody>();
+
+        await client.PutAsJsonAsync($"/api/v1/servers/{server!.Id}/dedication", new { customerId = theirs });
+
+        var refused = await client.PatchAsJsonAsync($"/api/v1/stores/{storeId}", new
+        {
+            name = "Misplaced store",
+            primaryDomain = store!.PrimaryDomain,
+            serverId = server.Id,
+        });
+
+        // Dedicated is a promise somebody pays for, not a billing label.
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
     }
 
     [Fact]
@@ -273,9 +344,11 @@ public sealed class ProvisioningTests
 
         Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
 
-        var listed = await client.GetFromJsonAsync<BackupBody[]>($"/api/v1/stores/{storeId}/backups");
-        Assert.Single(listed!);
-        Assert.Equal("Succeeded", listed![0].Status);
+        // Read through the same envelope the dashboard's collection hook needs:
+        // a bare array is the one shape it cannot consume.
+        var listed = await client.GetFromJsonAsync<BackupListBody>($"/api/v1/stores/{storeId}/backups");
+        Assert.Single(listed!.Items);
+        Assert.Equal("Succeeded", listed.Items[0].Status);
     }
 
     [Fact]
@@ -348,13 +421,18 @@ public sealed class ProvisioningTests
 
     private sealed record StepBody(int Sequence, string Name, string Mode, string Status, string? Detail);
 
+    private sealed record ServerBody(Guid Id, string Name);
+
     private sealed record StoreBody(
         Guid Id,
         string Status,
+        string PrimaryDomain,
         bool RequiresMutualTls,
         IReadOnlyCollection<CredentialBody> Credentials);
 
     private sealed record CredentialBody(Guid Id, string State);
 
     private sealed record BackupBody(Guid Id, string Status, string Kind, long? SizeBytes);
+
+    private sealed record BackupListBody(IReadOnlyList<BackupBody> Items);
 }

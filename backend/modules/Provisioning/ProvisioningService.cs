@@ -141,6 +141,22 @@ internal sealed class ProvisioningService : IProvisioningService
         var now = _clock.UtcNow;
         var actor = _currentUser.UserId ?? Guid.Empty;
 
+        // The machine step is the one manual step KNIGHT can check, and it does:
+        // an operator saying "the box exists" while no server is recorded
+        // against the store leaves a run that walks on and then stalls at the
+        // agent step for a reason nobody can act on.
+        if (string.Equals(stepName?.Trim(), ProvisioningPipeline.Server, StringComparison.Ordinal))
+        {
+            var store = await _stores.GetAsync(job.StoreId, cancellationToken);
+
+            if (store?.ServerId is null)
+            {
+                throw new ConflictException(
+                    "Assign the store to a registered server before recording this step. " +
+                    "KNIGHT needs to know which machine it is on to check anything else about it.");
+            }
+        }
+
         if (!string.IsNullOrWhiteSpace(baseImageVersion))
         {
             var image = await _images.FindUsableAsync(baseImageVersion, cancellationToken)

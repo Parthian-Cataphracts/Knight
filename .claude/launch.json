@@ -4,9 +4,26 @@
     {
       "name": "knight-dashboard",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "cwd": "frontend/knight-dashboard",
       "port": 5173
+    },
+    {
+      "name": "knight-dashboard-verify",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "3000",
+        "--strictPort"
+      ],
+      "cwd": "frontend/knight-dashboard",
+      "port": 3000
     }
   ]
 }
