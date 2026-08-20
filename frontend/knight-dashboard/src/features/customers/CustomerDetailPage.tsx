@@ -202,7 +202,7 @@ export function CustomerDetailPage() {
       key: "total",
       header: t("billing.total"),
       numeric: true,
-      render: (row) => (row.total === 0 ? t("plans.free") : `${formatNumber(row.total)} ${t("billing.currency")}`),
+      render: (row) => (row.total === 0 ? t("plans.free") : `${formatNumber(row.total)} ${row.currency}`),
     },
     {
       key: "status",
@@ -341,7 +341,7 @@ export function CustomerDetailPage() {
                   <KeyValue label={t("subscriptions.monthlyTotal")}>
                     {subscription.monthlyTotal === 0
                       ? t("plans.free")
-                      : `${formatNumber(subscription.monthlyTotal)} ${t("billing.currency")}`}
+                      : `${formatNumber(subscription.monthlyTotal)} ${subscription.currency}`}
                   </KeyValue>
                   <KeyValue label={t("subscriptions.periodEnd")}>
                     {formatRelative(subscription.currentPeriodEnd)}
