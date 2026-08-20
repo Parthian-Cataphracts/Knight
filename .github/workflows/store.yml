@@ -55,12 +55,25 @@ jobs:
       - name: Install the optional Features
         run: pip install ./features/knight-feature-promotions ./features/knight-feature-delivery
 
+      # Installing the packages is not the same as installing the Features.
+      # Until the store's feature registry lists them they are not in
+      # INSTALLED_APPS, their models cannot be used, and every test that touches
+      # them skips — which is a green run over code nothing executed.
+      - name: Register the Features with the store
+        working-directory: stores/reference-store
+        env:
+          KNIGHT_FEATURE_ROOT: ${{ github.workspace }}/stores/knight-features
+        run: |
+          python manage.py knight_install_local             ../../features/knight-feature-promotions             ../../features/knight-feature-delivery
+
       - name: Test
         working-directory: stores/reference-store
         env:
           STORE_DB_HOST: localhost
           STORE_DB_PORT: '5433'
           KNIGHT_FEATURE_ROOT: ${{ github.workspace }}/stores/knight-features
+          # Turns a skipped Feature suite into a failure here. See above.
+          REQUIRE_FEATURE_TESTS: '1'
         run: python manage.py test
 
   dashboard:
