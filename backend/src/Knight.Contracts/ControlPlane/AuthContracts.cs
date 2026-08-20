@@ -67,3 +67,67 @@ public sealed record MfaEnrollmentResponse
 
     public required string EnrollmentUri { get; init; }
 }
+
+// --- Account administration ---------------------------------------------------
+
+public sealed record CreateAccountRequest
+{
+    public required string Email { get; init; }
+
+    public required string DisplayName { get; init; }
+
+    /// <summary>The customer this account belongs to, or null for platform staff. Platform staff only.</summary>
+    public Guid? CustomerId { get; init; }
+
+    public IReadOnlyCollection<Guid> RoleIds { get; init; } = [];
+}
+
+/// <summary>
+/// A created account, with the one-time password it was created with.
+///
+/// The password appears here and nowhere else — not in the audit trail, not on a
+/// later read of the account. An administrator who loses it resets the account
+/// rather than looking it up, which is what stops "can reset an account" from
+/// also meaning "can silently become that account".
+/// </summary>
+public sealed record CreatedAccountResponse
+{
+    public required AccountResponse Account { get; init; }
+
+    public required string TemporaryPassword { get; init; }
+}
+
+public sealed record RenameAccountRequest
+{
+    public required string DisplayName { get; init; }
+}
+
+public sealed record SetAccountRolesRequest
+{
+    /// <summary>The roles the account should hold afterwards. Replaces, rather than adds to, what it holds now.</summary>
+    public required IReadOnlyCollection<Guid> RoleIds { get; init; }
+}
+
+public sealed record TemporaryPasswordResponse
+{
+    public required string TemporaryPassword { get; init; }
+}
+
+public sealed record CreateRoleRequest
+{
+    public required string Name { get; init; }
+
+    public string? Description { get; init; }
+
+    /// <summary>Platform or Customer.</summary>
+    public required string Scope { get; init; }
+
+    public Guid? CustomerId { get; init; }
+
+    public IReadOnlyCollection<string> Permissions { get; init; } = [];
+}
+
+public sealed record SetRolePermissionsRequest
+{
+    public required IReadOnlyCollection<string> Permissions { get; init; }
+}

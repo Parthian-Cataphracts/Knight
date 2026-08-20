@@ -22,6 +22,10 @@ public static class AccessControlModule
         services.AddScoped<Knight.Application.Abstractions.ControlPlane.IAuditTrail, AuditTrail>();
         services.AddScoped<IAuditLogQueryService, AuditLogQueryService>();
         services.AddScoped<IAccessDirectory, AccessDirectory>();
+
+        // Administering somebody else's account is a different authority from
+        // authenticating your own, so it is a different service.
+        services.AddScoped<IAccountAdministration, AccountAdministration>();
         services.AddScoped<IControlPlaneAccessSeeder, ControlPlaneAccessSeeder>();
 
         return services;

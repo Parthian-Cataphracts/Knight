@@ -52,6 +52,102 @@ public static class ControlPlaneAccessEndpoints
                 result.TotalCount));
         }).RequirePermission(ControlPlanePermissions.UserView);
 
+        users.MapPost("/", async (
+            CreateAccountRequest request,
+            IAccountAdministration administration,
+            IControlPlanePrincipal principal,
+            ILabelReader labels,
+            CancellationToken cancellationToken) =>
+        {
+            // A customer-scoped administrator creates accounts inside their own
+            // customer, whatever the body asks for.
+            var customerId = principal.CustomerId ?? request.CustomerId;
+
+            var (user, password) = await administration.CreateAsync(
+                request.Email, request.DisplayName, customerId, request.RoleIds, cancellationToken);
+
+            var roleNames = await labels.RoleNamesForUsersAsync([user.Id], cancellationToken);
+            var customerNames = customerId is { } id
+                ? await labels.CustomerNamesAsync([id], cancellationToken)
+                : new Dictionary<Guid, string>();
+
+            return Results.Created(
+                $"/api/v1/users/{user.Id}",
+                new CreatedAccountResponse
+                {
+                    Account = ToResponse(user, roleNames, customerNames),
+                    TemporaryPassword = password,
+                });
+        }).RequirePermission(ControlPlanePermissions.UserManage);
+
+        users.MapPatch("/{id:guid}", async (
+            Guid id,
+            RenameAccountRequest request,
+            IAccountAdministration administration,
+            ILabelReader labels,
+            CancellationToken cancellationToken) =>
+        {
+            var user = await administration.RenameAsync(id, request.DisplayName, cancellationToken);
+
+            return Results.Ok(await DescribeAsync(user, labels, cancellationToken));
+        }).RequirePermission(ControlPlanePermissions.UserManage);
+
+        users.MapPost("/{id:guid}/activate", async (
+            Guid id,
+            IAccountAdministration administration,
+            ILabelReader labels,
+            CancellationToken cancellationToken) =>
+        {
+            var user = await administration.SetActiveAsync(id, true, cancellationToken);
+
+            return Results.Ok(await DescribeAsync(user, labels, cancellationToken));
+        }).RequirePermission(ControlPlanePermissions.UserManage);
+
+        users.MapPost("/{id:guid}/suspend", async (
+            Guid id,
+            IAccountAdministration administration,
+            ILabelReader labels,
+            CancellationToken cancellationToken) =>
+        {
+            var user = await administration.SetActiveAsync(id, false, cancellationToken);
+
+            return Results.Ok(await DescribeAsync(user, labels, cancellationToken));
+        }).RequirePermission(ControlPlanePermissions.UserManage);
+
+        users.MapPut("/{id:guid}/roles", async (
+            Guid id,
+            SetAccountRolesRequest request,
+            IAccountAdministration administration,
+            ILabelReader labels,
+            CancellationToken cancellationToken) =>
+        {
+            var user = await administration.SetRolesAsync(id, request.RoleIds, cancellationToken);
+
+            return Results.Ok(await DescribeAsync(user, labels, cancellationToken));
+        }).RequirePermission(ControlPlanePermissions.UserManage);
+
+        users.MapPost("/{id:guid}/mfa/reset", async (
+            Guid id,
+            IAccountAdministration administration,
+            ILabelReader labels,
+            CancellationToken cancellationToken) =>
+        {
+            var user = await administration.ResetMfaAsync(id, cancellationToken);
+
+            return Results.Ok(await DescribeAsync(user, labels, cancellationToken));
+        }).RequirePermission(ControlPlanePermissions.UserManage);
+
+        users.MapPost("/{id:guid}/password/reset", async (
+            Guid id,
+            IAccountAdministration administration,
+            CancellationToken cancellationToken) =>
+        {
+            var password = await administration.ResetPasswordAsync(id, cancellationToken);
+
+            // Returned once. There is no endpoint that reads it back.
+            return Results.Ok(new TemporaryPasswordResponse { TemporaryPassword = password });
+        }).RequirePermission(ControlPlanePermissions.UserManage);
+
         var roles = endpoints.MapGroup("/api/v1/roles")
             .RequireAuthorization(ControlPlaneAuthorizationExtensions.UserPolicy)
             .RequireRateLimiting("control-plane")
@@ -71,6 +167,52 @@ public static class ControlPlaneAccessEndpoints
                 items.Count,
                 items.Count));
         }).RequirePermission(ControlPlanePermissions.RoleView);
+
+        roles.MapPost("/", async (
+            CreateRoleRequest request,
+            IAccountAdministration administration,
+            IControlPlanePrincipal principal,
+            CancellationToken cancellationToken) =>
+        {
+            if (!Enum.TryParse<RoleScope>(request.Scope, ignoreCase: true, out var scope))
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["scope"] = [$"'{request.Scope}' is not a recognised role scope."],
+                });
+            }
+
+            var role = await administration.CreateRoleAsync(
+                request.Name,
+                request.Description ?? string.Empty,
+                scope,
+                principal.CustomerId ?? request.CustomerId,
+                request.Permissions,
+                cancellationToken);
+
+            return Results.Created($"/api/v1/roles/{role.Id}", ToResponse(role, 0));
+        }).RequirePermission(ControlPlanePermissions.RoleManage);
+
+        roles.MapPut("/{id:guid}/permissions", async (
+            Guid id,
+            SetRolePermissionsRequest request,
+            IAccountAdministration administration,
+            CancellationToken cancellationToken) =>
+        {
+            var role = await administration.SetRolePermissionsAsync(id, request.Permissions, cancellationToken);
+
+            return Results.Ok(ToResponse(role, 0));
+        }).RequirePermission(ControlPlanePermissions.RoleManage);
+
+        // The permission catalogue, so the role editor offers real keys rather
+        // than a free-text box that silently accepts a typo.
+        roles.MapGet("/permissions", () =>
+                Results.Ok(PagedResponse<string>.Create(
+                    [.. ControlPlanePermissions.AssignableToRoles],
+                    1,
+                    ControlPlanePermissions.AssignableToRoles.Count,
+                    ControlPlanePermissions.AssignableToRoles.Count)))
+            .RequirePermission(ControlPlanePermissions.RoleView);
 
         var monitoring = endpoints.MapGroup("/api/v1/monitoring")
             .RequireAuthorization(ControlPlaneAuthorizationExtensions.UserPolicy)
@@ -164,4 +306,22 @@ public static class ControlPlaneAccessEndpoints
         CustomerId = role.CustomerId,
         Permissions = role.Permissions.Select(permission => permission.PermissionKey).OrderBy(key => key).ToArray(),
     };
+
+    /// <summary>
+    /// Describes an account with its role and customer names, resolved together.
+    /// Shared by every write endpoint so they all answer in one shape.
+    /// </summary>
+    private static async Task<AccountResponse> DescribeAsync(
+        ControlPlaneUser user,
+        ILabelReader labels,
+        CancellationToken cancellationToken)
+    {
+        var roleNames = await labels.RoleNamesForUsersAsync([user.Id], cancellationToken);
+
+        var customerNames = user.CustomerId is { } id
+            ? await labels.CustomerNamesAsync([id], cancellationToken)
+            : new Dictionary<Guid, string>();
+
+        return ToResponse(user, roleNames, customerNames);
+    }
 }

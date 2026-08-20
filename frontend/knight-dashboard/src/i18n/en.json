@@ -55,7 +55,8 @@
     "disable": "Disable",
     "save": "Save",
     "name": "Name",
-    "add": "Add"
+    "add": "Add",
+    "dismiss": "Dismiss"
   },
   "auth": {
     "title": "Sign in to Knight",
@@ -472,7 +473,16 @@
     "userCount": "Users",
     "system": "System",
     "lastSeen": "Last seen",
-    "invite": "Invite user"
+    "invite": "Invite user",
+    "suspend": "Suspend",
+    "activate": "Activate",
+    "resetMfa": "Reset MFA",
+    "resetPassword": "Reset password",
+    "email": "Work email",
+    "displayName": "Display name",
+    "passwordShownOnce": "This one-time password is shown once. Hand it over now; it cannot be read again.",
+    "inviteHint": "The account is created with a one-time password shown after saving. It has no way to sign in until you pass it on.",
+    "resetHint": "Resetting is the only recovery path, and every reset is audited."
   },
   "userStatus": {
     "Active": "Active",
