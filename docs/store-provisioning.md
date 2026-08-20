@@ -129,7 +129,7 @@ is never billed as operational.
 
 KNIGHT records backup reports and never takes or holds a backup
 ([`adr/0026`](adr/0026-knight-records-backups-it-does-not-take-them.md)). A
-store reports to `POST /api/v1/store/backups`; a failure raises `backup.failed`
+store reports to `POST /api/v1/ingest/backups`; a failure raises `backup.failed`
 on the spot, and a store nobody has reported a successful backup for raises
 `backup.overdue` from the observability sweep.
 

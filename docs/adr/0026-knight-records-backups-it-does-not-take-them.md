@@ -15,7 +15,7 @@ connection to the store's database, and KNIGHT deliberately has none.
 KNIGHT holds **reports about backups**, never backups and never a route to the
 data behind them.
 
-- A store (or the agent beside it) reports to `POST /api/v1/store/backups` with
+- A store (or the agent beside it) reports to `POST /api/v1/ingest/backups` with
   the status, the window it ran in, the size it produced and a location
   *reference* — a bucket key or volume name, never a credential-bearing URL,
   because the value is shown in the dashboard and kept as long as the report is.
