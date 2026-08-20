@@ -1,0 +1,12 @@
+# Shell scripts must be LF whatever a contributor's core.autocrlf is set to.
+# A script committed with CRLF fails on Linux with an unreadable error about
+# `\r`, and CI is the first place anyone would see it.
+*.sh text eol=lf
+
+# Same reasoning: these are read by tooling on Linux runners.
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Dumps are binary and must never be line-ending converted. They are gitignored
+# as well; this is the second lock on the same door.
+*.dump binary
