@@ -71,6 +71,14 @@ INSTALLED_APPS = [
     # The integration layer is an app of its own, and one the business apps
     # below never import from except through its published façade.
     "knight_integration",
+    # The ported business domain. Each is a plain Django app with its own
+    # tables; none of them imports the integration layer except through its
+    # published facade, which a test enforces.
+    "apps.catalog",
+    "apps.shoppers",
+    "apps.orders",
+    "apps.fulfillment",
+    "apps.payments",
     "apps.shop",
 ]
 
