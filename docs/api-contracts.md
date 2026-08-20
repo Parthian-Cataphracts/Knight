@@ -62,6 +62,7 @@ Feature-delivery codes: `feature_incompatible`,
 POST   /api/v1/auth/login              { email, password }        -> { accessToken, refreshToken, expiresIn, user }
 POST   /api/v1/auth/refresh            { refreshToken }
 POST   /api/v1/auth/logout
+POST   /api/v1/auth/activate           { token, password }        an invited account sets its own password; anonymous
 GET    /api/v1/auth/me                                            -> user + roles + permissions + customerId?
 ```
 
@@ -74,6 +75,7 @@ PATCH  /api/v1/customers/{id}
 POST   /api/v1/customers/{id}/suspend
 POST   /api/v1/customers/{id}/activate
 POST   /api/v1/customers/{id}/archive
+PUT    /api/v1/customers/{id}/retention   { days }  a negotiated retention window; null falls back to the plan
 ```
 
 ### Stores
@@ -97,11 +99,46 @@ GET    /api/v1/stores/{id}/domain-verification  the outstanding challenge, if an
 POST   /api/v1/stores/{id}/domain-verification         issues a token
 POST   /api/v1/stores/{id}/domain-verification/verify  fetches and checks it
 GET    /api/v1/stores/{id}/entitlements
+GET    /api/v1/stores/{id}/backups?limit=       what the store said about its own backups
+PUT    /api/v1/stores/{id}/mutual-tls           binds (or clears) a client certificate; dedicated hosting only
 ```
 
 A store reaches `integrationStatus: Connected` only once its primary domain has
 been verified ([`adr/0021`](adr/0021-domain-verification-before-connected.md));
 until then a successful handshake leaves it `Pending`.
+
+### Provisioning
+```
+GET    /api/v1/provisioning?storeId=&customerId=&state=
+GET    /api/v1/provisioning/{jobId}
+POST   /api/v1/provisioning/stores/{storeId}              starts a provisioning run
+POST   /api/v1/provisioning/stores/{storeId}/deprovision  starts a deprovisioning run
+POST   /api/v1/provisioning/{jobId}/advance               re-evaluates now instead of waiting for the sweep
+POST   /api/v1/provisioning/{jobId}/steps                 records a manual step as done
+POST   /api/v1/provisioning/{jobId}/retry
+POST   /api/v1/provisioning/{jobId}/cancel
+```
+
+Reading a run needs `store.view`; starting or driving one needs
+`store.provision`; the deprovisioning path needs `store.deprovision`, a separate
+permission because it ends in deleted data. A manual step may be recorded by an
+operator; an automatic one may not — a store that never passed a health check
+must never reach `Active`
+([`adr/0025`](adr/0025-provisioning-is-a-job-with-manual-steps.md)).
+
+### Base store images and artifact upload
+```
+POST   /api/v1/artifacts                     multipart upload of an already-signed package
+GET    /api/v1/store-images
+GET    /api/v1/store-images/{id}
+POST   /api/v1/store-images                  registers a version against an uploaded artifact
+POST   /api/v1/store-images/{id}/publish
+POST   /api/v1/store-images/{id}/yank
+```
+
+The upload answers the digest KNIGHT computed from the stored bytes; the publish
+request declares that digest and the detached signature is verified against it.
+Signing stays offline — no signing key is present in the API.
 
 ### Feature registry
 ```
@@ -180,6 +217,7 @@ POST   /api/v1/invoices/{id}/payments
 ```
 GET    /api/v1/servers                 GET /api/v1/servers/{id}/metrics?from=&to=&resolution=
 POST   /api/v1/servers                 GET /api/v1/servers/{id}/agents
+PUT    /api/v1/servers/{id}/dedication records the customer a dedicated machine belongs to
 GET    /api/v1/monitoring/overview     aggregate status tiles for the dashboard
 
 GET    /api/v1/errors/groups?storeId=&status=&search=
@@ -225,6 +263,7 @@ POST /api/v1/ingest/events      deployment/backup/business-neutral lifecycle eve
 POST /api/v1/ingest/logs        batch of structured log entries (entitlement-gated)
 GET  /api/v1/ingest/features    store pulls its effective entitlements, signed
 POST /api/v1/ingest/heartbeat   store liveness when outbound-only networking is required
+POST /api/v1/ingest/backups     the store reports a backup it took; KNIGHT takes none
 ```
 
 Everything but the handshake carries the store token
@@ -238,6 +277,10 @@ every call and are enforced in one place rather than per endpoint:
   if a store is misconfigured or a token is being used by something else.
 - **Rate limits are per store, not per address.** Stores share egress addresses,
   and one store looping must not silence its neighbours.
+- **A store bound to a client certificate must present it on every call**, not
+  only at the handshake: a token lives half an hour and a stolen one does not
+  carry the certificate with it. The thumbprint arrives either from a
+  terminated TLS connection or from the header the terminating proxy sets.
 
 A refused handshake answers `401` with one body whatever was wrong with it —
 unknown client id, wrong secret, revoked credential, suspended store, suspended
