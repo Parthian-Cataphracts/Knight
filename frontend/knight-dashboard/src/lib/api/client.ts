@@ -1,3 +1,4 @@
+import type { ArtifactUpload } from "./domain";
 import { ApiError, type ProblemDetails } from "./problem";
 import { mockFetch } from "./mock";
 
@@ -61,6 +62,41 @@ export interface RequestOptions {
  */
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   return send<T>(path, options, true);
+}
+
+/**
+ * Uploads an already-signed package and answers what KNIGHT hashed it to.
+ *
+ * Its own function rather than a body on {@link apiRequest}, because a multipart
+ * upload must not carry a JSON content type and must not be serialised. The
+ * digest in the answer is computed server-side from the stored bytes — the
+ * publish request that follows declares it, and the signature is checked against
+ * it, which only means anything because the middle link is not the uploader's
+ * word.
+ */
+export async function uploadArtifact(file: File): Promise<ArtifactUpload> {
+  const form = new FormData();
+  form.append("file", file);
+
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "X-Correlation-Id": correlationId(),
+  };
+  if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+
+  const response = await fetch(`${BASE_URL}/artifacts`, {
+    method: "POST",
+    headers,
+    credentials: "include",
+    body: form,
+  });
+
+  const text = await response.text();
+  const payload: unknown = text ? JSON.parse(text) : null;
+
+  if (!response.ok) throw new ApiError(response.status, (payload ?? {}) as ProblemDetails);
+
+  return payload as ArtifactUpload;
 }
 
 async function send<T>(path: string, options: RequestOptions, mayRetry: boolean): Promise<T> {

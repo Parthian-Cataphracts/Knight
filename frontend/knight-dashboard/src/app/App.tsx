@@ -9,6 +9,7 @@ import { useUiStore } from "@/store/ui";
 import { DIRECTION } from "@/i18n";
 import { AppLayout } from "@/layouts/AppLayout";
 import { RequireAuth } from "./RequireAuth";
+import { ActivateAccountPage } from "@/features/auth/pages/ActivateAccountPage";
 import { featureRoutes } from "./routes";
 
 /** Keeps <html lang/dir/data-theme> in sync with the UI store. */
@@ -52,6 +53,11 @@ export function App() {
       <DocumentSettings />
       <BrowserRouter>
         <Routes>
+          {/* Outside the authenticated shell on purpose: whoever follows an
+              invitation link has no session yet, and cannot get one until they
+              have set a password here. */}
+          <Route path="/activate" element={<ActivateAccountPage />} />
+
           <Route
             element={
               <RequireAuth>

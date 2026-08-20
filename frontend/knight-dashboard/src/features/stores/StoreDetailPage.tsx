@@ -18,8 +18,9 @@ import { LoadingBlock, ErrorBlock } from "@/components/ui/StateBlock";
 import { useAuthStore } from "@/store/auth";
 import { formatDateTime, formatRelative } from "@/lib/utils/format";
 import { installationTone } from "@/features/installations/installationTone";
+import { ProvisioningPanel } from "./ProvisioningPanel";
 
-type Tab = "overview" | "features" | "domains" | "credentials" | "deployments" | "activity";
+type Tab = "overview" | "features" | "provisioning" | "domains" | "credentials" | "deployments" | "activity";
 
 /**
  * What the store detail page can honestly show.
@@ -325,6 +326,7 @@ export function StoreDetailPage() {
         options={[
           { value: "overview", label: t("storeDetail.overview") },
           { value: "features", label: t("storeDetail.features"), count: storeInstallations.length },
+          { value: "provisioning", label: t("storeDetail.provisioning") },
           { value: "domains", label: t("storeDetail.domains"), count: (domains.data ?? []).length },
           { value: "credentials", label: t("storeDetail.credentials") },
           { value: "deployments", label: t("storeDetail.deployments") },
@@ -401,6 +403,8 @@ export function StoreDetailPage() {
           )}
         </CollectionCard>
       ) : null}
+
+      {tab === "provisioning" ? <ProvisioningPanel store={store} /> : null}
 
       {tab === "domains" ? (
         <CollectionCard query={domains}>

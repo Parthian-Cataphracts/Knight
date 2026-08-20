@@ -19,6 +19,12 @@ export interface Customer {
   /** Absent until the customer has a subscription. */
   planKey: string | null;
   storeCount: number;
+
+  /**
+   * A negotiated retention window in days that replaces the plan's. Null means
+   * the plan decides — which is not the same as "no retention".
+   */
+  dataRetentionOverrideDays: number | null;
   createdAt: string;
 }
 
@@ -40,6 +46,99 @@ export interface Store {
    */
   installedFeatureCount: number | null;
   lastSeenAt: string | null;
+
+  /** True when the store must present a client certificate as well as its credential. */
+  requiresMutualTls: boolean;
+
+  /** A public identifier of the bound certificate, not a secret. Null when none is bound. */
+  mutualTlsThumbprint: string | null;
+}
+
+// --- Provisioning -----------------------------------------------------------
+
+export type ProvisioningState =
+  | "Running"
+  | "AwaitingOperator"
+  | "Succeeded"
+  | "Failed"
+  | "Cancelled";
+
+export type ProvisioningStepStatus = "Pending" | "Waiting" | "Succeeded" | "Failed" | "Skipped";
+
+export interface ProvisioningStep {
+  sequence: number;
+  name: string;
+
+  /** Automatic steps are things KNIGHT checks; manual ones are things a person does. */
+  mode: "Automatic" | "Manual";
+  status: ProvisioningStepStatus;
+
+  /** What the step is waiting for, or what it did. Written to be acted on. */
+  detail: string | null;
+  errorCode: string | null;
+  completedBy: string | null;
+  startedAt: string;
+  completedAt: string | null;
+}
+
+export interface ProvisioningJob {
+  id: string;
+  storeId: string;
+  customerId: string;
+  kind: "Provision" | "Deprovision";
+  state: ProvisioningState;
+  awaitingOperator: boolean;
+  currentStep: string | null;
+  completedStepCount: number;
+  totalStepCount: number;
+  baseImageVersion: string | null;
+
+  /** When a deprovisioned store's data may be purged. Null on a provisioning run. */
+  retainUntil: string | null;
+  failureCode: string | null;
+  failureMessage: string | null;
+  createdAt: string;
+  completedAt: string | null;
+  steps: ProvisioningStep[];
+}
+
+export interface StoreBackup {
+  id: string;
+  storeId: string;
+  status: "Succeeded" | "Failed" | "Running";
+  kind: "Scheduled" | "Manual" | "PreDeployment";
+  startedAt: string;
+  completedAt: string | null;
+  reportedAt: string;
+  sizeBytes: number | null;
+
+  /** A reference an operator resolves elsewhere — never a link KNIGHT can follow. */
+  location: string | null;
+  detail: string | null;
+  durationSeconds: number | null;
+}
+
+/** A published base store image: signed, digest-verified, and pinning a store version. */
+export interface StoreImage {
+  id: string;
+  version: string;
+  storeVersion: string;
+  status: "Draft" | "Published" | "Yanked";
+  artifactDigest: string;
+  artifactSizeBytes: number;
+  signingKeyId: string;
+  releaseNotes: string | null;
+  createdAt: string;
+  publishedAt: string | null;
+  yankedAt: string | null;
+  yankReason: string | null;
+}
+
+/** What an artifact upload answers: where it landed and what KNIGHT hashed it to. */
+export interface ArtifactUpload {
+  packageReference: string;
+  digest: string;
+  sizeBytes: number;
 }
 
 // --- Feature registry -------------------------------------------------------
