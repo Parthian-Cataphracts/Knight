@@ -1,5 +1,5 @@
-using Microsoft.Extensions.Options;
 using Knight.Infrastructure.Security;
+using Microsoft.Extensions.Options;
 
 namespace Knight.Api.Composition;
 

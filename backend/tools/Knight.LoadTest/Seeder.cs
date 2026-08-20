@@ -1,13 +1,13 @@
 using System.Text.Json;
 using AccessControl;
 using Customers;
+using FeatureDelivery;
+using FeatureRegistry;
 using Knight.Application.Abstractions.ControlPlane;
 using Knight.Application.Abstractions.Time;
 using Knight.Infrastructure.ControlPlane;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using FeatureDelivery;
-using FeatureRegistry;
 using Plans;
 using Stores;
 using Stores.Domain;

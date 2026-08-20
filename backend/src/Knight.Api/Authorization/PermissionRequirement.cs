@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.Authorization;
 using Knight.Application.Abstractions.Identity;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Knight.Api.Authorization;
 

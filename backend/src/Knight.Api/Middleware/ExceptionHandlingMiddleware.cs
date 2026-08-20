@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Mvc;
 using Knight.Application.Exceptions;
 using Knight.Contracts.Common;
 using Knight.Domain.Exceptions;
+using Microsoft.AspNetCore.Mvc;
 using ValidationException = Knight.Application.Exceptions.ValidationException;
 
 namespace Knight.Api.Middleware;

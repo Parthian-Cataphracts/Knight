@@ -1,11 +1,10 @@
 using Customers.Domain;
-
-// The legacy store-side module is also named Customer, so the control-plane
-// aggregate is aliased rather than resolved by bare name.
-using ControlPlaneCustomer = Customers.Domain.Customer;
 using Knight.Application.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+// The legacy store-side module is also named Customer, so the control-plane
+// aggregate is aliased rather than resolved by bare name.
+using ControlPlaneCustomer = Customers.Domain.Customer;
 
 namespace Knight.Infrastructure.ControlPlane.Repositories;
 

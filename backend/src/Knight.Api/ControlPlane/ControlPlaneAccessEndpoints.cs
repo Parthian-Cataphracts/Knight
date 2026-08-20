@@ -294,19 +294,19 @@ public static class ControlPlaneAccessEndpoints
         ControlPlaneUser user,
         IReadOnlyDictionary<Guid, IReadOnlyCollection<string>> roles,
         IReadOnlyDictionary<Guid, string> customerNames) => new()
-    {
-        Id = user.Id,
-        Scope = user.IsPlatformStaff ? "Platform" : "Customer",
-        Roles = roles.GetValueOrDefault(user.Id) ?? [],
-        CustomerName = user.CustomerId is { } customerId ? customerNames.GetValueOrDefault(customerId) : null,
-        Email = user.Email,
-        DisplayName = user.DisplayName,
-        CustomerId = user.CustomerId,
-        Status = user.Status.ToString(),
-        MfaEnabled = user.MfaEnabled,
-        LastLoginAt = user.LastLoginAt,
-        CreatedAt = user.CreatedAt,
-    };
+        {
+            Id = user.Id,
+            Scope = user.IsPlatformStaff ? "Platform" : "Customer",
+            Roles = roles.GetValueOrDefault(user.Id) ?? [],
+            CustomerName = user.CustomerId is { } customerId ? customerNames.GetValueOrDefault(customerId) : null,
+            Email = user.Email,
+            DisplayName = user.DisplayName,
+            CustomerId = user.CustomerId,
+            Status = user.Status.ToString(),
+            MfaEnabled = user.MfaEnabled,
+            LastLoginAt = user.LastLoginAt,
+            CreatedAt = user.CreatedAt,
+        };
 
     private static RoleResponse ToResponse(Role role, int userCount) => new()
     {

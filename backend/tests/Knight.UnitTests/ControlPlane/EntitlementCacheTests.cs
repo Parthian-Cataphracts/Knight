@@ -197,7 +197,11 @@ public sealed class EntitlementCacheTests
         // Ordering matters: delivery reacts to a grant by queueing work, and that
         // work must not read the entitlement set the grant just replaced.
         var cache = new FakeCache();
-        cache.SetAsync(EntitlementCacheKeys.ActiveFor(Customer), Array.Empty<EntitledFeature>(), TimeSpan.FromMinutes(1), CancellationToken.None).Wait();
+        await cache.SetAsync(
+            EntitlementCacheKeys.ActiveFor(Customer),
+            Array.Empty<EntitledFeature>(),
+            TimeSpan.FromMinutes(1),
+            CancellationToken.None);
 
         var observed = new List<string>();
 

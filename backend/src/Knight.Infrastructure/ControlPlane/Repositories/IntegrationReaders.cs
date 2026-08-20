@@ -2,8 +2,8 @@ using Customers.Domain;
 using FeatureRegistry.Domain;
 using Knight.Application.Abstractions.ControlPlane;
 using Knight.Application.Abstractions.Time;
-using Stores.Domain;
 using Microsoft.EntityFrameworkCore;
+using Stores.Domain;
 
 namespace Knight.Infrastructure.ControlPlane.Repositories;
 

@@ -1,6 +1,6 @@
-using Knight.Application.Abstractions.Time;
 using AccessControl.Domain;
 using Knight.Application.Abstractions.ControlPlane;
+using Knight.Application.Abstractions.Time;
 using Knight.Contracts.Common;
 using Knight.Contracts.ControlPlane;
 using Subscriptions;
@@ -326,22 +326,22 @@ public static class ControlPlaneSubscriptionEndpoints
         IReadOnlyDictionary<Guid, string> customerNames,
         IReadOnlyDictionary<Guid, (string Key, string Name)> plans,
         QuotedPrice priced) => new()
-    {
-        MonthlyTotal = priced.Subtotal,
-        Currency = priced.Currency,
-        Id = subscription.Id,
-        CustomerId = subscription.CustomerId,
-        CustomerName = customerNames.GetValueOrDefault(subscription.CustomerId) ?? string.Empty,
-        PlanId = subscription.PlanId,
-        PlanKey = plans.TryGetValue(subscription.PlanId, out var plan) ? plan.Key : string.Empty,
-        PlanName = plans.TryGetValue(subscription.PlanId, out var named) ? named.Name : string.Empty,
-        OptionalFeatures = subscription.EnabledFeatureIds.Count,
-        Status = subscription.Status.ToString(),
-        StartedAt = subscription.StartedAt,
-        CurrentPeriodStart = subscription.CurrentPeriodStart,
-        CurrentPeriodEnd = subscription.CurrentPeriodEnd,
-        CancelledAt = subscription.CancelledAt,
-        Features = subscription.Features
+        {
+            MonthlyTotal = priced.Subtotal,
+            Currency = priced.Currency,
+            Id = subscription.Id,
+            CustomerId = subscription.CustomerId,
+            CustomerName = customerNames.GetValueOrDefault(subscription.CustomerId) ?? string.Empty,
+            PlanId = subscription.PlanId,
+            PlanKey = plans.TryGetValue(subscription.PlanId, out var plan) ? plan.Key : string.Empty,
+            PlanName = plans.TryGetValue(subscription.PlanId, out var named) ? named.Name : string.Empty,
+            OptionalFeatures = subscription.EnabledFeatureIds.Count,
+            Status = subscription.Status.ToString(),
+            StartedAt = subscription.StartedAt,
+            CurrentPeriodStart = subscription.CurrentPeriodStart,
+            CurrentPeriodEnd = subscription.CurrentPeriodEnd,
+            CancelledAt = subscription.CancelledAt,
+            Features = subscription.Features
             .Select(feature => new SubscriptionFeatureResponse
             {
                 FeatureId = feature.FeatureId,
@@ -349,5 +349,5 @@ public static class ControlPlaneSubscriptionEndpoints
                 EnabledAt = feature.EnabledAt,
             })
             .ToArray(),
-    };
+        };
 }

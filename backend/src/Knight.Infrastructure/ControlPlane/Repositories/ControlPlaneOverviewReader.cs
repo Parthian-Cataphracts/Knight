@@ -1,8 +1,8 @@
 using AccessControl.Domain;
 using Billing.Domain;
 using Customers.Domain;
-using Knight.Domain.Versioning;
 using Knight.Application.Abstractions.ControlPlane;
+using Knight.Domain.Versioning;
 using Microsoft.EntityFrameworkCore;
 using Stores.Domain;
 using Subscriptions.Domain;

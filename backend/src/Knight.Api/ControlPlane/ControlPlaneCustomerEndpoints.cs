@@ -1,13 +1,12 @@
 using AccessControl.Domain;
 using Customers;
 using Customers.Domain;
-
-// The legacy store-side module is also named Customer; the control-plane
-// aggregate is aliased so the bare name cannot resolve to that namespace.
-using ControlPlaneCustomer = Customers.Domain.Customer;
 using Knight.Application.Abstractions.ControlPlane;
 using Knight.Contracts.Common;
 using Knight.Contracts.ControlPlane;
+// The legacy store-side module is also named Customer; the control-plane
+// aggregate is aliased so the bare name cannot resolve to that namespace.
+using ControlPlaneCustomer = Customers.Domain.Customer;
 
 namespace Knight.Api.ControlPlane;
 

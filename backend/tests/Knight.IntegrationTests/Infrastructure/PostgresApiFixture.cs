@@ -1,8 +1,8 @@
+using Knight.Infrastructure.ControlPlane;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Knight.Infrastructure.ControlPlane;
 using Testcontainers.PostgreSql;
 using Xunit;
 

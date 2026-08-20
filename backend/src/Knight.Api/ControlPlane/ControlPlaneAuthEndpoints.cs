@@ -1,7 +1,7 @@
 using AccessControl;
 using Knight.Contracts.ControlPlane;
-using LoginContract = Knight.Contracts.ControlPlane.LoginRequest;
 using LoginCommand = AccessControl.LoginRequest;
+using LoginContract = Knight.Contracts.ControlPlane.LoginRequest;
 
 namespace Knight.Api.ControlPlane;
 
