@@ -83,6 +83,7 @@ internal sealed class ProvisioningJobRepository : IProvisioningJobRepository
 
         var items = await query
             .OrderByDescending(job => job.CreatedAt)
+            .ThenBy(job => job.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);

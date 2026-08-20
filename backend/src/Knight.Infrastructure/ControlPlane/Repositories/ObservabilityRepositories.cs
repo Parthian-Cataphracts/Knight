@@ -88,6 +88,7 @@ internal sealed class ErrorGroupRepository : IErrorGroupRepository
             // Most recently seen first: an operator opening this screen wants to
             // know what is broken now, not what was broken most often ever.
             .OrderByDescending(group => group.LastSeenAt)
+            .ThenBy(group => group.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToArrayAsync(cancellationToken);
@@ -218,6 +219,7 @@ internal sealed class IncidentRepository : IIncidentRepository
 
         var items = await query
             .OrderByDescending(incident => incident.OpenedAt)
+            .ThenBy(incident => incident.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToArrayAsync(cancellationToken);
@@ -348,6 +350,7 @@ internal sealed class NotificationRepository : INotificationRepository
 
         var items = await query
             .OrderByDescending(delivery => delivery.CreatedAt)
+            .ThenBy(delivery => delivery.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToArrayAsync(cancellationToken);
