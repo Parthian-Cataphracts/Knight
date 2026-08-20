@@ -95,6 +95,28 @@ internal sealed class AgentRepository : IAgentRepository
             .OrderByDescending(agent => agent.CreatedAt)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyCollection<Agent>>> ListForServersAsync(
+        IReadOnlyCollection<Guid> serverIds,
+        CancellationToken cancellationToken)
+    {
+        if (serverIds.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyCollection<Agent>>();
+        }
+
+        var agents = await _context.Agents
+            .AsNoTracking()
+            .Where(agent => serverIds.Contains(agent.ServerId))
+            .OrderByDescending(agent => agent.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        return agents
+            .GroupBy(agent => agent.ServerId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyCollection<Agent>)group.ToArray());
+    }
+
     public async Task<IReadOnlyCollection<Agent>> ListAwaitingEnrolmentAsync(CancellationToken cancellationToken) =>
         await _context.Agents
             .Where(agent => agent.Status == AgentStatus.Provisioning && agent.ProvisioningTokenHash != null)
@@ -143,6 +165,33 @@ internal sealed class ServerMetricRepository : IServerMetricRepository
             .Where(metric => metric.ServerId == serverId)
             .OrderByDescending(metric => metric.CapturedAt)
             .FirstOrDefaultAsync(cancellationToken);
+
+    /// <summary>
+    /// One row per server: the newest sample each of them has.
+    ///
+    /// DISTINCT ON is the right shape for this in PostgreSQL and EF cannot
+    /// express it, so the query is grouped instead — the composite index on
+    /// (ServerId, CapturedAt DESC) serves both. What matters is that it is one
+    /// round trip whatever the size of the fleet.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<Guid, ServerMetric>> GetLatestForAsync(
+        IReadOnlyCollection<Guid> serverIds,
+        CancellationToken cancellationToken)
+    {
+        if (serverIds.Count == 0)
+        {
+            return new Dictionary<Guid, ServerMetric>();
+        }
+
+        var latest = await _context.ServerMetrics
+            .AsNoTracking()
+            .Where(metric => serverIds.Contains(metric.ServerId))
+            .GroupBy(metric => metric.ServerId)
+            .Select(group => group.OrderByDescending(metric => metric.CapturedAt).First())
+            .ToListAsync(cancellationToken);
+
+        return latest.ToDictionary(metric => metric.ServerId);
+    }
 
     /// <summary>
     /// A set-based delete, issued as one statement.

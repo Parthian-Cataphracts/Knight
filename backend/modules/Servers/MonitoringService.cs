@@ -155,6 +155,14 @@ internal sealed class MonitoringService : IMonitoringService
         var (servers, _) = await _servers.ListAsync(1, MaxPageSize, null, null, false, cancellationToken);
         var (alerts, _) = await _alerts.ListAsync(1, 10, null, null, true, cancellationToken);
 
+        // Both lookups are batched. Asking per server cost one query for the
+        // latest metric and one for the agents, so the overview issued 1 + 2N
+        // queries for N servers — and N is the fleet, which is the number this
+        // page exists to grow with.
+        var serverIds = servers.Select(server => server.Id).ToArray();
+        var latestMetrics = await _metrics.GetLatestForAsync(serverIds, cancellationToken);
+        var agentsByServer = await _agents.ListForServersAsync(serverIds, cancellationToken);
+
         var summaries = new List<ServerSummary>(servers.Count);
         var totalAgents = 0;
         var onlineAgents = 0;
@@ -162,7 +170,7 @@ internal sealed class MonitoringService : IMonitoringService
 
         foreach (var server in servers)
         {
-            var latest = await _metrics.GetLatestAsync(server.Id, cancellationToken);
+            latestMetrics.TryGetValue(server.Id, out var latest);
 
             summaries.Add(new ServerSummary(
                 server.Id,
@@ -176,7 +184,12 @@ internal sealed class MonitoringService : IMonitoringService
                 latest?.MemoryPercent,
                 latest?.DiskPercent));
 
-            foreach (var agent in await _agents.ListForServerAsync(server.Id, cancellationToken))
+            if (!agentsByServer.TryGetValue(server.Id, out var agents))
+            {
+                continue;
+            }
+
+            foreach (var agent in agents)
             {
                 // Revoked agents are not counted. They are a record of something
                 // that used to exist, not part of the fleet's current shape.
