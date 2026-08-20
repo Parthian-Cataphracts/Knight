@@ -1,5 +1,6 @@
 using FeatureRegistry.Domain;
 using Knight.Application.Abstractions.ControlPlane;
+using Knight.Application.Abstractions.Time;
 using Knight.Application.Exceptions;
 using Microsoft.Extensions.Logging;
 using Plans;
@@ -140,6 +141,55 @@ internal sealed class SubscriptionReader : ISubscriptionReader
                 subscription.EnabledFeatureIds,
                 subscription.CurrentPeriodStart,
                 subscription.CurrentPeriodEnd);
+    }
+
+    public async Task<IReadOnlyCollection<SubscriptionSnapshot>> ListDueForBillingAsync(
+        DateTimeOffset asOf,
+        CancellationToken cancellationToken)
+    {
+        var due = await _subscriptions.ListDueForBillingAsync(asOf, cancellationToken);
+
+        return due
+            .Select(subscription => new SubscriptionSnapshot(
+                subscription.Id,
+                subscription.CustomerId,
+                subscription.PlanId,
+                subscription.Status.ToString(),
+                subscription.EnabledFeatureIds,
+                subscription.CurrentPeriodStart,
+                subscription.CurrentPeriodEnd))
+            .ToArray();
+    }
+}
+
+/// <summary>
+/// Rolls a subscription's period forward on behalf of the billing run.
+///
+/// Separate from <see cref="SubscriptionReader"/> because reading and writing
+/// are different permissions to hand out, and only one thing in the system rolls
+/// a period.
+/// </summary>
+internal sealed class SubscriptionPeriodWriter : ISubscriptionPeriodWriter
+{
+    private readonly ISubscriptionRepository _subscriptions;
+    private readonly IDateTimeProvider _clock;
+
+    public SubscriptionPeriodWriter(ISubscriptionRepository subscriptions, IDateTimeProvider clock)
+    {
+        _subscriptions = subscriptions;
+        _clock = clock;
+    }
+
+    public async Task AdvancePeriodAsync(Guid subscriptionId, DateTimeOffset newPeriodEnd, CancellationToken cancellationToken)
+    {
+        var subscription = await _subscriptions.GetByIdAsync(subscriptionId, cancellationToken);
+        if (subscription is null)
+        {
+            return;
+        }
+
+        subscription.AdvancePeriod(newPeriodEnd, _clock.UtcNow);
+        await _subscriptions.SaveChangesAsync(cancellationToken);
     }
 }
 

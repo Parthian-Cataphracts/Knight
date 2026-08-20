@@ -26,6 +26,7 @@ internal sealed class BillingService : IBillingService
     private readonly IInvoiceRepository _invoices;
     private readonly IBillingAccountRepository _accounts;
     private readonly ISubscriptionReader _subscriptions;
+    private readonly ISubscriptionPeriodWriter _periods;
     private readonly IPricingReader _pricing;
     private readonly IAuditTrail _audit;
     private readonly IAuditContext _actor;
@@ -36,6 +37,7 @@ internal sealed class BillingService : IBillingService
         IInvoiceRepository invoices,
         IBillingAccountRepository accounts,
         ISubscriptionReader subscriptions,
+        ISubscriptionPeriodWriter periods,
         IPricingReader pricing,
         IAuditTrail audit,
         IAuditContext actor,
@@ -45,6 +47,7 @@ internal sealed class BillingService : IBillingService
         _invoices = invoices;
         _accounts = accounts;
         _subscriptions = subscriptions;
+        _periods = periods;
         _pricing = pricing;
         _audit = audit;
         _actor = actor;
@@ -235,4 +238,72 @@ internal sealed class BillingService : IBillingService
         Outstanding = invoice.OutstandingAmount,
         LineCount = invoice.Lines.Count,
     };
+
+    public async Task<BillingRunResult> RunAsync(CancellationToken cancellationToken)
+    {
+        var now = _clock.UtcNow;
+        var due = await _subscriptions.ListDueForBillingAsync(now, cancellationToken);
+
+        var considered = 0;
+        var invoiced = 0;
+        var issued = 0;
+        var failed = 0;
+
+        foreach (var subscription in due.Take(_options.RunBatchSize))
+        {
+            considered++;
+
+            try
+            {
+                // Order matters and is the whole correctness argument. The
+                // invoice for the closed period is written first; only then does
+                // the period roll. A run interrupted between the two leaves a
+                // period that will be picked up and billed again — which the
+                // rebuild-in-place draft makes harmless — rather than a period
+                // that was never billed and never will be.
+                var invoice = await PrepareInvoiceAsync(subscription.SubscriptionId, cancellationToken);
+                invoiced++;
+
+                if (_options.IssueAutomatically)
+                {
+                    await IssueInvoiceAsync(invoice.Id, cancellationToken);
+                    issued++;
+                }
+
+                await _periods.AdvancePeriodAsync(
+                    subscription.SubscriptionId,
+                    subscription.CurrentPeriodEnd.Add(_options.BillingPeriod),
+                    cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // One customer's bad data must not stop everybody else being
+                // billed. Recorded as an audit entry rather than only a log line,
+                // because "why was this customer not invoiced last month" is a
+                // question asked weeks later.
+                failed++;
+
+                await _audit.RecordAsync(
+                    "billing.run_failed",
+                    "Subscription",
+                    subscription.SubscriptionId.ToString(),
+                    subscription.CustomerId,
+                    cancellationToken,
+                    newValue: new { Error = exception.Message, subscription.CurrentPeriodEnd });
+            }
+        }
+
+        if (considered > 0)
+        {
+            await _audit.RecordAsync(
+                "billing.run_completed",
+                "BillingRun",
+                null,
+                null,
+                cancellationToken,
+                newValue: new { Considered = considered, Invoiced = invoiced, Issued = issued, Failed = failed });
+        }
+
+        return new BillingRunResult(considered, invoiced, issued, failed);
+    }
 }

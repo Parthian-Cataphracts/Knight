@@ -142,6 +142,7 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<IFeatureCatalogReader, FeatureCatalogReader>();
         services.AddScoped<IPricingReader, PricingReader>();
         services.AddScoped<ISubscriptionReader, SubscriptionReader>();
+        services.AddScoped<ISubscriptionPeriodWriter, SubscriptionPeriodWriter>();
         services.AddScoped<IStoreHostingReader, StoreHostingReader>();
         services.AddScoped<ICustomerStatusReader, CustomerStatusReader>();
         // The entitlement set is read by every store on a timer and changes only

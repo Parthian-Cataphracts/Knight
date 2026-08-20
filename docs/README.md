@@ -43,7 +43,7 @@ store business domain reappears in it.
 | **Stores** | [`stores/reference-store/`](../stores/reference-store/README.md) — a real Django store with the full `knight_integration` layer and the ported business domains, each store on its own database |
 | **Features** | [`features/`](../features/) — installable Django packages; promotions and delivery zones ship this way ([`adr/0024`](adr/0024-base-store-versus-optional-feature.md)) |
 | **Dashboard** | `frontend/knight-dashboard/` — every screen against the real API |
-| **Not built yet** | Provisioning (phase 9), outbound email, and the hardening in phase 10 |
+| **Not built yet** | An **external security review of the code-delivery path** ([`security/external-review-scope.md`](security/external-review-scope.md)), and the deployment work a hosting-platform decision unblocks — Docker images, deploy stages, nightly backup scheduling. Provisioning, outbound email and the phase 10 hardening are done ([`phase-9-verification.md`](phase-9-verification.md), [`phase-10-verification.md`](phase-10-verification.md)) |
 
 Detailed inventory: [`current-state-analysis.md`](current-state-analysis.md).
 

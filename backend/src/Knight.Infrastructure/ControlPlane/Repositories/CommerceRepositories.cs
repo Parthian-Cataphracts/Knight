@@ -235,6 +235,25 @@ internal sealed class SubscriptionRepository : ISubscriptionRepository
         return (items, totalCount);
     }
 
+    /// <summary>
+    /// Active subscriptions whose period has closed.
+    ///
+    /// <c>IgnoreQueryFilters</c> because the billing run is platform work across
+    /// every customer, and the isolation filter would otherwise fail closed and
+    /// return nothing — which looks exactly like there being nothing to bill.
+    /// The caller is a background service with a platform scope, never a request.
+    /// </summary>
+    public async Task<IReadOnlyCollection<Subscription>> ListDueForBillingAsync(
+        DateTimeOffset asOf,
+        CancellationToken cancellationToken) =>
+        await _context.Subscriptions
+            .IgnoreQueryFilters()
+            .Include(s => s.Features)
+            .Where(s => s.Status == SubscriptionStatus.Active && s.CurrentPeriodEnd <= asOf)
+            .OrderBy(s => s.CurrentPeriodEnd)
+            .ThenBy(s => s.Id)
+            .ToListAsync(cancellationToken);
+
     public async Task AddAsync(Subscription subscription, CancellationToken cancellationToken) =>
         await _context.Subscriptions.AddAsync(subscription, cancellationToken);
 

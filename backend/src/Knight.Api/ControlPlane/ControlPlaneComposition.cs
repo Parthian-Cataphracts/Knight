@@ -61,6 +61,7 @@ public static class ControlPlaneComposition
         // notify nobody, so something has to re-ask on a timer.
         services.AddHostedService<ProvisioningCoordinator>();
         services.AddHostedService<RolloutCoordinator>();
+        services.AddHostedService<BillingRunner>();
 
         // Evaluates the rules nobody can evaluate at the moment something
         // happens — spikes, entitlements that were never installed, drift — and
