@@ -11,21 +11,12 @@ public sealed class RateLimitOptions
 {
     public const string SectionName = "RateLimiting";
 
-    /// <summary>Requests per window for the shared "platform" (authenticated administration) policy.</summary>
-    public int PlatformPermitLimit { get; init; } = 100;
 
-    /// <summary>Requests per window for the shared "tenant-public" (anonymous storefront) policy.</summary>
-    public int TenantPublicPermitLimit { get; init; } = 300;
 
-    public int PlatformLoginPermitLimit { get; init; } = 10;
 
-    public int TenantLoginPermitLimit { get; init; } = 10;
 
-    public int RefreshPermitLimit { get; init; } = 30;
 
-    public int CheckoutQuotePermitLimit { get; init; } = 60;
 
-    public int CheckoutSubmitPermitLimit { get; init; } = 20;
 
     /// <summary>Requests per window for authenticated control-plane (dashboard) traffic.</summary>
     public int ControlPlanePermitLimit { get; init; } = 200;

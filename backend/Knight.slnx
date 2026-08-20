@@ -2,26 +2,15 @@
   <Folder Name="/modules/">
     <Project Path="modules/AccessControl/AccessControl.csproj" />
     <Project Path="modules/Billing/Billing.csproj" />
-    <Project Path="modules/Catalog/Catalog.csproj" />
-    <Project Path="modules/Checkout/Checkout.csproj" />
-    <Project Path="modules/Customer/Customer.csproj" />
     <Project Path="modules/Customers/Customers.csproj" />
-    <Project Path="modules/Delivery/Delivery.csproj" />
-    <Project Path="modules/FeatureManagement/FeatureManagement.csproj" />
-    <Project Path="modules/Fulfillment/Fulfillment.csproj" />
-    <Project Path="modules/Identity/Identity.csproj" />
     <Project Path="modules/Ingestion/Ingestion.csproj" />
     <Project Path="modules/Observability/Observability.csproj" />
-    <Project Path="modules/Ordering/Ordering.csproj" />
-    <Project Path="modules/Payment/Payment.csproj" />
-    <Project Path="modules/Promotions/Promotions.csproj" />
     <Project Path="modules/FeatureDelivery/FeatureDelivery.csproj" />
     <Project Path="modules/FeatureRegistry/FeatureRegistry.csproj" />
     <Project Path="modules/Plans/Plans.csproj" />
     <Project Path="modules/Subscriptions/Subscriptions.csproj" />
     <Project Path="modules/Stores/Stores.csproj" />
     <Project Path="modules/Servers/Servers.csproj" />
-    <Project Path="modules/Tenancy/Tenancy.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Knight.Api/Knight.Api.csproj" />
