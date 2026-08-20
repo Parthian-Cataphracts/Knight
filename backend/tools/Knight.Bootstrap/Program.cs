@@ -5,6 +5,11 @@
 //
 //   dotnet run --project tools/Knight.Bootstrap -- --email admin@example.com
 //
+// To apply migrations and seed data without creating anybody — what a deploy
+// runs, and what CI runs before the restore drill:
+//
+//   dotnet run --project tools/Knight.Bootstrap -- --migrate-only
+//
 // The password is never accepted as a command-line argument (that would leak
 // into shell history) — it is always read interactively, masked, and confirmed.
 //
@@ -13,10 +18,18 @@
 // scripts written against the old tool keep working, but it no longer selects
 // anything: the control plane is the only thing left to bootstrap.
 
+// The deployment path: apply migrations and reconcile seed data, no account, no
+// prompt. Checked before the email argument because it takes neither.
+if (args.Contains("--migrate-only"))
+{
+    return await Knight.Bootstrap.ControlPlaneBootstrap.MigrateOnlyAsync();
+}
+
 var email = ParseEmailArgument(args);
 if (email is null)
 {
     Console.Error.WriteLine("Usage: Knight.Bootstrap --email <email>");
+    Console.Error.WriteLine("       Knight.Bootstrap --migrate-only");
     return 1;
 }
 
