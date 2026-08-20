@@ -326,6 +326,48 @@ export function InstallationsPage() {
                 </Button>
               ) : null}
 
+              {/* Rollback exists only where there is something to go back to.
+                  Offering it otherwise would promise a previous version that
+                  was never installed. */}
+              {selectedInstallation.previousVersion !== null &&
+              can("installation.rollback") ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={installAction.isPending}
+                  onClick={() =>
+                    installAction.mutate({
+                      action: "rollback",
+                      storeId: selectedInstallation.storeId,
+                      featureId: selectedInstallation.featureId,
+                    })
+                  }
+                >
+                  {t("installations.rollback")}
+                </Button>
+              ) : null}
+
+              {/* Uninstalling removes code and keeps data: a customer who
+                  resubscribes must find their data where they left it
+                  (docs/adr/0016-feature-migration-and-removal-policy.md). */}
+              {selectedInstallation.installedVersion !== null &&
+              can("installation.uninstall") ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={installAction.isPending}
+                  onClick={() =>
+                    installAction.mutate({
+                      action: "uninstall",
+                      storeId: selectedInstallation.storeId,
+                      featureId: selectedInstallation.featureId,
+                    })
+                  }
+                >
+                  {t("installations.uninstall")}
+                </Button>
+              ) : null}
+
               {/* The preview dialog is deliberately the only route to
                   installing: a dependency plan and a compatibility verdict are
                   things an operator must see before code moves. */}
@@ -346,6 +388,15 @@ export function InstallationsPage() {
       >
         {selectedInstallation ? (
           <div className="flex flex-col gap-5">
+            {installAction.isError ? (
+              <p
+                role="alert"
+                className="rounded-md bg-error-container px-3 py-2 text-body-sm text-on-error-container"
+              >
+                {installAction.error.message}
+              </p>
+            ) : null}
+
             {selectedInstallation.blockingReason ? (
               <p className="flex items-start gap-2 rounded-md bg-error/10 px-3 py-2.5 text-body-sm text-error">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />

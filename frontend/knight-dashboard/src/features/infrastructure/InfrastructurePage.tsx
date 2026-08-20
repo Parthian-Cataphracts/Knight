@@ -56,6 +56,16 @@ export function InfrastructurePage() {
     (serverId) => ({ path: `/servers/${serverId}/decommission` }),
     ["/servers"],
   );
+
+  // Revocation takes effect on the agent's very next heartbeat, not at its next
+  // restart: a compromised agent must stop being trusted immediately.
+  const revokeAgent = useAction<unknown, string>(
+    (agentId) => ({
+      path: `/servers/agents/${agentId}/revoke`,
+      options: { body: { reason: "Revoked from the dashboard." } },
+    }),
+    ["/servers"],
+  );
   const metrics = useCollection<{ cpu: number[]; memory: number[] }>(
     `/servers/${selected?.id ?? "none"}/metrics`,
     selected !== null,
@@ -233,6 +243,8 @@ export function InfrastructurePage() {
       >
         {selected ? (
           <div className="flex flex-col gap-6">
+            {selected ? <ServerAgents serverId={selected.id} onRevoke={(id) => revokeAgent.mutate(id)} /> : null}
+
             {issuedToken ? (
               <div className="rounded-md border border-warning/40 bg-warning/10 p-3">
                 <p className="text-body-sm text-on-surface">{t("infrastructure.tokenShownOnce")}</p>
@@ -407,5 +419,52 @@ function RegisterServerForm({
         />
       </div>
     </Drawer>
+  );
+}
+
+/**
+ * The agents enrolled on one machine.
+ *
+ * Listed inside the server's own panel rather than on a screen of their own: an
+ * agent has no meaning apart from the machine it reports for, and the question
+ * being asked is always "what is reporting for this box".
+ */
+function ServerAgents({ serverId, onRevoke }: { serverId: string; onRevoke: (agentId: string) => void }) {
+  const { t } = useTranslation();
+  const can = useAuthStore((state) => state.can);
+
+  const agents = useCollection<{
+    id: string;
+    status: string;
+    version: string | null;
+    lastSeenAt: string | null;
+  }>(`/servers/${serverId}/agents`);
+
+  const rows = agents.data ?? [];
+
+  if (rows.length === 0) {
+    return <p className="text-body-sm text-on-surface-variant">{t("infrastructure.noAgents")}</p>;
+  }
+
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="label-caps text-on-surface-variant/80">{t("infrastructure.agents")}</h3>
+
+      {rows.map((agent) => (
+        <div key={agent.id} className="flex flex-wrap items-center gap-3 rounded-md bg-surface-low p-3">
+          <span dir="ltr" className="flex-1 font-mono text-label text-on-surface-variant">
+            {agent.version ?? "—"} · {agent.id.slice(0, 8)}
+          </span>
+
+          <StatusChip tone={agent.status === "Enrolled" ? "success" : "neutral"}>{agent.status}</StatusChip>
+
+          {can("agent.manage") && agent.status !== "Revoked" ? (
+            <Button variant="outline" size="sm" onClick={() => onRevoke(agent.id)}>
+              {t("infrastructure.revokeAgent")}
+            </Button>
+          ) : null}
+        </div>
+      ))}
+    </section>
   );
 }
