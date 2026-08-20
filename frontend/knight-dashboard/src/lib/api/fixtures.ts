@@ -26,20 +26,20 @@ const daysAgo = (d: number): string => new Date(now - d * 86_400_000).toISOStrin
 const daysAhead = (d: number): string => new Date(now + d * 86_400_000).toISOString();
 
 export const customers: Customer[] = [
-  { id: "c1", name: "کافه وان", contactEmail: "owner@cafe1.ir", status: "Active", planKey: "professional", storeCount: 2, createdAt: daysAgo(420) },
-  { id: "c2", name: "کافه تو", contactEmail: "info@cafe2.ir", status: "Active", planKey: "custom", storeCount: 1, createdAt: daysAgo(300) },
-  { id: "c3", name: "شیرینی سرای پارس", contactEmail: "hello@parsbakery.ir", status: "Active", planKey: "basic", storeCount: 1, createdAt: daysAgo(180) },
-  { id: "c4", name: "رستوران البرز", contactEmail: "admin@alborz.ir", status: "Suspended", planKey: "basic", storeCount: 1, createdAt: daysAgo(150) },
-  { id: "c5", name: "قنادی نوین", contactEmail: "sales@novin.ir", status: "Prospect", planKey: "basic", storeCount: 0, createdAt: daysAgo(12) },
+  { id: "c1", name: "کافه وان", contactEmail: "owner@cafe1.ir", status: "Active", planKey: "professional", storeCount: 2, dataRetentionOverrideDays: null, createdAt: daysAgo(420) },
+  { id: "c2", name: "کافه تو", contactEmail: "info@cafe2.ir", status: "Active", planKey: "custom", storeCount: 1, dataRetentionOverrideDays: null, createdAt: daysAgo(300) },
+  { id: "c3", name: "شیرینی سرای پارس", contactEmail: "hello@parsbakery.ir", status: "Active", planKey: "basic", storeCount: 1, dataRetentionOverrideDays: null, createdAt: daysAgo(180) },
+  { id: "c4", name: "رستوران البرز", contactEmail: "admin@alborz.ir", status: "Suspended", planKey: "basic", storeCount: 1, dataRetentionOverrideDays: null, createdAt: daysAgo(150) },
+  { id: "c5", name: "قنادی نوین", contactEmail: "sales@novin.ir", status: "Prospect", planKey: "basic", storeCount: 0, dataRetentionOverrideDays: null, createdAt: daysAgo(12) },
 ];
 
 export const stores: Store[] = [
-  { id: "s1", customerId: "c1", customerName: "کافه وان", name: "فروشگاه اصلی", primaryDomain: "cafe1.ir", environment: "Production", applicationVersion: "4.2.0", integrationStatus: "Connected", hostingModel: "DedicatedManaged", status: "Active", installedFeatureCount: 5, lastSeenAt: minutesAgo(2) },
-  { id: "s2", customerId: "c1", customerName: "کافه وان", name: "محیط آزمایشی", primaryDomain: "staging.cafe1.ir", environment: "Staging", applicationVersion: "4.3.0-rc1", integrationStatus: "Connected", hostingModel: "SharedManaged", status: "Active", installedFeatureCount: 6, lastSeenAt: minutesAgo(5) },
-  { id: "s3", customerId: "c2", customerName: "کافه تو", name: "فروشگاه اصلی", primaryDomain: "cafe2.ir", environment: "Production", applicationVersion: "4.1.3", integrationStatus: "Degraded", hostingModel: "SharedManaged", status: "Active", installedFeatureCount: 3, lastSeenAt: minutesAgo(18) },
-  { id: "s4", customerId: "c3", customerName: "شیرینی سرای پارس", name: "فروشگاه اصلی", primaryDomain: "parsbakery.ir", environment: "Production", applicationVersion: "4.2.0", integrationStatus: "Connected", hostingModel: "SharedManaged", status: "Active", installedFeatureCount: 2, lastSeenAt: minutesAgo(1) },
-  { id: "s5", customerId: "c4", customerName: "رستوران البرز", name: "فروشگاه اصلی", primaryDomain: "alborz.ir", environment: "Production", applicationVersion: "3.9.2", integrationStatus: "Disconnected", hostingModel: "SharedManaged", status: "Suspended", installedFeatureCount: 2, lastSeenAt: daysAgo(6) },
-  { id: "s6", customerId: "c5", customerName: "قنادی نوین", name: "فروشگاه جدید", primaryDomain: "novin.ir", environment: "Production", applicationVersion: null, integrationStatus: "Pending", hostingModel: "SharedManaged", status: "Provisioning", installedFeatureCount: 0, lastSeenAt: null },
+  { id: "s1", customerId: "c1", customerName: "کافه وان", name: "فروشگاه اصلی", primaryDomain: "cafe1.ir", environment: "Production", applicationVersion: "4.2.0", integrationStatus: "Connected", hostingModel: "DedicatedManaged", status: "Active", installedFeatureCount: 5, requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: minutesAgo(2) },
+  { id: "s2", customerId: "c1", customerName: "کافه وان", name: "محیط آزمایشی", primaryDomain: "staging.cafe1.ir", environment: "Staging", applicationVersion: "4.3.0-rc1", integrationStatus: "Connected", hostingModel: "SharedManaged", status: "Active", installedFeatureCount: 6, requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: minutesAgo(5) },
+  { id: "s3", customerId: "c2", customerName: "کافه تو", name: "فروشگاه اصلی", primaryDomain: "cafe2.ir", environment: "Production", applicationVersion: "4.1.3", integrationStatus: "Degraded", hostingModel: "SharedManaged", status: "Active", installedFeatureCount: 3, requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: minutesAgo(18) },
+  { id: "s4", customerId: "c3", customerName: "شیرینی سرای پارس", name: "فروشگاه اصلی", primaryDomain: "parsbakery.ir", environment: "Production", applicationVersion: "4.2.0", integrationStatus: "Connected", hostingModel: "SharedManaged", status: "Active", installedFeatureCount: 2, requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: minutesAgo(1) },
+  { id: "s5", customerId: "c4", customerName: "رستوران البرز", name: "فروشگاه اصلی", primaryDomain: "alborz.ir", environment: "Production", applicationVersion: "3.9.2", integrationStatus: "Disconnected", hostingModel: "SharedManaged", status: "Suspended", installedFeatureCount: 2, requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: daysAgo(6) },
+  { id: "s6", customerId: "c5", customerName: "قنادی نوین", name: "فروشگاه جدید", primaryDomain: "novin.ir", environment: "Production", applicationVersion: null, integrationStatus: "Pending", hostingModel: "SharedManaged", status: "Provisioning", installedFeatureCount: 0, requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: null },
 ];
 
 export const features: Feature[] = [

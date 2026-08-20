@@ -52,6 +52,16 @@ export function CustomerDetailPage() {
   // Entitlement resolution reconciles what a subscription implies; a grant is a
   // human overriding that, and the two must stay distinguishable in the record
   // (docs/adr/0019-entitlement-as-an-explicit-record.md).
+  const [retentionDays, setRetentionDays] = useState("");
+
+  const setRetention = useAction<unknown, number | null>(
+    (days) => ({
+      path: `/customers/${customerId}/retention`,
+      options: { method: "PUT", body: { days } },
+    }),
+    ["/customers"],
+  );
+
   const grant = useAction<unknown, string>(
     (featureId) => ({
       path: `/customers/${customerId}/entitlements`,
@@ -320,7 +330,47 @@ export function CustomerDetailPage() {
                 <KeyValue label={t("customers.createdAt")}>
                   <Mono>{formatDateTime(customer.createdAt)}</Mono>
                 </KeyValue>
+                <KeyValue label={t("retention.label")}>
+                  {customer.dataRetentionOverrideDays === null
+                    ? t("retention.fromPlan")
+                    : t("retention.days", { count: customer.dataRetentionOverrideDays })}
+                </KeyValue>
               </dl>
+
+              {can("customer.update") ? (
+                <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-outline-variant pt-4">
+                  {/* Set here rather than buried in the edit drawer: how long
+                      somebody's data survives them leaving is a contractual
+                      promise, and it wants its own audited action. */}
+                  <div className="w-40">
+                    <TextField
+                      label={t("retention.override")}
+                      type="number"
+                      min={1}
+                      max={3650}
+                      value={retentionDays}
+                      onChange={(event) => setRetentionDays(event.target.value)}
+                      placeholder={t("retention.fromPlan")}
+                    />
+                  </div>
+
+                  <Button
+                    size="sm"
+                    disabled={setRetention.isPending}
+                    onClick={() =>
+                      setRetention.mutate(retentionDays.trim() === "" ? null : Number(retentionDays))
+                    }
+                  >
+                    {t("common.save")}
+                  </Button>
+
+                  {setRetention.isError ? (
+                    <p className="text-body-sm text-error">{setRetention.error.message}</p>
+                  ) : null}
+
+                  <p className="w-full text-body-sm text-on-surface-variant">{t("retention.note")}</p>
+                </div>
+              ) : null}
             </CardBody>
           </Card>
 

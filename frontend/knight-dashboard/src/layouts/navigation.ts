@@ -3,6 +3,7 @@ import {
   Building2,
   Store,
   Package,
+  Boxes,
   PlayCircle,
   CreditCard,
   Receipt,
@@ -52,6 +53,7 @@ export const NAVIGATION: NavSection[] = [
     key: "sectionService",
     items: [
       { key: "features", to: "/features", icon: Package, permission: "feature.view" },
+      { key: "storeImages", to: "/store-images", icon: Boxes, permission: "feature.view" },
       {
         key: "installations",
         to: "/installations",

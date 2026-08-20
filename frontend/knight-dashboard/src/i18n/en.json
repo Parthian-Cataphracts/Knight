@@ -24,7 +24,8 @@
     "sectionService": "Service management",
     "sectionInfra": "Infrastructure",
     "sectionGovernance": "Governance",
-    "alerts": "Alerts"
+    "alerts": "Alerts",
+    "storeImages": "Store images"
   },
   "common": {
     "search": "Search",
@@ -636,7 +637,8 @@
     "environmentNote": "Changing the environment invalidates every credential this store currently holds and resets its connection; the store must handshake again.",
     "blockedStoreInactive": "This store has not been activated yet, and cannot connect to KNIGHT until it is.",
     "blockedCustomerInactive": "This store's customer is not active, so the store cannot connect until the customer is activated.",
-    "blockedDomainUnverified": "Domain ownership has not been verified yet, so the connection stays pending until it is."
+    "blockedDomainUnverified": "Domain ownership has not been verified yet, so the connection stays pending until it is.",
+    "provisioning": "Provisioning"
   },
   "customerDetail": {
     "open": "Open customer",
@@ -747,5 +749,136 @@
     "Cash": "Cash",
     "Credit": "Credit",
     "Other": "Other"
+  },
+  "provisioning": {
+    "title": "Provisioning run",
+    "start": "Start provisioning",
+    "deprovision": "Deprovision",
+    "recheck": "Check again",
+    "retry": "Retry failed step",
+    "run": "Run",
+    "step": "Step",
+    "mode": "Carried out by",
+    "detail": "Detail",
+    "detailPlaceholder": "What you did, for whoever reads this later",
+    "completedAt": "Completed",
+    "waitingFor": "Waiting for",
+    "nothing": "Nothing — every step has finished.",
+    "baseImage": "Base store image",
+    "retainUntil": "Data retained until",
+    "failure": "Failure",
+    "manualPrompt": "“{{step}}” is done by a person. Record it once it is done.",
+    "markDone": "Record as done",
+    "none": "No provisioning run has been started for this store."
+  },
+  "provisioningState": {
+    "Running": "Running",
+    "AwaitingOperator": "Waiting for a person",
+    "Succeeded": "Succeeded",
+    "Failed": "Failed",
+    "Cancelled": "Cancelled"
+  },
+  "provisioningKind": {
+    "Provision": "Provisioning",
+    "Deprovision": "Deprovisioning"
+  },
+  "provisioningMode": {
+    "Automatic": "KNIGHT",
+    "Manual": "A person"
+  },
+  "provisioningStepStatus": {
+    "Pending": "Not started",
+    "Waiting": "Waiting",
+    "Succeeded": "Done",
+    "Failed": "Failed",
+    "Skipped": "Not needed"
+  },
+  "provisioningStep": {
+    "server": "Machine",
+    "instance": "Store instance",
+    "store-record": "Store registered",
+    "credentials": "Credentials",
+    "agent": "Agent enrolled",
+    "base-features": "Base Features",
+    "configuration": "Configuration",
+    "domain-tls": "Domain and TLS",
+    "healthcheck": "Health check",
+    "disable-features": "Disable Features",
+    "revoke-access": "Revoke access",
+    "stop-ingestion": "Stop ingestion",
+    "retain": "Retention window",
+    "export": "Export",
+    "purge": "Purge data"
+  },
+  "backups": {
+    "title": "Backups the store reported",
+    "kind": "Kind",
+    "startedAt": "Started",
+    "size": "Size",
+    "duration": "Duration",
+    "seconds": "{{count}}s",
+    "location": "Location",
+    "none": "This store has never reported a backup.",
+    "note": "KNIGHT records what a store says about its backups. It never takes one and holds none."
+  },
+  "backupStatus": {
+    "Succeeded": "Succeeded",
+    "Failed": "Failed",
+    "Running": "Running"
+  },
+  "backupKind": {
+    "Scheduled": "Scheduled",
+    "Manual": "Manual",
+    "PreDeployment": "Before a deployment"
+  },
+  "mutualTls": {
+    "title": "Mutual TLS",
+    "explain": "A store on its own infrastructure can be bound to a client certificate. Once bound, its credential alone is not enough — every call must present the certificate too.",
+    "thumbprint": "Certificate thumbprint (sha-256)",
+    "clear": "Remove the binding"
+  },
+  "activate": {
+    "title": "Set up your account",
+    "subtitle": "Choose a password. Nobody else will ever know it.",
+    "password": "New password",
+    "confirm": "Repeat the password",
+    "mismatch": "The two passwords do not match.",
+    "submit": "Set password",
+    "done": "Your account is ready. Sign in with the password you just chose.",
+    "signIn": "Go to sign in",
+    "noToken": "This link is missing its invitation token. Ask an administrator for a new invitation.",
+    "failed": "This invitation is no longer valid."
+  },
+  "storeImages": {
+    "title": "Base store images",
+    "subtitle": "The versioned, signed images new stores are built from.",
+    "register": "Register an image",
+    "signingNote": "The package must already be signed. Signing happens offline, so no signing key is ever present in the dashboard or the API.",
+    "version": "Image version",
+    "storeVersion": "Store version it pins",
+    "choosePackage": "Choose the package",
+    "uploading": "Uploading…",
+    "uploaded": "Uploaded. KNIGHT hashed it to",
+    "signature": "Detached signature",
+    "notes": "Release notes",
+    "digest": "Digest",
+    "signingKey": "Signing key",
+    "created": "Registered",
+    "publish": "Publish",
+    "yank": "Withdraw",
+    "yankReason": "Withdrawn from the dashboard.",
+    "none": "No base store image has been registered yet."
+  },
+  "storeImageStatus": {
+    "Draft": "Draft",
+    "Published": "Published",
+    "Yanked": "Withdrawn"
+  },
+  "retention": {
+    "label": "Data retention",
+    "override": "Override (days)",
+    "fromPlan": "From the plan",
+    "days": "{{count}} days",
+    "note": "How long this customer's data is kept after a store is deprovisioned. Empty means the plan decides."
   }
 }
