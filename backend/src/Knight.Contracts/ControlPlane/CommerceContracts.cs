@@ -258,6 +258,20 @@ public sealed record SubscriptionResponse
 
     /// <summary>How many optional features the customer has switched on.</summary>
     public required int OptionalFeatures { get; init; }
+
+    /// <summary>
+    /// What this subscription costs per month at today's prices: the plan plus
+    /// the optional features switched on.
+    ///
+    /// Priced through the same calculator that produces a quote and an invoice,
+    /// so a customer cannot be shown one figure here and billed another. It is
+    /// recomputed on read rather than stored, because a price list change must
+    /// not silently rewrite what a past invoice said.
+    /// </summary>
+    public required decimal MonthlyTotal { get; init; }
+
+    /// <summary>ISO currency code the total is expressed in.</summary>
+    public required string Currency { get; init; }
 }
 
 public sealed record QuoteRequestBody
