@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-20** (revision 15 — phases 5 and 7 complete)
+Last updated: **2026-08-20** (revision 16 — phases 5 and 7 complete, dashboard write paths connected)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -13,7 +13,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 |---|---|
 | **Current phase** | **Phase 7 — Observability of KNIGHT itself (complete)** |
 | **Next phase** | Phase 6 — the remaining dashboard write paths, then phase 8 |
-| **Overall progress** | ~88% (KNIGHT now watches the stores it manages *and* itself: traces, its own metrics, redaction on every sink, and retention that keeps its tables bounded) |
+| **Overall progress** | ~91% (every dashboard screen now reads and writes through the real API: 20 routes opened against a live server, 0 failing requests) |
 | **Blocking decisions** | 7 open questions in [`docs/risks.md`](docs/risks.md) §3 — R14, R21 and questions 8–10 now resolved |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -30,7 +30,7 @@ Phase 3    Store integration              ██████████ 100%
 Phase 3.5  Feature registry & delivery    ██████████ 100%
 Phase 4    Servers, agents, monitoring    ██████████ 100%
 Phase 5    Errors & incidents             ██████████ 100%
-Phase 6    Frontend dashboard             █████████░  96%
+Phase 6    Frontend dashboard             █████████░  98%
 Phase 7    Observability                  ██████████ 100%
 Phase 8    Business-domain port to Django ░░░░░░░░░░   0%
 Phase 9    Provisioning & professional infra ░░░░░░░   0%
@@ -500,14 +500,50 @@ Then sign in at http://localhost:5173 and walk:
       shape the control plane never produced
 - [x] Every route opened against a live API with no failing request: 20 routes,
       32 calls, 0 failures, 0 script errors
-- [ ] Remaining write paths: plan and price editing, subscription change with a
-      live quote from `/subscriptions/quote`, invoice issue/void/payment, feature
-      publish and yank from the registry screen, server and agent management,
-      entitlement grant and revoke, user and role management (the last needs the
-      `/users` and `/roles` write endpoints, which do not exist yet)
-- [ ] Live job progress over SignalR (the hub and client exist; jobs still fetch
-      once rather than subscribing)
+- [x] Subscription change priced before it is applied, from the same
+      `/subscriptions/quote` invoicing uses — a customer cannot be shown one
+      number by a screen and charged another by a bill
+- [x] Invoice issue, void and payment recording, with the form saying plainly
+      that KNIGHT writes down payments made elsewhere and moves no money
+- [x] Feature version publish and yank, placed on the version rather than the
+      feature; the feature's own lifecycle is separate
+- [x] Installation enable, disable, uninstall and rollback; job cancel
+- [x] Server registration, decommissioning, agent provisioning and revocation
+- [x] Entitlement grant and revoke, kept visibly separate from the plan
+- [x] Account and role administration, including the `/users` and `/roles` write
+      endpoints that phase 1 had left unbuilt
+- [ ] Plan and price editing — the endpoints exist (`POST /plans`,
+      `PUT /plans/{id}/features`, `PUT /plans/prices`); the commercial catalogue
+      is still edited as seed data, which is deliberate until pricing changes
+      often enough to need a screen
+- [ ] Customer and store edit forms (`PATCH`) — every lifecycle transition is
+      wired; renaming and re-pointing a domain are not
+- [ ] Feature and version creation from the dashboard — publishing is done by
+      `knight_package.py`, which signs the artifact; a browser form that could
+      create a version without one would be the wrong shape
+- [ ] Live job progress over SignalR (the hub and client exist; the jobs screen
+      still fetches once rather than subscribing)
 - [ ] Component and Playwright test suites
+
+### Frontend and backend, reconciled
+
+Every path the dashboard requests was called against a running API, and every
+control-plane endpoint was checked for a screen that reaches it. That found, and
+this phase fixed:
+
+- seven endpoints the UI called that did not exist — platform services, reports,
+  the entitlement matrix, customer activity and notes, and store usage
+- three screens written against fixture shapes the control plane never produced
+  — alerts, installations and jobs — one of which crashed on load
+- four collection endpoints returning a bare array where every other one returns
+  a paged envelope, which fixtures answered happily and the real client read as
+  empty
+- detail panels requesting a literal `"none"` id before anything was selected
+- severities returned PascalCase and declared lowercase, leaving untranslated
+  labels on two screens
+
+**Verified on 2026-08-20**: all 20 routes opened against a live API — 32
+requests, 0 failures, 0 script errors, no screen empty or erroring.
 
 ---
 
