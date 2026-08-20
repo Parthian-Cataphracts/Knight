@@ -666,7 +666,7 @@
     "firstAdmin": "First administrator",
     "adminName": "Admin name",
     "adminEmail": "Work email",
-    "adminNote": "An activation link is sent to this address.",
+    "adminNote": "A one-time password is shown after creation; hand it to the administrator yourself. Email delivery is not enabled yet.",
     "store": "First store",
     "domain": "Primary domain",
     "domainNote": "Domain ownership must be verified before the store connects.",
@@ -684,7 +684,11 @@
     "submit": "Create customer",
     "cancel": "Cancel",
     "required": "This field is required.",
-    "invalidEmail": "Enter a valid email address."
+    "invalidEmail": "Enter a valid email address.",
+    "failedAt": "The run stopped at \"{{step}}\": {{message}}",
+    "created": "Customer created",
+    "createdNote": "The store, the administrator account and the subscription were all recorded.",
+    "passwordNote": "This password is shown once and cannot be read again from any screen."
   },
   "installPreview": {
     "title": "Install preview",

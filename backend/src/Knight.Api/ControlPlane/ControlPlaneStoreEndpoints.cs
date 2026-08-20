@@ -34,6 +34,7 @@ public static class ControlPlaneStoreEndpoints
             string? status,
             IStoreManagementService service,
             ILabelReader labels,
+            IStoreFeatureCountReader installations,
             IDateTimeProvider clock,
             CancellationToken cancellationToken) =>
         {
@@ -51,13 +52,23 @@ public static class ControlPlaneStoreEndpoints
                 new StoreListQuery(page ?? 1, pageSize ?? 25, customerId, parsedEnvironment, parsedStatus),
                 cancellationToken);
 
-            // The owning customer's name is resolved for the whole page at once.
+            // The owning customer's name and the installed-feature count are both
+            // resolved for the whole page at once, so a longer page costs two
+            // queries rather than two per row.
             var names = await labels.CustomerNamesAsync(
                 result.Items.Select(store => store.CustomerId).Distinct().ToArray(),
                 cancellationToken);
 
+            var installed = await installations.CountInstalledAsync(
+                result.Items.Select(store => store.Id).ToArray(),
+                cancellationToken);
+
             return Results.Ok(PagedResponse<StoreResponse>.Create(
-                result.Items.Select(store => ToResponse(store, clock.UtcNow, names.GetValueOrDefault(store.CustomerId))).ToArray(),
+                result.Items.Select(store => ToResponse(
+                    store,
+                    clock.UtcNow,
+                    names.GetValueOrDefault(store.CustomerId),
+                    installed.GetValueOrDefault(store.Id))).ToArray(),
                 result.Page,
                 result.PageSize,
                 result.TotalCount));
@@ -67,6 +78,7 @@ public static class ControlPlaneStoreEndpoints
             Guid id,
             IStoreManagementService service,
             ILabelReader labels,
+            IStoreFeatureCountReader installations,
             IDateTimeProvider clock,
             CancellationToken cancellationToken) =>
         {
@@ -77,7 +89,13 @@ public static class ControlPlaneStoreEndpoints
             }
 
             var names = await labels.CustomerNamesAsync([store.CustomerId], cancellationToken);
-            return Results.Ok(ToResponse(store, clock.UtcNow, names.GetValueOrDefault(store.CustomerId)));
+            var installed = await installations.CountInstalledAsync([store.Id], cancellationToken);
+
+            return Results.Ok(ToResponse(
+                store,
+                clock.UtcNow,
+                names.GetValueOrDefault(store.CustomerId),
+                installed.GetValueOrDefault(store.Id)));
         }).RequirePermission(ControlPlanePermissions.StoreView);
 
         group.MapPost("/", async (
@@ -492,14 +510,20 @@ public static class ControlPlaneStoreEndpoints
     /// reason to resolve it; the id is always present, so the response stays
     /// usable either way.
     /// </summary>
-    internal static StoreResponse ToResponse(Store store, DateTimeOffset now, string? customerName = null) => new()
+    internal static StoreResponse ToResponse(
+        Store store,
+        DateTimeOffset now,
+        string? customerName = null,
+        int? installedFeatureCount = null) => new()
     {
         Id = store.Id,
         CustomerId = store.CustomerId,
         CustomerName = customerName ?? string.Empty,
 
-        // Installed features are counted by the delivery engine (phase 3.5).
-        InstalledFeatureCount = null,
+        // Null rather than zero where the caller had no reason to count: an
+        // operator seeing "0 installed" straight after creating a store should be
+        // reading a fact, not a placeholder.
+        InstalledFeatureCount = installedFeatureCount,
         Name = store.Name,
         Slug = store.Slug,
         PrimaryDomain = store.PrimaryDomain,

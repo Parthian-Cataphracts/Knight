@@ -315,7 +315,7 @@ export function StoreDetailPage() {
                 <KeyValue label={t("stores.lastSeen")}>
                   {store.lastSeenAt ? formatRelative(store.lastSeenAt) : "—"}
                 </KeyValue>
-                <KeyValue label={t("stores.features")}>{store.installedFeatureCount}</KeyValue>
+                <KeyValue label={t("stores.features")}>{store.installedFeatureCount ?? "—"}</KeyValue>
               </dl>
             </CardBody>
           </Card>

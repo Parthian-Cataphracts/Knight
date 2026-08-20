@@ -58,6 +58,7 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<ICustomerDirectoryReader, CustomerDirectoryReader>();
         services.AddScoped<IPlanSubscriberReader, PlanSubscriberReader>();
         services.AddScoped<IFeatureUsageReader, FeatureUsageReader>();
+        services.AddScoped<IStoreFeatureCountReader, StoreFeatureCountReader>();
         services.AddScoped<ILabelReader, LabelReader>();
         services.AddScoped<IInsightReader, InsightReader>();
         services.AddScoped<Customers.Domain.ICustomerNoteRepository, CustomerNoteRepository>();

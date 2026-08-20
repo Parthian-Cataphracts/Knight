@@ -1,3 +1,4 @@
+using Knight.Api.BackgroundServices;
 using Knight.Api.Ingest;
 using Knight.Api.Middleware;
 using Knight.Application.Abstractions.ControlPlane;
@@ -39,8 +40,21 @@ internal sealed class HttpAuditContext : IAuditContext
     /// </summary>
     public string? ActorDisplay => _principal.Email ?? (_store.IsStore ? _store.ClientId : null);
 
-    public string? CorrelationId =>
-        _accessor.HttpContext?.Response.Headers[CorrelationIdMiddleware.HeaderName].ToString();
+    /// <summary>
+    /// The request's correlation id, or — for the background workers, which have
+    /// no request — the id of the pass the work belongs to.
+    /// </summary>
+    public string? CorrelationId
+    {
+        get
+        {
+            var fromRequest = _accessor.HttpContext?.Response.Headers[CorrelationIdMiddleware.HeaderName].ToString();
+
+            return string.IsNullOrEmpty(fromRequest)
+                ? BackgroundCorrelation.CorrelationId
+                : fromRequest;
+        }
+    }
 
     public string? IpAddress => _accessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
 }

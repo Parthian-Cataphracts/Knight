@@ -33,7 +33,12 @@ export interface Store {
   integrationStatus: IntegrationStatus;
   hostingModel: HostingModel;
   status: StoreStatus;
-  installedFeatureCount: number;
+  /**
+   * Null where the response was not built by a caller that counted them — a
+   * store just created or just suspended, for instance. Zero is a different
+   * claim and means the store really is running nothing.
+   */
+  installedFeatureCount: number | null;
   lastSeenAt: string | null;
 }
 
@@ -306,7 +311,13 @@ export interface AdminUser {
   roles: string[];
   mfaEnabled: boolean;
   status: "Active" | "Suspended";
-  lastSeenAt: string | null;
+  /**
+   * Set when the account last signed in. Named for what the API sends, which is
+   * also the more honest name: it is not a presence signal, and an operator who
+   * signed in this morning and has been working since still reads as this
+   * morning.
+   */
+  lastLoginAt: string | null;
 }
 
 export interface Role {

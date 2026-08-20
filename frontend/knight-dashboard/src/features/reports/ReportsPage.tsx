@@ -10,7 +10,8 @@ interface Report {
   key: string;
   name: string;
   description: string;
-  updatedAt: string;
+  /** Absent until the report has any data behind it. */
+  updatedAt: string | null;
 }
 
 export function ReportsPage() {

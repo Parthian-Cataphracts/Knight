@@ -312,11 +312,11 @@ public static class ControlPlanePlanEndpoints
         Plans = usage?.PlanKeys ?? [],
         EntitledCount = usage?.EntitledCount ?? 0,
 
-        // Versions and installations belong to the registry and delivery
-        // subsystem (phase 3.5); null says "not knowable yet" rather than zero,
-        // which would claim the feature is installed nowhere.
-        LatestVersion = null,
-        InstallCount = null,
+        // Null rather than zero when the caller had no reason to read usage:
+        // "not looked up" and "installed nowhere" are different claims, and only
+        // one of them should make an operator go looking for a failed rollout.
+        LatestVersion = usage?.LatestVersion,
+        InstallCount = usage?.InstallCount,
         Id = feature.Id,
         Slug = feature.Slug,
         Name = feature.Name,
