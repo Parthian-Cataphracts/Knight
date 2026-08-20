@@ -28,22 +28,22 @@ re-implemented or hand-copied per customer
           Server A                 Server A (shared)       Dedicated server
 ```
 
-## Current repository state (2026-08-19)
+## Current repository state (2026-08-20)
 
 The pivot to the control-plane specification
-([`adr/0010`](adr/0010-pivot-to-control-plane.md)) is partly landed. Two
-realities still exist side by side: the control plane, which is real, and the
-frozen store-side business modules of the previous product, which phase 8 ports
-to Django and deletes. Do not assume a document describes the target state
-unless it is listed as *authoritative* below.
+([`adr/0010`](adr/0010-pivot-to-control-plane.md)) is landed. Phase 8 ported the
+store-side business domains to Django and deleted their .NET counterparts, so
+the two realities that used to sit side by side are now one: this solution is a
+control plane and nothing else, and an architecture test fails the build if a
+store business domain reappears in it.
 
 | | |
 |---|---|
-| **Control plane** | Customers, stores, access control and auditing, plans, subscriptions, entitlements, billing; store ingestion, health polling and domain verification |
-| **Stores** | [`stores/reference-store/`](../stores/reference-store/README.md) — a real Django store with the full `knight_integration` layer, tested against the shared contract |
+| **Control plane** | Customers, stores, access control and auditing, plans, subscriptions, entitlements, billing; store ingestion, health polling and domain verification; the Feature registry and delivery pipeline; servers, agents and monitoring; errors, incidents and notifications |
+| **Stores** | [`stores/reference-store/`](../stores/reference-store/README.md) — a real Django store with the full `knight_integration` layer and the ported business domains, each store on its own database |
+| **Features** | [`features/`](../features/) — installable Django packages; promotions and delivery zones ship this way ([`adr/0024`](adr/0024-base-store-versus-optional-feature.md)) |
 | **Dashboard** | `frontend/knight-dashboard/` — every screen against the real API |
-| **Frozen** | The previous product's business modules (catalog, ordering, payment, delivery and the rest), untouched until phase 8 |
-| **Not built yet** | **The Feature registry and delivery pipeline**, feature packages, the agent, servers and monitoring, incidents and notifications |
+| **Not built yet** | Provisioning (phase 9), outbound email, and the hardening in phase 10 |
 
 Detailed inventory: [`current-state-analysis.md`](current-state-analysis.md).
 
