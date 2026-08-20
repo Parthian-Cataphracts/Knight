@@ -30,7 +30,7 @@ Phase 3    Store integration              ██████████ 100%
 Phase 3.5  Feature registry & delivery    ██████████ 100%
 Phase 4    Servers, agents, monitoring    ██████████ 100%
 Phase 5    Errors & incidents             ██████████ 100%
-Phase 6    Frontend dashboard             █████████░  98%
+Phase 6    Frontend dashboard             ██████████  99%
 Phase 7    Observability                  ██████████ 100%
 Phase 8    Business-domain port to Django ░░░░░░░░░░   0%
 Phase 9    Provisioning & professional infra ░░░░░░░   0%
@@ -514,18 +514,27 @@ Then sign in at http://localhost:5173 and walk:
 - [x] Entitlement grant and revoke, kept visibly separate from the plan
 - [x] Account and role administration, including the `/users` and `/roles` write
       endpoints that phase 1 had left unbuilt
-- [ ] Plan and price editing — the endpoints exist (`POST /plans`,
-      `PUT /plans/{id}/features`, `PUT /plans/prices`); the commercial catalogue
-      is still edited as seed data, which is deliberate until pricing changes
-      often enough to need a screen
-- [ ] Customer and store edit forms (`PATCH`) — every lifecycle transition is
-      wired; renaming and re-pointing a domain are not
+- [x] Plan creation, editing and availability; customer and store edit forms —
+      all behind one shared edit drawer whose job is the part easy to skip:
+      showing the server's refusal, so nobody presses save and watches nothing
+- [ ] Per-feature plan composition and time-boxed prices
+      (`PUT /plans/{id}/features`, `PUT /plans/prices`) — the endpoints exist and
+      the catalogue is still edited as seed data, which stays deliberate until
+      pricing changes often enough to be worth a screen
 - [ ] Feature and version creation from the dashboard — publishing is done by
       `knight_package.py`, which signs the artifact; a browser form that could
       create a version without one would be the wrong shape
-- [ ] Live job progress over SignalR (the hub and client exist; the jobs screen
-      still fetches once rather than subscribing)
-- [ ] Component and Playwright test suites
+- [x] Live job progress over SignalR — the delivery engine broadcasts each step
+      and outcome, and the screen follows them. Broadcasts happen after the save,
+      a failing channel never costs an agent its step report, and the screen says
+      whether it is live, because a live screen and a stalled one look identical
+      when nothing is happening
+- [x] Component tests — nine cases rendering the screens against payloads copied
+      from the contracts rather than from the fixtures, which is precisely the
+      gap that let three screens ship against shapes the API never produced
+- [ ] Playwright end-to-end suite — the browser walk is currently a scripted
+      manual pass; making it a committed suite is worth doing before the surface
+      grows further
 
 ### Frontend and backend, reconciled
 
