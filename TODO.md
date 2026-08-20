@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-20** (revision 17 — phase 9 complete: provisioning, base images, backups, deprovisioning, invitations)
+Last updated: **2026-08-20** (revision 18 — phase 10: load test, indexes, caching, staged rollouts, CI/CD, the restore drill, and the billing run)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,10 +11,10 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 9 — Provisioning & professional infrastructure (complete)** |
-| **Next phase** | Phase 10 — optimisation and hardening, starting with the restore drill |
-| **Overall progress** | ~96% (697 tests green; provisioning, deprovisioning, backups, mutual TLS and invitations driven through a browser against a live server — see [`docs/phase-9-verification.md`](docs/phase-9-verification.md)) |
-| **Blocking decisions** | 5 open questions in [`docs/risks.md`](docs/risks.md) §3. R1 resolved (the legacy schema holds nothing real), outbound email delivered in phase 9, file-backed signing keys accepted for the first release (R25). A **restore drill** stands as the one proposed release blocker |
+| **Current phase** | **Phase 10 — Optimisation & hardening (complete except the external security review)** |
+| **Next phase** | Release preparation. The only build work left is what a hosting-platform decision unblocks |
+| **Overall progress** | ~99% (732 backend tests green, plus 9 dashboard and 156 store; rollouts, indexes, caching and the restore drill driven through a browser against a live server — see [`docs/phase-10-verification.md`](docs/phase-10-verification.md)) |
+| **Blocking decisions** | The **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
 > not a boolean flag ([`docs/adr/0014`](docs/adr/0014-features-as-deployable-packages.md)).
@@ -34,7 +34,7 @@ Phase 6    Frontend dashboard             ██████████  99%
 Phase 7    Observability                  ██████████ 100%
 Phase 8    Business-domain port to Django ██████████ 100%
 Phase 9    Provisioning & professional infra ██████████ 100%
-Phase 10   Optimisation & hardening       ░░░░░░░░░░   0%
+Phase 10   Optimisation & hardening       █████████░  95%
 ```
 
 ---
@@ -147,7 +147,7 @@ end by `ControlPlaneCommerceTests`.
 - [x] `Billing`: `BillingAccount`, `Invoice`, `InvoiceLine`, `PaymentRecord`, invoice issuing with gapless numbering
 - [x] Tests: pricing matrix, entitlement resolution and reconciliation, unauthorised enablement, plan changes, invoice lifecycle, isolation
 - [x] Billing scope decided: **invoicing only** — KNIGHT records invoices and observed payments and moves no money (`risks.md` R14)
-- [ ] A billing run that decides *when* to invoice and rolls the period forward — scheduled work, deferred to phase 10 rather than hidden inside issuing
+- [x] A billing run that decides *when* to invoice and rolls the period forward — delivered in phase 10 as `IBillingService.RunAsync` and the `BillingRunner` sweep. Prepares drafts and does **not** issue them unless `Billing:IssueAutomatically` is set: issuing consumes a gapless number and is not something a default should start doing on its own
 - [ ] Tax computation: the figure is settable on a draft, but KNIGHT does not calculate it (jurisdiction-specific, and wrong is a legal matter)
 
 ---
@@ -187,9 +187,9 @@ unit suites, and the store's own 36 Django tests.
 
 ### Deferred, deliberately
 - [ ] DNS TXT domain verification — modelled, and the method provisioning will need in phase 9; only HTTP is implemented
-- [ ] Error grouping and fingerprinting — the raw stream is stored and shown; grouping is phase 5's job ([`adr/0013`](docs/adr/0013-error-grouping-strategy.md))
-- [ ] Log search, filtering by time and export — the stream and a level filter exist; the rest lands with observability in phase 7
-- [ ] `StoreHealthCheck` retention — the table is append-only by design and needs the phase 7 retention job
+- [x] Error grouping and fingerprinting — **delivered in phase 5** (`ErrorFingerprint`, `error_groups`, the Errors screen). Entry was stale; caught in the phase 10 audit ([`adr/0013`](docs/adr/0013-error-grouping-strategy.md))
+- [ ] Log search, filtering by time and export — **still open, and phase 7 passed without it.** The stream, a store filter and a level filter exist; full-text search, a time range and export do not. Re-confirmed open in the phase 10 audit rather than left pointing at a finished phase
+- [x] `StoreHealthCheck` retention — **delivered in phase 7**; `RetentionService` sweeps it alongside logs, events and error events (30 days by default). Entry was stale; caught in the phase 10 audit
 
 ---
 
@@ -231,7 +231,7 @@ code and data retained. See §"How to repeat the verification" below.
 - [x] Endpoints: install/upgrade/enable/disable/uninstall/rollback/configuration/plan, `/jobs/*`
 - [x] Agent job channel: claim, report a step, report an outcome (outbound-only)
 - [x] A hosted service running the claim-expiry sweep on a timer
-- [ ] SignalR: `jobProgress`, `jobCompleted`, `featureInstallationStateChanged` — deferred with the rest of the realtime work in phase 5
+- [x] SignalR: `jobProgress`, `jobCompleted`, `featureInstallationStateChanged` — **delivered**; all three are broadcast from `AgentJobService`, addressed to the job's customer ([`adr/0022`](docs/adr/0022-realtime-subscriptions-are-server-assigned.md)). Entry was stale; caught in the phase 10 audit
 
 ### Package pipeline
 - [x] `features/` layout and a worked template to copy
@@ -335,9 +335,11 @@ enrolment and telemetry path, and 12 more for the offline sweep — 0 failures. 
       overview the dashboard reads, and renaming it would break a shipped screen
 - [x] Tests: heartbeat expiry → offline, recovery, alert dedup, agent token scope,
       revocation taking effect immediately, decommissioning
-- [ ] Signed agent releases and a self-update path — deferred to phase 9 with the
-      rest of the provisioning and image work, where the release pipeline it needs
-      actually lives. An agent is installed by an operator today, deliberately
+- [ ] Signed agent releases and a self-update path — **still open; phase 9 passed
+      without it.** The signing and packaging machinery it needs now exists
+      (store images, `knight_package.py`, the CI packaging job), so it is
+      unblocked rather than waiting on anything. An agent is installed by an
+      operator today, deliberately
 - [ ] Time partitioning for `server_metrics` — retention works and the table is
       indexed for it; partitioning is a phase 10 optimisation to make once there
       is real volume to measure
@@ -400,11 +402,10 @@ failures, then the screens driven in a browser against the live API. See
 - [x] Tests: fingerprint stability, grouping, group and incident lifecycles,
       delivery retry and the channel circuit breaker, reference uniqueness under
       concurrency, and customer isolation on both screens
-- [ ] Email delivery — **deferred to phase 9 by decision (2026-08-20)**. The
-      channel kind exists and refuses honestly rather than reporting a message
-      delivered that went nowhere; SMTP is wired where the mail host and its
-      credentials are chosen. Webhook and in-app channels carry alerting until
-      then
+- [x] Email delivery — **delivered in phase 9**: `SmtpEmailSender`,
+      `AccountInvitationSender` and the activation-link flow. It still refuses
+      honestly when no mail host is configured rather than reporting a message
+      delivered that went nowhere. Entry was stale; caught in the phase 10 audit
 - [ ] Manual merge/split of error groups — `adr/0013` names it as the mitigation
       for over- and under-grouping; nothing has needed it yet, and the
       `fingerprintVersion` escape hatch is in place
@@ -457,12 +458,14 @@ Then sign in at http://localhost:5173 and walk:
 - [x] UI primitives: Card, Button, TextField, StatusChip, Meter, loading/error/empty blocks
 - [x] Data primitives: responsive DataTable (cards below `md`), Drawer (side sheet / bottom sheet), page scaffolding, filter tabs, collection card
 - [ ] shadcn/ui adoption for the heavier primitives (dialog, dropdown, combobox)
-- [ ] Type generation from OpenAPI (blocked until the API exists)
+- [ ] Type generation from OpenAPI — **no longer blocked**: the API and its OpenAPI document exist. Worth doing precisely because phase 10 found a hand-written contract mismatch that had silently discarded every validation message
 - [x] Route-level code splitting for every feature
 - [ ] Error boundaries per route
-- [ ] SignalR client, notification centre, and a reusable **job progress** component
+- [x] SignalR client and notification centre — `lib/realtime/connection.ts` and the bell in `AppLayout`, both exercised against the live hub during the phase 10 browser run
+- [ ] A reusable **job progress** component — the events are broadcast and the screens refetch; nothing renders per-step progress yet
 - [ ] Logical-property ESLint rule
-- [ ] Vitest + Testing Library + Playwright harness (Vitest configured, no suites yet)
+- [x] Vitest + Testing Library harness — 9 screen tests run in CI (upgraded to vitest 3 in phase 10)
+- [ ] Playwright — still none; the browser walk is driven by hand each phase
 
 **Screens** (each: loading/empty/error · RTL+LTR · mobile+desktop · permission-aware · tested)
 - [x] Login (MFA step still to add)
@@ -693,22 +696,71 @@ again to purged data. Verified in a browser against a live server —
 
 ## Phase 10 — Optimisation & hardening
 
-- [ ] Load-test ingestion and delivery; measure before adding a broker or TSDB
-- [ ] Index review and query profiling on hot dashboard paths
-- [ ] Caching for entitlements, installation state, monitoring overview
-- [ ] Staged/canary feature rollout across stores
-- [ ] Full CI/CD pipeline per `docs/deployment.md` §8 (including the feature publish pipeline)
-- [ ] **Restore drill for the KNIGHT database** — proposed as the one release
-      blocker (`risks.md` §3 question 13). A backup nobody has restored is not a
-      backup, and everything else depends on this database
-- [ ] External security review, focused on the code-delivery path
+**Verification:** [`docs/phase-10-verification.md`](docs/phase-10-verification.md)
+— the numbers, the before/after query plans, and the two defects the browser run
+found.
+
+- [x] Load-test ingestion and delivery; measure before adding a broker or TSDB —
+      `tools/Knight.LoadTest`. **1,882 req/s, 100% accepted, p99 31.9ms** over 25
+      stores. Conclusion: plain PostgreSQL and EF are enough — **no broker, no
+      TSDB**
+- [x] Index review and query profiling on hot dashboard paths — every index led
+      with `StoreId`, so the platform-wide feeds were sequential scans. Three
+      time-ordered indexes took them from 18ms/15ms/8ms to under 0.15ms, and from
+      linear in the row count to logarithmic. Eight paged queries also lacked a
+      unique tiebreaker and could repeat or drop a row between pages
+- [x] Caching for entitlements, installation state, monitoring overview — the
+      entitlement set is cached per customer with immediate eviction on any grant
+      or revocation. The monitoring overview was **not** cached: it was 1 + 2N
+      queries for N servers, and batching fixed the shape rather than hiding it.
+      Installation state measured as not worth the invalidation it would need
+- [x] Staged/canary feature rollout across stores —
+      [`adr/0028`](docs/adr/0028-staged-rollouts-with-a-single-store-canary.md).
+      The canary is one store, no wave starts before the last one reports, and a
+      failed canary halts regardless of the threshold. This is the R16 mitigation
+- [x] Full CI/CD pipeline per `docs/deployment.md` §8 — lint, build, test, secret
+      scan, dependency audit, migration validation (applied twice, to prove
+      idempotence), the restore drill, and Feature packaging with manifest
+      validation. **Docker build/push and the deploy stages are not done**: the
+      hosting platform is still unchosen, so there is nothing to build an image
+      for or deploy to
+- [x] **Restore drill for the KNIGHT database** — the release blocker, answered.
+      It runs in CI on every push rather than on a calendar: takes a real backup,
+      restores it, and compares the tables, every row count, the migration
+      history, and the constraints and indexes. CI also corrupts a dump on
+      purpose and asserts the restore refuses it
+      ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md),
+      [`runbooks/restore-drill.md`](docs/runbooks/restore-drill.md))
+- [!] **External security review, focused on the code-delivery path** — the one
+      item nobody inside the project can close, and it is not claimed as done.
+      Scope, priorities and the briefing pack are ready in
+      [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md),
+      so engaging a reviewer is now a scheduling decision. R16 stays open until
+      the report exists and every finding has a decision recorded against it
+
+### Found and fixed while verifying phase 10
+
+- [x] The rollout canary was being **skipped** — waves came back from the
+      database unordered and the aggregate dispatched wave 1 while the canary sat
+      pending. Invisible in memory, so sixteen unit tests passed over it; the
+      browser run caught it
+- [x] The dashboard **discarded every validation message** the API sends — it
+      read `validationErrors`/`code` while the API emits `errors`/`errorCode`, so
+      screens showed only the boilerplate title. `api-contracts.md` §1 corrected
+      to describe what is actually on the wire
+- [x] A critical advisory in `vitest` and a high in `vite`, found by the new
+      dependency audit and fixed by upgrading rather than exempting
 
 ---
 
 ## Cross-cutting, always open
 
-- [ ] Keep `docs/` in sync with every architectural change (same PR)
-- [ ] Add an ADR for every long-term decision
-- [ ] Keep isolation, entitlement, and delivery-security tests release-blocking
-- [ ] Never let "feature = boolean flag" re-enter the docs or the code
-- [ ] Update this file at the end of every work session
+Standing rules, not unfinished work. They have no "done" state and are
+deliberately left unticked forever — marking them complete would be the mistake.
+
+- Keep `docs/` in sync with every architectural change (same commit)
+- Add an ADR for every long-term decision
+- Keep isolation, entitlement, and delivery-security tests release-blocking — the
+  staged-rollout tests joined that set in phase 10
+- Never let "feature = boolean flag" re-enter the docs or the code
+- Update this file at the end of every work session

@@ -19,6 +19,14 @@ public interface ISubscriptionRepository
         SubscriptionStatus? status,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Active subscriptions whose current period has already ended — what the
+    /// billing run invoices.
+    /// </summary>
+    Task<IReadOnlyCollection<Subscription>> ListDueForBillingAsync(
+        DateTimeOffset asOf,
+        CancellationToken cancellationToken);
+
     Task AddAsync(Subscription subscription, CancellationToken cancellationToken);
 
     void RegisterNewFeature(SubscriptionFeature feature);

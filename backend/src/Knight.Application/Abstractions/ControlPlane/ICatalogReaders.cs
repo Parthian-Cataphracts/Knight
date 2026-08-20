@@ -90,4 +90,32 @@ public sealed record SubscriptionSnapshot(
 public interface ISubscriptionReader
 {
     Task<SubscriptionSnapshot?> GetAsync(Guid subscriptionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Active subscriptions whose current period has ended by <paramref name="asOf"/>
+    /// — the billing run's input.
+    ///
+    /// Only active ones. A cancelled or suspended subscription must not keep
+    /// generating invoices, and "we billed them for three months after they left"
+    /// is the kind of mistake that is discovered by the customer rather than by
+    /// us.
+    /// </summary>
+    Task<IReadOnlyCollection<SubscriptionSnapshot>> ListDueForBillingAsync(
+        DateTimeOffset asOf,
+        CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Rolls a subscription's billing period forward once it has been invoiced.
+///
+/// A port rather than a module reference: billing must not depend on the module
+/// that owns subscriptions, and the period belongs to the subscription rather
+/// than to the invoice. Separating them also makes the ordering explicit — the
+/// period is only advanced *after* an invoice for the old one exists, so a
+/// failure half way leaves a period that will be billed again rather than one
+/// that never was.
+/// </summary>
+public interface ISubscriptionPeriodWriter
+{
+    Task AdvancePeriodAsync(Guid subscriptionId, DateTimeOffset newPeriodEnd, CancellationToken cancellationToken);
 }

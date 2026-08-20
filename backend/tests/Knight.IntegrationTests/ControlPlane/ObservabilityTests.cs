@@ -501,8 +501,22 @@ public sealed class ObservabilityTests
         var items = JsonDocument.Parse(await deliveries.Content.ReadAsStringAsync())
             .RootElement.GetProperty("items");
 
-        Assert.Equal(1, items.GetArrayLength());
-        Assert.Equal("Delivered", items[0].GetProperty("status").GetString());
+        // At least one, not exactly one. This channel is created with
+        // minimumSeverity Info and no rule filter, so it is subscribed to
+        // everything — and it goes on receiving real alerts raised by the rest of
+        // the suite for as long as it exists. Asserting exclusivity made this
+        // test fail roughly one run in three with "expected 1, actual 3", which
+        // was the suite working correctly and the assertion being wrong about
+        // what it owned.
+        Assert.True(items.GetArrayLength() >= 1, "The test send should have recorded a delivery.");
+
+        Assert.All(
+            items.EnumerateArray(),
+            item => Assert.Equal(channelId, item.GetProperty("channelId").GetGuid()));
+
+        Assert.Contains(
+            items.EnumerateArray(),
+            item => item.GetProperty("status").GetString() == "Delivered");
     }
 
     [Fact]
