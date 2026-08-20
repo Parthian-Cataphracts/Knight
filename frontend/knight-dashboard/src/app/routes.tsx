@@ -13,6 +13,7 @@ const pages: [path: string, loader: () => Promise<{ default: ComponentType }>][]
   ["/stores/:storeId", () => import("@/features/stores/StoreDetailPage").then((m) => ({ default: m.StoreDetailPage }))],
   ["/features", () => import("@/features/features/FeaturesPage").then((m) => ({ default: m.FeaturesPage }))],
   ["/store-images", () => import("@/features/features/StoreImagesPage").then((m) => ({ default: m.StoreImagesPage }))],
+  ["/rollouts", () => import("@/features/features/RolloutsPage").then((m) => ({ default: m.RolloutsPage }))],
   ["/installations", () => import("@/features/installations/InstallationsPage").then((m) => ({ default: m.InstallationsPage }))],
   ["/plans", () => import("@/features/plans/PlansPage").then((m) => ({ default: m.PlansPage }))],
   ["/billing", () => import("@/features/billing/BillingPage").then((m) => ({ default: m.BillingPage }))],
