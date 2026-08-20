@@ -4,6 +4,7 @@ using Knight.Application.Abstractions.ControlPlane;
 using Knight.Application.Abstractions.Security;
 using Knight.Infrastructure.Caching;
 using Knight.Infrastructure.ControlPlane.Adapters;
+using Knight.Infrastructure.ControlPlane.Caching;
 using Knight.Infrastructure.ControlPlane.Integration;
 using Knight.Infrastructure.ControlPlane.Repositories;
 using Knight.Infrastructure.ControlPlane.Security;
@@ -13,6 +14,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Knight.Infrastructure.ControlPlane;
 
@@ -141,8 +143,28 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<ISubscriptionReader, SubscriptionReader>();
         services.AddScoped<IStoreHostingReader, StoreHostingReader>();
         services.AddScoped<ICustomerStatusReader, CustomerStatusReader>();
-        services.AddScoped<ICustomerEntitlementReader, CustomerEntitlementReader>();
-        services.AddScoped<IEntitlementEventPublisher, DeliveryEntitlementEventPublisher>();
+        // The entitlement set is read by every store on a timer and changes only
+        // when a subscription does, so it is cached behind a short TTL and
+        // dropped the moment an entitlement changes. Registered as a decorator so
+        // no caller knows the cache is there — including the ingest endpoint,
+        // which must keep signing a freshly stamped payload per request even when
+        // the set behind it came from the cache.
+        services.AddScoped<CustomerEntitlementReader>();
+        services.AddScoped<ICustomerEntitlementReader>(provider =>
+            new CachingCustomerEntitlementReader(
+                provider.GetRequiredService<CustomerEntitlementReader>(),
+                provider.GetRequiredService<ICacheService>(),
+                provider.GetRequiredService<ILogger<CachingCustomerEntitlementReader>>()));
+
+        // Eviction runs before delivery, so anything delivery triggers reads the
+        // new set rather than the one being replaced.
+        services.AddScoped<DeliveryEntitlementEventPublisher>();
+        services.AddScoped<IEntitlementEventPublisher>(provider =>
+            new CompositeEntitlementEventPublisher(
+                new EntitlementCacheInvalidator(
+                    provider.GetRequiredService<ICacheService>(),
+                    provider.GetRequiredService<ILogger<EntitlementCacheInvalidator>>()),
+                provider.GetRequiredService<DeliveryEntitlementEventPublisher>()));
 
         // Everything the store link needs to leave the process: the token it
         // hands out, the key it signs with, and the guarded HTTP client it calls

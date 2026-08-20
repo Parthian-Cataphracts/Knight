@@ -31,6 +31,18 @@ public interface IAgentRepository
     Task<IReadOnlyCollection<Agent>> ListForServerAsync(Guid serverId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Agents for many servers at once, grouped by server id.
+    ///
+    /// Exists because the monitoring overview needs every server's agents and
+    /// asking per server made the page cost one query per server. The fleet is
+    /// the thing that grows here, so that cost grew with exactly the number the
+    /// page exists to display.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyCollection<Agent>>> ListForServersAsync(
+        IReadOnlyCollection<Guid> serverIds,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Every agent still awaiting enrolment, so a presented provisioning token
     /// can be matched against their hashes.
     ///
@@ -59,6 +71,17 @@ public interface IServerMetricRepository
     Task<IReadOnlyCollection<ServerMetric>> ListRecentAsync(Guid serverId, int limit, CancellationToken cancellationToken);
 
     Task<ServerMetric?> GetLatestAsync(Guid serverId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The most recent sample for each of many servers, in one query.
+    ///
+    /// Same reason as <see cref="IAgentRepository.ListForServersAsync"/>: the
+    /// overview wants the latest sample per server, and asking one server at a
+    /// time turned the largest table in the schema into N round trips.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, ServerMetric>> GetLatestForAsync(
+        IReadOnlyCollection<Guid> serverIds,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Deletes samples older than the cutoff and answers how many went.
