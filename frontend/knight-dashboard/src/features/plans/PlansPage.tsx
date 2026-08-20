@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, X, Plus } from "lucide-react";
 import { useCollection } from "@/lib/api/hooks";
+import { ChangeSubscriptionDialog } from "./ChangeSubscriptionDialog";
 import type { EntitlementMatrixRow, Plan, Subscription } from "@/lib/api/domain";
 import { PageShell, PageHeader, Mono } from "@/components/data/PageShell";
 import { CollectionCard } from "@/components/data/CollectionCard";
@@ -30,6 +32,7 @@ export function PlansPage() {
   const matrix = useCollection<EntitlementMatrixRow>("/plans/entitlement-matrix");
   const subscriptions = useCollection<Subscription>("/subscriptions");
   const can = useAuthStore((state) => state.can);
+  const [changing, setChanging] = useState<Subscription | null>(null);
 
   const planKeys = (plans.data ?? []).map((plan) => plan.key);
 
@@ -67,6 +70,15 @@ export function PlansPage() {
 
   return (
     <PageShell>
+      <ChangeSubscriptionDialog
+        subscription={changing}
+        onClose={() => setChanging(null)}
+        onChanged={() => {
+          setChanging(null);
+          void subscriptions.refetch();
+        }}
+      />
+
       <PageHeader
         title={t("nav.plans")}
         subtitle={t("plans.subtitle")}
@@ -189,6 +201,7 @@ export function PlansPage() {
           <>
             <CardHeader title={t("plans.subscriptions")} />
             <DataTable
+              onRowClick={(row) => { if (can("subscription.manage")) setChanging(row); }}
               columns={subscriptionColumns}
               rows={rows}
               rowKey={(row) => row.id}

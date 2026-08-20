@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus, Upload, Ban, ShieldCheck, GitBranch, AlertTriangle } from "lucide-react";
-import { useCollection } from "@/lib/api/hooks";
+import { useAction, useCollection } from "@/lib/api/hooks";
 import type { Feature, FeatureStatus, FeatureVersion, VersionStatus } from "@/lib/api/domain";
 import { PageShell, PageHeader, Toolbar, FilterTabs, KeyValue, Mono } from "@/components/data/PageShell";
 import { CollectionCard } from "@/components/data/CollectionCard";
@@ -42,6 +42,22 @@ export function FeaturesPage() {
   const versions = useCollection<FeatureVersion>(
     selected ? `/features/${selected.id}/versions` : "/features/none/versions",
     selected !== null,
+  );
+
+  // Publishing and yanking act on a **version**, not on the feature: a feature
+  // is an identity and a commercial fact, and only a version has an artifact
+  // that could be signed, shipped and later withdrawn
+  // (docs/adr/0014-features-as-deployable-packages.md).
+  const versionAction = useAction<unknown, { id: string; action: "publish" | "yank" }>(
+    ({ id, action }) => ({ path: `/features/versions/${id}/${action}` }),
+    ["/features"],
+  );
+
+  // The feature's own lifecycle is separate and coarser: it decides whether the
+  // capability may be sold at all.
+  const featureAction = useAction<unknown, { id: string; action: "publish" | "deprecate" | "withdraw" }>(
+    ({ id, action }) => ({ path: `/features/${id}/${action}` }),
+    ["/features"],
   );
 
   const all = query.data ?? [];
@@ -158,15 +174,37 @@ export function FeaturesPage() {
         subtitle={selected?.slug}
         onClose={() => setSelected(null)}
         footer={
-          can("feature.publish") ? (
+          can("feature.manage") && selected ? (
             <>
-              <Button variant="outline" size="sm">
-                <Ban className="size-4" aria-hidden />
-                {t("features.yank")}
-              </Button>
-              <Button size="sm">
-                <Upload className="size-4" aria-hidden />
-                {t("features.publish")}
+              {selected.status === "Published" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={featureAction.isPending}
+                  onClick={() => featureAction.mutate({ id: selected.id, action: "deprecate" })}
+                >
+                  <Ban className="size-4" aria-hidden />
+                  {t("features.deprecate")}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={featureAction.isPending}
+                  onClick={() => featureAction.mutate({ id: selected.id, action: "publish" })}
+                >
+                  <Upload className="size-4" aria-hidden />
+                  {t("features.activate")}
+                </Button>
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={featureAction.isPending}
+                onClick={() => featureAction.mutate({ id: selected.id, action: "withdraw" })}
+              >
+                {t("features.withdraw")}
               </Button>
             </>
           ) : undefined
@@ -175,6 +213,15 @@ export function FeaturesPage() {
         {selected ? (
           <div className="flex flex-col gap-6">
             <p className="text-body-sm text-on-surface-variant">{selected.description}</p>
+
+            {versionAction.isError || featureAction.isError ? (
+              <p
+                role="alert"
+                className="rounded-md bg-error-container px-3 py-2 text-body-sm text-on-error-container"
+              >
+                {(versionAction.error ?? featureAction.error)?.message}
+              </p>
+            ) : null}
 
             {can("feature.publish") ? (
               <p className="flex items-start gap-2 rounded-md bg-warning/10 px-3 py-2.5 text-body-sm text-warning">
@@ -260,6 +307,33 @@ export function FeaturesPage() {
                           </div>
                         ) : null}
                       </dl>
+
+                      {can("feature.publish") ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {version.status === "Draft" ? (
+                            <Button
+                              size="sm"
+                              disabled={versionAction.isPending}
+                              onClick={() => versionAction.mutate({ id: version.id, action: "publish" })}
+                            >
+                              <Upload className="size-4" aria-hidden />
+                              {t("features.publish")}
+                            </Button>
+                          ) : null}
+
+                          {version.status === "Published" ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={versionAction.isPending}
+                              onClick={() => versionAction.mutate({ id: version.id, action: "yank" })}
+                            >
+                              <Ban className="size-4" aria-hidden />
+                              {t("features.yank")}
+                            </Button>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
