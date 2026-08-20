@@ -1,5 +1,5 @@
-using Microsoft.Extensions.DependencyInjection;
 using Knight.Application.Authorization;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Knight.Application;
 

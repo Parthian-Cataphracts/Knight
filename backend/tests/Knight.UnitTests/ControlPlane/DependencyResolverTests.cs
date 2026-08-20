@@ -75,7 +75,7 @@ public sealed class DependencyResolverTests
                 version.Installable))]);
 
     private static RegistryFeature Simple(string slug, params string[] versions) =>
-        Feature(slug, [.. versions.Select(version => (version, true, (( string, string)[]?)null))]);
+        Feature(slug, [.. versions.Select(version => (version, true, ((string, string)[]?)null))]);
 
     private static StoreCompatibilityContext Store(
         string? storeVersion = "5.0.0",

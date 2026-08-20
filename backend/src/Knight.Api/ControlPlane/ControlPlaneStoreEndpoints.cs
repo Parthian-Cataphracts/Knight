@@ -543,43 +543,43 @@ public static class ControlPlaneStoreEndpoints
         DateTimeOffset now,
         string? customerName = null,
         int? installedFeatureCount = null) => new()
-    {
-        Id = store.Id,
-        CustomerId = store.CustomerId,
-        CustomerName = customerName ?? string.Empty,
-
-        // Null rather than zero where the caller had no reason to count: an
-        // operator seeing "0 installed" straight after creating a store should be
-        // reading a fact, not a placeholder.
-        InstalledFeatureCount = installedFeatureCount,
-        Name = store.Name,
-        Slug = store.Slug,
-        PrimaryDomain = store.PrimaryDomain,
-        Environment = store.Environment.ToString(),
-        HostingModel = store.HostingModel.ToString(),
-        Status = store.Status.ToString(),
-        IntegrationStatus = store.IntegrationStatus.ToString(),
-        ApplicationVersion = store.ApplicationVersion,
-        LastSeenAt = store.LastSeenAt,
-        ServerId = store.ServerId,
-        RequiresMutualTls = store.RequiresMutualTls,
-        MutualTlsThumbprint = store.MutualTlsThumbprint,
-
-        // Credentials are described by state, never by value: the response
-        // carries no secret and no hash.
-        Credentials = store.Credentials.Select(credential => new StoreCredentialResponse
         {
-            Id = credential.Id,
-            ClientId = credential.ClientId,
-            State = credential.StateAt(now).ToString(),
-            CreatedAt = credential.CreatedAt,
-            ExpiresAt = credential.ExpiresAt,
-            RotatedAt = credential.RotatedAt,
-            RevokedAt = credential.RevokedAt,
-            LastUsedAt = credential.LastUsedAt,
-        }).ToArray(),
+            Id = store.Id,
+            CustomerId = store.CustomerId,
+            CustomerName = customerName ?? string.Empty,
 
-        CreatedAt = store.CreatedAt,
-        UpdatedAt = store.UpdatedAt,
-    };
+            // Null rather than zero where the caller had no reason to count: an
+            // operator seeing "0 installed" straight after creating a store should be
+            // reading a fact, not a placeholder.
+            InstalledFeatureCount = installedFeatureCount,
+            Name = store.Name,
+            Slug = store.Slug,
+            PrimaryDomain = store.PrimaryDomain,
+            Environment = store.Environment.ToString(),
+            HostingModel = store.HostingModel.ToString(),
+            Status = store.Status.ToString(),
+            IntegrationStatus = store.IntegrationStatus.ToString(),
+            ApplicationVersion = store.ApplicationVersion,
+            LastSeenAt = store.LastSeenAt,
+            ServerId = store.ServerId,
+            RequiresMutualTls = store.RequiresMutualTls,
+            MutualTlsThumbprint = store.MutualTlsThumbprint,
+
+            // Credentials are described by state, never by value: the response
+            // carries no secret and no hash.
+            Credentials = store.Credentials.Select(credential => new StoreCredentialResponse
+            {
+                Id = credential.Id,
+                ClientId = credential.ClientId,
+                State = credential.StateAt(now).ToString(),
+                CreatedAt = credential.CreatedAt,
+                ExpiresAt = credential.ExpiresAt,
+                RotatedAt = credential.RotatedAt,
+                RevokedAt = credential.RevokedAt,
+                LastUsedAt = credential.LastUsedAt,
+            }).ToArray(),
+
+            CreatedAt = store.CreatedAt,
+            UpdatedAt = store.UpdatedAt,
+        };
 }

@@ -1,6 +1,6 @@
+using Knight.Contracts.Health;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Knight.Contracts.Health;
 
 namespace Knight.Api.Endpoints;
 

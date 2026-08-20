@@ -362,67 +362,67 @@ internal sealed class ProvisioningService : IProvisioningService
         ProvisioningStepDefinition definition,
         ProvisioningStoreSnapshot store,
         CancellationToken cancellationToken) => definition.Name switch
-    {
-        // --- Provisioning ----------------------------------------------------
-        ProvisioningPipeline.Server => store.ServerId is { } serverId
-            ? StepOutcome.Succeeded($"Recorded on server {serverId}.")
-            : StepOutcome.Waiting("No machine is recorded for this store yet. Register the server and assign it to the store."),
+        {
+            // --- Provisioning ----------------------------------------------------
+            ProvisioningPipeline.Server => store.ServerId is { } serverId
+                ? StepOutcome.Succeeded($"Recorded on server {serverId}.")
+                : StepOutcome.Waiting("No machine is recorded for this store yet. Register the server and assign it to the store."),
 
-        // A store that has completed a handshake demonstrably exists and is
-        // running, which is the only evidence of this step KNIGHT can gather on
-        // its own while instance creation is manual.
-        ProvisioningPipeline.Instance => store.HasHandshaked
-            ? StepOutcome.Succeeded("The store instance answered a handshake.")
-            : StepOutcome.Waiting("Waiting for a Django instance built from the base store image."),
+            // A store that has completed a handshake demonstrably exists and is
+            // running, which is the only evidence of this step KNIGHT can gather on
+            // its own while instance creation is manual.
+            ProvisioningPipeline.Instance => store.HasHandshaked
+                ? StepOutcome.Succeeded("The store instance answered a handshake.")
+                : StepOutcome.Waiting("Waiting for a Django instance built from the base store image."),
 
-        ProvisioningPipeline.StoreRecord => StepOutcome.Succeeded(
-            $"Registered as '{store.Slug}' in {store.Environment}, hosting {store.HostingModel}."),
+            ProvisioningPipeline.StoreRecord => StepOutcome.Succeeded(
+                $"Registered as '{store.Slug}' in {store.Environment}, hosting {store.HostingModel}."),
 
-        ProvisioningPipeline.Credentials => store.HasUsableCredential
-            ? StepOutcome.Succeeded("The store holds a usable credential.")
-            : StepOutcome.Waiting(
-                "No usable credential. Issue one from the store's credentials page — the secret is shown once and is never stored."),
+            ProvisioningPipeline.Credentials => store.HasUsableCredential
+                ? StepOutcome.Succeeded("The store holds a usable credential.")
+                : StepOutcome.Waiting(
+                    "No usable credential. Issue one from the store's credentials page — the secret is shown once and is never stored."),
 
-        ProvisioningPipeline.Agent => store.ServerId is not { } server
-            ? StepOutcome.Waiting("The store has no server, so no agent can be enrolled for it.")
-            : await _servers.HasEnrolledAgentAsync(server, cancellationToken)
-                ? StepOutcome.Succeeded("An enrolled agent is running on the store's server.")
-                : StepOutcome.Waiting("Waiting for the agent on the store's server to enrol."),
+            ProvisioningPipeline.Agent => store.ServerId is not { } server
+                ? StepOutcome.Waiting("The store has no server, so no agent can be enrolled for it.")
+                : await _servers.HasEnrolledAgentAsync(server, cancellationToken)
+                    ? StepOutcome.Succeeded("An enrolled agent is running on the store's server.")
+                    : StepOutcome.Waiting("Waiting for the agent on the store's server to enrol."),
 
-        ProvisioningPipeline.BaseFeatures => Describe(
-            await _features.EnsureBaseFeaturesAsync(job.StoreId, cancellationToken)),
+            ProvisioningPipeline.BaseFeatures => Describe(
+                await _features.EnsureBaseFeaturesAsync(job.StoreId, cancellationToken)),
 
-        ProvisioningPipeline.Configuration => store.HasHandshaked
-            ? StepOutcome.Succeeded("The store has handshaked and holds its configuration.")
-            : StepOutcome.Waiting("Waiting for the store's first handshake."),
+            ProvisioningPipeline.Configuration => store.HasHandshaked
+                ? StepOutcome.Succeeded("The store has handshaked and holds its configuration.")
+                : StepOutcome.Waiting("Waiting for the store's first handshake."),
 
-        ProvisioningPipeline.DomainAndTls => store.IsDomainVerified
-            ? StepOutcome.Succeeded($"Ownership of {store.PrimaryDomain} is proven.")
-            : StepOutcome.Waiting($"Point {store.PrimaryDomain} at the store, serve TLS, and verify ownership."),
+            ProvisioningPipeline.DomainAndTls => store.IsDomainVerified
+                ? StepOutcome.Succeeded($"Ownership of {store.PrimaryDomain} is proven.")
+                : StepOutcome.Waiting($"Point {store.PrimaryDomain} at the store, serve TLS, and verify ownership."),
 
-        ProvisioningPipeline.HealthCheck => await CompleteHealthCheckAsync(store, cancellationToken),
+            ProvisioningPipeline.HealthCheck => await CompleteHealthCheckAsync(store, cancellationToken),
 
-        // --- Deprovisioning --------------------------------------------------
-        ProvisioningPipeline.DisableFeatures => StepOutcome.Succeeded(
-            $"{await _features.DisableAllAsync(job.StoreId, "The store is being deprovisioned.", cancellationToken)} Features disabled."),
+            // --- Deprovisioning --------------------------------------------------
+            ProvisioningPipeline.DisableFeatures => StepOutcome.Succeeded(
+                $"{await _features.DisableAllAsync(job.StoreId, "The store is being deprovisioned.", cancellationToken)} Features disabled."),
 
-        ProvisioningPipeline.RevokeAccess => await RevokeAccessAsync(store, cancellationToken),
+            ProvisioningPipeline.RevokeAccess => await RevokeAccessAsync(store, cancellationToken),
 
-        ProvisioningPipeline.StopIngestion => string.Equals(store.Status, "Archived", StringComparison.Ordinal)
-            ? StepOutcome.Succeeded("The store is archived; nothing it sends is accepted any more.")
-            : StepOutcome.Failed("provisioning.ingestion.open", "The store is not archived, so it can still report to KNIGHT."),
+            ProvisioningPipeline.StopIngestion => string.Equals(store.Status, "Archived", StringComparison.Ordinal)
+                ? StepOutcome.Succeeded("The store is archived; nothing it sends is accepted any more.")
+                : StepOutcome.Failed("provisioning.ingestion.open", "The store is not archived, so it can still report to KNIGHT."),
 
-        ProvisioningPipeline.Retain => job.RetainUntil is { } retainUntil && _clock.UtcNow < retainUntil
-            ? StepOutcome.Waiting($"The store's data is retained until {retainUntil:u}.")
-            : StepOutcome.Succeeded("The retention window has closed."),
+            ProvisioningPipeline.Retain => job.RetainUntil is { } retainUntil && _clock.UtcNow < retainUntil
+                ? StepOutcome.Waiting($"The store's data is retained until {retainUntil:u}.")
+                : StepOutcome.Succeeded("The retention window has closed."),
 
-        ProvisioningPipeline.Export => StepOutcome.Waiting(
-            "Produce the exportable backup and hand it to the customer before anything is purged."),
+            ProvisioningPipeline.Export => StepOutcome.Waiting(
+                "Produce the exportable backup and hand it to the customer before anything is purged."),
 
-        ProvisioningPipeline.Purge => Describe(await _purger.PurgeAsync(job.StoreId, cancellationToken)),
+            ProvisioningPipeline.Purge => Describe(await _purger.PurgeAsync(job.StoreId, cancellationToken)),
 
-        _ => StepOutcome.Failed("provisioning.step.unknown", $"Step '{definition.Name}' has no evaluation."),
-    };
+            _ => StepOutcome.Failed("provisioning.step.unknown", $"Step '{definition.Name}' has no evaluation."),
+        };
 
     private async Task<StepOutcome> CompleteHealthCheckAsync(
         ProvisioningStoreSnapshot store,
