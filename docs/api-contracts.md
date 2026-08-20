@@ -32,18 +32,32 @@ There are four distinct contracts:
 
 ```json
 {
-  "type": "https://knight.dev/errors/validation-failed",
-  "title": "Validation failed",
+  "type": "https://httpstatuses.io/400",
+  "title": "One or more validation errors occurred.",
   "status": 400,
-  "code": "validation_failed",
-  "detail": "One or more fields are invalid.",
-  "requestId": "0HMV9...",
-  "validationErrors": { "domain": ["Domain is already registered."] }
+  "instance": "/api/v1/rollouts",
+  "errorCode": "validation_failed",
+  "correlationId": "31fbd7d77fa943bfb620118b0e55a112",
+  "errors": { "domain": ["Domain is already registered."] }
 }
 ```
 
+The extension names are **`errorCode`, `correlationId` and `errors`** — as
+emitted by `ExceptionHandlingMiddleware` and as consumed by the store client
+(`knight_integration/client.py`). This paragraph used to describe `code`,
+`requestId` and `validationErrors`, which nothing ever sent; the dashboard
+believed it, so every field-level message was silently discarded and screens
+showed only the boilerplate title. Found by driving the rollout screen in a
+browser, which is the only place a contract mismatch of this shape shows up.
+
+`correlationId` is the value of the correlation-id response header, so a
+response and its server-side log line can be tied together.
+
+On a validation failure the `title` is boilerplate and **`errors` carries the
+answer**; a client that shows the title alone is showing nothing useful.
+
 Stack traces are never returned. Internal exception details are logged with the
-same `requestId` and nothing else leaks.
+same `correlationId` and nothing else leaks.
 
 Standard codes: `unauthorized`, `forbidden`, `not_found`, `conflict`,
 `validation_failed`, `rate_limited`, `feature_not_entitled`,
