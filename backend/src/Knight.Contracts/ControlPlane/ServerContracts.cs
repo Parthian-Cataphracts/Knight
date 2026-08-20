@@ -14,6 +14,12 @@ public sealed record UpdateServerRequest(string Name, string? Provider, string? 
 
 public sealed record RevokeAgentRequest(string Reason);
 
+/// <summary>
+/// Records the customer a dedicated machine belongs to, or clears it with a null
+/// id when the machine returns to the shared pool.
+/// </summary>
+public sealed record DedicateServerRequest(Guid? CustomerId);
+
 // --- Dashboard responses ------------------------------------------------------
 
 public sealed record ServerResponse
@@ -36,6 +42,9 @@ public sealed record ServerResponse
     public string? Region { get; init; }
 
     public string? IpAddress { get; init; }
+
+    /// <summary>The customer this machine is dedicated to, if any. Null for shared hardware.</summary>
+    public Guid? DedicatedCustomerId { get; init; }
 
     public DateTimeOffset? LastSeenAt { get; init; }
 

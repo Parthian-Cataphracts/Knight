@@ -73,6 +73,7 @@ internal sealed class PlanService : IPlanService
 
         plan.UpdateMetadata(input.Name, input.Description, input.SortOrder, now);
         plan.Reprice(Money.Of(input.BasePrice, input.Currency), now);
+        plan.SetDataRetention(input.DataRetentionDays, now);
         await _plans.SaveChangesAsync(cancellationToken);
 
         await AuditAsync("plan.updated", plan, cancellationToken, before);

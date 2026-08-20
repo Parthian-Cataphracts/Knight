@@ -137,6 +137,21 @@ public interface IFeatureArtifactStore
     /// a durable URL to a signed artifact is a credential with no expiry.
     /// </summary>
     Task<Uri> CreateDownloadUrlAsync(string packageReference, TimeSpan lifetime, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Stores an uploaded package and answers what it actually is.
+    ///
+    /// The digest returned is computed from the stored bytes, never taken from
+    /// the uploader: the publish check compares what was uploaded against what
+    /// the signature covers, and a digest supplied by the same party as the file
+    /// would make that comparison meaningless. Signing itself stays offline —
+    /// this accepts an already-signed package and never holds a signing key
+    /// (TODO.md phase 9).
+    /// </summary>
+    Task<FeatureArtifactMetadata> SaveAsync(
+        string fileName,
+        Stream content,
+        CancellationToken cancellationToken);
 }
 
 public sealed record FeatureArtifactMetadata(string PackageReference, string Digest, long SizeBytes);

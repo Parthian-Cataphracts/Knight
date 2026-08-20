@@ -30,6 +30,7 @@ internal sealed class ProvisioningService : IProvisioningService
     private readonly IBaseFeatureInstaller _features;
     private readonly IStoreDataPurger _purger;
     private readonly IRetentionPolicyReader _retention;
+    private readonly IBaseImageCatalog _images;
     private readonly IAuditTrail _audit;
     private readonly IDateTimeProvider _clock;
     private readonly ICurrentUser _currentUser;
@@ -42,6 +43,7 @@ internal sealed class ProvisioningService : IProvisioningService
         IBaseFeatureInstaller features,
         IStoreDataPurger purger,
         IRetentionPolicyReader retention,
+        IBaseImageCatalog images,
         IAuditTrail audit,
         IDateTimeProvider clock,
         ICurrentUser currentUser,
@@ -53,6 +55,7 @@ internal sealed class ProvisioningService : IProvisioningService
         _features = features;
         _purger = purger;
         _retention = retention;
+        _images = images;
         _audit = audit;
         _clock = clock;
         _currentUser = currentUser;
@@ -131,11 +134,22 @@ internal sealed class ProvisioningService : IProvisioningService
         Guid jobId,
         string stepName,
         string? detail,
+        string? baseImageVersion,
         CancellationToken cancellationToken)
     {
         var job = await RequireAsync(jobId, cancellationToken);
         var now = _clock.UtcNow;
         var actor = _currentUser.UserId ?? Guid.Empty;
+
+        if (!string.IsNullOrWhiteSpace(baseImageVersion))
+        {
+            var image = await _images.FindUsableAsync(baseImageVersion, cancellationToken)
+                ?? throw new ConflictException(
+                    $"Base store image '{baseImageVersion}' is not a published image. " +
+                    "Publish it before recording a store as built from it.");
+
+            job.RecordBaseImage(image.Version, now);
+        }
 
         var created = job.CompleteManualStep(stepName, actor, detail, now);
         if (created is not null)
@@ -151,7 +165,7 @@ internal sealed class ProvisioningService : IProvisioningService
             job.Id.ToString(),
             job.CustomerId,
             cancellationToken,
-            newValue: new { job.StoreId, step = stepName, detail });
+            newValue: new { job.StoreId, step = stepName, detail, job.BaseImageVersion });
 
         return await AdvanceAsync(job, cancellationToken);
     }

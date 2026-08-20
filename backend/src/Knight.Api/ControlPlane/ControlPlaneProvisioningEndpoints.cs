@@ -102,7 +102,12 @@ public static class ControlPlaneProvisioningEndpoints
             CompleteProvisioningStepRequest request,
             IProvisioningService service,
             CancellationToken cancellationToken) =>
-            Results.Ok((await service.CompleteManualStepAsync(jobId, request.Step, request.Detail, cancellationToken)).ToResponse()))
+            Results.Ok((await service.CompleteManualStepAsync(
+                jobId,
+                request.Step,
+                request.Detail,
+                request.BaseImageVersion,
+                cancellationToken)).ToResponse()))
             .RequirePermission(ControlPlanePermissions.StoreProvision);
 
         group.MapPost("/{jobId:guid}/retry", async (

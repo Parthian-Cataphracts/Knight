@@ -261,6 +261,49 @@ internal sealed class FileSystemArtifactStore : IFeatureArtifactStore
     }
 
     /// <summary>
+    /// Stores an uploaded package under a generated name and hashes what landed
+    /// on disk.
+    ///
+    /// The name is generated rather than taken from the upload: the uploaded
+    /// file name is untrusted text, and the reference it becomes is used as a
+    /// path. Only the extension is carried across, and only from a short
+    /// allow-list, so a package can still be recognised by whoever looks in the
+    /// directory.
+    /// </summary>
+    public async Task<FeatureArtifactMetadata> SaveAsync(
+        string fileName,
+        Stream content,
+        CancellationToken cancellationToken)
+    {
+        var root = Path.GetFullPath(_options.ArtifactRoot);
+        Directory.CreateDirectory(root);
+
+        var extension = Path.GetExtension(fileName)?.ToLowerInvariant() switch
+        {
+            ".whl" => ".whl",
+            ".zip" => ".zip",
+            ".gz" => ".tar.gz",
+            _ => ".zip",
+        };
+
+        var reference = $"{Guid.CreateVersion7():n}{extension}";
+        var path = Path.Combine(root, reference);
+
+        await using (var file = File.Create(path))
+        {
+            await content.CopyToAsync(file, cancellationToken);
+        }
+
+        await using var stored = File.OpenRead(path);
+        var digest = await SHA256.HashDataAsync(stored, cancellationToken);
+
+        return new FeatureArtifactMetadata(
+            reference,
+            Convert.ToHexString(digest).ToLowerInvariant(),
+            new FileInfo(path).Length);
+    }
+
+    /// <summary>
     /// Resolves a package reference to a path under the artifact root, refusing
     /// anything that escapes it.
     ///

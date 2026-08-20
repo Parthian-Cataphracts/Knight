@@ -48,6 +48,12 @@ public sealed record CustomerResponse
     /// <summary>Key of the plan the customer is currently on; null when they have no live subscription.</summary>
     public string? PlanKey { get; init; }
 
+    /// <summary>
+    /// A negotiated retention window in days that replaces the plan's. Null
+    /// means the plan decides.
+    /// </summary>
+    public int? DataRetentionOverrideDays { get; init; }
+
     public required DateTimeOffset CreatedAt { get; init; }
 
     public DateTimeOffset? UpdatedAt { get; init; }

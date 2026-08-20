@@ -9,8 +9,15 @@ namespace Knight.Contracts.ControlPlane;
 /// </summary>
 public sealed record StartProvisioningRequest(string? IdempotencyKey);
 
-/// <summary>Records that a person did what only a person can do — built the machine, wired DNS, produced the export.</summary>
-public sealed record CompleteProvisioningStepRequest(string Step, string? Detail);
+/// <summary>
+/// Records that a person did what only a person can do — built the machine,
+/// wired DNS, produced the export.
+///
+/// <paramref name="BaseImageVersion"/> belongs to the instance step: it names
+/// the published base store image the instance was built from, and is checked
+/// against the registry rather than taken at face value.
+/// </summary>
+public sealed record CompleteProvisioningStepRequest(string Step, string? Detail, string? BaseImageVersion);
 
 public sealed record CancelProvisioningRequest(string Reason);
 
@@ -112,4 +119,64 @@ public sealed record StoreBackupResponse
     public string? Detail { get; init; }
 
     public int? DurationSeconds { get; init; }
+}
+
+// --- Base store images --------------------------------------------------------
+
+/// <summary>
+/// Registers an already-signed base store image. The artifact is uploaded first
+/// and named by reference; the signature is made offline by the packaging tool,
+/// so the signing key never reaches the web application.
+/// </summary>
+public sealed record CreateStoreImageRequest(
+    string Version,
+    string StoreVersion,
+    string PackageReference,
+    string ArtifactDigest,
+    string Signature,
+    string? SigningKeyId,
+    string? ReleaseNotes);
+
+public sealed record YankStoreImageRequest(string Reason);
+
+public sealed record StoreImageResponse
+{
+    public required Guid Id { get; init; }
+
+    public required string Version { get; init; }
+
+    /// <summary>The storeVersion an instance built from this image reports; Feature ranges resolve against it.</summary>
+    public required string StoreVersion { get; init; }
+
+    public required string Status { get; init; }
+
+    public required string ArtifactDigest { get; init; }
+
+    public required long ArtifactSizeBytes { get; init; }
+
+    public required string SigningKeyId { get; init; }
+
+    public string? ReleaseNotes { get; init; }
+
+    public DateTimeOffset CreatedAt { get; init; }
+
+    public DateTimeOffset? PublishedAt { get; init; }
+
+    public DateTimeOffset? YankedAt { get; init; }
+
+    public string? YankReason { get; init; }
+}
+
+/// <summary>
+/// What an artifact upload returns: where the package landed and what it
+/// actually hashes to, so the publish request that follows declares a digest
+/// KNIGHT computed rather than one the uploader asserted.
+/// </summary>
+public sealed record ArtifactUploadResponse
+{
+    public required string PackageReference { get; init; }
+
+    public required string Digest { get; init; }
+
+    public required long SizeBytes { get; init; }
 }

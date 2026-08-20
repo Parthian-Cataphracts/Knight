@@ -41,6 +41,14 @@ public interface IServerService
 
     Task<Server> UpdateAsync(Guid id, UpdateServerInput input, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Records the customer a dedicated machine belongs to, or clears it when
+    /// the machine returns to the shared pool. Passing null for a machine
+    /// registered as dedicated is refused: dedicated to nobody is not a state
+    /// that means anything to whoever is paying for it.
+    /// </summary>
+    Task<Server> DedicateAsync(Guid id, Guid? customerId, CancellationToken cancellationToken);
+
     Task DecommissionAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>Creates an agent record and issues its one-time provisioning token.</summary>

@@ -52,6 +52,11 @@ internal sealed class StoreConfiguration : IEntityTypeConfiguration<Store>
         builder.Property(s => s.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(s => s.IntegrationStatus).HasConversion<string>().HasMaxLength(20).IsRequired();
 
+        // A hex-encoded sha-256, stored normalised so comparison is a plain
+        // equality rather than a format negotiation.
+        builder.Property(s => s.MutualTlsThumbprint).HasMaxLength(64);
+        builder.Ignore(s => s.RequiresMutualTls);
+
         builder.Property(s => s.DomainVerificationToken).HasMaxLength(100);
         builder.Property(s => s.DomainVerificationMethod).HasConversion<string>().HasMaxLength(20);
 

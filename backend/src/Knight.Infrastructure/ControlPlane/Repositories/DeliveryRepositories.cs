@@ -332,3 +332,34 @@ internal sealed class FeatureConfigurationRepository : IFeatureConfigurationRepo
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) => _context.SaveChangesAsync(cancellationToken);
 }
+
+/// <summary>
+/// Base store images. Platform-wide like the rest of the registry: every store
+/// is built from the same published set, whoever owns it.
+/// </summary>
+internal sealed class StoreImageRepository : IStoreImageRepository
+{
+    private readonly ControlPlaneDbContext _context;
+
+    public StoreImageRepository(ControlPlaneDbContext context)
+    {
+        _context = context;
+    }
+
+    public Task<StoreImage?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
+        _context.StoreImages.FirstOrDefaultAsync(image => image.Id == id, cancellationToken);
+
+    public Task<StoreImage?> FindByVersionAsync(string version, CancellationToken cancellationToken) =>
+        _context.StoreImages.FirstOrDefaultAsync(image => image.Version == version, cancellationToken);
+
+    public async Task<IReadOnlyCollection<StoreImage>> ListAsync(CancellationToken cancellationToken) =>
+        await _context.StoreImages
+            .AsNoTracking()
+            .OrderByDescending(image => image.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+    public async Task AddAsync(StoreImage image, CancellationToken cancellationToken) =>
+        await _context.StoreImages.AddAsync(image, cancellationToken);
+
+    public Task SaveChangesAsync(CancellationToken cancellationToken) => _context.SaveChangesAsync(cancellationToken);
+}

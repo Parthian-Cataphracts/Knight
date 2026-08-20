@@ -25,6 +25,13 @@ public interface ICustomerManagementService
 
     Task<Customer> UpdateAsync(Guid id, UpdateCustomerInput input, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Sets or clears the customer's negotiated data-retention window, in days.
+    /// Audited with both the old and the new value: shortening how long somebody
+    /// else's data is kept is a decision somebody has to be answerable for.
+    /// </summary>
+    Task<Customer> SetRetentionOverrideAsync(Guid id, int? days, CancellationToken cancellationToken);
+
     Task<Customer> ActivateAsync(Guid id, CancellationToken cancellationToken);
 
     Task<Customer> SuspendAsync(Guid id, CancellationToken cancellationToken);

@@ -96,6 +96,8 @@ public sealed class ControlPlaneDbContext : DbContext
 
     public DbSet<FeatureRegistry.Domain.FeatureDependency> FeatureDependencies => Set<FeatureRegistry.Domain.FeatureDependency>();
 
+    public DbSet<FeatureRegistry.Domain.StoreImage> StoreImages => Set<FeatureRegistry.Domain.StoreImage>();
+
     public DbSet<FeatureDelivery.Domain.FeatureInstallation> FeatureInstallations => Set<FeatureDelivery.Domain.FeatureInstallation>();
 
     public DbSet<FeatureDelivery.Domain.FeatureInstallationJob> FeatureInstallationJobs => Set<FeatureDelivery.Domain.FeatureInstallationJob>();
@@ -168,6 +170,7 @@ public sealed class ControlPlaneDbContext : DbContext
 
         modelBuilder.ApplyConfiguration(new FeatureVersionConfiguration());
         modelBuilder.ApplyConfiguration(new FeatureDependencyConfiguration());
+        modelBuilder.ApplyConfiguration(new StoreImageConfiguration());
         modelBuilder.ApplyConfiguration(new FeatureInstallationConfiguration());
         modelBuilder.ApplyConfiguration(new FeatureInstallationJobConfiguration());
         modelBuilder.ApplyConfiguration(new JobStepResultConfiguration());

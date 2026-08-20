@@ -91,7 +91,32 @@ and a pinned store version (`storeVersion`) that Feature compatibility ranges
 are checked against.
 
 The base image is versioned and published like a Feature artifact — signed,
-digest-verified, and recorded in the registry.
+digest-verified, and recorded in the registry as a `StoreImage`. It carries the
+`storeVersion` an instance built from it reports, so Feature compatibility
+ranges resolve against a recorded fact rather than a deployment note. Images are
+published (`POST /api/v1/store-images`) from an already-signed package uploaded
+to `POST /api/v1/artifacts`: the digest KNIGHT computes from the stored bytes is
+what the signature is checked against, and no signing key is ever present in the
+web application.
+
+An operator names the image when ticking off the `instance` step; a version that
+is not published is refused, so "which image is this store on" stays answerable
+months later.
+
+## 3a. Dedicated infrastructure
+
+A server registered as `DedicatedManaged` records the customer it belongs to,
+and a store may only be placed on a dedicated machine belonging to its own
+customer — that check is what makes "dedicated" a fact rather than a billing
+label. A placement onto a decommissioned machine, or onto one registered for a
+different environment, is refused for the same reason.
+
+A store on dedicated or customer-managed infrastructure may additionally be
+bound to a client certificate. Mutual TLS is optional and never offered on
+shared hosting, where the certificate would sit beside other customers' stores.
+Once bound, the thumbprint is checked on the handshake **and** on every
+authenticated ingest call, because a token minted at handshake lives for half an
+hour and a stolen one does not carry the certificate with it.
 
 ## 4. Failure handling
 

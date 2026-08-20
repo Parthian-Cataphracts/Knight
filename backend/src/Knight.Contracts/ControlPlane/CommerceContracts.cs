@@ -97,6 +97,9 @@ public sealed record UpdatePlanRequest
     public required string Currency { get; init; }
 
     public int SortOrder { get; init; }
+
+    /// <summary>Days a customer on this plan keeps their data after deprovisioning; null falls back to the deployment default.</summary>
+    public int? DataRetentionDays { get; init; }
 }
 
 public sealed record SetPlanFeatureRequest
@@ -146,6 +149,9 @@ public sealed record PlanResponse
     public required bool IsActive { get; init; }
 
     public required int SortOrder { get; init; }
+
+    /// <summary>How long a customer on this plan keeps their data after deprovisioning. Null means the deployment default.</summary>
+    public int? DataRetentionDays { get; init; }
 
     public required IReadOnlyCollection<PlanFeatureResponse> Features { get; init; }
 

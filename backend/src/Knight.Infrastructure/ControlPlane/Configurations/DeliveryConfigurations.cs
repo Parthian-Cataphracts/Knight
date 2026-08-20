@@ -234,3 +234,33 @@ internal sealed class StoreFeatureConfigurationConfiguration : IEntityTypeConfig
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+internal sealed class StoreImageConfiguration : IEntityTypeConfiguration<StoreImage>
+{
+    public void Configure(EntityTypeBuilder<StoreImage> builder)
+    {
+        builder.ToTable("store_images");
+
+        builder.HasKey(image => image.Id);
+
+        builder.Property(image => image.Version).HasMaxLength(50).IsRequired();
+        builder.Property(image => image.StoreVersion).HasMaxLength(50).IsRequired();
+        builder.Property(image => image.PackageReference).HasMaxLength(500).IsRequired();
+        builder.Property(image => image.ArtifactDigest).HasMaxLength(StoreImage.DigestLength).IsRequired();
+        builder.Property(image => image.Signature).HasMaxLength(1000).IsRequired();
+        builder.Property(image => image.SigningKeyId).HasMaxLength(100).IsRequired();
+        builder.Property(image => image.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(image => image.ReleaseNotes).HasMaxLength(4000);
+        builder.Property(image => image.YankReason).HasMaxLength(1000);
+
+        builder.Ignore(image => image.IsUsable);
+        builder.Ignore(image => image.SemanticVersion);
+
+        // One row per version: a published image is immutable, so a second row
+        // for the same version would be two answers to "what is 2.3.0".
+        builder.HasIndex(image => image.Version).IsUnique();
+
+        // What a compromised signing key is contained by: yank everything it signed.
+        builder.HasIndex(image => image.SigningKeyId);
+    }
+}

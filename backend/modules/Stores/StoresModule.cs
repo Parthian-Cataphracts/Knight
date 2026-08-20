@@ -56,6 +56,18 @@ public sealed class StoreOptions
     public TimeSpan FeatureRefreshInterval { get; init; } = TimeSpan.FromMinutes(5);
 
     /// <summary>
+    /// The header a terminating proxy puts a verified client certificate's
+    /// SHA-256 thumbprint in.
+    ///
+    /// TLS almost never terminates in this process, so the certificate itself is
+    /// not here to inspect — what arrives is the proxy's word for it. That is
+    /// only worth anything because the proxy is inside the trust boundary and
+    /// strips the header from anything it did not verify itself; a deployment
+    /// where it does not must not switch mutual TLS on.
+    /// </summary>
+    public string ClientCertificateHeader { get; init; } = "X-Client-Certificate-Sha256";
+
+    /// <summary>
     /// Master key from which each store's payload-signing key is derived. Kept
     /// separate from the token-signing key so that one leak does not compromise
     /// both, and required outside Development — where it falls back to the JWT
