@@ -9,7 +9,7 @@ public static class HealthCheckExtensions
     {
         var builder = services.AddHealthChecks();
 
-        var connectionString = configuration.GetConnectionString("Platform");
+        var connectionString = configuration.GetConnectionString("ControlPlane");
         if (!string.IsNullOrWhiteSpace(connectionString))
         {
             builder.AddNpgSql(connectionString, name: "postgresql", tags: ["ready", "database"]);

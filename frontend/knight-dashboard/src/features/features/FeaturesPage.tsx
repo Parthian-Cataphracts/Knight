@@ -11,6 +11,7 @@ import { StatusChip, type Tone } from "@/components/ui/StatusChip";
 import { Button } from "@/components/ui/Button";
 import { useAuthStore } from "@/store/auth";
 import { formatDateTime, formatNumber } from "@/lib/utils/format";
+import { planLabel } from "@/lib/utils/planLabel";
 
 const featureTone: Record<FeatureStatus, Tone> = {
   Published: "success",
@@ -108,7 +109,7 @@ export function FeaturesPage() {
       header: t("features.plans"),
       secondary: true,
       render: (row) =>
-        (row.plans ?? []).length === 0 ? "—" : (row.plans ?? []).map((plan) => t(`planKey.${plan}`)).join("، "),
+        (row.plans ?? []).length === 0 ? "—" : (row.plans ?? []).map((plan) => planLabel(t, plan)).join("، "),
     },
   ];
 

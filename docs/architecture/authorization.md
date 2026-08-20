@@ -352,12 +352,12 @@ given source regardless of which accounts are targeted.
 
 ## Platform admin bootstrap
 
-There is no public registration endpoint, and there must never be one for
-`PlatformAdmin`. The first (and any subsequent) platform admin is provisioned
-by running `tools/Knight.Bootstrap` manually and offline:
+There is no public registration endpoint, and there must never be one for a
+platform administrator. The first (and any subsequent) one is provisioned by
+running `tools/Knight.Bootstrap` manually and offline:
 
 ```bash
-PLATFORM_DB_CONNECTION_STRING="..." dotnet run --project tools/Knight.Bootstrap -- --email admin@example.com
+CONTROL_PLANE_DB_CONNECTION_STRING="..." dotnet run --project tools/Knight.Bootstrap -- --email admin@example.com
 ```
 
 It prompts for the password interactively (masked, confirmed) — the password
