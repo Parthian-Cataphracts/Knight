@@ -21,6 +21,7 @@ namespace FeatureDelivery;
 /// </summary>
 internal sealed class AgentJobService : IAgentJobService
 {
+    private readonly IFeatureRolloutService _rollouts;
     private readonly IFeatureInstallationJobRepository _jobs;
     private readonly IFeatureInstallationRepository _installations;
     private readonly IFeatureConfigurationRepository _configurations;
@@ -34,6 +35,7 @@ internal sealed class AgentJobService : IAgentJobService
     private readonly FeatureDeliveryOptions _options;
 
     public AgentJobService(
+        IFeatureRolloutService rollouts,
         IFeatureInstallationJobRepository jobs,
         IFeatureInstallationRepository installations,
         IFeatureConfigurationRepository configurations,
@@ -46,6 +48,7 @@ internal sealed class AgentJobService : IAgentJobService
         IDateTimeProvider clock,
         IOptions<FeatureDeliveryOptions> options)
     {
+        _rollouts = rollouts;
         _jobs = jobs;
         _installations = installations;
         _configurations = configurations;
@@ -197,6 +200,20 @@ internal sealed class AgentJobService : IAgentJobService
                 report.FailureCode,
                 RollbackOutcome = job.RollbackOutcome.ToString(),
             });
+
+        // Last, and after everything above has been committed. If this job is
+        // part of a staged rollout, this is the report that decides whether the
+        // next wave goes out or the rollout halts. Doing it here rather than in
+        // a sweep means a failed canary stops the rollout at the moment the
+        // agent says so, not up to a minute later.
+        //
+        // A job that is not part of a rollout — most of them — costs one indexed
+        // lookup that finds nothing.
+        await _rollouts.RecordJobOutcomeAsync(
+            job.Id,
+            report.Succeeded,
+            report.Succeeded ? null : job.FailureMessage ?? job.FailureCode,
+            cancellationToken);
     }
 
     /// <summary>

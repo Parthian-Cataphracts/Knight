@@ -27,6 +27,7 @@ public static class ControlPlaneDeliveryEndpoints
         MapVersions(endpoints);
         MapInstallations(endpoints);
         MapJobs(endpoints);
+        MapRollouts(endpoints);
     }
 
     // --- Registry: versions -------------------------------------------------
@@ -355,4 +356,108 @@ public static class ControlPlaneDeliveryEndpoints
 
     private static IResult ValidationProblem(string field, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [field] = [message] });
+
+    // --- Delivery: staged rollouts ------------------------------------------
+
+    /// <summary>
+    /// Rolling one Feature version across the fleet, a wave at a time.
+    ///
+    /// Guarded by <c>feature.publish</c> rather than <c>installation.manage</c>,
+    /// and that is the whole security argument for these routes. A rollout
+    /// crosses customers and installs code into other people's production
+    /// systems; it is platform business of the same weight as publishing the
+    /// version in the first place, and no customer-scoped role holds that
+    /// permission. Installing into one store stays <c>installation.manage</c>.
+    /// </summary>
+    private static void MapRollouts(IEndpointRouteBuilder endpoints)
+    {
+        var group = endpoints.MapGroup("/api/v1/rollouts")
+            .RequireAuthorization(ControlPlaneAuthorizationExtensions.UserPolicy)
+            .RequireRateLimiting("control-plane")
+            .WithTags("Rollouts");
+
+        group.MapGet("/", async (
+            int? page,
+            int? pageSize,
+            string? state,
+            IFeatureRolloutService service,
+            CancellationToken cancellationToken) =>
+        {
+            RolloutState? parsed = Enum.TryParse<RolloutState>(state, ignoreCase: true, out var value) ? value : null;
+
+            var result = await service.ListAsync(page ?? 1, pageSize ?? 20, parsed, cancellationToken);
+
+            return Results.Ok(new PagedResponse<RolloutResponse>
+            {
+                Items = [.. result.Items.Select(rollout => rollout.ToResponse())],
+                Page = result.Page,
+                PageSize = result.PageSize,
+                TotalCount = result.TotalCount,
+            });
+        }).RequirePermission(ControlPlanePermissions.FeaturePublish);
+
+        group.MapGet("/{id:guid}", async (
+            Guid id,
+            IFeatureRolloutService service,
+            CancellationToken cancellationToken) =>
+        {
+            var rollout = await service.GetAsync(id, cancellationToken);
+            return rollout is null ? Results.NotFound() : Results.Ok(rollout.ToResponse());
+        }).RequirePermission(ControlPlanePermissions.FeaturePublish);
+
+        // Planning changes nothing an agent will act on. It exists so an operator
+        // can see which store is the canary and how many go in each wave *before*
+        // committing to sending code to any of them.
+        group.MapPost("/", async (
+            PlanRolloutRequest request,
+            IFeatureRolloutService service,
+            CancellationToken cancellationToken) =>
+        {
+            var rollout = await service.PlanAsync(
+                new PlanRolloutInput(
+                    request.Slug,
+                    request.Version,
+                    request.WavePercentages ?? [],
+                    request.FailureThreshold ?? 1,
+                    request.StoreIds,
+                    request.CanaryStoreId),
+                cancellationToken);
+
+            return Results.Created($"/api/v1/rollouts/{rollout.Id}", rollout.ToResponse());
+        }).RequirePermission(ControlPlanePermissions.FeaturePublish);
+
+        group.MapPost("/{id:guid}/start", async (
+            Guid id,
+            IFeatureRolloutService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok((await service.StartAsync(id, cancellationToken)).ToResponse()))
+            .RequirePermission(ControlPlanePermissions.FeaturePublish);
+
+        // The kill switch risks.md R16 asks for. Halting queues nothing further;
+        // it deliberately does not cancel a job already running inside a store,
+        // because interrupting a migration half-way is worse than letting it
+        // finish.
+        group.MapPost("/{id:guid}/halt", async (
+            Guid id,
+            RolloutActionRequest request,
+            IFeatureRolloutService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok((await service.HaltAsync(id, request.Reason, cancellationToken)).ToResponse()))
+            .RequirePermission(ControlPlanePermissions.FeaturePublish);
+
+        group.MapPost("/{id:guid}/resume", async (
+            Guid id,
+            IFeatureRolloutService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok((await service.ResumeAsync(id, cancellationToken)).ToResponse()))
+            .RequirePermission(ControlPlanePermissions.FeaturePublish);
+
+        group.MapPost("/{id:guid}/cancel", async (
+            Guid id,
+            RolloutActionRequest request,
+            IFeatureRolloutService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok((await service.CancelAsync(id, request.Reason, cancellationToken)).ToResponse()))
+            .RequirePermission(ControlPlanePermissions.FeaturePublish);
+    }
 }

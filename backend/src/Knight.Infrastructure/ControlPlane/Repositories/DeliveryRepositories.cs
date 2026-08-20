@@ -363,3 +363,90 @@ internal sealed class StoreImageRepository : IStoreImageRepository
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) => _context.SaveChangesAsync(cancellationToken);
 }
+
+/// <summary>
+/// Persistence for staged rollouts.
+///
+/// Waves and their targets are auto-included by the mapping, because every
+/// operation on a rollout is a decision about which stores go next — a rollout
+/// loaded without them cannot answer a single useful question.
+/// </summary>
+internal sealed class FeatureRolloutRepository : IFeatureRolloutRepository
+{
+    private static readonly RolloutState[] LiveStates =
+    [
+        RolloutState.Planned,
+        RolloutState.InProgress,
+        RolloutState.Halted,
+    ];
+
+    private readonly ControlPlaneDbContext _context;
+
+    public FeatureRolloutRepository(ControlPlaneDbContext context)
+    {
+        _context = context;
+    }
+
+    public Task<FeatureRollout?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
+        _context.FeatureRollouts.FirstOrDefaultAsync(rollout => rollout.Id == id, cancellationToken);
+
+    public Task<FeatureRollout?> FindActiveForFeatureAsync(Guid featureId, CancellationToken cancellationToken) =>
+        _context.FeatureRollouts
+            .FirstOrDefaultAsync(
+                rollout => rollout.FeatureId == featureId && LiveStates.Contains(rollout.State),
+                cancellationToken);
+
+    public async Task<FeatureRollout?> FindByJobAsync(Guid jobId, CancellationToken cancellationToken)
+    {
+        // Two steps rather than a join through the collection: the target names
+        // the wave, the wave names the rollout, and loading the rollout by id
+        // brings its waves and targets with it.
+        var rolloutId = await _context.RolloutTargets
+            .AsNoTracking()
+            .Where(target => target.JobId == jobId)
+            .Join(
+                _context.RolloutWaves.AsNoTracking(),
+                target => target.WaveId,
+                wave => wave.Id,
+                (_, wave) => wave.RolloutId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return rolloutId == Guid.Empty
+            ? null
+            : await GetByIdAsync(rolloutId, cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<FeatureRollout>> ListAdvanceableAsync(CancellationToken cancellationToken) =>
+        await _context.FeatureRollouts
+            .Where(rollout => rollout.State == RolloutState.InProgress)
+            .OrderBy(rollout => rollout.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+    public async Task<(IReadOnlyCollection<FeatureRollout> Items, long TotalCount)> ListAsync(
+        int page,
+        int pageSize,
+        RolloutState? state,
+        CancellationToken cancellationToken)
+    {
+        var query = _context.FeatureRollouts.AsQueryable();
+
+        if (state is { } wanted)
+        {
+            query = query.Where(rollout => rollout.State == wanted);
+        }
+
+        // Ordered before Skip/Take. A page taken from an unordered query is not a
+        // page, it is a sample.
+        var ordered = query.OrderByDescending(rollout => rollout.CreatedAt).ThenBy(rollout => rollout.Id);
+
+        var total = await ordered.LongCountAsync(cancellationToken);
+        var items = await ordered.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
+
+        return (items, total);
+    }
+
+    public async Task AddAsync(FeatureRollout rollout, CancellationToken cancellationToken) =>
+        await _context.FeatureRollouts.AddAsync(rollout, cancellationToken);
+
+    public Task SaveChangesAsync(CancellationToken cancellationToken) => _context.SaveChangesAsync(cancellationToken);
+}
