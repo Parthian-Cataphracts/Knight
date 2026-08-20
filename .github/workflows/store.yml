@@ -1,0 +1,96 @@
+name: Store
+
+# The reference store and the dashboard.
+#
+# Phase 8 moved the business domains out of the .NET solution and into Django,
+# which made this suite the only thing standing behind catalogue, orders,
+# fulfilment, payments and the two optional Features. Leaving it out of CI would
+# have meant the backend workflow going green while the code that actually runs
+# a shop was never compiled, let alone tested.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  reference-store:
+    name: Reference store
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: knight
+          POSTGRES_PASSWORD: knight
+          POSTGRES_DB: refstore
+        ports: ['5433:5432']
+        # Without the health check the first migration can race the server's
+        # own startup and fail for a reason that has nothing to do with the code.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: stores/reference-store/requirements-dev.txt
+
+      - name: Install dependencies
+        working-directory: stores/reference-store
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      # Installed the way a store installs them, so the packaging is exercised
+      # rather than assumed: a Feature that cannot be installed is a Feature that
+      # does not work, however well its own tests pass.
+      - name: Install the optional Features
+        run: pip install ./features/knight-feature-promotions ./features/knight-feature-delivery
+
+      - name: Test
+        working-directory: stores/reference-store
+        env:
+          STORE_DB_HOST: localhost
+          STORE_DB_PORT: '5433'
+          KNIGHT_FEATURE_ROOT: ${{ github.workspace }}/stores/knight-features
+        run: python manage.py test
+
+  dashboard:
+    name: Dashboard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/knight-dashboard/package-lock.json
+
+      - name: Install
+        working-directory: frontend/knight-dashboard
+        run: npm ci
+
+      # Type checking is separate from the tests on purpose. Most of the
+      # frontend defects this project has hit were contract mismatches — a field
+      # the API renamed, a value that turned out to be nullable — and those show
+      # up here, not in a component test.
+      - name: Type check
+        working-directory: frontend/knight-dashboard
+        run: npx tsc --noEmit
+
+      - name: Test
+        working-directory: frontend/knight-dashboard
+        run: npx vitest run
+
+      - name: Build
+        working-directory: frontend/knight-dashboard
+        run: npm run build
