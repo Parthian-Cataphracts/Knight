@@ -129,6 +129,15 @@ public static class ControlPlaneInfrastructure
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        // Token signing configuration used to be bound by the legacy platform
+        // registration; the control plane is the only issuer left, so it binds
+        // its own. ValidateOnStart because a host that starts without a signing
+        // key only fails at the first sign-in attempt otherwise.
+        services.AddOptions<Knight.Infrastructure.Security.JwtOptions>()
+            .Bind(configuration.GetSection(Knight.Infrastructure.Security.JwtOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         services.AddSharedInfrastructureCache(configuration);
         services.AddSingleton<IStoreTokenIssuer, StoreTokenIssuer>();
         services.AddSingleton<IStorePayloadSigner, StorePayloadSigner>();
@@ -138,14 +147,8 @@ public static class ControlPlaneInfrastructure
         services.AddSingleton<IDomainOwnershipVerifier, DomainOwnershipVerifier>();
         services.AddStoreOutboundHttp();
 
-        // The control plane's security primitives are adapters over the shared
-        // implementations, so those have to exist even in a host that wires
-        // nothing else — the bootstrap tool is exactly that host, and phase 8
-        // will make the API one too. TryAdd keeps the legacy registration
-        // authoritative wherever both are present.
-        services.TryAddSingleton<Identity.Abstractions.IPasswordHasher, Knight.Infrastructure.Security.Pbkdf2PasswordHasher>();
-        services.TryAddSingleton<Identity.Abstractions.IRefreshTokenGenerator, Knight.Infrastructure.Security.RefreshTokenGenerator>();
-
+        // The control plane owns its security primitives outright since phase 8
+        // removed the legacy modules they used to adapt over.
         services.AddSingleton<IControlPlanePasswordHasher, ControlPlanePasswordHasher>();
         services.AddSingleton<ISecureTokenFactory, SecureTokenFactory>();
         services.AddSingleton<IControlPlaneTokenGenerator, ControlPlaneTokenGenerator>();

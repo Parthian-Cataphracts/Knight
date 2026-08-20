@@ -3,7 +3,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Knight.Infrastructure\Knight.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Knight.Application\Knight.Application.csproj" />
-    <ProjectReference Include="..\..\modules\Identity\Identity.csproj" />
     <ProjectReference Include="..\..\modules\AccessControl\AccessControl.csproj" />
   </ItemGroup>
 

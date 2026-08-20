@@ -53,7 +53,12 @@ public sealed class AccountAdministrationTests
 
         // Reading the account back never yields the password: it is stored only
         // as a hash, and no endpoint exposes it.
-        var listed = await client.GetAsync("/api/v1/users?pageSize=100");
+        //
+        // Searched by email rather than read off a large first page: the suite
+        // creates accounts freely, and a paged listing that happened to push this
+        // one onto page two would fail the assertion below for a reason that has
+        // nothing to do with what is being tested.
+        var listed = await client.GetAsync($"/api/v1/users?q={Uri.EscapeDataString(email)}");
         listed.EnsureSuccessStatusCode();
 
         var raw = await listed.Content.ReadAsStringAsync();
