@@ -126,7 +126,9 @@
     "create": "New customer",
     "suspend": "Suspend",
     "activate": "Activate",
-    "archive": "Archive"
+    "archive": "Archive",
+    "edit": "Edit customer",
+    "contactEmail": "Contact email"
   },
   "customerStatus": {
     "Active": "Active",
@@ -172,7 +174,9 @@
     "suspend": "Suspend store",
     "activate": "Activate",
     "archive": "Archive",
-    "secretShownOnce": "This secret is shown once and never again. Copy it now."
+    "secretShownOnce": "This secret is shown once and never again. Copy it now.",
+    "edit": "Edit store",
+    "primaryDomain": "Primary domain"
   },
   "features": {
     "subtitle": "Central registry of versioned, deployable features.",
@@ -293,7 +297,9 @@
     "cancel": "Cancel job",
     "attempts": "Attempts",
     "trigger": "Trigger",
-    "errorMessage": "Failure"
+    "errorMessage": "Failure",
+    "live": "Live",
+    "notLive": "Not live"
   },
   "plans": {
     "subtitle": "Plans, entitlement matrix and customer subscriptions.",
@@ -305,7 +311,13 @@
     "matrix": "Entitlement matrix",
     "feature": "Feature",
     "subscriptions": "Subscriptions",
-    "pricingNote": "Prices are computed from the plan and selected features; never hard-coded."
+    "pricingNote": "Prices are computed from the plan and selected features; never hard-coded.",
+    "activate": "Make available",
+    "deactivate": "Withdraw",
+    "key": "Key",
+    "description": "Description",
+    "basePrice": "Base price",
+    "currency": "Currency"
   },
   "subscriptions": {
     "customer": "Customer",

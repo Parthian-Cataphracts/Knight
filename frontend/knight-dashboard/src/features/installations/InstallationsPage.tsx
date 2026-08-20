@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, CheckCircle2, CircleDot, RotateCcw, XCircle, Clock } from "lucide-react";
 import { useAction, useCollection, useResource } from "@/lib/api/hooks";
+import { useRealtimeRefresh } from "@/lib/realtime/useRealtime";
+import { isRealtimeConnected } from "@/lib/realtime/connection";
 import type { Installation, Job, JobDetail, JobStep } from "@/lib/api/domain";
 import type { InstallPlan } from "@/lib/api/fixtures-detail";
 import { PageShell, PageHeader, Toolbar, FilterTabs, KeyValue, Mono } from "@/components/data/PageShell";
@@ -41,6 +43,10 @@ const stepColor = {
 function JobProgress({ job }: { job: Job }) {
   const { t } = useTranslation();
   const detail = useResource<JobDetail>(`/jobs/${job.id}`);
+
+  // The drawer is open on one job while it is running, so its steps follow the
+  // same pushes the lists do.
+  useRealtimeRefresh(["jobProgress", "jobCompleted"], [`/jobs/${job.id}`]);
   const steps = detail.data?.steps ?? [];
 
   if (steps.length === 0) {
@@ -111,6 +117,15 @@ export function InstallationsPage() {
 
   const cancelJob = useAction<unknown, string>(
     (id) => ({ path: `/jobs/${id}/cancel` }),
+    ["/jobs", "/installations"],
+  );
+
+  // A job is the one thing in KNIGHT an operator watches happen: it runs for
+  // minutes on somebody else's machine and can fail halfway. The push says the
+  // data is stale and the lists refetch — so somebody who had the tab closed
+  // sees the same thing as somebody who watched it.
+  useRealtimeRefresh(
+    ["jobProgress", "jobCompleted", "featureInstallationStateChanged"],
     ["/jobs", "/installations"],
   );
   const preview = useResource<InstallPlan>(
@@ -226,7 +241,11 @@ export function InstallationsPage() {
 
   return (
     <PageShell>
-      <PageHeader title={t("nav.installations")} subtitle={t("installations.subtitle")} />
+      <PageHeader
+        title={t("nav.installations")}
+        subtitle={t("installations.subtitle")}
+        actions={<LiveIndicator />}
+      />
 
       {tab === "installations" ? (
         <CollectionCard
@@ -524,5 +543,33 @@ export function InstallationsPage() {
         onConfirm={() => setPreviewFor(null)}
       />
     </PageShell>
+  );
+}
+
+/**
+ * Says whether the screen is following changes or waiting for a refresh.
+ *
+ * Worth showing because the two look identical when nothing is happening, and
+ * an operator staring at a stalled job needs to know which of the two they are
+ * looking at.
+ */
+function LiveIndicator() {
+  const { t } = useTranslation();
+  const [live, setLive] = useState(isRealtimeConnected());
+
+  useEffect(() => {
+    const timer = setInterval(() => setLive(isRealtimeConnected()), 2000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <span className="flex items-center gap-2 text-body-sm text-on-surface-variant">
+      <span
+        aria-hidden
+        className={`size-2 rounded-full ${live ? "bg-success" : "bg-on-surface-variant/40"}`}
+      />
+      {live ? t("jobs.live") : t("jobs.notLive")}
+    </span>
   );
 }

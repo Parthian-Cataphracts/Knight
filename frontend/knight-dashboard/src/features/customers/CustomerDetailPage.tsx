@@ -11,6 +11,7 @@ import { CollectionCard } from "@/components/data/CollectionCard";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { Tabs, Timeline } from "@/components/data/Tabs";
 import { TextField } from "@/components/ui/TextField";
+import { EditDrawer } from "@/features/shared/EditDrawer";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { StatusChip, type Tone } from "@/components/ui/StatusChip";
 import { Button } from "@/components/ui/Button";
@@ -44,6 +45,7 @@ export function CustomerDetailPage() {
   );
 
   const [noteBody, setNoteBody] = useState("");
+  const [editing, setEditing] = useState(false);
 
   // A manual grant is deliberately its own act, separate from the plan.
   // Entitlement resolution reconciles what a subscription implies; a grant is a
@@ -250,6 +252,10 @@ export function CustomerDetailPage() {
                 </Button>
               )}
 
+              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                {t("common.edit")}
+              </Button>
+
               {can("customer.archive") && customer.status !== "Archived" ? (
                 <Button
                   variant="outline"
@@ -263,6 +269,22 @@ export function CustomerDetailPage() {
             </>
           ) : undefined
         }
+      />
+
+      <EditDrawer
+        open={editing}
+        title={t("customers.edit")}
+        subtitle={customer.name}
+        path={`/customers/${customerId}`}
+        fields={[
+          { key: "name", label: t("common.name"), value: customer.name },
+          { key: "contactEmail", label: t("customers.contactEmail"), value: customer.contactEmail, ltr: true },
+        ]}
+        onClose={() => setEditing(false)}
+        onSaved={() => {
+          setEditing(false);
+          void customers.refetch();
+        }}
       />
 
       <Tabs<Tab>

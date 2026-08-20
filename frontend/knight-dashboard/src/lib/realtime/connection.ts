@@ -80,6 +80,17 @@ export function connectRealtime(): HubConnection {
   return connection;
 }
 
+/**
+ * Whether the channel is open right now.
+ *
+ * Read by the screens that show a live indicator. Deliberately a poll rather
+ * than a subscription: the connection state changes rarely, and a state store
+ * for it would be more machinery than the question deserves.
+ */
+export function isRealtimeConnected(): boolean {
+  return connection?.state === HubConnectionState.Connected;
+}
+
 export function disconnectRealtime(): void {
   if (!connection) return;
 
