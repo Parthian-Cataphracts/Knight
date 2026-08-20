@@ -20,6 +20,7 @@ internal sealed class StoreManagementService : IStoreManagementService
     private const int MaxPageSize = 100;
 
     private readonly IStoreRepository _stores;
+    private readonly IServerPlacementReader _servers;
     private readonly ISecureTokenFactory _secrets;
     private readonly IAuditTrail _audit;
     private readonly IDateTimeProvider _clock;
@@ -27,12 +28,14 @@ internal sealed class StoreManagementService : IStoreManagementService
 
     public StoreManagementService(
         IStoreRepository stores,
+        IServerPlacementReader servers,
         ISecureTokenFactory secrets,
         IAuditTrail audit,
         IDateTimeProvider clock,
         IOptions<StoreOptions> options)
     {
         _stores = stores;
+        _servers = servers;
         _secrets = secrets;
         _audit = audit;
         _clock = clock;
@@ -105,6 +108,12 @@ internal sealed class StoreManagementService : IStoreManagementService
         }
 
         store.UpdateProfile(input.Name, input.PrimaryDomain, now);
+
+        if (input.ServerId is { } serverId)
+        {
+            await EnsurePlacementIsAllowedAsync(store, serverId, cancellationToken);
+        }
+
         store.AssignServer(input.ServerId, now);
 
         if (input.Environment is { } environment)
@@ -203,6 +212,73 @@ internal sealed class StoreManagementService : IStoreManagementService
             store.CustomerId,
             cancellationToken,
             newValue: new { storeId = store.Id });
+    }
+
+    public async Task<Store> SetMutualTlsAsync(Guid storeId, string? thumbprint, CancellationToken cancellationToken)
+    {
+        var store = await RequireAsync(storeId, cancellationToken);
+        var now = _clock.UtcNow;
+        var wasRequired = store.RequiresMutualTls;
+
+        if (string.IsNullOrWhiteSpace(thumbprint))
+        {
+            store.ClearMutualTls(now);
+        }
+        else
+        {
+            store.RequireMutualTls(thumbprint, now);
+        }
+
+        await _stores.SaveChangesAsync(cancellationToken);
+
+        // The thumbprint itself is recorded: it is a public identifier of a
+        // certificate, not a secret, and an audit entry that cannot say which
+        // certificate was bound is no use during an incident.
+        await _audit.RecordAsync(
+            store.RequiresMutualTls ? "store.mtls.required" : "store.mtls.cleared",
+            nameof(Store),
+            store.Id.ToString(),
+            store.CustomerId,
+            cancellationToken,
+            previousValue: new { required = wasRequired },
+            newValue: new { required = store.RequiresMutualTls, thumbprint = store.MutualTlsThumbprint });
+
+        return store;
+    }
+
+    /// <summary>
+    /// Refuses a placement that would put one customer's store on another
+    /// customer's dedicated machine.
+    ///
+    /// The check is here rather than in the aggregate because the store cannot
+    /// see servers: the fact lives in another module and arrives through a port.
+    /// Getting this wrong is not a tidiness problem — dedicated infrastructure is
+    /// something a customer pays for and is sometimes contractually promised.
+    /// </summary>
+    private async Task EnsurePlacementIsAllowedAsync(Store store, Guid serverId, CancellationToken cancellationToken)
+    {
+        var placement = await _servers.GetAsync(serverId, cancellationToken)
+            ?? throw new NotFoundException($"Server '{serverId}' was not found.");
+
+        if (placement.IsDecommissioned)
+        {
+            throw new ConflictException("That server has been decommissioned and cannot host a store.");
+        }
+
+        if (placement.DedicatedCustomerId is { } owner && owner != store.CustomerId)
+        {
+            throw new ConflictException(
+                "That server is dedicated to another customer. A dedicated machine hosts one customer's stores and nobody else's.");
+        }
+
+        if (!string.Equals(placement.Environment, store.Environment.ToString(), StringComparison.Ordinal))
+        {
+            // Environments are first class and never inferred: a production store
+            // on a staging machine is exactly the mix-up that separation exists
+            // to prevent (docs/architecture.md §8).
+            throw new ConflictException(
+                $"That server is a {placement.Environment} machine and this store is registered as {store.Environment}.");
+        }
     }
 
     private async Task<Store> TransitionAsync(

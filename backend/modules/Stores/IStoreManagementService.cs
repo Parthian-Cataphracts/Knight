@@ -51,6 +51,13 @@ public interface IStoreManagementService
 
     Task<Store> ArchiveAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Binds the store to a client certificate, or clears the binding when
+    /// <paramref name="thumbprint"/> is null. Only available to a store on
+    /// dedicated or customer-managed infrastructure.
+    /// </summary>
+    Task<Store> SetMutualTlsAsync(Guid storeId, string? thumbprint, CancellationToken cancellationToken);
+
     Task<IssuedStoreCredential> IssueCredentialAsync(Guid storeId, CancellationToken cancellationToken);
 
     /// <summary>Issues a replacement and leaves the previous secret usable for the configured grace window.</summary>

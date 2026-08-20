@@ -92,6 +92,17 @@ public static class ControlPlaneCustomerEndpoints
             return Results.Ok(ToResponse(customer));
         }).RequirePermission(ControlPlanePermissions.CustomerUpdate);
 
+        // Its own route rather than a field on the update: a negotiated
+        // retention window is a contractual promise, and it wants an audit entry
+        // that says so rather than one that says "customer updated".
+        group.MapPut("/{id:guid}/retention", async (
+            Guid id,
+            SetRetentionOverrideRequest request,
+            ICustomerManagementService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok(ToResponse(await service.SetRetentionOverrideAsync(id, request.Days, cancellationToken))))
+            .RequirePermission(ControlPlanePermissions.CustomerUpdate);
+
         group.MapPost("/{id:guid}/activate", async (Guid id, ICustomerManagementService service, CancellationToken cancellationToken) =>
             Results.Ok(ToResponse(await service.ActivateAsync(id, cancellationToken))))
             .RequirePermission(ControlPlanePermissions.CustomerUpdate);
@@ -135,6 +146,7 @@ public static class ControlPlaneCustomerEndpoints
     {
         StoreCount = summary?.StoreCount ?? 0,
         PlanKey = summary?.PlanKey,
+        DataRetentionOverrideDays = customer.DataRetentionOverrideDays,
         Id = customer.Id,
         Name = customer.Name,
         LegalName = customer.LegalName,

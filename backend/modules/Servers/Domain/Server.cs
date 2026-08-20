@@ -34,6 +34,14 @@ public sealed class Server : AuditableEntity
 
     public ServerEnvironment Environment { get; private set; }
 
+    /// <summary>
+    /// The customer a dedicated machine belongs to. Null for shared hardware,
+    /// and required for a dedicated one — a machine sold as dedicated with no
+    /// customer recorded is a machine nobody can prove is dedicated to anybody
+    /// (docs/store-provisioning.md §2).
+    /// </summary>
+    public Guid? DedicatedCustomerId { get; private set; }
+
     public ServerStatus Status { get; private set; }
 
     /// <summary>When an agent on this server last checked in. Null until the first one does.</summary>
@@ -93,6 +101,32 @@ public sealed class Server : AuditableEntity
             Trim(provider, 100),
             Trim(region, 100),
             Trim(ipAddress, 45));
+
+    /// <summary>
+    /// Records which customer a dedicated machine is for, or clears it when the
+    /// machine goes back into the shared pool.
+    ///
+    /// The dedication is enforced where stores are assigned: a store may only be
+    /// placed on a dedicated machine belonging to its own customer. Recording it
+    /// here is what makes that check possible at all.
+    /// </summary>
+    public void DedicateTo(Guid? customerId, DateTimeOffset now)
+    {
+        EnsureActive();
+
+        if (customerId is null && HostingModel is ServerHostingModel.DedicatedManaged)
+        {
+            throw DomainException.Conflict("A dedicated server must name the customer it is dedicated to.");
+        }
+
+        if (customerId is not null && HostingModel is ServerHostingModel.SharedManaged)
+        {
+            throw DomainException.Conflict("A shared server hosts several customers and cannot be dedicated to one.");
+        }
+
+        DedicatedCustomerId = customerId;
+        MarkUpdated(now);
+    }
 
     public void UpdateDetails(string name, string? provider, string? region, string? ipAddress, DateTimeOffset now)
     {

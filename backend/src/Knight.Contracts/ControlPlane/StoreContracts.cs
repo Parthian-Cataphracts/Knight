@@ -103,6 +103,12 @@ public sealed record StoreResponse
 
     public Guid? ServerId { get; init; }
 
+    /// <summary>Whether the store must present a client certificate as well as its credential.</summary>
+    public bool RequiresMutualTls { get; init; }
+
+    /// <summary>The bound certificate's thumbprint. A public identifier, not a secret; null when none is bound.</summary>
+    public string? MutualTlsThumbprint { get; init; }
+
     /// <summary>
     /// Null until feature delivery exists (phase 3.5). Zero would claim the
     /// store has nothing installed, which is a different statement from "not
@@ -350,3 +356,10 @@ public sealed record StoreLogEntryResponse
 
     public string? TraceId { get; init; }
 }
+
+/// <summary>
+/// Binds a store to a client certificate, or clears the binding when the
+/// thumbprint is null. Only meaningful for a store on dedicated or
+/// customer-managed infrastructure.
+/// </summary>
+public sealed record SetMutualTlsRequest(string? Thumbprint);

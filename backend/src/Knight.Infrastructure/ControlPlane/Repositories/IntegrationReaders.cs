@@ -167,3 +167,33 @@ internal sealed class BackupHealthReader : IBackupHealthReader
         return [.. stores.Select(store => new StoreWithoutBackup(store.Id, store.CustomerId, store.Name, store.LastBackupAt))];
     }
 }
+
+/// <summary>
+/// Where a machine sits, so the Stores module can refuse a placement without
+/// referencing the module that owns servers.
+/// </summary>
+internal sealed class ServerPlacementReader : IServerPlacementReader
+{
+    private readonly ControlPlaneDbContext _context;
+
+    public ServerPlacementReader(ControlPlaneDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<ServerPlacement?> GetAsync(Guid serverId, CancellationToken cancellationToken)
+    {
+        var server = await _context.Servers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == serverId, cancellationToken);
+
+        return server is null
+            ? null
+            : new ServerPlacement(
+                server.Id,
+                server.HostingModel.ToString(),
+                server.Environment.ToString(),
+                server.DedicatedCustomerId,
+                server.DecommissionedAt is not null);
+    }
+}

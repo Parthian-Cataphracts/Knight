@@ -50,6 +50,21 @@ public sealed class Store : AuditableEntity, ICustomerOwned
     public Guid? ServerId { get; private set; }
 
     /// <summary>
+    /// SHA-256 thumbprint of the client certificate this store must present, or
+    /// null when it authenticates with its credential alone.
+    ///
+    /// Optional, and only for a store on its own infrastructure. Mutual TLS is a
+    /// second, independent factor on the transport: a stolen client secret is
+    /// useless without the private key of a certificate KNIGHT was told about in
+    /// advance. It is not offered on shared hosting, where the certificate would
+    /// have to live beside other customers' stores and would prove rather less
+    /// than it appears to (docs/store-integration.md).
+    /// </summary>
+    public string? MutualTlsThumbprint { get; private set; }
+
+    public bool RequiresMutualTls => MutualTlsThumbprint is not null;
+
+    /// <summary>
     /// The token whoever controls <see cref="PrimaryDomain"/> must publish to
     /// prove they do. Null until an operator asks for one; it is not a secret in
     /// the credential sense — publishing it is the whole point — but it is
@@ -174,6 +189,46 @@ public sealed class Store : AuditableEntity, ICustomerOwned
         LastSeenAt = null;
         ClearDomainVerification();
 
+        MarkUpdated(now);
+    }
+
+    /// <summary>
+    /// Binds the store to a client certificate. Every call it makes from now on
+    /// must present that certificate as well as its credential.
+    ///
+    /// Refused on shared hosting: the certificate would have to be deployed
+    /// somewhere a dozen other customers' stores also run, which is not the
+    /// property mutual TLS is being bought for.
+    /// </summary>
+    public void RequireMutualTls(string thumbprint, DateTimeOffset now)
+    {
+        EnsureNotArchived();
+
+        if (HostingModel is HostingModel.SharedManaged)
+        {
+            throw DomainException.Conflict(
+                "Mutual TLS is only available to a store on dedicated or customer-managed infrastructure.");
+        }
+
+        var normalised = (thumbprint ?? string.Empty).Replace(":", string.Empty, StringComparison.Ordinal).Trim().ToLowerInvariant();
+
+        // A SHA-256 thumbprint is 64 hex characters. Anything else is a
+        // SHA-1 fingerprint, a truncated copy-paste, or a different field
+        // entirely — and a binding nobody can satisfy locks the store out.
+        if (normalised.Length != 64 || !normalised.All(Uri.IsHexDigit))
+        {
+            throw DomainException.Validation("A client certificate thumbprint must be a hex-encoded sha-256.");
+        }
+
+        MutualTlsThumbprint = normalised;
+        MarkUpdated(now);
+    }
+
+    /// <summary>Stops requiring a client certificate. The credential alone is enough again.</summary>
+    public void ClearMutualTls(DateTimeOffset now)
+    {
+        EnsureNotArchived();
+        MutualTlsThumbprint = null;
         MarkUpdated(now);
     }
 

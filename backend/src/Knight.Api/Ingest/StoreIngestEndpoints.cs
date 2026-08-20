@@ -41,7 +41,9 @@ public static class StoreIngestEndpoints
 
         group.MapPost("/handshake", async (
             StoreHandshakeRequestBody request,
+            HttpContext context,
             IStoreIntegrationService integration,
+            IOptions<StoreOptions> storeOptions,
             CancellationToken cancellationToken) =>
         {
             var result = await integration.HandshakeAsync(
@@ -51,7 +53,11 @@ public static class StoreIngestEndpoints
                     request.Environment,
                     request.StoreVersion,
                     request.Runtime,
-                    request.Nonce),
+                    request.Nonce,
+
+                    // Read here rather than trusted from the body: a caller
+                    // naming its own certificate would be authenticating itself.
+                    PresentedCertificateThumbprint(context, storeOptions.Value)),
                 cancellationToken);
 
             if (!result.IsAccepted)
@@ -92,7 +98,11 @@ public static class StoreIngestEndpoints
 
         var authenticated = group.MapGroup(string.Empty)
             .RequireAuthorization(StoreAuthorization.Policy)
-            .RequireRateLimiting(IngestPolicy);
+            .RequireRateLimiting(IngestPolicy)
+
+            // Per request rather than per session: a token lives half an hour and
+            // a stolen one does not carry the certificate with it.
+            .AddEndpointFilter<MutualTlsGate>();
 
         authenticated.MapPost("/heartbeat", async (
             StoreHeartbeatRequest request,
@@ -351,6 +361,23 @@ public static class StoreIngestEndpoints
                     body.Summary),
                 cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// The client certificate the connection actually carried: either one this
+    /// process terminated, or the thumbprint the terminating proxy reported.
+    /// Never anything the caller put in the request body.
+    /// </summary>
+    private static string? PresentedCertificateThumbprint(HttpContext context, StoreOptions options)
+    {
+        if (context.Connection.ClientCertificate is { } certificate)
+        {
+            return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(certificate.RawData));
+        }
+
+        return context.Request.Headers.TryGetValue(options.ClientCertificateHeader, out var header)
+            ? header.ToString()
+            : null;
     }
 
     private static string? ReadString(Dictionary<string, object>? payload, string key)

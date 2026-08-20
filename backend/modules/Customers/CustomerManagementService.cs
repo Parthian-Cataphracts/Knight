@@ -96,6 +96,26 @@ internal sealed class CustomerManagementService : ICustomerManagementService
         return customer;
     }
 
+    public async Task<Customer> SetRetentionOverrideAsync(Guid id, int? days, CancellationToken cancellationToken)
+    {
+        var customer = await RequireAsync(id, cancellationToken);
+        var previous = customer.DataRetentionOverrideDays;
+
+        customer.SetDataRetentionOverride(days, _clock.UtcNow);
+        await _customers.SaveChangesAsync(cancellationToken);
+
+        await _audit.RecordAsync(
+            "customer.retention.changed",
+            nameof(Customer),
+            customer.Id.ToString(),
+            customer.Id,
+            cancellationToken,
+            previousValue: new { retentionDays = previous },
+            newValue: new { retentionDays = days });
+
+        return customer;
+    }
+
     public Task<Customer> ActivateAsync(Guid id, CancellationToken cancellationToken) =>
         TransitionAsync(id, "customer.activated", (customer, now) => customer.Activate(now), cancellationToken);
 

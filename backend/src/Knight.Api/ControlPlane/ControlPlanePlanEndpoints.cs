@@ -189,7 +189,13 @@ public static class ControlPlanePlanEndpoints
             Results.Ok(await PlanDescriptions.DescribeAsync(
                 await service.UpdateAsync(
                     id,
-                    new UpdatePlanInput(request.Name, request.Description, request.BasePrice, request.Currency, request.SortOrder),
+                    new UpdatePlanInput(
+                        request.Name,
+                        request.Description,
+                        request.BasePrice,
+                        request.Currency,
+                        request.SortOrder,
+                        request.DataRetentionDays),
                     cancellationToken),
                 features,
                 subscribers,

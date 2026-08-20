@@ -100,6 +100,17 @@ public static class ControlPlaneServerEndpoints
                 cancellationToken)).ToResponse()))
             .RequirePermission(ControlPlanePermissions.ServerManage);
 
+        // Dedication is recorded rather than inferred from who happens to have
+        // stores on the box: a machine sold as dedicated must be provably so
+        // before a store is placed on it.
+        group.MapPut("/{id:guid}/dedication", async (
+            Guid id,
+            DedicateServerRequest request,
+            IServerService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok((await service.DedicateAsync(id, request.CustomerId, cancellationToken)).ToResponse()))
+            .RequirePermission(ControlPlanePermissions.ServerManage);
+
         group.MapPost("/{id:guid}/decommission", async (
             Guid id,
             IServerService service,

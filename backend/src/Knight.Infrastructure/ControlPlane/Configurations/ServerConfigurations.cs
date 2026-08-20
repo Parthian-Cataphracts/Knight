@@ -38,6 +38,10 @@ internal sealed class ServerConfiguration : IEntityTypeConfiguration<Server>
 
         builder.HasIndex(s => new { s.Environment, s.Status });
 
+        // "Which machines belong to this customer" is asked whenever a store is
+        // placed and whenever a customer is deprovisioned.
+        builder.HasIndex(s => s.DedicatedCustomerId);
+
         // The sweep asks for exactly this: active servers that have reported.
         builder.HasIndex(s => s.LastSeenAt);
     }

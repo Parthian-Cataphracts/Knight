@@ -104,3 +104,32 @@ public interface IRetentionPolicyReader
 {
     Task<TimeSpan> ResolveAsync(Guid customerId, CancellationToken cancellationToken);
 }
+
+/// <summary>A published base store image, in the only terms provisioning needs.</summary>
+public sealed record BaseImageDescriptor(string Version, string StoreVersion, string ArtifactDigest);
+
+/// <summary>
+/// Looks up the base store image an operator says a store instance was built
+/// from. Provisioning records the answer on the run, so "which image is this
+/// store on" is a question the incident can ask months later.
+/// </summary>
+public interface IBaseImageCatalog
+{
+    /// <summary>Null when no such image exists, or when it exists but has been yanked.</summary>
+    Task<BaseImageDescriptor?> FindUsableAsync(string version, CancellationToken cancellationToken);
+}
+
+/// <summary>Where a machine sits, and who it belongs to if anybody.</summary>
+public sealed record ServerPlacement(Guid ServerId, string HostingModel, string Environment, Guid? DedicatedCustomerId, bool IsDecommissioned);
+
+/// <summary>
+/// Reads a server's placement so a store assignment can be checked against it.
+///
+/// The Stores module must be able to refuse putting one customer's store on
+/// another customer's dedicated machine, and it may not reference the module
+/// that owns servers to find out.
+/// </summary>
+public interface IServerPlacementReader
+{
+    Task<ServerPlacement?> GetAsync(Guid serverId, CancellationToken cancellationToken);
+}

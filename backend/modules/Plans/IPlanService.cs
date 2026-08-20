@@ -5,7 +5,19 @@ namespace Plans;
 
 public sealed record CreatePlanInput(string Key, string Name, string? Description, decimal BasePrice, string Currency, int SortOrder);
 
-public sealed record UpdatePlanInput(string Name, string? Description, decimal BasePrice, string Currency, int SortOrder);
+/// <summary>
+/// <paramref name="DataRetentionDays"/> is how long a customer on this plan
+/// keeps their data after a store is deprovisioned. Null means the deployment's
+/// default rather than zero: a plan that says nothing about retention is not a
+/// plan promising none.
+/// </summary>
+public sealed record UpdatePlanInput(
+    string Name,
+    string? Description,
+    decimal BasePrice,
+    string Currency,
+    int SortOrder,
+    int? DataRetentionDays = null);
 
 public sealed record SetPlanFeatureInput(Guid FeatureId, bool IsIncluded, bool IsCustomerToggleable, string? PinnedVersionRange);
 

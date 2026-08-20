@@ -160,6 +160,18 @@ public static class ControlPlaneStoreEndpoints
             Results.Ok(ToResponse(await service.ArchiveAsync(id, cancellationToken), clock.UtcNow)))
             .RequirePermission(ControlPlanePermissions.StoreManage);
 
+        // Mutual TLS sits with the credential permission rather than with
+        // store.manage: it decides what the store must present to authenticate,
+        // which is the same kind of decision as issuing or revoking a secret.
+        group.MapPut("/{id:guid}/mutual-tls", async (
+            Guid id,
+            SetMutualTlsRequest request,
+            IStoreManagementService service,
+            IDateTimeProvider clock,
+            CancellationToken cancellationToken) =>
+            Results.Ok(ToResponse(await service.SetMutualTlsAsync(id, request.Thumbprint, cancellationToken), clock.UtcNow)))
+            .RequirePermission(ControlPlanePermissions.StoreCredentialsManage);
+
         group.MapPost("/{id:guid}/credentials", async (Guid id, IStoreManagementService service, CancellationToken cancellationToken) =>
         {
             var issued = await service.IssueCredentialAsync(id, cancellationToken);
@@ -550,6 +562,8 @@ public static class ControlPlaneStoreEndpoints
         ApplicationVersion = store.ApplicationVersion,
         LastSeenAt = store.LastSeenAt,
         ServerId = store.ServerId,
+        RequiresMutualTls = store.RequiresMutualTls,
+        MutualTlsThumbprint = store.MutualTlsThumbprint,
 
         // Credentials are described by state, never by value: the response
         // carries no secret and no hash.

@@ -24,6 +24,7 @@ internal static class ServerMapping
         Provider = server.Provider,
         Region = server.Region,
         IpAddress = server.IpAddress,
+        DedicatedCustomerId = server.DedicatedCustomerId,
         LastSeenAt = server.LastSeenAt,
         DecommissionedAt = server.DecommissionedAt,
     };

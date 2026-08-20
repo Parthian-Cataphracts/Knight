@@ -13,7 +13,31 @@ public sealed record StoreHandshakeRequest(
     string Environment,
     string? StoreVersion,
     string? Runtime,
-    string? Nonce);
+    string? Nonce,
+    /// <summary>
+    /// The SHA-256 thumbprint of the client certificate the caller presented, as
+    /// the terminating proxy reported it. Null when the connection carried none,
+    /// which is only acceptable for a store that has not been bound to one.
+    /// </summary>
+    string? ClientCertificateThumbprint = null);
+
+/// <summary>Whether a store must present a client certificate, and which one.</summary>
+public sealed record StoreMutualTlsBinding(Guid StoreId, string? Thumbprint)
+{
+    public bool IsRequired => Thumbprint is not null;
+
+    /// <summary>
+    /// Compared case-insensitively and with separators stripped: proxies spell
+    /// a thumbprint in at least three ways and none of them is wrong.
+    /// </summary>
+    public bool IsSatisfiedBy(string? presented) =>
+        !IsRequired ||
+        (presented is not null &&
+         string.Equals(
+             presented.Replace(":", string.Empty, StringComparison.Ordinal).Trim(),
+             Thumbprint,
+             StringComparison.OrdinalIgnoreCase));
+}
 
 /// <summary>
 /// Everything a store needs to operate for the next half hour: the token, how to
@@ -117,6 +141,12 @@ public sealed record DomainVerificationResult(
 public interface IStoreIntegrationService
 {
     Task<StoreHandshakeResult> HandshakeAsync(StoreHandshakeRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The certificate binding for a store, for the gate that checks every
+    /// authenticated ingest call. Null when there is no such store.
+    /// </summary>
+    Task<StoreMutualTlsBinding?> GetMutualTlsBindingAsync(Guid storeId, CancellationToken cancellationToken);
 
     Task<StoreContactResult> RecordHeartbeatAsync(StoreHeartbeatInput input, CancellationToken cancellationToken);
 

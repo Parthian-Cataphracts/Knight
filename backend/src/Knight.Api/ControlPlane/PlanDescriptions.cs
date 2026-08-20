@@ -68,6 +68,7 @@ internal static class PlanDescriptions
             Currency = plan.Currency,
             IsActive = plan.IsActive,
             SortOrder = plan.SortOrder,
+            DataRetentionDays = plan.DataRetentionDays,
             Features = entries,
             IncludedFeatures = entries.Where(entry => entry.IsIncluded).Select(entry => entry.FeatureSlug).ToArray(),
             OptionalFeatures = entries

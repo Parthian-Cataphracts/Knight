@@ -128,6 +128,15 @@ internal sealed class StoreIntegrationService : IStoreIntegrationService
             return StoreHandshakeResult.Refused(verification.Refusal);
         }
 
+        // A store bound to a client certificate must present it. Reported as the
+        // same refusal as everything else: a caller learns that it may not
+        // connect, never which of the two factors it got wrong.
+        if (!new StoreMutualTlsBinding(store.Id, store.MutualTlsThumbprint).IsSatisfiedBy(request.ClientCertificateThumbprint))
+        {
+            await RecordRefusalAsync(request.ClientId, store, "client certificate mismatch", cancellationToken);
+            return StoreHandshakeResult.Refused(HandshakeRefusal.UnknownCredential);
+        }
+
         // Commercial state is checked last and reported as the same refusal: a
         // caller learns that it may not ingest, not why, and not that the client
         // id it guessed happens to exist.
@@ -364,6 +373,13 @@ internal sealed class StoreIntegrationService : IStoreIntegrationService
             newValue: new { storeId = store.Id, deployment.Version, deployment.PreviousVersion, Status = deployment.Status.ToString() });
 
         return deployment;
+    }
+
+    public async Task<StoreMutualTlsBinding?> GetMutualTlsBindingAsync(Guid storeId, CancellationToken cancellationToken)
+    {
+        var store = await _stores.GetByIdAsync(storeId, cancellationToken);
+
+        return store is null ? null : new StoreMutualTlsBinding(store.Id, store.MutualTlsThumbprint);
     }
 
     public async Task<StoreBackup> RecordBackupAsync(StoreBackupInput input, CancellationToken cancellationToken)

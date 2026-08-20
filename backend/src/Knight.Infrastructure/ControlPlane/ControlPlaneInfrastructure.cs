@@ -72,6 +72,7 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<Billing.Domain.IInvoiceRepository, InvoiceRepository>();
 
         services.AddScoped<FeatureRegistry.Domain.IFeatureVersionRepository, FeatureVersionRepository>();
+        services.AddScoped<FeatureRegistry.Domain.IStoreImageRepository, StoreImageRepository>();
         services.AddScoped<FeatureDelivery.Domain.IFeatureInstallationRepository, FeatureInstallationRepository>();
         services.AddScoped<FeatureDelivery.Domain.IFeatureInstallationJobRepository, FeatureInstallationJobRepository>();
         services.AddScoped<FeatureDelivery.Domain.IFeatureConfigurationRepository, FeatureConfigurationRepository>();
@@ -98,6 +99,7 @@ public static class ControlPlaneInfrastructure
         // The overdue-backup rule is about an absence, so it reads the store and
         // backup tables together rather than being told by anybody.
         services.AddScoped<IBackupHealthReader, BackupHealthReader>();
+        services.AddScoped<IServerPlacementReader, ServerPlacementReader>();
 
         // Provisioning touches more modules than anything else in the system, so
         // every one of its reads and writes crosses this boundary explicitly.

@@ -41,8 +41,21 @@ public interface IProvisioningService
     /// </summary>
     Task<ProvisioningJob> AdvanceAsync(Guid jobId, CancellationToken cancellationToken);
 
-    /// <summary>Records that a person did what only a person can do, and then advances.</summary>
-    Task<ProvisioningJob> CompleteManualStepAsync(Guid jobId, string stepName, string? detail, CancellationToken cancellationToken);
+    /// <summary>
+    /// Records that a person did what only a person can do, and then advances.
+    ///
+    /// <paramref name="baseImageVersion"/> is how the instance step names the
+    /// image the store was built from. It is checked against the registry rather
+    /// than believed: an image nobody published is not an answer to "what is this
+    /// store running", and Feature compatibility is resolved against the store
+    /// version that image pins.
+    /// </summary>
+    Task<ProvisioningJob> CompleteManualStepAsync(
+        Guid jobId,
+        string stepName,
+        string? detail,
+        string? baseImageVersion,
+        CancellationToken cancellationToken);
 
     /// <summary>Clears the failed step and resumes from it. Succeeded steps are not re-run.</summary>
     Task<ProvisioningJob> RetryAsync(Guid jobId, CancellationToken cancellationToken);

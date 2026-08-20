@@ -97,6 +97,26 @@ internal sealed class ServerService : IServerService
         return server;
     }
 
+    public async Task<Server> DedicateAsync(Guid id, Guid? customerId, CancellationToken cancellationToken)
+    {
+        var server = await RequireAsync(id, cancellationToken);
+        var previous = server.DedicatedCustomerId;
+
+        server.DedicateTo(customerId, _clock.UtcNow);
+        await _servers.SaveChangesAsync(cancellationToken);
+
+        await _audit.RecordAsync(
+            "server.dedicated",
+            "Server",
+            server.Id.ToString(),
+            customerId,
+            cancellationToken,
+            previousValue: new { dedicatedCustomerId = previous },
+            newValue: new { dedicatedCustomerId = customerId });
+
+        return server;
+    }
+
     public async Task DecommissionAsync(Guid id, CancellationToken cancellationToken)
     {
         var server = await RequireAsync(id, cancellationToken);
