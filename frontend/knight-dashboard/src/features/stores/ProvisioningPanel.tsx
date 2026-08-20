@@ -89,6 +89,14 @@ export function ProvisioningPanel({ store }: { store: Store }) {
     ["/provisioning", "/stores"],
   );
 
+  const cancel = useAction<ProvisioningJob, string>(
+    (jobId) => ({
+      path: `/provisioning/${jobId}/cancel`,
+      options: { body: { reason: t("provisioning.cancelReason") } },
+    }),
+    ["/provisioning", "/stores"],
+  );
+
   const retry = useAction<ProvisioningJob, string>(
     (jobId) => ({ path: `/provisioning/${jobId}/retry` }),
     ["/provisioning", "/stores"],
@@ -106,9 +114,10 @@ export function ProvisioningPanel({ store }: { store: Store }) {
   const current = run?.steps.find((step) => step.name === run.currentStep);
   const isManual = current?.mode === "Manual";
 
-  // Mutual TLS is a promise about dedicated infrastructure. Offering the field
-  // on shared hosting would be offering something the API correctly refuses.
-  const supportsMutualTls = store.hostingModel !== "SharedManaged";
+  // Mutual TLS is a promise about dedicated infrastructure, and an archived
+  // store accepts no changes at all. Offering the field in either case would be
+  // offering a button whose only possible outcome is the API refusing it.
+  const supportsMutualTls = store.hostingModel !== "SharedManaged" && store.status !== "Archived";
 
   const stepColumns: Column<ProvisioningStep>[] = [
     { key: "sequence", header: "#", render: (row) => String(row.sequence) },
@@ -197,6 +206,21 @@ export function ProvisioningPanel({ store }: { store: Store }) {
                   onClick={() => start.mutate("provision", { onSuccess: () => void refresh() })}
                 >
                   {t("provisioning.start")}
+                </Button>
+              ) : null}
+
+              {run && !["Succeeded", "Cancelled"].includes(run.state) && can("store.provision") ? (
+                // A run has to be closable. Without this, a store whose
+                // provisioning stalled can never be deprovisioned — the second
+                // run is refused while the first is unfinished, and the first
+                // is waiting for something that will never happen.
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={cancel.isPending}
+                  onClick={() => cancel.mutate(run.id, { onSuccess: () => void refresh() })}
+                >
+                  {t("provisioning.cancel")}
                 </Button>
               ) : null}
 

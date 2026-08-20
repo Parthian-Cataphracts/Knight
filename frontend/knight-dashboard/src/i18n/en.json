@@ -769,7 +769,9 @@
     "failure": "Failure",
     "manualPrompt": "“{{step}}” is done by a person. Record it once it is done.",
     "markDone": "Record as done",
-    "none": "No provisioning run has been started for this store."
+    "none": "No provisioning run has been started for this store.",
+    "cancel": "Cancel run",
+    "cancelReason": "Cancelled from the dashboard."
   },
   "provisioningState": {
     "Running": "Running",

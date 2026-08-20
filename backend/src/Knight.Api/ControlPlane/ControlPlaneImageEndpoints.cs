@@ -84,7 +84,7 @@ public static class ControlPlaneImageEndpoints
             .WithTags("Store images");
 
         group.MapGet("/", async (IStoreImageService service, CancellationToken cancellationToken) =>
-            Results.Ok((await service.ListAsync(cancellationToken)).Select(ToResponse).ToArray()))
+            Results.Ok(new { items = (await service.ListAsync(cancellationToken)).Select(ToResponse).ToArray() }))
             .RequirePermission(ControlPlanePermissions.FeatureView);
 
         group.MapGet("/{imageId:guid}", async (

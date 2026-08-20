@@ -233,7 +233,15 @@ public sealed class ProvisioningJob : AuditableEntity, ICustomerOwned
                 $"Step '{definition.Name}' is carried out by KNIGHT and cannot be ticked off by hand.");
         }
 
-        return ReportStep(definition.Name, ProvisioningStepStatus.Succeeded, now, detail, completedBy: completedBy);
+        // A step completed with no note keeps a note anyway, because the
+        // alternative is a row that reads "done" beside the sentence explaining
+        // what it was still waiting for — which is how a record starts lying.
+        return ReportStep(
+            definition.Name,
+            ProvisioningStepStatus.Succeeded,
+            now,
+            string.IsNullOrWhiteSpace(detail) ? "Recorded by an operator." : detail,
+            completedBy: completedBy);
     }
 
     public void Fail(string failureCode, string failureMessage, DateTimeOffset now)
