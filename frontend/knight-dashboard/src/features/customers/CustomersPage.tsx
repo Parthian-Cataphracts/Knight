@@ -12,6 +12,7 @@ import { StatusChip, type Tone } from "@/components/ui/StatusChip";
 import { Button } from "@/components/ui/Button";
 import { useAuthStore } from "@/store/auth";
 import { formatDateTime, formatNumber } from "@/lib/utils/format";
+import { planLabel } from "@/lib/utils/planLabel";
 
 const statusTone: Record<CustomerStatus, Tone> = {
   Active: "success",
@@ -58,7 +59,7 @@ export function CustomersPage() {
         <StatusChip tone={statusTone[row.status]}>{t(`customerStatus.${row.status}`)}</StatusChip>
       ),
     },
-    { key: "plan", header: t("customers.plan"), render: (row) => t(`planKey.${row.planKey}`) },
+    { key: "plan", header: t("customers.plan"), render: (row) => planLabel(t, row.planKey) },
     {
       key: "stores",
       header: t("customers.stores"),
@@ -168,7 +169,7 @@ export function CustomersPage() {
                 {t(`customerStatus.${selected.status}`)}
               </StatusChip>
             </KeyValue>
-            <KeyValue label={t("customers.plan")}>{t(`planKey.${selected.planKey}`)}</KeyValue>
+            <KeyValue label={t("customers.plan")}>{planLabel(t, selected.planKey)}</KeyValue>
             <KeyValue label={t("customers.stores")}>{formatNumber(selected.storeCount)}</KeyValue>
             <KeyValue label={t("customers.createdAt")}>
               <Mono>{formatDateTime(selected.createdAt)}</Mono>

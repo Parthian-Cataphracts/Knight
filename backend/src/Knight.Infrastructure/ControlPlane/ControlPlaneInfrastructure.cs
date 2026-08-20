@@ -31,8 +31,7 @@ public static class ControlPlaneInfrastructure
         // environment, and a "" that survived to Npgsql fails much later and far
         // less clearly than it does here.
         var connectionString = FirstConfigured(
-            configuration.GetConnectionString("ControlPlane"),
-            configuration.GetConnectionString("Platform"))
+            configuration.GetConnectionString("ControlPlane"))
             ?? throw new InvalidOperationException(
                 "Missing connection string 'ControlPlane'. Set it via configuration or the CONTROL_PLANE_DB_CONNECTION_STRING environment variable.");
 
@@ -59,6 +58,7 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<ICustomerDirectoryReader, CustomerDirectoryReader>();
         services.AddScoped<IPlanSubscriberReader, PlanSubscriberReader>();
         services.AddScoped<IFeatureUsageReader, FeatureUsageReader>();
+        services.AddScoped<IStoreFeatureCountReader, StoreFeatureCountReader>();
         services.AddScoped<ILabelReader, LabelReader>();
         services.AddScoped<IInsightReader, InsightReader>();
         services.AddScoped<Customers.Domain.ICustomerNoteRepository, CustomerNoteRepository>();
@@ -129,6 +129,15 @@ public static class ControlPlaneInfrastructure
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        // Token signing configuration used to be bound by the legacy platform
+        // registration; the control plane is the only issuer left, so it binds
+        // its own. ValidateOnStart because a host that starts without a signing
+        // key only fails at the first sign-in attempt otherwise.
+        services.AddOptions<Knight.Infrastructure.Security.JwtOptions>()
+            .Bind(configuration.GetSection(Knight.Infrastructure.Security.JwtOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         services.AddSharedInfrastructureCache(configuration);
         services.AddSingleton<IStoreTokenIssuer, StoreTokenIssuer>();
         services.AddSingleton<IStorePayloadSigner, StorePayloadSigner>();
@@ -138,14 +147,8 @@ public static class ControlPlaneInfrastructure
         services.AddSingleton<IDomainOwnershipVerifier, DomainOwnershipVerifier>();
         services.AddStoreOutboundHttp();
 
-        // The control plane's security primitives are adapters over the shared
-        // implementations, so those have to exist even in a host that wires
-        // nothing else — the bootstrap tool is exactly that host, and phase 8
-        // will make the API one too. TryAdd keeps the legacy registration
-        // authoritative wherever both are present.
-        services.TryAddSingleton<Identity.Abstractions.IPasswordHasher, Knight.Infrastructure.Security.Pbkdf2PasswordHasher>();
-        services.TryAddSingleton<Identity.Abstractions.IRefreshTokenGenerator, Knight.Infrastructure.Security.RefreshTokenGenerator>();
-
+        // The control plane owns its security primitives outright since phase 8
+        // removed the legacy modules they used to adapt over.
         services.AddSingleton<IControlPlanePasswordHasher, ControlPlanePasswordHasher>();
         services.AddSingleton<ISecureTokenFactory, SecureTokenFactory>();
         services.AddSingleton<IControlPlaneTokenGenerator, ControlPlaneTokenGenerator>();

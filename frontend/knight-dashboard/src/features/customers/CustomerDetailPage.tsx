@@ -19,6 +19,7 @@ import { LoadingBlock, ErrorBlock } from "@/components/ui/StateBlock";
 import { useAuthStore } from "@/store/auth";
 import { formatDateTime, formatNumber, formatRelative } from "@/lib/utils/format";
 import { installationTone } from "@/features/installations/installationTone";
+import { planLabel } from "@/lib/utils/planLabel";
 
 type Tab = "overview" | "stores" | "entitlements" | "admins" | "billing" | "activity";
 
@@ -135,7 +136,7 @@ export function CustomerDetailPage() {
       ),
     },
     { key: "version", header: t("stores.version"), mono: true, render: (row) => row.applicationVersion ?? "—" },
-    { key: "features", header: t("stores.features"), numeric: true, render: (row) => row.installedFeatureCount },
+    { key: "features", header: t("stores.features"), numeric: true, render: (row) => row.installedFeatureCount ?? "—" },
   ];
 
   const entitlementColumns: Column<Installation>[] = [
@@ -192,7 +193,7 @@ export function CustomerDetailPage() {
         </StatusChip>
       ),
     },
-    { key: "lastSeen", header: t("access.lastSeen"), render: (row) => (row.lastSeenAt ? formatRelative(row.lastSeenAt) : "—") },
+    { key: "lastSeen", header: t("access.lastSeen"), render: (row) => formatRelative(row.lastLoginAt) },
   ];
 
   const invoiceColumns: Column<Invoice>[] = [
@@ -201,7 +202,7 @@ export function CustomerDetailPage() {
       key: "total",
       header: t("billing.total"),
       numeric: true,
-      render: (row) => (row.total === 0 ? t("plans.free") : `${formatNumber(row.total)} ${t("billing.currency")}`),
+      render: (row) => (row.total === 0 ? t("plans.free") : `${formatNumber(row.total)} ${row.currency}`),
     },
     {
       key: "status",
@@ -227,7 +228,7 @@ export function CustomerDetailPage() {
 
       <PageHeader
         title={customer.name}
-        subtitle={`${customer.contactEmail} · ${t(`planKey.${customer.planKey}`)}`}
+        subtitle={`${customer.contactEmail} · ${planLabel(t, customer.planKey)}`}
         actions={
           can("customer.update") ? (
             <>
@@ -314,7 +315,7 @@ export function CustomerDetailPage() {
                     {t(`customerStatus.${customer.status}`)}
                   </StatusChip>
                 </KeyValue>
-                <KeyValue label={t("customers.plan")}>{t(`planKey.${customer.planKey}`)}</KeyValue>
+                <KeyValue label={t("customers.plan")}>{planLabel(t, customer.planKey)}</KeyValue>
                 <KeyValue label={t("customers.stores")}>{formatNumber(customer.storeCount)}</KeyValue>
                 <KeyValue label={t("customers.createdAt")}>
                   <Mono>{formatDateTime(customer.createdAt)}</Mono>
@@ -340,7 +341,7 @@ export function CustomerDetailPage() {
                   <KeyValue label={t("subscriptions.monthlyTotal")}>
                     {subscription.monthlyTotal === 0
                       ? t("plans.free")
-                      : `${formatNumber(subscription.monthlyTotal)} ${t("billing.currency")}`}
+                      : `${formatNumber(subscription.monthlyTotal)} ${subscription.currency}`}
                   </KeyValue>
                   <KeyValue label={t("subscriptions.periodEnd")}>
                     {formatRelative(subscription.currentPeriodEnd)}

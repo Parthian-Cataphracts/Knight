@@ -102,7 +102,7 @@ export function AccessPage() {
       key: "lastSeen",
       header: t("access.lastSeen"),
       secondary: true,
-      render: (row) => (row.lastSeenAt ? formatRelative(row.lastSeenAt) : "—"),
+      render: (row) => formatRelative(row.lastLoginAt),
     },
   ];
 

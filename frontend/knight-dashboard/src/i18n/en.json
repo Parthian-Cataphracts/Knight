@@ -128,7 +128,8 @@
     "activate": "Activate",
     "archive": "Archive",
     "edit": "Edit customer",
-    "contactEmail": "Contact email"
+    "contactEmail": "Contact email",
+    "noPlan": "No plan"
   },
   "customerStatus": {
     "Active": "Active",
@@ -626,10 +627,10 @@
     "identity": "Identity and status",
     "usage": "Usage",
     "requests": "Requests (24h)",
-    "errors": "Errors (24h)",
+    "errors": "Errors per hour",
     "storage": "Storage",
     "usageUnavailable": "Usage metrics arrive with server monitoring in a later phase.",
-    "logVolume": "Log volume",
+    "logVolume": "Log volume per hour",
     "probeLatency": "Health probe latency (ms)",
     "usageWindow": "Last {{hours}}h: {{errors}} error(s), {{logs}} log line(s). Stores do not report request volume or storage."
   },
@@ -665,7 +666,7 @@
     "firstAdmin": "First administrator",
     "adminName": "Admin name",
     "adminEmail": "Work email",
-    "adminNote": "An activation link is sent to this address.",
+    "adminNote": "A one-time password is shown after creation; hand it to the administrator yourself. Email delivery is not enabled yet.",
     "store": "First store",
     "domain": "Primary domain",
     "domainNote": "Domain ownership must be verified before the store connects.",
@@ -683,7 +684,11 @@
     "submit": "Create customer",
     "cancel": "Cancel",
     "required": "This field is required.",
-    "invalidEmail": "Enter a valid email address."
+    "invalidEmail": "Enter a valid email address.",
+    "failedAt": "The run stopped at \"{{step}}\": {{message}}",
+    "created": "Customer created",
+    "createdNote": "The store, the administrator account and the subscription were all recorded.",
+    "passwordNote": "This password is shown once and cannot be read again from any screen."
   },
   "installPreview": {
     "title": "Install preview",

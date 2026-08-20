@@ -86,7 +86,7 @@ export function StoresPage() {
       key: "features",
       header: t("stores.features"),
       numeric: true,
-      render: (row) => row.installedFeatureCount,
+      render: (row) => row.installedFeatureCount ?? "—",
     },
     {
       key: "lastSeen",

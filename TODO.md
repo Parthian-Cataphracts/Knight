@@ -32,7 +32,7 @@ Phase 4    Servers, agents, monitoring    ██████████ 100%
 Phase 5    Errors & incidents             ██████████ 100%
 Phase 6    Frontend dashboard             ██████████  99%
 Phase 7    Observability                  ██████████ 100%
-Phase 8    Business-domain port to Django ░░░░░░░░░░   0%
+Phase 8    Business-domain port to Django ██████████ 100%
 Phase 9    Provisioning & professional infra ░░░░░░░   0%
 Phase 10   Optimisation & hardening       ░░░░░░░░░░   0%
 ```
@@ -620,17 +620,52 @@ telemetry while keeping fresh rows, audit entries and incidents survive it, and 
 
 ---
 
-## Phase 8 — Port the business domain to Django (pivot Stages D–F)
+## Phase 8 — Port the business domain to Django (pivot Stages D–F) ✅
 
-- [ ] Django store template extending the reference store
-- [ ] Port `Catalog`, `Ordering` + `Checkout` (ADR 0008), `Payment` (ADR 0009), `Promotions`, `Fulfillment` (ADR 0007), `Delivery`
-- [ ] Port the end-consumer domain as `shoppers`
-- [ ] Decide, per capability, what belongs to the base store vs an optional Feature
-- [ ] Test parity with the frozen .NET suites
-- [ ] Remove store modules, endpoints, contracts, legacy migrations from .NET
-- [ ] Architecture test forbidding business modules in the control plane
-- [ ] Drop the legacy shared schema
+- [x] Django store template extending the reference store
+- [x] Port `Catalog`, `Ordering` + `Checkout` (ADR 0008), `Payment` (ADR 0009), `Promotions`, `Fulfillment` (ADR 0007), `Delivery`
+- [x] Port the end-consumer domain as `shoppers`
+- [x] Decide, per capability, what belongs to the base store vs an optional Feature — recorded as [`adr/0024`](docs/adr/0024-base-store-versus-optional-feature.md); promotions and delivery zones ship as installable Features, everything else is base store
+- [x] Test parity with the frozen .NET suites — 156 Django tests
+- [x] Remove store modules, endpoints, contracts, legacy migrations from .NET
+- [x] Architecture test forbidding business modules in the control plane — `ControlPlaneBoundaryTests.StoreBusinessDomains_ShouldNotExist_InTheControlPlane`
+- [x] Drop the legacy shared schema — migration `DropLegacyPlatformSchema`
 - [x] `[!]` ~~Confirm no real tenant data exists first~~ — confirmed 2026-08-20: the frozen modules and legacy schema hold only development and test data, so the tables may be dropped without an export path (`risks.md` R1)
+
+### Found by running it, and fixed
+
+Driving the real stack turned up defects the suites could not, all fixed in
+this phase:
+
+- a page reload ended the session — two concurrent restores raced, and the
+  second presented a refresh token the first had already rotated, which the
+  server correctly read as a replay and revoked the family for
+- an expired access token signed the operator out mid-form instead of being
+  renewed and the request retried
+- the create-customer wizard validated its fields and navigated away without
+  calling anything; it now provisions the customer, store, administrator and
+  subscription, and shows the one-time password once
+- feature versions, install counts, store feature counts and subscription
+  totals were placeholders the API never filled — one of them rendered as NaN
+- background workers wrote audit entries with no correlation id
+- a report with no data rendered its absent timestamp as the epoch
+
+### How to verify it again
+
+1. `docker compose -f infrastructure/docker/docker-compose.yml up -d` (Postgres on 5433, Redis on 6379).
+2. `CONTROL_PLANE_DB_CONNECTION_STRING="Host=localhost;Port=5433;Database=knight;Username=knight;Password=knight" dotnet ef database update --project backend/src/Knight.Infrastructure --startup-project backend/src/Knight.Api --context ControlPlaneDbContext`
+3. Create the first administrator: `cd backend && printf 'a-long-enough-password\na-long-enough-password\n' | CONTROL_PLANE_DB_CONNECTION_STRING="..." dotnet run --project tools/Knight.Bootstrap -- --email you@example.test`
+4. Start the API: `cd backend/src/Knight.Api && ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5008 dotnet run`
+5. Start the dashboard: `cd frontend/knight-dashboard && npm run dev` — it reads `.env`, which already sets `VITE_USE_MOCKS=false`.
+6. Open `http://localhost:5173`, sign in with the address and password from step 3, and enrol MFA with the secret the screen shows. Every screen must render real data; none may show a red failure.
+7. Create a customer at `/customers/new`. Fill every field, choose Basic, submit. Expect the one-time password screen, and a new customer whose plan column reads "پایه" rather than "بدون پلن". Activate the customer and its store — a store cannot connect while either is inactive.
+8. Issue a credential from the store's اعتبارنامه‌ها tab and copy both values.
+9. Run the reference store against it:
+   `cd stores/reference-store && KNIGHT_CLIENT_ID=... KNIGHT_CLIENT_SECRET=... KNIGHT_STORE_ID=... KNIGHT_BASE_URL=http://localhost:5008 KNIGHT_ENVIRONMENT=Development python manage.py migrate && ... runserver 127.0.0.1:8000`
+   The store's environment must be Development: a Production store refuses to reach KNIGHT over plain HTTP, on purpose.
+10. Expect "Handshake accepted by KNIGHT" and "Entitlements refreshed" in the store's log, and the store on `/monitoring` reporting its version with a recent contact time.
+11. `curl http://127.0.0.1:8000/boom/` and expect a new grouped error on `/errors` naming that store and `/boom` within a minute.
+12. `cd backend && REQUIRE_POSTGRES_TESTS=1 dotnet test Knight.slnx` and `cd stores/reference-store && python manage.py test`.
 
 ---
 

@@ -16,9 +16,7 @@ using Knight.Api.Middleware;
 using Knight.Application;
 using Knight.Application.Abstractions.ControlPlane;
 using Knight.Application.Abstractions.Identity;
-using Knight.Application.Abstractions.Tenancy;
 using Knight.Application.Abstractions.Time;
-using Knight.Infrastructure;
 using Knight.Infrastructure.ControlPlane;
 using Knight.Infrastructure.ControlPlane.Security;
 using Knight.Infrastructure.HealthChecks;
@@ -62,8 +60,6 @@ builder.Services.AddOpenApi(options =>
 });
 
 builder.Services.AddPlatformApplication();
-builder.Services.AddPlatformInfrastructure(builder.Configuration);
-builder.Services.AddPlatformModules(builder.Configuration);
 builder.Services.AddControlPlaneInfrastructure(builder.Configuration);
 builder.Services.AddControlPlaneModules(builder.Configuration);
 builder.Services.AddPlatformHealthChecks(builder.Configuration);
@@ -178,10 +174,10 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Extensible rate-limiting foundation: distinct named policies so platform,
-// tenant-public, and authentication traffic can be tuned independently.
-// Login/refresh policies partition by client IP so one abusive caller cannot
-// exhaust the limit for everyone else — see docs/architecture/authorization.md.
+// Distinct named policies so dashboard, sign-in and store-ingestion traffic can
+// be tuned independently. Sign-in partitions by client IP so one abusive caller
+// cannot exhaust the limit for everyone else — see
+// docs/architecture/authorization.md.
 // Rate limiting is a defense-in-depth measure alongside account lockout, not a
 // substitute for it.
 builder.Services.AddRateLimiter(options =>
@@ -191,27 +187,8 @@ builder.Services.AddRateLimiter(options =>
     var rateLimitOptions = builder.Configuration.GetSection(RateLimitOptions.SectionName).Get<RateLimitOptions>() ?? new RateLimitOptions();
     var window = TimeSpan.FromSeconds(rateLimitOptions.WindowSeconds);
 
-    options.AddFixedWindowLimiter("platform", limiterOptions =>
-    {
-        limiterOptions.PermitLimit = rateLimitOptions.PlatformPermitLimit;
-        limiterOptions.Window = TimeSpan.FromMinutes(1);
-        limiterOptions.QueueLimit = 0;
-    });
-
-    options.AddFixedWindowLimiter("tenant-public", limiterOptions =>
-    {
-        limiterOptions.PermitLimit = rateLimitOptions.TenantPublicPermitLimit;
-        limiterOptions.Window = TimeSpan.FromMinutes(1);
-        limiterOptions.QueueLimit = 0;
-    });
-
     options.AddPolicy("control-plane", PartitionByClientIp(rateLimitOptions.ControlPlanePermitLimit, window));
     options.AddPolicy("auth-control-plane", PartitionByClientIp(rateLimitOptions.ControlPlaneLoginPermitLimit, window));
-    options.AddPolicy("auth-platform-login", PartitionByClientIp(rateLimitOptions.PlatformLoginPermitLimit, window));
-    options.AddPolicy("auth-tenant-login", PartitionByClientIp(rateLimitOptions.TenantLoginPermitLimit, window));
-    options.AddPolicy("auth-refresh", PartitionByClientIp(rateLimitOptions.RefreshPermitLimit, window));
-    options.AddPolicy("checkout_quote", PartitionByTenantAndClientIp(rateLimitOptions.CheckoutQuotePermitLimit, window));
-    options.AddPolicy("checkout_submit", PartitionByTenantAndClientIp(rateLimitOptions.CheckoutSubmitPermitLimit, window));
 
     // The handshake is unauthenticated, so there is no store to partition by
     // yet: an address it is. This is the credential-guessing surface, and the
@@ -228,12 +205,10 @@ var app = builder.Build();
 
 // Pipeline order, outside-in: correlation and exception handling wrap everything
 // so every response (including ones the pipeline short-circuits below) carries a
-// correlation id and a consistent Problem Details shape. Authentication must run
-// before tenant resolution because resolution reads validated claims off
-// context.User (a tenant-token's tenant_id claim, a platform-admin's principal
-// type). Tenant resolution runs before authorization so authorization policies
-// and endpoint handlers can rely on ITenantContext already being populated (or
-// deliberately empty) for the request. See docs/architecture/multi-tenancy.md.
+// correlation id and a consistent Problem Details shape. Authentication runs
+// before the control-plane scope because the scope is established from validated
+// claims, and both run before authorization so policies and handlers can rely on
+// the customer boundary already being in place.
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
@@ -252,7 +227,6 @@ app.UseCors("Default");
 app.UseRateLimiter();
 
 app.UseAuthentication();
-app.UseMiddleware<TenantResolutionMiddleware>();
 
 // Runs after authentication, before authorization: the customer boundary must
 // be established from validated claims before any policy or handler queries
@@ -284,39 +258,6 @@ app.MapControlPlaneAccessEndpoints();
 app.MapHub<ControlPlaneHub>(ControlPlaneHub.Path).RequireCors("Default");
 
 app.MapPlatformHealthEndpoints();
-app.MapPlatformTenantEndpoints();
-app.MapTenantRuntimeEndpoints();
-app.MapPlatformAuthEndpoints();
-app.MapTenantAuthEndpoints();
-app.MapTenantStaffEndpoints();
-app.MapTenantRoleEndpoints();
-app.MapTenantPermissionEndpoints();
-app.MapPlatformStaffEndpoints();
-app.MapPlatformRoleEndpoints();
-app.MapTenantCatalogCategoryEndpoints();
-app.MapTenantCatalogProductEndpoints();
-app.MapTenantCatalogVariantEndpoints();
-app.MapTenantCatalogModifierEndpoints();
-app.MapTenantCatalogMediaEndpoints();
-app.MapPlatformCatalogEndpoints();
-app.MapPublicCatalogEndpoints();
-app.MapPublicCheckoutEndpoints();
-app.MapTenantOrderEndpoints();
-app.MapPlatformOrderEndpoints();
-app.MapTenantCustomerEndpoints();
-app.MapPlatformCustomerEndpoints();
-app.MapTenantFulfillmentEndpoints();
-app.MapPlatformFulfillmentEndpoints();
-app.MapTenantDeliveryEndpoints();
-app.MapPlatformDeliveryEndpoints();
-app.MapTenantPaymentEndpoints();
-app.MapPlatformPaymentEndpoints();
-app.MapTenantPromotionEndpoints();
-app.MapTenantCouponEndpoints();
-app.MapPlatformPromotionEndpoints();
-app.MapPlatformCouponEndpoints();
-
-app.Services.InitializePermissionCatalog();
 
 app.Run();
 
@@ -344,26 +285,6 @@ static Func<HttpContext, RateLimitPartition<string>> PartitionByStore(int permit
     var key = string.IsNullOrWhiteSpace(storeId) ? "unauthenticated" : storeId;
 
     return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
-    {
-        PermitLimit = permitLimit,
-        Window = window,
-        QueueLimit = 0
-    });
-};
-
-static Func<HttpContext, RateLimitPartition<string>> PartitionByTenantAndClientIp(int permitLimit, TimeSpan window) => httpContext =>
-{
-    // The rate limiter deliberately runs before TenantResolutionMiddleware so that a
-    // flood is rejected before it can cost a tenant-resolution database lookup. That
-    // means ITenantContext is still empty here, so the tenant half of the partition
-    // key must come from the same request signal the resolver itself keys off: the
-    // host. Distinct tenants necessarily own distinct hosts, so this keeps one
-    // storefront's traffic from consuming another's budget.
-    var host = httpContext.Request.Host.Host;
-    var tenantKey = string.IsNullOrWhiteSpace(host) ? "no-host" : host.ToLowerInvariant();
-    var ipKey = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-    var partitionKey = $"{tenantKey}:{ipKey}";
-    return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
     {
         PermitLimit = permitLimit,
         Window = window,

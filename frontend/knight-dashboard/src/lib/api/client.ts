@@ -6,6 +6,7 @@ const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === "true";
 
 let accessToken: string | null = null;
 let onUnauthorized: (() => void) | null = null;
+let refreshSession: (() => Promise<void>) | null = null;
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
@@ -25,6 +26,17 @@ export function setUnauthorizedHandler(handler: () => void): void {
   onUnauthorized = handler;
 }
 
+/**
+ * How the client renews an expired access token.
+ *
+ * Injected rather than imported because the session store already depends on
+ * this module, and the alternative to a cycle is every caller remembering to
+ * handle 401 itself — which is exactly what went wrong before this existed.
+ */
+export function setSessionRefresher(refresh: () => Promise<void>): void {
+  refreshSession = refresh;
+}
+
 function correlationId(): string {
   return crypto.randomUUID();
 }
@@ -39,8 +51,19 @@ export interface RequestOptions {
 /**
  * The single entry point to the KNIGHT API. Components never call fetch
  * directly - see docs/frontend-architecture.md section 3.
+ *
+ * An expired access token is recovered from rather than surfaced. Access tokens
+ * are deliberately short-lived and the refresh token lives in an HttpOnly
+ * cookie, so the first 401 on an ordinary call means "renew this", not "you are
+ * signed out" — and before this retry existed, an operator who left a form open
+ * long enough had their save rejected and their typing thrown away by a bounce
+ * to the login screen.
  */
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  return send<T>(path, options, true);
+}
+
+async function send<T>(path: string, options: RequestOptions, mayRetry: boolean): Promise<T> {
   const { method = "GET", body, signal, idempotencyKey } = options;
 
   const headers: Record<string, string> = {
@@ -69,7 +92,28 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const payload: unknown = text ? JSON.parse(text) : null;
 
   if (!response.ok) {
-    if (response.status === 401) onUnauthorized?.();
+    if (response.status === 401) {
+      // The auth endpoints are excluded: a failed sign-in or a refresh that was
+      // itself refused is an answer, not a stale token, and retrying it would
+      // turn one rejection into two — or into a loop.
+      const isAuthCall = path.startsWith("/auth/");
+
+      if (mayRetry && !isAuthCall && refreshSession) {
+        try {
+          await refreshSession();
+        } catch {
+          onUnauthorized?.();
+          throw new ApiError(response.status, (payload ?? {}) as ProblemDetails);
+        }
+
+        // Retried once, never twice: a second 401 after a successful refresh is
+        // the server saying no, not a token that needs renewing again.
+        return send<T>(path, options, false);
+      }
+
+      onUnauthorized?.();
+    }
+
     throw new ApiError(response.status, (payload ?? {}) as ProblemDetails);
   }
 
