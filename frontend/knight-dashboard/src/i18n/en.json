@@ -231,7 +231,9 @@
     "health": "Health",
     "manualIntervention": "Automatic rollback stopped; manual intervention required.",
     "upgrade": "Upgrade",
-    "enable": "Enable"
+    "enable": "Enable",
+    "uninstall": "Uninstall",
+    "rollback": "Roll back"
   },
   "installationState": {
     "NotInstalled": "Not installed",
@@ -364,7 +366,10 @@
     "hostingModel": "Hosting model",
     "provider": "Provider",
     "region": "Region",
-    "tokenShownOnce": "This provisioning token is shown once and is burned on first use. Copy it now."
+    "tokenShownOnce": "This provisioning token is shown once and is burned on first use. Copy it now.",
+    "agents": "Agents",
+    "noAgents": "No agent has enrolled on this machine yet.",
+    "revokeAgent": "Revoke"
   },
   "monitoring": {
     "subtitle": "Store health and the active alert rules.",
