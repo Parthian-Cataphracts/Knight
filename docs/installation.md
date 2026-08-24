@@ -154,11 +154,24 @@ system that already handles secrets, not to save typing.
 
 ## 7. Re-running it
 
-Safe, and the way to rebuild after changing something by hand. Existing secrets
-are kept — rotating the token key would sign every administrator out, and
-rotating the store key would invalidate the entitlement payloads every connected
-store is holding — as are the database, the artifacts and the backups. No
-question is asked twice, and no second administrator is created.
+Safe, and the way to rebuild after changing something by hand. The database, the
+artifacts and the backups are kept, no question is asked twice, and no second
+administrator is created.
+
+So are the secrets, and for a different reason in each case:
+
+- Rotating `Jwt__SigningKey` would sign every administrator out.
+- Rotating `Stores__IntegrationSigningKey` would invalidate the entitlement
+  payloads every connected store is currently holding.
+- **Every** artifact signing key is carried across, not only the active one. A
+  retired key still has to verify the versions it signed, so dropping one would
+  make already-published Feature versions unverifiable.
+
+An environment variable named on the run wins over the stored answer, so
+`KNIGHT_DOMAIN=…` on a re-install moves the deployment rather than being
+ignored. The branch the deployment tracks is recorded too, so a re-install and
+`knightctl update` follow the branch it was installed from rather than the
+repository's default one.
 
 For an ordinary upgrade use `knightctl update`, which takes a backup before it
 migrates anything.

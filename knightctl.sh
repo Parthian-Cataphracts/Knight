@@ -56,6 +56,27 @@ write_env() {
   printf "%s='%s'\n" "$key" "$escaped" >> "$ENV_FILE"
 }
 
+# The checkout is owned by the service user and these commands run as root,
+# which git refuses by default: "detected dubious ownership". The exception is
+# granted per invocation rather than written into root's global gitconfig, so it
+# does not outlive the command and does not apply to any other repository on
+# this machine.
+git_src() { git -c safe.directory="$SRC_DIR" -C "$SRC_DIR" "$@"; }
+
+# Waits for the host to answer its own readiness probe. Restarting the service
+# returns as soon as systemd has started the process, which is several seconds
+# before it is serving - long enough for a success message to send somebody to a
+# 502 they will reasonably read as a broken deployment.
+wait_for_api() {
+  local _
+  for _ in $(seq 1 45); do
+    curl -fsS --max-time 3 "http://127.0.0.1:${APP_PORT}/health/ready" >/dev/null 2>&1 && return 0
+    systemctl is-active --quiet knight-api || return 1
+    sleep 1
+  done
+  return 1
+}
+
 confirm() {
   local answer
   read -rp "$(echo -e "  ${BOLD}$1 [y/N]${NC}: ")" answer
@@ -124,7 +145,15 @@ cmd_logs() {
 
 cmd_start()   { systemctl start knight-redis knight-api && success "Started."; }
 cmd_stop()    { systemctl stop knight-api && success "Stopped. Redis and nginx are left running."; }
-cmd_restart() { systemctl restart knight-api && success "Restarted."; }
+cmd_restart() {
+  systemctl restart knight-api || error "systemd could not restart knight-api."
+
+  if wait_for_api; then
+    success "Restarted, and reporting ready."
+  else
+    warn "Restarted, but the API is not reporting ready. See: knightctl logs api"
+  fi
+}
 
 cmd_update() {
   title "Update"
@@ -132,12 +161,17 @@ cmd_update() {
   [[ -d "${SRC_DIR}/.git" ]] || error "${SRC_DIR} is not a git checkout, so there is nothing to update from."
 
   local before after
-  before="$(git -C "$SRC_DIR" rev-parse --short HEAD)"
+  before="$(git_src rev-parse --short HEAD)"
 
-  info "Fetching..."
-  git -C "$SRC_DIR" fetch --depth=1 origin HEAD -q || error "Could not fetch."
-  git -C "$SRC_DIR" reset --hard FETCH_HEAD -q || error "Could not check the new revision out."
-  after="$(git -C "$SRC_DIR" rev-parse --short HEAD)"
+  # The branch this deployment was installed from, not the repository's default
+  # one. An update that quietly moved a server onto another branch would be a
+  # surprise nobody could see in the output.
+  local ref="${KNIGHT_REPO_REF:-main}"
+
+  info "Fetching ${ref}..."
+  git_src fetch --depth=1 origin "$ref" -q || error "Could not fetch ${ref}."
+  git_src reset --hard FETCH_HEAD -q || error "Could not check the new revision out."
+  after="$(git_src rev-parse --short HEAD)"
 
   if [[ "$before" == "$after" ]]; then
     success "Already at ${after}. Nothing to do."
@@ -153,6 +187,13 @@ cmd_update() {
   export PATH="${NODE_BIN}:${PATH}"
   export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 
+  # Rewritten rather than assumed to have survived the checkout, so a release
+  # that needs a different build-time setting gets one.
+  cat > "${SRC_DIR}/frontend/knight-dashboard/.env.production" <<'ENVPROD'
+VITE_USE_MOCKS=false
+VITE_DEFAULT_LOCALE=fa
+ENVPROD
+
   info "Building the dashboard..."
   ( cd "${SRC_DIR}/frontend/knight-dashboard" && npm ci --no-audit --no-fund && npm run build ) 2>&1 | tail -4
   [[ -f "${SRC_DIR}/frontend/knight-dashboard/dist/index.html" ]] \
@@ -167,9 +208,14 @@ cmd_update() {
   rm -rf "${DASHBOARD_DIR:?}"/*
   cp -r "${SRC_DIR}/frontend/knight-dashboard/dist/." "$DASHBOARD_DIR/"
 
+  # Checked, not merely shown. A migration that failed and an API started
+  # anyway is the one combination in this function that can lose data rather
+  # than merely fail, and a pipe into tail would hide the exit status.
   info "Applying migrations..."
-  CONTROL_PLANE_DB_CONNECTION_STRING="$DB_CONNECTION" \
-    "$DOTNET_EXEC" "${BOOTSTRAP_DIR}/Knight.Bootstrap.dll" --migrate-only 2>&1 | tail -3
+  if ! CONTROL_PLANE_DB_CONNECTION_STRING="$DB_CONNECTION" \
+       "$DOTNET_EXEC" "${BOOTSTRAP_DIR}/Knight.Bootstrap.dll" --migrate-only; then
+    error "Migrations failed. The API is stopped, and the backup taken above is in ${BACKUP_DIR}."
+  fi
 
   chown -R "${SERVICE_USER}:${SERVICE_USER}" "$INSTALL_DIR"
   chmod 755 "$INSTALL_DIR" "$DASHBOARD_DIR"
@@ -178,10 +224,12 @@ cmd_update() {
   chmod 600 "$ENV_FILE"
 
   systemctl start knight-api
-  sleep 3
-  systemctl is-active --quiet knight-api \
-    && success "Updated to ${after} and running." \
-    || warn "Updated, but the API did not start. See: knightctl logs api"
+
+  if wait_for_api; then
+    success "Updated to ${after} and running."
+  else
+    warn "Updated, but the API is not reporting ready. See: knightctl logs api"
+  fi
 }
 
 cmd_backup() {
@@ -216,14 +264,33 @@ cmd_restore() {
   warn "This replaces every row in ${KNIGHT_DB_NAME}. Customers, stores, credentials, audit — all of it."
   confirm "Restore ${dump} over ${KNIGHT_DB_NAME}?" || { echo "  Nothing was changed."; return; }
 
+  # Dropping and recreating the database is not something the application role
+  # can do, and giving it that privilege on a machine it shares would be the
+  # wrong trade. Where there is a local cluster those two statements run as the
+  # superuser and everything else as knight; where there is not, the script
+  # falls back and says plainly what it could not do.
+  local admin_psql=""
+  if runuser -u postgres -- psql -tAc "SELECT 1" >/dev/null 2>&1; then
+    admin_psql="runuser -u postgres -- env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD psql"
+  fi
+
   systemctl stop knight-api
   PGHOST="${KNIGHT_DB_HOST}" PGPORT="${KNIGHT_DB_PORT}" \
   PGUSER="${KNIGHT_DB_USER}" PGPASSWORD="${KNIGHT_DB_PASSWORD}" \
+  KNIGHT_ADMIN_PSQL="$admin_psql" KNIGHT_DB_OWNER="${KNIGHT_DB_USER}" \
     "${SRC_DIR}/infrastructure/scripts/knight-restore.sh" "$dump" "${KNIGHT_DB_NAME}" --force
   local outcome=$?
   systemctl start knight-api
 
-  [[ $outcome -eq 0 ]] && success "Restored." || error "The restore failed. The API has been started again."
+  if [[ $outcome -ne 0 ]]; then
+    error "The restore failed. The API has been started again; check what it says about the database."
+  fi
+
+  if wait_for_api; then
+    success "Restored, and the API is reporting ready."
+  else
+    warn "Restored, but the API is not reporting ready. See: knightctl logs api"
+  fi
 }
 
 cmd_admin() {
@@ -282,7 +349,12 @@ cmd_domain() {
   [[ -n "${Email__Host:-}" ]] && write_env Email__DashboardBaseUrl "${scheme}://${new}"
 
   systemctl restart knight-api
-  success "Now serving ${scheme}://${new}"
+
+  if wait_for_api; then
+    success "Now serving ${scheme}://${new}"
+  else
+    warn "The settings are written, but the API is not reporting ready. See: knightctl logs api"
+  fi
 }
 
 cmd_signing_key() {
@@ -293,15 +365,26 @@ cmd_signing_key() {
   echo ""
 
   local key_id public_key
-  read -rp "$(echo -e "  ${BOLD}Key id${NC} ${DIM}[primary]${NC}: ")" key_id
-  key_id="${key_id:-primary}"
+  while true; do
+    read -rp "$(echo -e "  ${BOLD}Key id${NC} ${DIM}[primary]${NC}: ")" key_id
+    key_id="${key_id:-primary}"
+    # It becomes part of an environment variable name, so it has to be a valid
+    # identifier or this file stops being readable by systemd and by this tool.
+    [[ "$key_id" =~ ^[A-Za-z0-9_]+$ ]] && break
+    echo -e "  ${RED}Letters, digits and underscores only.${NC}"
+  done
   read -rp "$(echo -e "  ${BOLD}Public key, base64 DER${NC}: ")" public_key
   [[ -n "$public_key" ]] || error "No key given. Nothing was changed."
 
   write_env FeatureArtifacts__ActiveKeyId "$key_id"
   write_env "FeatureArtifacts__Keys__${key_id}__PublicKey" "$public_key"
   systemctl restart knight-api
-  success "Key '${key_id}' is active. Previously configured keys are kept, so versions they signed still verify."
+
+  if wait_for_api; then
+    success "Key '${key_id}' is active. Previously configured keys are kept, so versions they signed still verify."
+  else
+    warn "The key is written, but the API is not reporting ready. A malformed key is the first thing to check: knightctl logs api"
+  fi
 }
 
 cmd_config() {

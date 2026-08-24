@@ -87,8 +87,7 @@ ENV_FILE="${INSTALL_DIR}/knight.env"
 BUILD_TMP="${INSTALL_DIR}/.build"
 
 SERVICE_USER="knight"
-REPO_URL="${KNIGHT_REPO_URL:-https://github.com/Parthian-Cataphracts/Knight.git}"
-REPO_REF="${KNIGHT_REPO_REF:-main}"
+DEFAULT_REPO_URL="https://github.com/Parthian-Cataphracts/Knight.git"
 
 DOTNET_MAJOR=10
 NODE_MAJOR=20
@@ -152,6 +151,8 @@ ARG_DOMAIN="${KNIGHT_DOMAIN:-}"
 ARG_SSL_EMAIL="${KNIGHT_SSL_EMAIL:-}"
 ARG_DB_NAME="${KNIGHT_DB_NAME:-}"
 ARG_DB_USER="${KNIGHT_DB_USER:-}"
+ARG_REPO_URL="${KNIGHT_REPO_URL:-}"
+ARG_REPO_REF="${KNIGHT_REPO_REF:-}"
 
 # Carry a previous install's answers forward so a re-run neither asks twice nor
 # invents a second set of secrets. Values are single-quoted by write_env, so
@@ -172,6 +173,12 @@ PREV_REDIS_PORT="${KNIGHT_REDIS_PORT:-}"
 PREV_DB_NAME="${ARG_DB_NAME:-${KNIGHT_DB_NAME:-}}"
 PREV_DB_USER="${ARG_DB_USER:-${KNIGHT_DB_USER:-}}"
 PREV_DB_PASSWORD="${KNIGHT_DB_PASSWORD:-}"
+
+# Where this deployment tracks. Recorded, so that a re-install and knightctl
+# update follow the branch it was installed from rather than assuming the
+# repository's default one.
+REPO_URL="${ARG_REPO_URL:-${KNIGHT_REPO_URL:-$DEFAULT_REPO_URL}}"
+REPO_REF="${ARG_REPO_REF:-${KNIGHT_REPO_REF:-main}}"
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Questions — all of them, before anything is installed
@@ -279,12 +286,28 @@ echo -e "  ${DIM}Skipping is fine: KNIGHT installs and runs, and publishing a Fe
 echo -e "  ${DIM}version stays unavailable until a key is set with 'knightctl signing-key'.${NC}"
 echo ""
 
+# Whatever a previous run configured. Keys are stored under their own id, so
+# this is the one name that has to be looked up rather than assumed.
+STORED_ACTIVE_KEY_ID="${FeatureArtifacts__ActiveKeyId:-}"
+
 SIGNING_KEY_ID="${KNIGHT_SIGNING_KEY_ID:-}"
 SIGNING_PUBLIC_KEY="${KNIGHT_SIGNING_PUBLIC_KEY:-}"
-if ! $REINSTALL || [[ -z "$SIGNING_PUBLIC_KEY" ]]; then
-  ask SIGNING_PUBLIC_KEY "Artifact signing public key, base64 DER (Enter to skip)" ""
+
+if [[ -n "$STORED_ACTIVE_KEY_ID" && -z "$SIGNING_PUBLIC_KEY" ]]; then
+  info "Signing key '${STORED_ACTIVE_KEY_ID}' is already configured and is kept. Change it with 'knightctl signing-key'."
+else
+  ask SIGNING_PUBLIC_KEY "Artifact signing public key, base64 DER (Enter to skip)" "$SIGNING_PUBLIC_KEY"
   if [[ -n "$SIGNING_PUBLIC_KEY" ]]; then
-    ask SIGNING_KEY_ID "Key id" "primary"
+    # The id becomes part of an environment variable name
+    # (FeatureArtifacts__Keys__<id>__PublicKey), so anything that is not a valid
+    # identifier would produce a configuration file that neither systemd nor
+    # knightctl can read - and the failure would come later, somewhere else.
+    while true; do
+      ask SIGNING_KEY_ID "Key id (letters, digits and underscores)" "${SIGNING_KEY_ID:-primary}"
+      [[ "$SIGNING_KEY_ID" =~ ^[A-Za-z0-9_]+$ ]] && break
+      echo -e "  ${RED}Letters, digits and underscores only.${NC}"
+      [[ "$ASSUME_YES" == "1" ]] && error "KNIGHT_SIGNING_KEY_ID must be letters, digits and underscores only."
+    done
   fi
 fi
 
@@ -471,11 +494,22 @@ info "API will listen on 127.0.0.1:${APP_PORT}, Redis on 127.0.0.1:${REDIS_PORT}
 
 step "Source"
 
+# The checkout is owned by the service user and these commands run as root,
+# which git refuses by default: "detected dubious ownership". The exception is
+# granted per invocation rather than written into root's global gitconfig, so it
+# does not outlive the command and does not apply to any other repository on
+# this machine.
+git_src() { git -c safe.directory="$SRC_DIR" -C "$SRC_DIR" "$@"; }
+
 if [[ -d "${SRC_DIR}/.git" ]]; then
   info "Updating the existing checkout..."
-  git -C "$SRC_DIR" remote set-url origin "$REPO_URL"
-  git -C "$SRC_DIR" fetch --depth=1 origin "$REPO_REF" -q || error "Could not fetch ${REPO_REF} from ${REPO_URL}."
-  git -C "$SRC_DIR" reset --hard "origin/${REPO_REF}" -q || error "Could not check out ${REPO_REF}."
+  git_src remote set-url origin "$REPO_URL"
+  git_src fetch --depth=1 origin "$REPO_REF" -q || error "Could not fetch ${REPO_REF} from ${REPO_URL}."
+
+  # FETCH_HEAD rather than origin/<ref>: what was just fetched is what should be
+  # checked out, and a shallow single-branch clone does not always have a
+  # remote-tracking ref by that name to reach for.
+  git_src reset --hard FETCH_HEAD -q || error "Could not check out ${REPO_REF}."
 else
   # A checkout beside the script wins, so the installer can be run from a clone
   # to deploy exactly what is in it.
@@ -902,6 +936,15 @@ JWT_SIGNING_KEY="${Jwt__SigningKey:-}"
 STORE_SIGNING_KEY="${Stores__IntegrationSigningKey:-}"
 [[ -z "$STORE_SIGNING_KEY" ]] && STORE_SIGNING_KEY="$(random_secret 64)"
 
+# Every signing key this deployment has ever been given, not only the active
+# one. A retired key still has to verify the versions it signed, and this file
+# is rewritten from scratch below - so without carrying them across, a re-install
+# would quietly make every already-published Feature version unverifiable.
+PRESERVED_SIGNING_KEYS=""
+if [[ -s "$ENV_FILE" ]]; then
+  PRESERVED_SIGNING_KEYS="$(grep '^FeatureArtifacts__Keys__' "$ENV_FILE" || true)"
+fi
+
 : > "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 
@@ -911,6 +954,9 @@ chmod 600 "$ENV_FILE"
   echo "# Owner-only, and never to be committed anywhere."
   echo ""
 } >> "$ENV_FILE"
+
+[[ -n "$PRESERVED_SIGNING_KEYS" ]] && printf '%s
+' "$PRESERVED_SIGNING_KEYS" >> "$ENV_FILE"
 
 write_env ASPNETCORE_ENVIRONMENT "Production"
 write_env ASPNETCORE_URLS "http://127.0.0.1:${APP_PORT}"
@@ -943,6 +989,8 @@ write_env FeatureArtifacts__PublicBaseUrl "${SCHEME}://${DOMAIN}/artifacts"
 if [[ -n "$SIGNING_PUBLIC_KEY" ]]; then
   write_env FeatureArtifacts__ActiveKeyId "$SIGNING_KEY_ID"
   write_env "FeatureArtifacts__Keys__${SIGNING_KEY_ID}__PublicKey" "$SIGNING_PUBLIC_KEY"
+elif [[ -n "$STORED_ACTIVE_KEY_ID" ]]; then
+  write_env FeatureArtifacts__ActiveKeyId "$STORED_ACTIVE_KEY_ID"
 fi
 
 write_env Storage__LocalRootPath "$STORAGE_DIR"
@@ -972,6 +1020,8 @@ write_env KNIGHT_DB_PASSWORD "$DB_PASSWORD"
 write_env KNIGHT_DOTNET "$DOTNET_EXEC"
 write_env KNIGHT_NODE_BIN "$NODE_BIN"
 write_env KNIGHT_SSL_EMAIL "$SSL_EMAIL"
+write_env KNIGHT_REPO_URL "$REPO_URL"
+write_env KNIGHT_REPO_REF "$REPO_REF"
 
 success "Configuration written to ${ENV_FILE}"
 
@@ -1188,7 +1238,7 @@ echo -e "  ${DIM}${ENV_FILE}${NC}     configuration and secrets, owner-only"
 echo -e "  ${DIM}${BACKUP_DIR}${NC}      nightly database dumps"
 echo ""
 
-if [[ -z "$SIGNING_PUBLIC_KEY" ]]; then
+if [[ -z "$SIGNING_PUBLIC_KEY" && -z "$STORED_ACTIVE_KEY_ID" ]]; then
   warn "No artifact signing key is configured, so Feature versions cannot be published yet."
   echo -e "  ${DIM}Set one with:  knightctl signing-key${NC}"
   echo ""
@@ -1204,3 +1254,10 @@ if ! $API_OK; then
   echo -e "  ${RED}The API is not answering. Start here: journalctl -u knight-api -n 60 --no-pager${NC}"
   echo ""
 fi
+
+# Explicit, because an installer's exit status is what a provisioning system
+# reads and this script deliberately warns rather than aborts for things an
+# operator can fix afterwards. A missing certificate is one of those. An API
+# that never answered is not.
+$API_OK || exit 1
+exit 0

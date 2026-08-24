@@ -822,6 +822,35 @@ issued for `knight-control-plane`, and a wrong password returning 401. See
 - [x] A machine-specific absolute path (`C:/Users/<name>/…`) was the development
       artifact root, so every other checkout wrote artifacts to a directory that
       did not exist
+- [x] **Every re-install and every `knightctl update` failed after the first
+      install.** `chown -R knight` puts the checkout under the service user, and
+      git run as root then refuses it — "detected dubious ownership". The first
+      install works, the second one aborts at the source step, and nothing shows
+      it until a server has been installed twice. The exception is now granted
+      per git invocation rather than written into root's global gitconfig, so it
+      does not apply to any other repository on the machine
+- [x] A re-install **silently dropped the artifact signing keys**. The
+      environment file is rewritten from scratch, and the keys live in it under
+      their own ids. A retired key still has to verify the versions it signed, so
+      losing one makes already-published Feature versions unverifiable. Every
+      key is now carried across, not only the active one
+- [x] The installer's exit status was whatever its last statement happened to
+      return. It is explicit now: zero unless the API never answered, which is
+      the one thing above a warning that a provisioning system needs to see
+- [x] **`knight-restore.sh` needed a privilege the application role does not
+      have.** It drops and recreates the target database, and the role KNIGHT
+      connects as owns one database and is not a superuser — so a real restore
+      dropped the database and then could not recreate it, leaving nothing. The
+      CI drill never showed it, because there the role owns the cluster. The two
+      statements now run through `KNIGHT_ADMIN_PSQL` (the local superuser, where
+      there is one) and the database is recreated with an explicit owner, so the
+      application role can restore into it. The drill is unchanged and still
+      passes
+- [x] `knightctl` reported success the moment systemd returned, several seconds
+      before the API was serving — so `domain`, `restart`, `signing-key`,
+      `update` and `restore` all sent the operator to a 502 they would
+      reasonably read as a broken deployment. They wait for the readiness probe
+      now, and say so when it does not come
 
 ### Not done
 
