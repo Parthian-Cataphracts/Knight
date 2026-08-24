@@ -72,6 +72,7 @@ Read in this order:
 16. [`risks.md`](risks.md) — open risks, contradictions, unresolved decisions
 17. [`development.md`](development.md) — how to run, test, and contribute
 18. [`phase-3-verification.md`](phase-3-verification.md) — the exact steps to bring KNIGHT, a store and the dashboard up together and see the link work
+19. [`phase-11-verification.md`](phase-11-verification.md) — the exact steps to install KNIGHT on a server and prove it did not disturb anything else on it
 
 Project status and remaining work: [`../TODO.md`](../TODO.md).
 

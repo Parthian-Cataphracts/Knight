@@ -761,12 +761,9 @@ working KNIGHT — reachable over TLS, with a first administrator, migrations
 applied and a nightly backup scheduled — without disturbing anything else
 already running on that machine.
 
-**Verification:** the installer was run end to end twice inside a
-systemd-enabled Ubuntu 24.04 container, and the result was driven through
-nginx: the dashboard bundle served, `/health/ready` reporting a healthy
-PostgreSQL, a real sign-in returning `mfa_enrollment_required` with a token
-issued for `knight-control-plane`, and a wrong password returning 401. See
-§"How to verify it" below.
+**Verification:** [`docs/phase-11-verification.md`](docs/phase-11-verification.md)
+— five installs across two systemd Ubuntu servers, the result driven through
+nginx, and the six defects that only a real second install could show.
 
 - [x] `install.sh` — a one-command install for Ubuntu 22.04+ and Debian 12+.
       Asks everything up front, then runs unattended: packages, toolchain,
