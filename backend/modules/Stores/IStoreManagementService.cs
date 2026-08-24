@@ -2,13 +2,21 @@ using Stores.Domain;
 
 namespace Stores;
 
+/// <summary>
+/// <paramref name="ServerId"/> is optional: a store may be registered before
+/// anybody has decided which machine it will run on. When it is supplied the
+/// placement is checked exactly as it is on a later move - a dedicated machine
+/// belonging to somebody else is refused at registration rather than accepted
+/// and discovered afterwards.
+/// </summary>
 public sealed record CreateStoreInput(
     Guid CustomerId,
     string Name,
     string Slug,
     string PrimaryDomain,
     StoreEnvironment Environment,
-    HostingModel HostingModel);
+    HostingModel HostingModel,
+    Guid? ServerId = null);
 
 /// <summary>
 /// <paramref name="Environment"/> is null when the caller is not changing it.
@@ -19,7 +27,6 @@ public sealed record CreateStoreInput(
 public sealed record UpdateStoreInput(
     string Name,
     string PrimaryDomain,
-    Guid? ServerId,
     Domain.StoreEnvironment? Environment = null);
 
 public sealed record StoreListQuery(int Page, int PageSize, Guid? CustomerId, StoreEnvironment? Environment, StoreStatus? Status);
@@ -44,6 +51,17 @@ public interface IStoreManagementService
     Task<StorePage> ListAsync(StoreListQuery query, CancellationToken cancellationToken);
 
     Task<Store> UpdateAsync(Guid id, UpdateStoreInput input, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Places the store on a server, or takes it off one with a null id.
+    ///
+    /// Its own operation rather than a field on the update, for the reason the
+    /// retention override has its own route: where a customer's store runs is a
+    /// fact worth an audit entry that says so, and a field on a profile update
+    /// is a field every caller that edits a name has to remember to send back or
+    /// silently erase.
+    /// </summary>
+    Task<Store> AssignServerAsync(Guid id, Guid? serverId, CancellationToken cancellationToken);
 
     Task<Store> ActivateAsync(Guid id, CancellationToken cancellationToken);
 

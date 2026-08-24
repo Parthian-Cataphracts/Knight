@@ -121,6 +121,12 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
     return json({ items: detail.notificationChannels });
   }
 
+  // Not a collection: the fleet overview is one object carrying every server's
+  // status and latest load.
+  if (path === "/monitoring/fleet") {
+    return json(fixtures.fleet);
+  }
+
   if (path === "/notifications/rules") {
     return json({
       items: [

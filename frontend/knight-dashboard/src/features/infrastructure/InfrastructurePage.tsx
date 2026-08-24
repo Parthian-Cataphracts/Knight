@@ -1,22 +1,23 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { RefreshCw, Server as ServerIcon } from "lucide-react";
-import { useAction, useCollection } from "@/lib/api/hooks";
+import { useAction, useCollection, useResource } from "@/lib/api/hooks";
 import { apiRequest } from "@/lib/api/client";
 import { AreaChart } from "@/components/data/Sparkline";
-import type { Server } from "@/lib/api/domain";
+import type { Customer, FleetOverview, FleetServer, Server } from "@/lib/api/domain";
 import type { HealthState } from "@/lib/api/types";
 import { PageShell, PageHeader, KeyValue, Mono } from "@/components/data/PageShell";
 import { CollectionCard } from "@/components/data/CollectionCard";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { Drawer } from "@/components/data/Drawer";
+import { EditDrawer } from "@/features/shared/EditDrawer";
 import { useAuthStore } from "@/store/auth";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { StatusChip, type Tone } from "@/components/ui/StatusChip";
 import { TextField } from "@/components/ui/TextField";
 import { Meter } from "@/components/ui/Meter";
 import { Button } from "@/components/ui/Button";
-import { formatPercent } from "@/lib/utils/format";
+import { formatRelative } from "@/lib/utils/format";
 
 interface PlatformService {
   key: string;
@@ -39,8 +40,23 @@ export function InfrastructurePage() {
   const servers = useCollection<Server>("/servers");
   const [selected, setSelected] = useState<Server | null>(null);
 
+  // Load figures are not on /servers and never were. The fleet overview reports
+  // every machine in one batched call, so this is one request whatever the size
+  // of the fleet - the shape the phase 10 work settled on rather than a request
+  // per row.
+  const fleet = useResource<FleetOverview>("/monitoring/fleet");
+  const load = new Map<string, FleetServer>((fleet.data?.servers ?? []).map((s) => [s.id, s]));
+
+  // Which machine belongs to whom. A dedicated server hosts one customer's
+  // stores and nobody else's, and until now the dashboard never said whose.
+  const customers = useCollection<Customer>("/customers");
+  const customerName = (id: string | null) =>
+    id === null ? null : (customers.data ?? []).find((c) => c.id === id)?.name ?? id;
+
   const can = useAuthStore((state) => state.can);
   const [registering, setRegistering] = useState(false);
+  const [editing, setEditing] = useState<Server | null>(null);
+  const [dedicating, setDedicating] = useState<Server | null>(null);
 
   // A provisioning token is shown exactly once: it is burned on first use, and
   // KNIGHT keeps only its hash. Holding it in state to display is the only
@@ -99,25 +115,41 @@ export function InfrastructurePage() {
         <StatusChip tone={healthTone[row.status]}>{t(`health.${row.status}`)}</StatusChip>
       ),
     },
-    { key: "ip", header: t("infrastructure.ip"), mono: true, secondary: true, render: (row) => row.ipAddress },
+    {
+      key: "owner",
+      header: t("infrastructure.dedicatedTo"),
+      render: (row) => {
+        const owner = customerName(row.dedicatedCustomerId);
+        return owner === null ? (
+          <span className="text-on-surface-variant">{t("infrastructure.shared")}</span>
+        ) : (
+          <StatusChip tone="info">{owner}</StatusChip>
+        );
+      },
+    },
+    { key: "ip", header: t("infrastructure.ip"), mono: true, secondary: true, render: (row) => row.ipAddress ?? "—" },
     {
       key: "load",
       header: t("infrastructure.load"),
       mono: true,
-      render: (row) => `${row.cpuPercent}% / ${row.memoryPercent}% / ${row.diskPercent}%`,
+      render: (row) => {
+        const current = load.get(row.id);
+
+        // A machine whose agent has never reported has no load, which is not the
+        // same as a load of zero and must not be drawn as one.
+        return current === undefined ||
+          current.cpuPercent === null ||
+          current.memoryPercent === null ||
+          current.diskPercent === null
+          ? "—"
+          : `${Math.round(current.cpuPercent)}% / ${Math.round(current.memoryPercent)}% / ${Math.round(current.diskPercent)}%`;
+      },
     },
     {
-      key: "stores",
-      header: t("infrastructure.stores"),
-      numeric: true,
-      render: (row) => row.storeCount,
-    },
-    {
-      key: "agent",
-      header: t("infrastructure.agent"),
-      mono: true,
+      key: "region",
+      header: t("infrastructure.region"),
       secondary: true,
-      render: (row) => row.agentVersion ?? "—",
+      render: (row) => [row.provider, row.region].filter(Boolean).join(" · ") || "—",
     },
   ];
 
@@ -139,6 +171,78 @@ export function InfrastructurePage() {
             </Button>
           </>
         }
+      />
+
+      <EditDrawer
+        open={editing !== null}
+        title={t("infrastructure.editServer")}
+        subtitle={editing?.name}
+        path={`/servers/${editing?.id ?? ""}`}
+        method="PUT"
+        fields={[
+          { key: "name", label: t("common.name"), value: editing?.name ?? "", ltr: true },
+          {
+            key: "provider",
+            label: t("infrastructure.provider"),
+            value: editing?.provider ?? "",
+            required: false,
+            placeholder: "hetzner",
+          },
+          {
+            key: "region",
+            label: t("infrastructure.region"),
+            value: editing?.region ?? "",
+            required: false,
+            placeholder: "fsn1",
+          },
+          {
+            key: "ipAddress",
+            label: t("infrastructure.ip"),
+            value: editing?.ipAddress ?? "",
+            ltr: true,
+            required: false,
+            placeholder: "203.0.113.10",
+          },
+        ]}
+        onClose={() => setEditing(null)}
+        onSaved={() => {
+          setEditing(null);
+          setSelected(null);
+          void servers.refetch();
+        }}
+      />
+
+      <EditDrawer
+        open={dedicating !== null}
+        title={t("infrastructure.dedicate")}
+        subtitle={dedicating?.name}
+        path={`/servers/${dedicating?.id ?? ""}/dedication`}
+        method="PUT"
+        fields={[
+          {
+            key: "customerId",
+            label: t("customers.name"),
+            value: dedicating?.dedicatedCustomerId ?? "",
+            required: false,
+            // Empty means shared, and the API types the id as nullable - so it
+            // has to arrive as null rather than as an empty string.
+            nullWhenEmpty: true,
+            choices: [
+              { value: "", label: t("infrastructure.shared") },
+              ...(customers.data ?? []).map((customer) => ({
+                value: customer.id,
+                label: customer.name,
+              })),
+            ],
+            note: t("infrastructure.dedicateNote"),
+          },
+        ]}
+        onClose={() => setDedicating(null)}
+        onSaved={() => {
+          setDedicating(null);
+          setSelected(null);
+          void servers.refetch();
+        }}
       />
 
       <RegisterServerForm
@@ -209,8 +313,22 @@ export function InfrastructurePage() {
 
       <Drawer
         footer={
-          can("agent.manage") && selected ? (
+          selected ? (
             <>
+              {can("server.manage") ? (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setEditing(selected)}>
+                    {t("common.edit")}
+                  </Button>
+
+                  <Button variant="outline" size="sm" onClick={() => setDedicating(selected)}>
+                    {t("infrastructure.dedicate")}
+                  </Button>
+                </>
+              ) : null}
+
+              {can("agent.manage") ? (
+                <>
               <Button
                 size="sm"
                 disabled={provisionAgent.isPending}
@@ -233,6 +351,8 @@ export function InfrastructurePage() {
               >
                 {t("infrastructure.decommission")}
               </Button>
+                </>
+              ) : null}
             </>
           ) : undefined
         }
@@ -260,32 +380,59 @@ export function InfrastructurePage() {
                   series={series.cpu}
                   label={t("infrastructure.cpuTrend")}
                   unit="%"
-                  tone={selected.cpuPercent > 80 ? "danger" : "primary"}
+                  tone={(load.get(selected.id)?.cpuPercent ?? 0) > 80 ? "danger" : "primary"}
                 />
                 <AreaChart series={series.memory} label={t("infrastructure.memoryTrend")} unit="%" />
               </div>
             ) : null}
-            <div className="flex flex-col gap-4">
-              <Meter label={t("dashboard.cpu")} value={selected.cpuPercent} tone={selected.cpuPercent > 80 ? "danger" : "primary"} />
-              <Meter label={t("dashboard.memory")} value={selected.memoryPercent} tone={selected.memoryPercent > 75 ? "warning" : "primary"} />
-              <Meter label={t("dashboard.disk")} value={selected.diskPercent} />
-            </div>
+
+            {(() => {
+              const current = load.get(selected.id);
+
+              // Nothing rather than zeroes: a machine that has never reported is
+              // not a machine that is idle, and three meters at 0% would say the
+              // opposite of the truth.
+              return current?.cpuPercent === undefined || current.cpuPercent === null ? (
+                <Card className="p-4 text-body-sm text-on-surface-variant">
+                  {t("infrastructure.noLoad")}
+                </Card>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <Meter
+                    label={t("dashboard.cpu")}
+                    value={current.cpuPercent}
+                    tone={current.cpuPercent > 80 ? "danger" : "primary"}
+                  />
+                  <Meter
+                    label={t("dashboard.memory")}
+                    value={current.memoryPercent ?? 0}
+                    tone={(current.memoryPercent ?? 0) > 75 ? "warning" : "primary"}
+                  />
+                  <Meter label={t("dashboard.disk")} value={current.diskPercent ?? 0} />
+                </div>
+              );
+            })()}
+
             <dl className="divide-y divide-outline-variant">
               <KeyValue label={t("common.status")}>
                 <StatusChip tone={healthTone[selected.status]}>
                   {t(`health.${selected.status}`)}
                 </StatusChip>
               </KeyValue>
+              {selected.statusReason ? (
+                <KeyValue label={t("infrastructure.statusReason")}>{selected.statusReason}</KeyValue>
+              ) : null}
+              <KeyValue label={t("infrastructure.dedicatedTo")}>
+                {customerName(selected.dedicatedCustomerId) ?? t("infrastructure.shared")}
+              </KeyValue>
               <KeyValue label={t("infrastructure.ip")}>
-                <Mono>{selected.ipAddress}</Mono>
+                <Mono>{selected.ipAddress ?? "—"}</Mono>
               </KeyValue>
-              <KeyValue label={t("infrastructure.uptime")}>
-                {formatPercent(selected.uptimePercent)}
+              <KeyValue label={t("infrastructure.provider")}>{selected.provider ?? "—"}</KeyValue>
+              <KeyValue label={t("infrastructure.region")}>{selected.region ?? "—"}</KeyValue>
+              <KeyValue label={t("infrastructure.lastSeen")}>
+                {selected.lastSeenAt === null ? t("infrastructure.neverReported") : formatRelative(selected.lastSeenAt)}
               </KeyValue>
-              <KeyValue label={t("infrastructure.agent")}>
-                <Mono>{selected.agentVersion ?? "—"}</Mono>
-              </KeyValue>
-              <KeyValue label={t("infrastructure.stores")}>{selected.storeCount}</KeyValue>
             </dl>
             <Card className="p-4 text-body-sm text-on-surface-variant">
               {t("infrastructure.agentNote")}
@@ -318,6 +465,7 @@ function RegisterServerForm({
   const [environment, setEnvironment] = useState("Production");
   const [provider, setProvider] = useState("");
   const [region, setRegion] = useState("");
+  const [ipAddress, setIpAddress] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -334,12 +482,14 @@ function RegisterServerForm({
           environment,
           provider: provider || undefined,
           region: region || undefined,
+          ipAddress: ipAddress || undefined,
         },
       });
 
       setName("");
       setProvider("");
       setRegion("");
+      setIpAddress("");
       onRegistered();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
@@ -416,6 +566,15 @@ function RegisterServerForm({
           label={t("infrastructure.region")}
           value={region}
           onChange={(event) => setRegion(event.target.value)}
+        />
+
+        <TextField
+          label={t("infrastructure.ip")}
+          dir="ltr"
+          placeholder="203.0.113.10"
+          hint={t("infrastructure.ipHint")}
+          value={ipAddress}
+          onChange={(event) => setIpAddress(event.target.value)}
         />
       </div>
     </Drawer>

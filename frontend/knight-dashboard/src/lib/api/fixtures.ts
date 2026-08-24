@@ -6,6 +6,7 @@ import type {
   ErrorGroup,
   Feature,
   FeatureVersion,
+  FleetOverview,
   Incident,
   Installation,
   Invoice,
@@ -34,12 +35,12 @@ export const customers: Customer[] = [
 ];
 
 export const stores: Store[] = [
-  { id: "s1", customerId: "c1", customerName: "کافه وان", name: "فروشگاه اصلی", primaryDomain: "cafe1.ir", environment: "Production", applicationVersion: "4.2.0", integrationStatus: "Connected", hostingModel: "DedicatedManaged", status: "Active", installedFeatureCount: 5, requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: minutesAgo(2) },
-  { id: "s2", customerId: "c1", customerName: "کافه وان", name: "محیط آزمایشی", primaryDomain: "staging.cafe1.ir", environment: "Staging", applicationVersion: "4.3.0-rc1", integrationStatus: "Connected", hostingModel: "SharedManaged", status: "Active", installedFeatureCount: 6, requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: minutesAgo(5) },
-  { id: "s3", customerId: "c2", customerName: "کافه تو", name: "فروشگاه اصلی", primaryDomain: "cafe2.ir", environment: "Production", applicationVersion: "4.1.3", integrationStatus: "Degraded", hostingModel: "SharedManaged", status: "Active", installedFeatureCount: 3, requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: minutesAgo(18) },
-  { id: "s4", customerId: "c3", customerName: "شیرینی سرای پارس", name: "فروشگاه اصلی", primaryDomain: "parsbakery.ir", environment: "Production", applicationVersion: "4.2.0", integrationStatus: "Connected", hostingModel: "SharedManaged", status: "Active", installedFeatureCount: 2, requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: minutesAgo(1) },
-  { id: "s5", customerId: "c4", customerName: "رستوران البرز", name: "فروشگاه اصلی", primaryDomain: "alborz.ir", environment: "Production", applicationVersion: "3.9.2", integrationStatus: "Disconnected", hostingModel: "SharedManaged", status: "Suspended", installedFeatureCount: 2, requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: daysAgo(6) },
-  { id: "s6", customerId: "c5", customerName: "قنادی نوین", name: "فروشگاه جدید", primaryDomain: "novin.ir", environment: "Production", applicationVersion: null, integrationStatus: "Pending", hostingModel: "SharedManaged", status: "Provisioning", installedFeatureCount: 0, requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: null },
+  { id: "s1", customerId: "c1", customerName: "کافه وان", name: "فروشگاه اصلی", primaryDomain: "cafe1.ir", environment: "Production", applicationVersion: "4.2.0", integrationStatus: "Connected", hostingModel: "DedicatedManaged", status: "Active", installedFeatureCount: 5, serverId: "srv2", requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: minutesAgo(2) },
+  { id: "s2", customerId: "c1", customerName: "کافه وان", name: "محیط آزمایشی", primaryDomain: "staging.cafe1.ir", environment: "Staging", applicationVersion: "4.3.0-rc1", integrationStatus: "Connected", hostingModel: "SharedManaged", status: "Active", installedFeatureCount: 6, serverId: "srv3", requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: minutesAgo(5) },
+  { id: "s3", customerId: "c2", customerName: "کافه تو", name: "فروشگاه اصلی", primaryDomain: "cafe2.ir", environment: "Production", applicationVersion: "4.1.3", integrationStatus: "Degraded", hostingModel: "SharedManaged", status: "Active", installedFeatureCount: 3, serverId: "srv1", requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: minutesAgo(18) },
+  { id: "s4", customerId: "c3", customerName: "شیرینی سرای پارس", name: "فروشگاه اصلی", primaryDomain: "parsbakery.ir", environment: "Production", applicationVersion: "4.2.0", integrationStatus: "Connected", hostingModel: "SharedManaged", status: "Active", installedFeatureCount: 2, serverId: "srv1", requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: minutesAgo(1) },
+  { id: "s5", customerId: "c4", customerName: "رستوران البرز", name: "فروشگاه اصلی", primaryDomain: "alborz.ir", environment: "Production", applicationVersion: "3.9.2", integrationStatus: "Disconnected", hostingModel: "SharedManaged", status: "Suspended", installedFeatureCount: 2, serverId: "srv4", requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: daysAgo(6) },
+  { id: "s6", customerId: "c5", customerName: "قنادی نوین", name: "فروشگاه جدید", primaryDomain: "novin.ir", environment: "Production", applicationVersion: null, integrationStatus: "Pending", hostingModel: "SharedManaged", status: "Provisioning", installedFeatureCount: 0, serverId: null, requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: null },
 ];
 
 export const features: Feature[] = [
@@ -218,11 +219,33 @@ export const invoices: Invoice[] = [
 ];
 
 export const servers: Server[] = [
-  { id: "srv1", name: "prod-shared-01", hostingModel: "SharedManaged", environment: "Production", ipAddress: "10.12.5.101", status: "Healthy", cpuPercent: 42, memoryPercent: 61, diskPercent: 38, uptimePercent: 99.99, agentVersion: "1.2.0", storeCount: 3 },
-  { id: "srv2", name: "prod-cafe1-dedicated", hostingModel: "DedicatedManaged", environment: "Production", ipAddress: "10.12.6.20", status: "Degraded", cpuPercent: 85, memoryPercent: 78, diskPercent: 62, uptimePercent: 98.5, agentVersion: "1.2.0", storeCount: 1 },
-  { id: "srv3", name: "staging-shared-01", hostingModel: "SharedManaged", environment: "Staging", ipAddress: "10.13.1.5", status: "Healthy", cpuPercent: 18, memoryPercent: 34, diskPercent: 22, uptimePercent: 99.9, agentVersion: "1.2.0", storeCount: 2 },
-  { id: "srv4", name: "legacy-alborz", hostingModel: "CustomerManaged", environment: "Production", ipAddress: "185.4.20.77", status: "Offline", cpuPercent: 0, memoryPercent: 0, diskPercent: 0, uptimePercent: 91.2, agentVersion: "1.0.4", storeCount: 1 },
+  { id: "srv1", name: "prod-shared-01", hostingModel: "SharedManaged", environment: "Production", status: "Healthy", statusReason: null, provider: "hetzner", region: "fsn1", ipAddress: "10.12.5.101", dedicatedCustomerId: null, lastSeenAt: minutesAgo(1), decommissionedAt: null },
+  { id: "srv2", name: "prod-cafe1-dedicated", hostingModel: "DedicatedManaged", environment: "Production", status: "Degraded", statusReason: "Disk above 80% for 20 minutes.", provider: "hetzner", region: "fsn1", ipAddress: "10.12.6.20", dedicatedCustomerId: "c1", lastSeenAt: minutesAgo(2), decommissionedAt: null },
+  { id: "srv3", name: "staging-shared-01", hostingModel: "SharedManaged", environment: "Staging", status: "Healthy", statusReason: null, provider: "hetzner", region: "nbg1", ipAddress: "10.13.1.5", dedicatedCustomerId: null, lastSeenAt: minutesAgo(1), decommissionedAt: null },
+  { id: "srv4", name: "legacy-alborz", hostingModel: "CustomerManaged", environment: "Production", status: "Offline", statusReason: "No heartbeat for 6 days.", provider: null, region: null, ipAddress: "185.4.20.77", dedicatedCustomerId: "c4", lastSeenAt: daysAgo(6), decommissionedAt: null },
 ];
+
+/** What GET /monitoring/fleet answers: every machine's status and latest load. */
+export const fleet: FleetOverview = {
+  totalServers: 4,
+  healthyServers: 2,
+  degradedServers: 1,
+  offlineServers: 1,
+  unknownServers: 0,
+  totalAgents: 4,
+  onlineAgents: 3,
+  offlineAgents: 1,
+  openAlerts: 2,
+  criticalAlerts: 1,
+  servers: [
+    { id: "srv1", name: "prod-shared-01", environment: "Production", hostingModel: "SharedManaged", status: "Healthy", statusReason: null, lastSeenAt: minutesAgo(1), cpuPercent: 42, memoryPercent: 61, diskPercent: 38 },
+    { id: "srv2", name: "prod-cafe1-dedicated", environment: "Production", hostingModel: "DedicatedManaged", status: "Degraded", statusReason: "Disk above 80% for 20 minutes.", lastSeenAt: minutesAgo(2), cpuPercent: 85, memoryPercent: 78, diskPercent: 82 },
+    { id: "srv3", name: "staging-shared-01", environment: "Staging", hostingModel: "SharedManaged", status: "Healthy", statusReason: null, lastSeenAt: minutesAgo(1), cpuPercent: 18, memoryPercent: 34, diskPercent: 22 },
+    // Never reported, so it has no load at all - which the screen must show as
+    // nothing rather than as zero.
+    { id: "srv4", name: "legacy-alborz", environment: "Production", hostingModel: "CustomerManaged", status: "Offline", statusReason: "No heartbeat for 6 days.", lastSeenAt: daysAgo(6), cpuPercent: null, memoryPercent: null, diskPercent: null },
+  ],
+};
 
 export const errorGroups: ErrorGroup[] = [
   { id: "eg1", storeName: "cafe1.ir", environment: "Production", exceptionType: "IntegrityError", title: "duplicate key value violates unique constraint", endpoint: "/api/orders/", occurrenceCount: 37, status: "New", firstSeenAt: minutesAgo(140), lastSeenAt: minutesAgo(4), firstSeenVersion: "4.2.0" , lastSeenVersion: "4.3.0", isRegression: true, incidentId: null },

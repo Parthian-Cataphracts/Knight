@@ -3,14 +3,23 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Plus, KeyRound, RefreshCw } from "lucide-react";
 import { useCollection } from "@/lib/api/hooks";
-import type { Customer, Installation, IntegrationStatus, Store } from "@/lib/api/domain";
+import { apiRequest } from "@/lib/api/client";
+import type {
+  Customer,
+  HostingModel,
+  Installation,
+  IntegrationStatus,
+  Server,
+  Store,
+} from "@/lib/api/domain";
+import type { Environment } from "@/lib/api/types";
 import { PageShell, PageHeader, Toolbar, FilterTabs, KeyValue, Mono } from "@/components/data/PageShell";
 import { CollectionCard } from "@/components/data/CollectionCard";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { Drawer } from "@/components/data/Drawer";
 import { StatusChip, type Tone } from "@/components/ui/StatusChip";
 import { Button } from "@/components/ui/Button";
-import { EditDrawer } from "@/features/shared/EditDrawer";
+import { TextField } from "@/components/ui/TextField";
 import { useAuthStore } from "@/store/auth";
 import { formatRelative } from "@/lib/utils/format";
 import { installationTone } from "@/features/installations/installationTone";
@@ -34,14 +43,6 @@ export function StoresPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<Store | null>(null);
   const [registering, setRegistering] = useState(false);
-
-  // A store belongs to a customer, so registering one means choosing which. The
-  // list is only fetched for that, and only by somebody who may create a store.
-  const customers = useCollection<Customer>("/customers", can("store.create"));
-  const customerChoices = (customers.data ?? []).map((customer) => ({
-    value: customer.id,
-    label: customer.name,
-  }));
 
   const all = query.data ?? [];
   const rows = all.filter((store) => filter === "all" || store.environment === filter);
@@ -108,61 +109,10 @@ export function StoresPage() {
 
   return (
     <PageShell>
-      <EditDrawer
+      <RegisterStoreForm
         open={registering}
-        title={t("stores.register")}
-        subtitle={t("stores.registerSubtitle")}
-        path="/stores"
-        method="POST"
-        fields={[
-          {
-            key: "customerId",
-            label: t("stores.customer"),
-            // The select shows the first option whatever the form holds, so an
-            // empty value here would look chosen and post nothing.
-            value: customerChoices[0]?.value ?? "",
-            choices: customerChoices,
-            ...(customerChoices.length === 0 ? { note: t("stores.noCustomers") } : {}),
-          },
-          { key: "name", label: t("common.name"), value: "" },
-          {
-            key: "slug",
-            label: t("stores.slug"),
-            value: "",
-            ltr: true,
-            placeholder: "cafe-parthia",
-          },
-          {
-            key: "primaryDomain",
-            label: t("stores.primaryDomain"),
-            value: "",
-            ltr: true,
-            placeholder: "cafe1.ir",
-            note: t("stores.domainNote"),
-          },
-          {
-            key: "environment",
-            label: t("stores.environment"),
-            value: "Production",
-            choices: [
-              { value: "Production", label: t("environment.Production") },
-              { value: "Staging", label: t("environment.Staging") },
-              { value: "Development", label: t("environment.Development") },
-            ],
-          },
-          {
-            key: "hostingModel",
-            label: t("stores.hosting"),
-            value: "SharedManaged",
-            choices: [
-              { value: "SharedManaged", label: t("hosting.SharedManaged") },
-              { value: "DedicatedManaged", label: t("hosting.DedicatedManaged") },
-              { value: "CustomerManaged", label: t("hosting.CustomerManaged") },
-            ],
-          },
-        ]}
         onClose={() => setRegistering(false)}
-        onSaved={() => {
+        onRegistered={() => {
           setRegistering(false);
           void query.refetch();
         }}
@@ -297,5 +247,217 @@ export function StoresPage() {
         ) : null}
       </Drawer>
     </PageShell>
+  );
+}
+
+/**
+ * Registering a store, including the machine it will run on.
+ *
+ * Its own form rather than the shared EditDrawer because the server list depends
+ * on two answers given inside it: a dedicated machine belongs to one customer,
+ * and a machine only hosts stores of its own environment. A static field list
+ * cannot narrow itself as those change, and offering a machine that will be
+ * refused is a worse experience than not offering it.
+ *
+ * The narrowing is a convenience, not the check. KNIGHT validates the placement
+ * on its own and refuses a machine that is decommissioned, dedicated elsewhere
+ * or in another environment - what appears here is only what would be accepted.
+ */
+function RegisterStoreForm({
+  open,
+  onClose,
+  onRegistered,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onRegistered: () => void;
+}) {
+  const { t } = useTranslation();
+  const customers = useCollection<Customer>("/customers", open);
+  const servers = useCollection<Server>("/servers", open);
+
+  const [customerId, setCustomerId] = useState("");
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [primaryDomain, setPrimaryDomain] = useState("");
+  const [environment, setEnvironment] = useState<Environment>("Production");
+  const [hostingModel, setHostingModel] = useState<HostingModel>("SharedManaged");
+  const [serverId, setServerId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const customerList = customers.data ?? [];
+
+  // Default to the first customer once they arrive, so the select never shows a
+  // name while holding nothing.
+  const chosenCustomer = customerId === "" ? (customerList[0]?.id ?? "") : customerId;
+
+  const eligible = (servers.data ?? []).filter(
+    (server) =>
+      server.decommissionedAt === null &&
+      server.environment === environment &&
+      (server.dedicatedCustomerId === null || server.dedicatedCustomerId === chosenCustomer),
+  );
+
+  // The chosen machine may stop being eligible when the customer or environment
+  // changes underneath it, and posting it anyway would be refused.
+  const chosenServer = eligible.some((server) => server.id === serverId) ? serverId : "";
+
+  const submit = async () => {
+    setSaving(true);
+    setError(null);
+
+    try {
+      await apiRequest("/stores", {
+        method: "POST",
+        body: {
+          customerId: chosenCustomer,
+          name: name.trim(),
+          slug: slug.trim(),
+          primaryDomain: primaryDomain.trim(),
+          environment,
+          hostingModel,
+          serverId: chosenServer === "" ? null : chosenServer,
+        },
+      });
+
+      setName("");
+      setSlug("");
+      setPrimaryDomain("");
+      setServerId("");
+      onRegistered();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const incomplete =
+    chosenCustomer === "" || name.trim() === "" || slug.trim() === "" || primaryDomain.trim() === "";
+
+  return (
+    <Drawer
+      open={open}
+      title={t("stores.register")}
+      subtitle={t("stores.registerSubtitle")}
+      onClose={onClose}
+      footer={
+        <Button size="sm" disabled={saving || incomplete} onClick={() => void submit()}>
+          {t("common.save")}
+        </Button>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {error ? (
+          <p role="alert" className="rounded-md bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+            {error}
+          </p>
+        ) : null}
+
+        <SelectField
+          label={t("stores.customer")}
+          value={chosenCustomer}
+          onChange={setCustomerId}
+          options={customerList.map((customer) => ({ value: customer.id, label: customer.name }))}
+          note={customerList.length === 0 ? t("stores.noCustomers") : undefined}
+        />
+
+        <TextField label={t("common.name")} value={name} onChange={(e) => setName(e.target.value)} />
+
+        <TextField
+          label={t("stores.slug")}
+          dir="ltr"
+          placeholder="phoenix-verify"
+          hint={t("createCustomer.slugHint")}
+          value={slug}
+          onChange={(e) => setSlug(e.target.value)}
+        />
+
+        <TextField
+          label={t("stores.primaryDomain")}
+          dir="ltr"
+          placeholder="cafe1.ir"
+          hint={t("stores.domainNote")}
+          value={primaryDomain}
+          onChange={(e) => setPrimaryDomain(e.target.value)}
+        />
+
+        <SelectField
+          label={t("stores.environment")}
+          value={environment}
+          onChange={(value) => setEnvironment(value as Environment)}
+          options={(["Production", "Staging", "Development"] as const).map((value) => ({
+            value,
+            label: t(`environment.${value}`),
+          }))}
+        />
+
+        <SelectField
+          label={t("stores.hosting")}
+          value={hostingModel}
+          onChange={(value) => setHostingModel(value as HostingModel)}
+          options={(["SharedManaged", "DedicatedManaged", "CustomerManaged"] as const).map((value) => ({
+            value,
+            label: t(`hosting.${value}`),
+          }))}
+        />
+
+        <SelectField
+          label={t("stores.server")}
+          value={chosenServer}
+          onChange={setServerId}
+          options={[
+            { value: "", label: t("stores.noServer") },
+            ...eligible.map((server) => ({
+              value: server.id,
+              label:
+                server.dedicatedCustomerId === null
+                  ? `${server.name} · ${t("infrastructure.shared")}`
+                  : `${server.name} · ${t("infrastructure.dedicate")}`,
+            })),
+          ]}
+          note={eligible.length === 0 ? t("stores.noEligibleServers") : t("stores.serverNote")}
+        />
+      </div>
+    </Drawer>
+  );
+}
+
+/** A labelled select. The same shape EditDrawer draws, for the forms that cannot use it. */
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  note,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  note?: string | undefined;
+}) {
+  const id = `field-${label}`;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-body-sm font-medium text-on-surface-variant">
+        {label}
+      </label>
+      <select
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 w-full rounded-md border border-outline-variant bg-surface-low px-3 text-body text-on-surface focus:border-primary focus:outline-none"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {note ? <p className="text-body-sm text-on-surface-variant">{note}</p> : null}
+    </div>
   );
 }

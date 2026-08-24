@@ -115,7 +115,14 @@ public static class ControlPlaneStoreEndpoints
             }
 
             var store = await service.CreateAsync(
-                new CreateStoreInput(request.CustomerId, request.Name, request.Slug, request.PrimaryDomain, environment, hostingModel),
+                new CreateStoreInput(
+                    request.CustomerId,
+                    request.Name,
+                    request.Slug,
+                    request.PrimaryDomain,
+                    environment,
+                    hostingModel,
+                    request.ServerId),
                 cancellationToken);
 
             return Results.Created($"/api/v1/stores/{store.Id}", ToResponse(store, clock.UtcNow));
@@ -142,11 +149,24 @@ public static class ControlPlaneStoreEndpoints
 
             var store = await service.UpdateAsync(
                 id,
-                new UpdateStoreInput(request.Name, request.PrimaryDomain, request.ServerId, environment),
+                new UpdateStoreInput(request.Name, request.PrimaryDomain, environment),
                 cancellationToken);
 
             return Results.Ok(ToResponse(store, clock.UtcNow));
         }).RequirePermission(ControlPlanePermissions.StoreManage);
+
+        // Its own route rather than a field on the update. Where a customer's
+        // store runs is worth an audit entry that says so, and as a field it was
+        // silently cleared by every caller that edited a name without sending it
+        // back.
+        group.MapPut("/{id:guid}/server", async (
+            Guid id,
+            AssignStoreServerRequest request,
+            IStoreManagementService service,
+            IDateTimeProvider clock,
+            CancellationToken cancellationToken) =>
+            Results.Ok(ToResponse(await service.AssignServerAsync(id, request.ServerId, cancellationToken), clock.UtcNow)))
+            .RequirePermission(ControlPlanePermissions.StoreManage);
 
         group.MapPost("/{id:guid}/activate", async (Guid id, IStoreManagementService service, IDateTimeProvider clock, CancellationToken cancellationToken) =>
             Results.Ok(ToResponse(await service.ActivateAsync(id, cancellationToken), clock.UtcNow)))

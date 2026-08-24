@@ -58,6 +58,9 @@ export interface Store {
   installedFeatureCount: number | null;
   lastSeenAt: string | null;
 
+  /** The machine this store runs on. Null when nobody has placed it yet. */
+  serverId: string | null;
+
   /** True when the store must present a client certificate as well as its credential. */
   requiresMutualTls: boolean;
 
@@ -342,19 +345,65 @@ export interface Invoice {
 
 // --- Infrastructure and observability ---------------------------------------
 
+/**
+ * A server as GET /servers returns it.
+ *
+ * It carries no load figures, and used to be declared here as though it did -
+ * cpuPercent, memoryPercent, diskPercent, uptimePercent, agentVersion and
+ * storeCount were all fiction, and the infrastructure screen rendered undefined
+ * for every one of them against a real deployment. Load lives on the fleet
+ * overview below, which reports every server in one batched call.
+ */
 export interface Server {
   id: string;
   name: string;
   hostingModel: HostingModel;
   environment: Environment;
-  ipAddress: string;
   status: HealthState;
-  cpuPercent: number;
-  memoryPercent: number;
-  diskPercent: number;
-  uptimePercent: number;
-  agentVersion: string | null;
-  storeCount: number;
+
+  /** Why it is in this status, in words. Null when it is simply healthy. */
+  statusReason: string | null;
+
+  provider: string | null;
+  region: string | null;
+  ipAddress: string | null;
+
+  /** The customer this machine is dedicated to. Null means it is shared. */
+  dedicatedCustomerId: string | null;
+
+  lastSeenAt: string | null;
+  decommissionedAt: string | null;
+}
+
+/** One server's latest load, from the fleet overview. */
+export interface FleetServer {
+  id: string;
+  name: string;
+  environment: Environment;
+  hostingModel: HostingModel;
+  status: HealthState;
+  statusReason: string | null;
+  lastSeenAt: string | null;
+
+  /** Null until the machine's agent has reported at least once. */
+  cpuPercent: number | null;
+  memoryPercent: number | null;
+  diskPercent: number | null;
+}
+
+/** GET /monitoring/fleet — every server's status and load, in one call. */
+export interface FleetOverview {
+  totalServers: number;
+  healthyServers: number;
+  degradedServers: number;
+  offlineServers: number;
+  unknownServers: number;
+  totalAgents: number;
+  onlineAgents: number;
+  offlineAgents: number;
+  openAlerts: number;
+  criticalAlerts: number;
+  servers: FleetServer[];
 }
 
 export interface ErrorGroup {

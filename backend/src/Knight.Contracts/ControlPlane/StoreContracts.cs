@@ -15,6 +15,15 @@ public sealed record CreateStoreRequest
 
     /// <summary>SharedManaged, DedicatedManaged or CustomerManaged.</summary>
     public required string HostingModel { get; init; }
+
+    /// <summary>
+    /// The machine this store will run on. Optional: a store may be registered
+    /// before anybody has decided. When it is given, the same placement rules
+    /// apply as on a later move - a decommissioned machine, one dedicated to
+    /// another customer, or one in a different environment is refused here
+    /// rather than accepted and found out later.
+    /// </summary>
+    public Guid? ServerId { get; init; }
 }
 
 public sealed record UpdateStoreRequest
@@ -22,8 +31,6 @@ public sealed record UpdateStoreRequest
     public required string Name { get; init; }
 
     public required string PrimaryDomain { get; init; }
-
-    public Guid? ServerId { get; init; }
 
     /// <summary>
     /// Development, Staging or Production. Omit to leave it unchanged.
@@ -35,6 +42,11 @@ public sealed record UpdateStoreRequest
     /// </summary>
     public string? Environment { get; init; }
 }
+
+/// <summary>
+/// Places a store on a server, or takes it off one with a null id.
+/// </summary>
+public sealed record AssignStoreServerRequest(Guid? ServerId);
 
 public sealed record StoreCredentialResponse
 {
