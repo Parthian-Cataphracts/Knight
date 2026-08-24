@@ -41,6 +41,7 @@ Status: **living document**. Update whenever a risk is resolved or discovered.
 | R23 | Feature packages could drift toward becoming microservices | Operational explosion the spec forbids | Explicit rule in [`adr/0014`](adr/0014-features-as-deployable-packages.md); a network service requires its own ADR |
 | R24 | Delivery scope may dominate the roadmap | Core control plane slips | Phase 3.5 is scoped to a single reference feature end to end before breadth |
 | R25 | File-backed signing keys are accepted for the first release | A compromise of the API host becomes arbitrary code on every store it manages — the highest-value key in the system | **Accepted 2026-08-20** by the product owner, deliberately and with the consequence understood. Conditions: the private key lives outside the repository, the host is hardened, and the position is revisited before the first customer who is not the company itself. The `ISigner` abstraction and the indexed `signingKeyId` mean moving to a KMS is a hosting change rather than a code change, and revoking a compromised key yanks everything it signed in one query |
+| R26 | The Feature manifest is bound to Django while a store may be any stack | A capability sold as a tier cannot be delivered to a non-Django store, and the gap is invisible until somebody tries | The wire contract, the job vocabulary and the step names are all runtime-neutral already, so the binding is one file: `ManifestReader` refuses a manifest with no `django:` block and validates `app_label` and `installed_app` as Python identifiers. Until the decision in section 3 is taken, a non-Django store is entitled by KNIGHT and enforces those entitlements itself, which is a supported arrangement rather than a workaround ([`connecting-a-store.md`](connecting-a-store.md) section 8) |
 
 ## 3. Decisions still needed from the product owner
 
@@ -94,6 +95,24 @@ Status: **living document**. Update whenever a risk is resolved or discovered.
     A full provisioning run against a real provider still cannot happen until
     the provider integration exists, so launching with stores registered by hand
     remains the assumption unless somebody says otherwise.
+
+14. **Runtime-neutral Feature manifests** — should a Feature be publishable for
+    a store that is not a Django application? Everything except the manifest is
+    already stack-agnostic: the ingestion contract is plain HTTP, and the job
+    vocabulary is a closed list of names a store carries out however its runtime
+    does. Only [`ManifestReader`](../backend/modules/FeatureRegistry/Domain/ManifestReader.cs)
+    insists on a `django:` block, so today a Feature cannot be published for such
+    a store at all.
+
+    This is a product question rather than a technical one. Answering *yes* means
+    a `runtime:` discriminator with a per-runtime block, a schema change, and a
+    packaging format per runtime — real work, and it widens what the delivery
+    path can install, which is the highest-risk surface in the system (R16).
+    Answering *no* is equally legitimate: non-Django stores stay entitled and
+    observed, and deploy their own code. What is not legitimate is leaving it
+    implicit, because the docs currently say a Feature is never a flag
+    ([`adr/0014`](adr/0014-features-as-deployable-packages.md)) while a
+    non-Django store has nothing else available to it.
 
 ## 4. Things deliberately not being done yet
 

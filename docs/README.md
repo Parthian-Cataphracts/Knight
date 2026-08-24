@@ -60,6 +60,9 @@ Read in this order:
    (implemented in [`stores/reference-store/`](../stores/reference-store/README.md);
    the wire contract both sides test against is
    [`contracts/store-integration.schema.json`](contracts/store-integration.schema.json))
+   — and [`connecting-a-store.md`](connecting-a-store.md) for **the same integration
+   without a framework**: what a store of any stack must call and serve, the two signed
+   strings, and the conformance checker it is finished against
 7. [`store-provisioning.md`](store-provisioning.md) — from customer signup to a ready store
 8. [`authentication.md`](authentication.md) — human auth, store auth, agent auth
 9. [`authorization.md`](authorization.md) — roles, permissions, customer isolation

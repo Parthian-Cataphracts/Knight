@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-24** (revision 19 — phase 11: the one-command server install, knightctl, and the forwarded-header defect it found)
+Last updated: **2026-08-24** (revision 20 — the store contract described without a framework, and a conformance checker to finish an integration against)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -14,7 +14,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 | **Current phase** | **Phase 11 — Deployment (the server install is done and verified; container images still wait on a hosting decision)** |
 | **Next phase** | Release preparation. What remains is the external security review and the container/registry half of the pipeline |
 | **Overall progress** | ~99% (732 backend tests green, plus 9 dashboard and 156 store; rollouts, indexes, caching and the restore drill driven through a browser against a live server — see [`docs/phase-10-verification.md`](docs/phase-10-verification.md)) |
-| **Blocking decisions** | The **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
+| **Blocking decisions** | **Are Features publishable for a store that is not Django?** Everything except the manifest is already stack-agnostic; `ManifestReader` is the one thing that is not (R26, decision 14 in [`docs/risks.md`](docs/risks.md)). Until it is answered, a non-Django store is entitled and observed but not delivered to. Separately, the **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
 > not a boolean flag ([`docs/adr/0014`](docs/adr/0014-features-as-deployable-packages.md)).
@@ -185,6 +185,26 @@ unit suites, and the store's own 36 Django tests.
 - [x] Contract tests both ways against `docs/contracts/store-integration.schema.json` and the worked signature examples beside it
 - [x] End-to-end: register → verify domain → health → error ingest → entitlement pull → enforcement
 - [x] Negative: wrong environment, revoked credential, suspended customer, tampered token, replayed nonce, cross-customer isolation
+
+### Any-stack integration
+- [x] The contract described without a framework —
+      [`docs/connecting-a-store.md`](docs/connecting-a-store.md): what a store of any
+      stack calls, what it must serve, the two signed strings byte for byte, and the
+      rules for enforcing an entitlement when KNIGHT is unreachable.
+      `store-integration.md` now says plainly that it is the *Django* implementation
+      of that contract rather than the definition of it
+- [x] A conformance checker an integration is finished against —
+      `stores/conformance/knight_conformance.py`. `selftest` reproduces the contract's
+      own signed strings and runs in CI on every push, so a checker that has drifted
+      fails before it can report a confident, wrong verdict about somebody else's
+      store. `check` performs a real handshake against a live deployment and asserts
+      the refusals too: an unsigned health request, a signature over a different path,
+      an hour-old request, a replayed handshake nonce
+- [!] **Feature delivery to a non-Django store** — the wire contract, the job
+      vocabulary and the step names are already runtime-neutral; the manifest is not.
+      `ManifestReader` refuses a manifest with no `django:` block, so a Feature cannot
+      be *published* for such a store at all. Recorded as R26 and decision 14 in
+      [`docs/risks.md`](docs/risks.md); it is a product decision, not an oversight
 
 ### Deferred, deliberately
 - [ ] DNS TXT domain verification — modelled, and the method provisioning will need in phase 9; only HTTP is implemented
