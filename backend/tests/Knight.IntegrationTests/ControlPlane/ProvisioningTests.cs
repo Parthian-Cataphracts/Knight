@@ -131,8 +131,6 @@ public sealed class ProvisioningTests
         var customerId = await _fixture.SeedCustomerAsync();
         var storeId = await _fixture.SeedStoreAsync(customerId, hostingModel: HostingModel.DedicatedManaged);
 
-        var store = await (await client.GetAsync($"/api/v1/stores/{storeId}")).Content.ReadFromJsonAsync<StoreBody>();
-
         var server = await (await client.PostAsJsonAsync("/api/v1/servers", new
         {
             name = $"dedicated-{Guid.NewGuid():n}"[..20],
@@ -142,12 +140,7 @@ public sealed class ProvisioningTests
 
         await client.PutAsJsonAsync($"/api/v1/servers/{server!.Id}/dedication", new { customerId });
 
-        await client.PatchAsJsonAsync($"/api/v1/stores/{storeId}", new
-        {
-            name = "Provisioned store",
-            primaryDomain = store!.PrimaryDomain,
-            serverId = server.Id,
-        });
+        await client.PutAsJsonAsync($"/api/v1/stores/{storeId}/server", new { serverId = server.Id });
 
         var job = await (await client.PostAsJsonAsync($"/api/v1/provisioning/stores/{storeId}", new { }))
             .Content.ReadFromJsonAsync<JobBody>();
@@ -173,8 +166,6 @@ public sealed class ProvisioningTests
         var theirs = await _fixture.SeedCustomerAsync();
         var storeId = await _fixture.SeedStoreAsync(mine, hostingModel: HostingModel.DedicatedManaged);
 
-        var store = await (await client.GetAsync($"/api/v1/stores/{storeId}")).Content.ReadFromJsonAsync<StoreBody>();
-
         var server = await (await client.PostAsJsonAsync("/api/v1/servers", new
         {
             name = $"theirs-{Guid.NewGuid():n}"[..20],
@@ -184,12 +175,7 @@ public sealed class ProvisioningTests
 
         await client.PutAsJsonAsync($"/api/v1/servers/{server!.Id}/dedication", new { customerId = theirs });
 
-        var refused = await client.PatchAsJsonAsync($"/api/v1/stores/{storeId}", new
-        {
-            name = "Misplaced store",
-            primaryDomain = store!.PrimaryDomain,
-            serverId = server.Id,
-        });
+        var refused = await client.PutAsJsonAsync($"/api/v1/stores/{storeId}/server", new { serverId = server.Id });
 
         // Dedicated is a promise somebody pays for, not a billing label.
         Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
