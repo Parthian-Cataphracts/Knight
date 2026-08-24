@@ -3,13 +3,14 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Plus, KeyRound, RefreshCw } from "lucide-react";
 import { useCollection } from "@/lib/api/hooks";
-import type { Installation, IntegrationStatus, Store } from "@/lib/api/domain";
+import type { Customer, Installation, IntegrationStatus, Store } from "@/lib/api/domain";
 import { PageShell, PageHeader, Toolbar, FilterTabs, KeyValue, Mono } from "@/components/data/PageShell";
 import { CollectionCard } from "@/components/data/CollectionCard";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { Drawer } from "@/components/data/Drawer";
 import { StatusChip, type Tone } from "@/components/ui/StatusChip";
 import { Button } from "@/components/ui/Button";
+import { EditDrawer } from "@/features/shared/EditDrawer";
 import { useAuthStore } from "@/store/auth";
 import { formatRelative } from "@/lib/utils/format";
 import { installationTone } from "@/features/installations/installationTone";
@@ -32,6 +33,15 @@ export function StoresPage() {
   const can = useAuthStore((state) => state.can);
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<Store | null>(null);
+  const [registering, setRegistering] = useState(false);
+
+  // A store belongs to a customer, so registering one means choosing which. The
+  // list is only fetched for that, and only by somebody who may create a store.
+  const customers = useCollection<Customer>("/customers", can("store.create"));
+  const customerChoices = (customers.data ?? []).map((customer) => ({
+    value: customer.id,
+    label: customer.name,
+  }));
 
   const all = query.data ?? [];
   const rows = all.filter((store) => filter === "all" || store.environment === filter);
@@ -98,12 +108,72 @@ export function StoresPage() {
 
   return (
     <PageShell>
+      <EditDrawer
+        open={registering}
+        title={t("stores.register")}
+        subtitle={t("stores.registerSubtitle")}
+        path="/stores"
+        method="POST"
+        fields={[
+          {
+            key: "customerId",
+            label: t("stores.customer"),
+            // The select shows the first option whatever the form holds, so an
+            // empty value here would look chosen and post nothing.
+            value: customerChoices[0]?.value ?? "",
+            choices: customerChoices,
+            ...(customerChoices.length === 0 ? { note: t("stores.noCustomers") } : {}),
+          },
+          { key: "name", label: t("common.name"), value: "" },
+          {
+            key: "slug",
+            label: t("stores.slug"),
+            value: "",
+            ltr: true,
+            placeholder: "cafe-parthia",
+          },
+          {
+            key: "primaryDomain",
+            label: t("stores.primaryDomain"),
+            value: "",
+            ltr: true,
+            placeholder: "cafe1.ir",
+            note: t("stores.domainNote"),
+          },
+          {
+            key: "environment",
+            label: t("stores.environment"),
+            value: "Production",
+            choices: [
+              { value: "Production", label: t("environment.Production") },
+              { value: "Staging", label: t("environment.Staging") },
+              { value: "Development", label: t("environment.Development") },
+            ],
+          },
+          {
+            key: "hostingModel",
+            label: t("stores.hosting"),
+            value: "SharedManaged",
+            choices: [
+              { value: "SharedManaged", label: t("hosting.SharedManaged") },
+              { value: "DedicatedManaged", label: t("hosting.DedicatedManaged") },
+              { value: "CustomerManaged", label: t("hosting.CustomerManaged") },
+            ],
+          },
+        ]}
+        onClose={() => setRegistering(false)}
+        onSaved={() => {
+          setRegistering(false);
+          void query.refetch();
+        }}
+      />
+
       <PageHeader
         title={t("nav.stores")}
         subtitle={t("stores.subtitle")}
         actions={
           can("store.create") ? (
-            <Button size="sm">
+            <Button size="sm" onClick={() => setRegistering(true)}>
               <Plus className="size-4" aria-hidden />
               {t("stores.register")}
             </Button>

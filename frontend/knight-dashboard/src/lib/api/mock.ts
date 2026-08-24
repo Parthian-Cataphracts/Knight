@@ -35,26 +35,28 @@ const session: LoginResponse = {
     displayName: "مدیر پلتفرم",
     customerId: null,
     roles: ["SuperAdmin"],
+    // Every permission a real SuperAdmin holds - ControlPlanePermissions
+    // .AssignableToRoles, which is every key except the three only a machine
+    // principal may have. Kept complete on purpose: a short list here makes
+    // mock mode hide the create and manage actions on every screen, so the
+    // screens most worth exercising are the ones it cannot exercise. That is
+    // how a Register store button shipped with no handler on it.
     permissions: [
-      "customer.view",
-      "store.view",
-      "store.manage",
-      "feature.view",
-      "feature.manage",
-      "feature.publish",
-      "installation.view",
-      "installation.manage",
-      "job.view",
-      "subscription.view",
-      "billing.view",
-      "server.view",
-      "monitoring.view",
-      "errors.view",
-      "incident.view",
-      "logs.view",
-      "audit.view",
-      "user.view",
-      "report.view",
+      "customer.view", "customer.create", "customer.update", "customer.archive",
+      "store.view", "store.create", "store.manage", "store.credentials.manage",
+      "store.provision", "store.deprovision",
+      "plan.view", "plan.manage",
+      "feature.view", "feature.manage", "feature.publish", "feature.yank",
+      "installation.view", "installation.manage", "installation.uninstall", "installation.rollback",
+      "job.view", "job.manage",
+      "subscription.view", "subscription.manage",
+      "billing.view", "billing.manage",
+      "server.view", "server.manage", "agent.manage",
+      "monitoring.view", "logs.view", "logs.export",
+      "errors.view", "errors.manage", "incident.view", "incident.manage",
+      "notification.manage",
+      "audit.view", "report.view",
+      "user.view", "user.manage", "role.view", "role.manage",
     ],
     mfaEnabled: true,
     mfaSatisfied: true,
@@ -142,7 +144,12 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
     });
   }
 
-  const collection = collections[path];
+  // GET only. Served for any method, a POST to a collection path would come back
+  // as a page of items and read as a successful write - so a screen whose save
+  // was never wired to anything would look like it worked, which is exactly the
+  // defect these fixtures exist to catch. Writes have no fixtures, and the 404
+  // below says so where the operator can see it.
+  const collection = method === "GET" ? collections[path] : undefined;
   if (collection) {
     return json({
       items: collection,
