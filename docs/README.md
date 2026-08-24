@@ -43,7 +43,7 @@ store business domain reappears in it.
 | **Stores** | [`stores/reference-store/`](../stores/reference-store/README.md) — a real Django store with the full `knight_integration` layer and the ported business domains, each store on its own database |
 | **Features** | [`features/`](../features/) — installable Django packages; promotions and delivery zones ship this way ([`adr/0024`](adr/0024-base-store-versus-optional-feature.md)) |
 | **Dashboard** | `frontend/knight-dashboard/` — every screen against the real API |
-| **Not built yet** | An **external security review of the code-delivery path** ([`security/external-review-scope.md`](security/external-review-scope.md)), and the deployment work a hosting-platform decision unblocks — Docker images, deploy stages, nightly backup scheduling. Provisioning, outbound email and the phase 10 hardening are done ([`phase-9-verification.md`](phase-9-verification.md), [`phase-10-verification.md`](phase-10-verification.md)) |
+| **Not built yet** | An **external security review of the code-delivery path** ([`security/external-review-scope.md`](security/external-review-scope.md)), and the container/registry half of the pipeline a hosting-platform decision unblocks — Docker images and deploy stages. Deploying to a server is done and does not wait on that decision: [`installation.md`](installation.md) installs a whole deployment, nightly backup included. Provisioning, outbound email and the phase 10 hardening are done ([`phase-9-verification.md`](phase-9-verification.md), [`phase-10-verification.md`](phase-10-verification.md)) |
 
 Detailed inventory: [`current-state-analysis.md`](current-state-analysis.md).
 
@@ -66,11 +66,12 @@ Read in this order:
 10. [`frontend-architecture.md`](frontend-architecture.md) — React + Vite + TS dashboard, RTL, responsive
 11. [`observability.md`](observability.md) — logs, metrics, traces, correlation, errors, delivery visibility
 12. [`deployment.md`](deployment.md) — environments, feature delivery pipeline, config, secrets
-13. [`security-threat-model.md`](security-threat-model.md) — threats and required controls
-14. [`migration-plan.md`](migration-plan.md) — how to get from the current repo to the target
-15. [`risks.md`](risks.md) — open risks, contradictions, unresolved decisions
-16. [`development.md`](development.md) — how to run, test, and contribute
-17. [`phase-3-verification.md`](phase-3-verification.md) — the exact steps to bring KNIGHT, a store and the dashboard up together and see the link work
+13. [`installation.md`](installation.md) — the one-command server install: what it creates, and how it shares a machine with other applications
+14. [`security-threat-model.md`](security-threat-model.md) — threats and required controls
+15. [`migration-plan.md`](migration-plan.md) — how to get from the current repo to the target
+16. [`risks.md`](risks.md) — open risks, contradictions, unresolved decisions
+17. [`development.md`](development.md) — how to run, test, and contribute
+18. [`phase-3-verification.md`](phase-3-verification.md) — the exact steps to bring KNIGHT, a store and the dashboard up together and see the link work
 
 Project status and remaining work: [`../TODO.md`](../TODO.md).
 
@@ -107,6 +108,13 @@ but they are **not** a description of KNIGHT's target architecture:
 | [0019](adr/0019-entitlement-as-an-explicit-record.md) | Entitlement as an explicit record, reconciled from the subscription | Accepted |
 | [0020](adr/0020-store-ingestion-authentication.md) | Store ingestion: tokens, replay protection, signed payloads | Accepted |
 | [0021](adr/0021-domain-verification-before-connected.md) | A store is Connected only once it has proven its domain | Accepted |
+| [0022](adr/0022-realtime-subscriptions-are-server-assigned.md) | Realtime subscriptions are server-assigned, never client-chosen | Accepted |
+| [0023](adr/0023-a-ported-store-is-single-tenant.md) | A ported store is single-tenant | Accepted |
+| [0024](adr/0024-base-store-versus-optional-feature.md) | What belongs in the base store versus an optional Feature | Accepted |
+| [0025](adr/0025-provisioning-is-a-job-with-manual-steps.md) | Provisioning is a job with manual steps | Accepted |
+| [0026](adr/0026-knight-records-backups-it-does-not-take-them.md) | KNIGHT records store backups; it does not take them | Accepted |
+| [0027](adr/0027-the-restore-drill-is-the-backup-test.md) | The restore drill is the backup test, and it runs in CI | Accepted |
+| [0028](adr/0028-staged-rollouts-with-a-single-store-canary.md) | Staged rollouts with a single-store canary | Accepted |
 
 **Revision note:** the first documentation revision treated a Feature as an
 entitlement flag. ADR 0014 corrects that. Where any older, un-updated document

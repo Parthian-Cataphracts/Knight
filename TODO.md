@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-20** (revision 18 — phase 10: load test, indexes, caching, staged rollouts, CI/CD, the restore drill, and the billing run)
+Last updated: **2026-08-24** (revision 19 — phase 11: the one-command server install, knightctl, and the forwarded-header defect it found)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,8 +11,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 10 — Optimisation & hardening (complete except the external security review)** |
-| **Next phase** | Release preparation. The only build work left is what a hosting-platform decision unblocks |
+| **Current phase** | **Phase 11 — Deployment (the server install is done and verified; container images still wait on a hosting decision)** |
+| **Next phase** | Release preparation. What remains is the external security review and the container/registry half of the pipeline |
 | **Overall progress** | ~99% (732 backend tests green, plus 9 dashboard and 156 store; rollouts, indexes, caching and the restore drill driven through a browser against a live server — see [`docs/phase-10-verification.md`](docs/phase-10-verification.md)) |
 | **Blocking decisions** | The **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
 
@@ -35,6 +35,7 @@ Phase 7    Observability                  ██████████ 100%
 Phase 8    Business-domain port to Django ██████████ 100%
 Phase 9    Provisioning & professional infra ██████████ 100%
 Phase 10   Optimisation & hardening       █████████░  95%
+Phase 11   Deployment & installation       ████████░░  80%
 ```
 
 ---
@@ -750,6 +751,91 @@ found.
       to describe what is actually on the wire
 - [x] A critical advisory in `vitest` and a high in `vite`, found by the new
       dependency audit and fixed by upgrading rather than exempting
+
+---
+
+## Phase 11 — Deployment & installation
+
+**Exit criteria:** one command turns a fresh Ubuntu or Debian server into a
+working KNIGHT — reachable over TLS, with a first administrator, migrations
+applied and a nightly backup scheduled — without disturbing anything else
+already running on that machine.
+
+**Verification:** the installer was run end to end twice inside a
+systemd-enabled Ubuntu 24.04 container, and the result was driven through
+nginx: the dashboard bundle served, `/health/ready` reporting a healthy
+PostgreSQL, a real sign-in returning `mfa_enrollment_required` with a token
+issued for `knight-control-plane`, and a wrong password returning 401. See
+§"How to verify it" below.
+
+- [x] `install.sh` — a one-command install for Ubuntu 22.04+ and Debian 12+.
+      Asks everything up front, then runs unattended: packages, toolchain,
+      database, Redis, build, configuration, migrations, service, nginx, TLS,
+      first administrator, nightly backup
+- [x] `knightctl.sh` — status, checks, logs, start/stop/restart, update, backup,
+      restore, add an administrator, change the domain, set the signing key,
+      show configuration, uninstall. Installed as `/usr/local/bin/knightctl`
+- [x] [`docs/installation.md`](docs/installation.md) — what the installer
+      creates, what it deliberately does not, and the promises it keeps to the
+      other applications on the server
+- [x] **A single-hostname topology.** `deployment.md` §4 describes two hosts;
+      this deploys one, routing by path. One DNS record, one certificate, and no
+      cross-origin request to get wrong — which matters because a CORS mistake
+      is invisible to every test that is not a browser, and this project has
+      already been bitten by one
+- [x] The dashboard bundle carries **no hostname and no scheme**. Left unset,
+      `VITE_API_BASE_URL` and `VITE_SIGNALR_URL` default to relative paths, so
+      `knightctl domain` moves a deployment without rebuilding anything
+- [x] Sharing a server, verified rather than asserted: only `127.0.0.1`
+      listeners besides nginx, the stock nginx site still enabled and served,
+      one `conf.d` file with both of its names prefixed `knight_`, one
+      PostgreSQL role and one database, a dedicated Redis instance with its own
+      password and a 256MB `noeviction` ceiling, and a private .NET and Node
+      under `/opt/knight/toolchain` wherever the host's are too old — never a
+      second toolchain in `/usr/share`
+- [x] `knight-api` confined by systemd: `ProtectSystem=strict`,
+      `NoNewPrivileges`, and exactly three writable directories
+- [x] Nightly backup as a systemd timer — the scheduling `deployment.md` §10
+      listed as still missing. `knightctl backup` starts the same unit rather
+      than running the script itself, so a manual backup and a scheduled one
+      cannot drift apart
+- [x] Re-running the installer is safe: the token and store signing keys are
+      kept (rotating either would sign out every administrator or invalidate
+      every cached entitlement), and no second administrator is created
+
+### Found and fixed while verifying phase 11
+
+- [x] **Nothing read the reverse proxy's forwarded headers.** Every deployment
+      terminates TLS at a proxy, so every request arrived from `127.0.0.1` —
+      which handed the whole internet a single rate-limit bucket on sign-in and
+      ingestion, and recorded the proxy's address as the client's on every login
+      and audit row. `ForwardedHeaders` is now read, from named proxies only.
+      The framework's defaults do not recognise a plain IPv4 loopback, which is
+      exactly what Kestrel reports for a proxy on the same machine, so both
+      loopback forms are named explicitly. `ReverseProxyTests` covers the
+      scheme, the caller's address, and headers from an address that is not a
+      known proxy being ignored
+- [x] `docs/deployment.md` §5 listed configuration keys that do not exist —
+      `Knight__Jwt__SigningKey`, `Knight__Environment`, `Knight__Registry__*`.
+      Anyone deploying from it would have configured nothing at all. Rewritten
+      against the sections the code actually binds
+- [x] A machine-specific absolute path (`C:/Users/<name>/…`) was the development
+      artifact root, so every other checkout wrote artifacts to a directory that
+      did not exist
+
+### Not done
+
+- [ ] Docker images and the deploy stages of `deployment.md` §8 — still waiting
+      on the hosting-platform decision, and now clearly separable from it:
+      deploying to a server no longer waits on choosing a platform
+- [ ] An offsite copy of the nightly dumps. The timer writes them to the same
+      machine, and the installer says so rather than implying otherwise. Where
+      they should go is a custody decision, not a default
+- [ ] `install-agent.sh` for the servers that host stores, and an installer for
+      a Django store. Both are other machines, and out of scope here
+- [ ] Running the installer against a real cloud VM with real DNS. The container
+      run exercised everything except certificate issuance, which needs a
+      resolvable domain
 
 ---
 

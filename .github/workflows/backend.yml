@@ -103,6 +103,34 @@ jobs:
           npm ci
           npm audit --audit-level=high
 
+  shell:
+    name: Shell scripts
+    runs-on: ubuntu-latest
+
+    # install.sh and knightctl.sh put a whole deployment on a server, and a
+    # quoting slip in either is discovered by an operator halfway through an
+    # install. shellcheck catches the class of mistake that a syntax check does
+    # not: an unquoted expansion, a masked exit status, a variable read before
+    # it is set.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: shellcheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          shellcheck --version
+          shellcheck -S warning install.sh knightctl.sh infrastructure/scripts/*.sh
+
+      # A script that does not parse cannot be tested by anything downstream,
+      # and bash catches things shellcheck deliberately does not.
+      - name: Parse
+        run: |
+          for script in install.sh knightctl.sh infrastructure/scripts/*.sh; do
+            bash -n "$script"
+            echo "ok  $script"
+          done
+
   feature-packages:
     name: Feature packages
     runs-on: ubuntu-latest
