@@ -267,11 +267,46 @@ echo -e "  ${DIM}used if there is one, and installed if there is not. Nothing al
 echo -e "  ${DIM}on it is touched.${NC}"
 echo ""
 
+# PostgreSQL folds an unquoted identifier to lower case but createdb quotes the
+# name it is given, so a database asked for as KNIGHT really is called KNIGHT -
+# and then `psql -d knight`, every runbook and every command anyone types by hand
+# fails with "database does not exist". It works, and it goes on being confusing
+# for as long as the deployment lives, so the answer is folded here instead.
+ask_identifier() {                # ask_identifier <variable> <prompt> <default>
+  # Not __answer: ask() declares a local of that name, which would shadow this
+  # one and swallow every reply.
+  local __var="$1" __prompt="$2" __default="$3" __raw=""
+
+  while true; do
+    ask __raw "$__prompt" "$__default"
+    local folded="${__raw,,}"
+
+    if [[ ! "$folded" =~ ^[a-z_][a-z0-9_]*$ ]]; then
+      echo -e "  ${RED}A PostgreSQL name must start with a letter or underscore and contain"
+      echo -e "  only letters, digits and underscores.${NC}"
+      continue
+    fi
+
+    if [[ ${#folded} -gt 63 ]]; then
+      echo -e "  ${RED}PostgreSQL truncates a name at 63 characters.${NC}"
+      continue
+    fi
+
+    if [[ "$folded" != "$__raw" ]]; then
+      info "Using '${folded}'. PostgreSQL names are lower case by convention, and a"
+      info "mixed-case one has to be quoted everywhere for the life of the deployment."
+    fi
+
+    printf -v "$__var" '%s' "$folded"
+    return
+  done
+}
+
 DB_NAME="${PREV_DB_NAME:-knight}"
 DB_USER="${PREV_DB_USER:-knight}"
 if ! $REINSTALL; then
-  ask DB_NAME "Database name" "${PREV_DB_NAME:-knight}"
-  ask DB_USER "Database role" "${PREV_DB_USER:-knight}"
+  ask_identifier DB_NAME "Database name" "${PREV_DB_NAME:-knight}"
+  ask_identifier DB_USER "Database role" "${PREV_DB_USER:-knight}"
 fi
 
 # --- Artifact signing ---------------------------------------------------------
