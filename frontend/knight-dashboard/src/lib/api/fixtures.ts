@@ -26,11 +26,11 @@ const daysAgo = (d: number): string => new Date(now - d * 86_400_000).toISOStrin
 const daysAhead = (d: number): string => new Date(now + d * 86_400_000).toISOString();
 
 export const customers: Customer[] = [
-  { id: "c1", name: "کافه وان", contactEmail: "owner@cafe1.ir", status: "Active", planKey: "professional", storeCount: 2, dataRetentionOverrideDays: null, createdAt: daysAgo(420) },
-  { id: "c2", name: "کافه تو", contactEmail: "info@cafe2.ir", status: "Active", planKey: "custom", storeCount: 1, dataRetentionOverrideDays: null, createdAt: daysAgo(300) },
-  { id: "c3", name: "شیرینی سرای پارس", contactEmail: "hello@parsbakery.ir", status: "Active", planKey: "basic", storeCount: 1, dataRetentionOverrideDays: null, createdAt: daysAgo(180) },
-  { id: "c4", name: "رستوران البرز", contactEmail: "admin@alborz.ir", status: "Suspended", planKey: "basic", storeCount: 1, dataRetentionOverrideDays: null, createdAt: daysAgo(150) },
-  { id: "c5", name: "قنادی نوین", contactEmail: "sales@novin.ir", status: "Prospect", planKey: "basic", storeCount: 0, dataRetentionOverrideDays: null, createdAt: daysAgo(12) },
+  { id: "c1", name: "کافه وان", legalName: "شرکت کافه وان", phone: "+982188001122", notes: "قرارداد سالانه، تمدید خودکار.", contactEmail: "owner@cafe1.ir", status: "Active", planKey: "professional", storeCount: 2, dataRetentionOverrideDays: null, createdAt: daysAgo(420) },
+  { id: "c2", name: "کافه تو", legalName: null, phone: "+982177445566", notes: null, contactEmail: "info@cafe2.ir", status: "Active", planKey: "custom", storeCount: 1, dataRetentionOverrideDays: null, createdAt: daysAgo(300) },
+  { id: "c3", name: "شیرینی سرای پارس", legalName: "شیرینی سرای پارس", phone: null, notes: null, contactEmail: "hello@parsbakery.ir", status: "Active", planKey: "basic", storeCount: 1, dataRetentionOverrideDays: null, createdAt: daysAgo(180) },
+  { id: "c4", name: "رستوران البرز", legalName: null, phone: null, notes: "تعلیق به دلیل صورتحساب معوق.", contactEmail: "admin@alborz.ir", status: "Suspended", planKey: "basic", storeCount: 1, dataRetentionOverrideDays: null, createdAt: daysAgo(150) },
+  { id: "c5", name: "قنادی نوین", legalName: null, phone: null, notes: null, contactEmail: "sales@novin.ir", status: "Prospect", planKey: "basic", storeCount: 0, dataRetentionOverrideDays: null, createdAt: daysAgo(12) },
 ];
 
 export const stores: Store[] = [

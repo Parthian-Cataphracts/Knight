@@ -14,6 +14,17 @@ export type HostingModel = "SharedManaged" | "DedicatedManaged" | "CustomerManag
 export interface Customer {
   id: string;
   name: string;
+
+  /**
+   * The three the API has always returned and the dashboard used not to declare.
+   * Leaving them out did not merely hide them: the edit form PATCHes the fields
+   * it knows about, and the update overwrites the profile wholesale, so every
+   * rename silently blanked the legal name and the phone number.
+   */
+  legalName: string | null;
+  phone: string | null;
+  notes: string | null;
+
   contactEmail: string;
   status: CustomerStatus;
   /** Absent until the customer has a subscription. */

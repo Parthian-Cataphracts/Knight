@@ -287,9 +287,32 @@ export function CustomerDetailPage() {
         title={t("customers.edit")}
         subtitle={customer.name}
         path={`/customers/${customerId}`}
+        // Every field the update writes, whether or not it is being changed.
+        // The endpoint replaces the whole profile, so a field this form omits is
+        // a field it erases.
         fields={[
           { key: "name", label: t("common.name"), value: customer.name },
+          {
+            key: "legalName",
+            label: t("customers.legalName"),
+            value: customer.legalName ?? "",
+            required: false,
+          },
           { key: "contactEmail", label: t("customers.contactEmail"), value: customer.contactEmail, ltr: true },
+          {
+            key: "phone",
+            label: t("customers.phone"),
+            value: customer.phone ?? "",
+            ltr: true,
+            required: false,
+          },
+          {
+            key: "notes",
+            label: t("customers.notes"),
+            value: customer.notes ?? "",
+            required: false,
+            note: t("customers.notesHint"),
+          },
         ]}
         onClose={() => setEditing(false)}
         onSaved={() => {
