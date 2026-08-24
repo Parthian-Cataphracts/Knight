@@ -4,14 +4,15 @@ The KNIGHT administrative dashboard lives here — **one** application, not a se
 of per-tenant frontends.
 
 ```
-knight-dashboard/     React 19 + Vite + TypeScript (to be created — TODO Phase 6)
+knight-dashboard/     React 19 + Vite + TypeScript
 ```
 
 Customer storefronts and store admin panels are **not** part of this
 repository. Each store is an independent Django application and owns its own
-UI. The previous plan (Next.js `super-admin/`, `tenants/<slug>/storefront|admin`,
-`shared/*`) is discarded by
-[`../docs/adr/0011`](../docs/adr/0011-react-vite-dashboard.md).
+UI. The previous plan — Next.js `super-admin/`, `tenants/<slug>/storefront|admin`
+and `shared/*` — was discarded by
+[`../docs/adr/0011`](../docs/adr/0011-react-vite-dashboard.md), and its empty
+placeholder directories were removed with it.
 
 ## Specification
 
