@@ -127,6 +127,12 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
     return json(fixtures.fleet);
   }
 
+  // The permission catalogue the role editor offers.
+  if (path === "/roles/permissions") {
+    const keys = Array.from(new Set(fixtures.roles.flatMap((role) => role.permissions))).sort();
+    return json({ items: keys, page: 1, pageSize: keys.length, totalCount: keys.length, totalPages: 1 });
+  }
+
   if (path === "/notifications/rules") {
     return json({
       items: [

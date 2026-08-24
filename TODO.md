@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-24** (revision 20 — the store contract described without a framework, and a conformance checker to finish an integration against)
+Last updated: **2026-08-24** (revision 21 — everything the API can change is now changeable from the dashboard, and a store can be placed on a server)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -109,7 +109,13 @@ end to end by `ControlPlaneCustomerAndStoreTests` and the release-blocking
 - [x] Central `AuditLog` write path (with credential redaction) + query endpoint
 - [x] Endpoints: `/api/v1/auth/*`, `/api/v1/customers/*`, `/api/v1/stores/*`, `/api/v1/audit-logs`
 - [x] EF Core migrations for the control-plane schema
-- [ ] Account and role management endpoints (`/api/v1/users`, `/api/v1/roles`) — the model and seeded roles exist; the dashboard write paths land with phase 6's remaining work
+- [x] Account and role management endpoints (`/api/v1/users`, `/api/v1/roles`) — the
+      endpoints existed all along; the dashboard write paths landed with the
+      editability audit. Renaming an account, replacing the roles it holds,
+      creating a role and changing what one grants are all in the Access screen.
+      `AccountResponse` now carries `roleIds` beside the names, because a client
+      matching a role on its display name picks the wrong one the first time a
+      platform role and a customer role share it
 
 > The legacy `Identity` module was left untouched rather than reshaped: it
 > serves the frozen store-side modules until phase 8 removes them, and the
@@ -185,6 +191,33 @@ unit suites, and the store's own 36 Django tests.
 - [x] Contract tests both ways against `docs/contracts/store-integration.schema.json` and the worked signature examples beside it
 - [x] End-to-end: register → verify domain → health → error ingest → entitlement pull → enforcement
 - [x] Negative: wrong environment, revoked credential, suspended customer, tampered token, replayed nonce, cross-customer isolation
+
+### Editability audit
+
+Every write the API offers, reachable from the dashboard. The audit was worth
+running: three of these were not missing features but silent data loss, because
+the endpoints replace a whole record and the forms sent back only part of it.
+
+- [x] **Customer** — the edit form sent name and contact email only, so every
+      rename blanked the legal name and the phone number. It edits the whole
+      profile now
+- [x] **Store** — placement was a field on the profile update and the form never
+      sent it, so renaming a store took it off its server. It is its own
+      operation, `PUT /stores/{id}/server`, with its own audit action
+- [x] **Store** — the Register store button had no handler at all, and a store
+      could only be created as a side effect of creating a customer
+- [x] **Server** — no edit form existed, and the address was not even on the
+      register form though the API has always taken it
+- [x] **Server** — dedication had an endpoint and no UI, so nobody could say
+      which customer a dedicated machine belonged to, or see it
+- [x] **Account** — renaming and role assignment had endpoints and no UI
+- [x] **Role** — creating one and changing its permissions had endpoints and no
+      UI, including a permission catalogue endpoint written for a role editor
+      that was never built
+- [x] The `Server` type described six fields the API has never returned, so the
+      infrastructure screen rendered `undefined` for load, uptime, agent version
+      and store count. Load comes from the fleet overview, which was not being
+      called at all
 
 ### Any-stack integration
 - [x] The contract described without a framework —

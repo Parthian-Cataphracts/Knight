@@ -279,20 +279,20 @@ export const auditEntries: AuditEntry[] = [
 ];
 
 export const admins: AdminUser[] = [
-  { id: "u1", displayName: "علی محمدی", email: "ali@knight.local", scope: "Platform", customerName: null, roles: ["SuperAdmin"], mfaEnabled: true, status: "Active", lastLoginAt: minutesAgo(5) },
-  { id: "u2", displayName: "سارا رضایی", email: "sara@knight.local", scope: "Platform", customerName: null, roles: ["Admin"], mfaEnabled: true, status: "Active", lastLoginAt: minutesAgo(45) },
-  { id: "u3", displayName: "رضا کریمی", email: "reza@knight.local", scope: "Platform", customerName: null, roles: ["Developer"], mfaEnabled: false, status: "Active", lastLoginAt: daysAgo(1) },
-  { id: "u4", displayName: "مالک کافه وان", email: "owner@cafe1.ir", scope: "Customer", customerName: "کافه وان", roles: ["CustomerOwner"], mfaEnabled: false, status: "Active", lastLoginAt: daysAgo(2) },
-  { id: "u5", displayName: "پشتیبان کافه تو", email: "staff@cafe2.ir", scope: "Customer", customerName: "کافه تو", roles: ["CustomerStaff"], mfaEnabled: false, status: "Suspended", lastLoginAt: daysAgo(20) },
+  { id: "u1", displayName: "علی محمدی", email: "ali@knight.local", scope: "Platform", customerName: null, roles: ["SuperAdmin"], roleIds: ["r1"], mfaEnabled: true, status: "Active", lastLoginAt: minutesAgo(5) },
+  { id: "u2", displayName: "سارا رضایی", email: "sara@knight.local", scope: "Platform", customerName: null, roles: ["Admin"], roleIds: ["r2"], mfaEnabled: true, status: "Active", lastLoginAt: minutesAgo(45) },
+  { id: "u3", displayName: "رضا کریمی", email: "reza@knight.local", scope: "Platform", customerName: null, roles: ["Developer"], roleIds: ["r3"], mfaEnabled: false, status: "Active", lastLoginAt: daysAgo(1) },
+  { id: "u4", displayName: "مالک کافه وان", email: "owner@cafe1.ir", scope: "Customer", customerName: "کافه وان", roles: ["CustomerOwner"], roleIds: ["r5"], mfaEnabled: false, status: "Active", lastLoginAt: daysAgo(2) },
+  { id: "u5", displayName: "پشتیبان کافه تو", email: "staff@cafe2.ir", scope: "Customer", customerName: "کافه تو", roles: ["CustomerStaff"], roleIds: ["r6"], mfaEnabled: false, status: "Suspended", lastLoginAt: daysAgo(20) },
 ];
 
 export const roles: Role[] = [
-  { id: "r1", name: "SuperAdmin", scope: "Platform", isSystem: true, permissionCount: 34, userCount: 1 },
-  { id: "r2", name: "Admin", scope: "Platform", isSystem: true, permissionCount: 28, userCount: 1 },
-  { id: "r3", name: "Developer", scope: "Platform", isSystem: true, permissionCount: 14, userCount: 1 },
-  { id: "r4", name: "Support", scope: "Platform", isSystem: true, permissionCount: 9, userCount: 0 },
-  { id: "r5", name: "CustomerOwner", scope: "Customer", isSystem: true, permissionCount: 11, userCount: 1 },
-  { id: "r6", name: "CustomerStaff", scope: "Customer", isSystem: true, permissionCount: 6, userCount: 1 },
+  { id: "r1", name: "SuperAdmin", description: "Everything, including role and plan definition.", permissions: ["customer.view", "customer.create", "customer.update", "customer.archive", "store.view", "store.create", "store.manage", "store.credentials.manage", "store.provision", "store.deprovision", "plan.view", "plan.manage", "feature.view", "feature.manage", "feature.publish", "feature.yank", "installation.view", "installation.manage", "installation.uninstall", "installation.rollback", "job.view", "job.manage", "subscription.view", "subscription.manage", "billing.view", "billing.manage", "server.view", "server.manage", "agent.manage", "monitoring.view", "logs.view", "logs.export", "errors.view", "errors.manage", "incident.view", "incident.manage", "notification.manage", "audit.view", "report.view", "user.view", "user.manage", "role.view", "role.manage"], scope: "Platform", isSystem: true, permissionCount: 34, userCount: 1 },
+  { id: "r2", name: "Admin", description: "Day-to-day operation of customers, stores and infrastructure.", permissions: ["customer.view", "customer.create", "customer.update", "store.view", "store.create", "store.manage", "store.credentials.manage", "plan.view", "feature.view", "installation.view", "installation.manage", "job.view", "subscription.view", "subscription.manage", "billing.view", "server.view", "server.manage", "monitoring.view", "logs.view", "errors.view", "errors.manage", "incident.view", "incident.manage", "audit.view", "report.view", "user.view", "user.manage", "role.view"], scope: "Platform", isSystem: true, permissionCount: 28, userCount: 1 },
+  { id: "r3", name: "Developer", description: "Builds and publishes Features, and follows their delivery.", permissions: ["customer.view", "store.view", "feature.view", "feature.manage", "feature.publish", "installation.view", "installation.manage", "job.view", "job.manage", "server.view", "monitoring.view", "logs.view", "errors.view", "incident.view"], scope: "Platform", isSystem: true, permissionCount: 14, userCount: 1 },
+  { id: "r4", name: "Support", description: "Read-only, for answering questions without changing anything.", permissions: ["customer.view", "store.view", "installation.view", "job.view", "monitoring.view", "logs.view", "errors.view", "incident.view", "report.view"], scope: "Platform", isSystem: true, permissionCount: 9, userCount: 0 },
+  { id: "r5", name: "CustomerOwner", description: "The customer's own owner: their stores, their subscription, their bill.", permissions: ["customer.view", "store.view", "installation.view", "installation.manage", "job.view", "subscription.view", "subscription.manage", "billing.view", "monitoring.view", "errors.view", "user.view"], scope: "Customer", isSystem: true, permissionCount: 11, userCount: 1 },
+  { id: "r6", name: "CustomerStaff", description: "The customer's staff: sees their stores and nothing else.", permissions: ["store.view", "installation.view", "job.view", "monitoring.view", "errors.view", "report.view"], scope: "Customer", isSystem: true, permissionCount: 6, userCount: 1 },
 ];
 
 export const platformServices = [

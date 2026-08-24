@@ -467,7 +467,13 @@ export interface AdminUser {
   email: string;
   scope: "Platform" | "Customer";
   customerName: string | null;
+
+  /** Role names, for display. */
   roles: string[];
+
+  /** The same roles by id, which is what setting them takes. */
+  roleIds: string[];
+
   mfaEnabled: boolean;
   status: "Active" | "Suspended";
   /**
@@ -482,8 +488,13 @@ export interface AdminUser {
 export interface Role {
   id: string;
   name: string;
+  description: string | null;
   scope: "Platform" | "Customer";
   isSystem: boolean;
+
+  /** The keys this role grants. The API has always sent them; nothing read them. */
+  permissions: string[];
+
   permissionCount: number;
   userCount: number;
 }

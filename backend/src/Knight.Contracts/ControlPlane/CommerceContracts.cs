@@ -483,7 +483,17 @@ public sealed record AccountResponse
     /// <summary>Platform or Customer, derived from whether the account belongs to a customer.</summary>
     public required string Scope { get; init; }
 
+    /// <summary>Role names, for display.</summary>
     public required IReadOnlyCollection<string> Roles { get; init; }
+
+    /// <summary>
+    /// The same roles by id, which is what setting them takes.
+    ///
+    /// Both, because names are what an operator reads and ids are what the API
+    /// accepts - and a client left to map one to the other by name would pick
+    /// the wrong role the first time a platform and a customer role shared one.
+    /// </summary>
+    public required IReadOnlyCollection<Guid> RoleIds { get; init; }
 
     public required string Status { get; init; }
 
