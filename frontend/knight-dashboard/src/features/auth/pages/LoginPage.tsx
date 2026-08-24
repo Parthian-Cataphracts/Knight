@@ -5,6 +5,7 @@ import { Shield, Mail, Lock, ArrowLeft, ShieldCheck, KeyRound, Copy } from "luci
 import { apiRequest, setAccessToken } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/problem";
 import type { LoginRequest, LoginResponse, MfaEnrollmentResponse } from "@/lib/api/types";
+import { digitsOnly } from "@/lib/utils/format";
 import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
@@ -183,7 +184,7 @@ export function LoginPage() {
                 required
                 maxLength={6}
                 value={code}
-                onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
+                onChange={(event) => setCode(digitsOnly(event.target.value))}
                 icon={<ShieldCheck className="size-4" aria-hidden />}
               />
             </>
