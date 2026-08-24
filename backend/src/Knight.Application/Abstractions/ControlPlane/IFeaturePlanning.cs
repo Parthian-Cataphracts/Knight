@@ -18,7 +18,14 @@ public sealed record FeaturePlanStep(
     string? InstalledVersion,
     FeaturePlanAction Action,
     bool IsRoot,
-    string RequiredBy)
+    string RequiredBy,
+
+    // What carrying the step out costs the store. Plain data, as the note above
+    // requires - the manifest itself does not cross this boundary.
+    bool MigrationsRequired,
+    bool MigrationsReversible,
+    int MigrationSeconds,
+    bool RequiresRestart)
 {
     public bool IsActionable => Action is FeaturePlanAction.Install or FeaturePlanAction.Upgrade;
 }

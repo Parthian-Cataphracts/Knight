@@ -732,18 +732,22 @@
     "title": "Create customer"
   },
   "installPreview": {
-    "title": "Install preview",
-    "plan": "Resolved plan",
-    "role_target": "Target feature",
-    "role_dependency": "Dependency",
-    "alreadyInstalled": "Already installed",
-    "willInstall": "Will install",
-    "migrations": "Database migrations",
+    "action_AlreadySatisfied": "Already installed",
+    "action_DowngradeRefused": "Refused: the store is on a newer version",
+    "action_Install": "Install",
+    "action_Upgrade": "Upgrade",
+    "confirm": "Start installation",
     "duration": "Estimated duration",
-    "restart": "Requires restart",
     "irreversibleWarning": "This version's migration is irreversible; automatic rollback will not be possible if it fails.",
+    "migrations": "Database migrations",
+    "nothingToDo": "Everything this Feature needs is already installed at the resolved version.",
+    "plan": "Resolved plan",
+    "requested": "Requested",
+    "requiredBy": "Required by {{by}}",
+    "restart": "Requires restart",
+    "title": "Install preview",
     "typeToConfirm": "Type {{name}} to confirm:",
-    "confirm": "Start installation"
+    "willChange": "{{count}} step(s) will change this store."
   },
   "notifications": {
     "title": "Notifications",

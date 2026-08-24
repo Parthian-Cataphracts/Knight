@@ -123,5 +123,9 @@ internal sealed class FeaturePlanResolver : IFeaturePlanResolver
             _ => FeaturePlanAction.DowngradeRefused,
         },
         step.IsRoot,
-        step.RequiredBy);
+        step.RequiredBy,
+        step.MigrationsRequired,
+        step.MigrationsReversible,
+        step.MigrationSeconds,
+        step.RequiresRestart);
 }

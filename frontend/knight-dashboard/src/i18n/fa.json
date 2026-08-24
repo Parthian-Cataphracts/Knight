@@ -732,18 +732,22 @@
     "title": "ایجاد مشتری جدید"
   },
   "installPreview": {
-    "title": "پیش‌نمایش نصب",
-    "plan": "نقشه نصب",
-    "role_target": "قابلیت هدف",
-    "role_dependency": "وابستگی",
-    "alreadyInstalled": "نصب‌شده",
-    "willInstall": "نصب می‌شود",
-    "migrations": "مهاجرت پایگاه داده",
+    "action_AlreadySatisfied": "از قبل نصب است",
+    "action_DowngradeRefused": "رد شد: فروشگاه روی نسخه‌ی جدیدتری است",
+    "action_Install": "نصب",
+    "action_Upgrade": "ارتقا",
+    "confirm": "شروع نصب",
     "duration": "زمان تقریبی",
-    "restart": "نیاز به راه‌اندازی مجدد",
     "irreversibleWarning": "مهاجرت این نسخه برگشت‌ناپذیر است؛ در صورت شکست، بازگردانی خودکار ممکن نیست.",
+    "migrations": "مهاجرت پایگاه داده",
+    "nothingToDo": "هرچه این قابلیت لازم دارد از قبل با همان نسخه نصب است.",
+    "plan": "نقشه نصب",
+    "requested": "درخواست‌شده",
+    "requiredBy": "لازمه‌ی {{by}}",
+    "restart": "نیاز به راه‌اندازی مجدد",
+    "title": "پیش‌نمایش نصب",
     "typeToConfirm": "برای تأیید، {{name}} را تایپ کنید:",
-    "confirm": "شروع نصب"
+    "willChange": "{{count}} مرحله این فروشگاه را تغییر می‌دهد."
   },
   "notifications": {
     "title": "اعلان‌ها",

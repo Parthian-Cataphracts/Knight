@@ -499,6 +499,55 @@ export interface Role {
   userCount: number;
 }
 
+/**
+ * The dry run behind the install preview: POST /installations/plan.
+ *
+ * A plan is either steps or failures, never both - the resolver refuses to
+ * produce half a plan, because a partial install is worse than none.
+ */
+export interface InstallPlanStep {
+  featureId: string;
+  versionId: string;
+  slug: string;
+  name: string;
+  version: string;
+
+  /** The version the store is on now. Null when the Feature is not installed. */
+  installedVersion: string | null;
+
+  action: "Install" | "Upgrade" | "AlreadySatisfied" | "DowngradeRefused";
+
+  /** True for the Feature that was asked for; the rest are its dependencies. */
+  isRoot: boolean;
+
+  requiredBy: string;
+
+  migrationsRequired: boolean;
+
+  /**
+   * Declared by the Feature's author and treated as binding: it is the single
+   * input deciding whether a failed upgrade can put the database back.
+   */
+  migrationsReversible: boolean;
+
+  migrationSeconds: number;
+  requiresRestart: boolean;
+}
+
+export interface InstallPlanFailure {
+  /** What the dashboard branches on. */
+  code: string;
+  slug: string;
+  /** What a person reads. */
+  message: string;
+}
+
+export interface InstallPlan {
+  isSuccessful: boolean;
+  steps: InstallPlanStep[];
+  failures: InstallPlanFailure[];
+}
+
 // --- Staged rollouts -------------------------------------------------------
 
 export type RolloutState = "Planned" | "InProgress" | "Halted" | "Completed" | "Cancelled";

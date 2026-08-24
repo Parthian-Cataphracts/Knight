@@ -196,9 +196,17 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
     }
   }
 
-  const installPlan = /^\/stores\/([^/]+)\/features\/([^/]+)\/plan$/.exec(path);
-  if (installPlan) {
-    return json(installPlan[2] === "f3" ? detail.installPlans["blocked"] : detail.installPlans["ok"]);
+  // The dry run. A POST, on the path the API actually serves - this fixture used
+  // to answer a GET on a path that has never existed, which is how the preview
+  // dialog was written against a response shape nothing produced.
+  if (path === "/installations/plan" && method === "POST") {
+    const slug = (body as { slug?: string } | undefined)?.slug ?? "";
+    // Pointed at a slug the installation fixtures actually carry, so the typed
+    // confirmation an irreversible migration demands can be walked through
+    // rather than only reasoned about.
+    if (slug.includes("sms")) return json(detail.installPlans["irreversible"]);
+    if (slug.includes("analytics")) return json(detail.installPlans["ok"]);
+    return json(detail.installPlans["blocked"]);
   }
 
   // The job detail endpoint returns the job plus its steps, which the list

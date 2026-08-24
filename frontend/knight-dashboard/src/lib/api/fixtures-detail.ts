@@ -1,3 +1,4 @@
+import type { InstallPlan } from "./domain";
 import { minutesAgo } from "./fixtures";
 
 /** Detail-level fixtures: alerts, per-customer and per-store views, series data. */
@@ -224,37 +225,50 @@ export const incidentTimeline: Record<string, IncidentEvent[]> = {
 
 // --- Install preview ---------------------------------------------------------
 
-export interface InstallPlan {
-  compatible: boolean;
-  verdict: string;
-  steps: { slug: string; version: string; role: "dependency" | "target"; alreadyInstalled: boolean }[];
-  migrations: { required: boolean; reversible: boolean; estimatedSeconds: number };
-  requiresRestart: boolean;
-  blockingReason: string | null;
-}
 
 export const installPlans: Record<string, InstallPlan> = {
   ok: {
-    compatible: true,
-    verdict: "سازگار با نسخه فروشگاه ۴.۲.۰",
+    isSuccessful: true,
     steps: [
-      { slug: "knight-feature-analytics-core", version: "1.2.3", role: "dependency", alreadyInstalled: true },
-      { slug: "knight-feature-analytics", version: "1.4.0", role: "target", alreadyInstalled: false },
+      {
+        featureId: "f9", versionId: "v9", slug: "knight-feature-analytics-core", name: "Analytics core",
+        version: "1.2.3", installedVersion: "1.2.3", action: "AlreadySatisfied", isRoot: false,
+        requiredBy: "knight-feature-analytics >=1.2.0",
+        migrationsRequired: false, migrationsReversible: true, migrationSeconds: 0, requiresRestart: false,
+      },
+      {
+        featureId: "f2", versionId: "v2", slug: "knight-feature-analytics", name: "Advanced analytics",
+        version: "1.4.0", installedVersion: null, action: "Install", isRoot: true,
+        requiredBy: "requested",
+        migrationsRequired: true, migrationsReversible: true, migrationSeconds: 30, requiresRestart: true,
+      },
     ],
-    migrations: { required: true, reversible: true, estimatedSeconds: 30 },
-    requiresRestart: true,
-    blockingReason: null,
+    failures: [],
+  },
+  // The case the typed confirmation exists for: a migration the author has
+  // declared cannot be undone.
+  irreversible: {
+    isSuccessful: true,
+    steps: [
+      {
+        featureId: "f3", versionId: "v3", slug: "knight-feature-sms", name: "SMS notifications",
+        version: "2.0.0", installedVersion: "1.8.1", action: "Upgrade", isRoot: true,
+        requiredBy: "requested",
+        migrationsRequired: true, migrationsReversible: false, migrationSeconds: 240, requiresRestart: true,
+      },
+    ],
+    failures: [],
   },
   blocked: {
-    compatible: false,
-    verdict: "ناسازگار",
-    steps: [
-      { slug: "knight-feature-analytics", version: "1.4.0", role: "dependency", alreadyInstalled: false },
-      { slug: "knight-feature-ai-reports", version: "2.0.1", role: "target", alreadyInstalled: false },
+    isSuccessful: false,
+    steps: [],
+    failures: [
+      {
+        code: "IncompatibleStoreVersion",
+        slug: "knight-feature-analytics",
+        message: "Needs a store on 4.3.0 or later; this one reports 4.1.3.",
+      },
     ],
-    migrations: { required: true, reversible: false, estimatedSeconds: 90 },
-    requiresRestart: true,
-    blockingReason: "این قابلیت زیرساخت اختصاصی می‌خواهد؛ میزبانی این فروشگاه اشتراکی است.",
   },
 };
 

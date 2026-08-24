@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-24** (revision 21 — everything the API can change is now changeable from the dashboard, and a store can be placed on a server)
+Last updated: **2026-08-24** (revision 22 — a contract audit of every path the dashboard calls, and the install preview it found was fictional)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -191,6 +191,24 @@ unit suites, and the store's own 36 Django tests.
 - [x] Contract tests both ways against `docs/contracts/store-integration.schema.json` and the worked signature examples beside it
 - [x] End-to-end: register → verify domain → health → error ingest → entitlement pull → enforcement
 - [x] Negative: wrong environment, revoked credential, suspended customer, tampered token, replayed nonce, cross-customer isolation
+
+### Contract audit
+
+Every path the dashboard calls, checked against the routes the API maps, and
+every response type checked against what the API returns. One screen was
+fiction end to end.
+
+- [x] **The install preview called an endpoint that has never existed.** It did
+      `GET /stores/{id}/features/{id}/plan`; the API serves
+      `POST /installations/plan`. The response type shared no field with
+      `FeaturePlanResponse` beyond a slug and a version, and the mock implemented
+      the fictional path — so the dialog worked against fixtures and 404'd
+      against a real server
+- [x] The plan now carries what carrying it out costs: whether each step
+      migrates, whether that migration is reversible, how long it is expected to
+      take, and whether the store restarts. The dashboard's irreversible-migration
+      gate depends on the second of those, and had been reading an invented field
+      ([`adr/0016`](docs/adr/0016-feature-migration-and-removal-policy.md))
 
 ### Editability audit
 

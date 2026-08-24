@@ -65,6 +65,16 @@ public enum PlanAction
 }
 
 /// <summary>One step of an install plan, in the order it must be carried out.</summary>
+/// <summary>
+/// What a resolved plan says should happen to one Feature, and what carrying it
+/// out will cost the store.
+///
+/// The migration facts travel with the step because the decision they feed is
+/// taken before anything runs: an irreversible migration is the one case the
+/// dashboard makes an operator type the store's name to confirm, and a plan
+/// that did not say so would leave that gate guessing
+/// (docs/adr/0016-feature-migration-and-removal-policy.md).
+/// </summary>
 public sealed record PlanStep(
     Guid FeatureId,
     Guid VersionId,
@@ -74,7 +84,11 @@ public sealed record PlanStep(
     SemanticVersion? InstalledVersion,
     PlanAction Action,
     bool IsRoot,
-    string RequiredBy)
+    string RequiredBy,
+    bool MigrationsRequired,
+    bool MigrationsReversible,
+    int MigrationSeconds,
+    bool RequiresRestart)
 {
     /// <summary>True when this step actually changes the store.</summary>
     public bool IsActionable => Action is PlanAction.Install or PlanAction.Upgrade;

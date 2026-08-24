@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, CheckCircle2, CircleDot, RotateCcw, XCircle, Clock } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useAction, useCollection, useResource } from "@/lib/api/hooks";
+import { apiRequest } from "@/lib/api/client";
 import { useRealtimeRefresh } from "@/lib/realtime/useRealtime";
 import { isRealtimeConnected } from "@/lib/realtime/connection";
-import type { Installation, Job, JobDetail, JobStep } from "@/lib/api/domain";
-import type { InstallPlan } from "@/lib/api/fixtures-detail";
+import type { InstallPlan, Installation, Job, JobDetail, JobStep } from "@/lib/api/domain";
+
 import { PageShell, PageHeader, Toolbar, FilterTabs, KeyValue, Mono } from "@/components/data/PageShell";
 import { CollectionCard } from "@/components/data/CollectionCard";
 import { DataTable, type Column } from "@/components/data/DataTable";
@@ -128,10 +130,22 @@ export function InstallationsPage() {
     ["jobProgress", "jobCompleted", "featureInstallationStateChanged"],
     ["/jobs", "/installations"],
   );
-  const preview = useResource<InstallPlan>(
-    `/stores/${previewFor?.storeId ?? "none"}/features/${previewFor?.featureId ?? "none"}/plan`,
-    previewFor !== null,
-  );
+  // The dry run is a POST, because it takes a body: the store, the Feature and
+  // an optional version range. It reads nothing and changes nothing, which is
+  // why it is safe to run every time the dialog opens.
+  const preview = useQuery({
+    queryKey: ["install-plan", previewFor?.storeId, previewFor?.featureSlug],
+    enabled: previewFor !== null,
+    queryFn: () =>
+      apiRequest<InstallPlan>("/installations/plan", {
+        method: "POST",
+        body: {
+          storeId: previewFor?.storeId,
+          slug: previewFor?.featureSlug,
+          versionRange: null,
+        },
+      }),
+  });
 
   const installationColumns: Column<Installation>[] = [
     {
