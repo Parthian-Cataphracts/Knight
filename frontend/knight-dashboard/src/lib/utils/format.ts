@@ -53,3 +53,23 @@ export function formatRelative(
   }
   return "";
 }
+
+/**
+ * Keeps only the digits in `value`, accepting Persian (۰-۹) and Arabic-Indic
+ * (٠-٩) digits as well as ASCII ones and returning ASCII throughout.
+ *
+ * The dashboard defaults to Persian, so an operator on a Persian keyboard types
+ * U+06F0-U+06F9. Those are not matched by `\d`, which is ASCII-only: filtering
+ * with `/\D/g` alone discards every keystroke and the field cannot be filled at
+ * all. The API wants ASCII, so this normalises rather than merely permitting.
+ */
+export function digitsOnly(value: string): string {
+  return value.replace(/[^\d\u06F0-\u06F9\u0660-\u0669]/g, "").replace(
+    /[\u06F0-\u06F9\u0660-\u0669]/g,
+    (digit) => {
+      const code = digit.charCodeAt(0);
+      const base = code >= 0x06f0 ? 0x06f0 : 0x0660;
+      return String(code - base);
+    },
+  );
+}
