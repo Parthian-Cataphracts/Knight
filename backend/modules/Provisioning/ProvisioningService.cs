@@ -141,11 +141,17 @@ internal sealed class ProvisioningService : IProvisioningService
         var now = _clock.UtcNow;
         var actor = _currentUser.UserId ?? Guid.Empty;
 
+        // Declared non-nullable, but it arrives from a JSON body: a request that
+        // omits "step" binds null all the same. Normalised once, here, so the
+        // comparison below and ProvisioningPipeline.Require - which rejects an
+        // empty name with a sentence - are looking at the same value.
+        var step = stepName?.Trim() ?? string.Empty;
+
         // The machine step is the one manual step KNIGHT can check, and it does:
         // an operator saying "the box exists" while no server is recorded
         // against the store leaves a run that walks on and then stalls at the
         // agent step for a reason nobody can act on.
-        if (string.Equals(stepName?.Trim(), ProvisioningPipeline.Server, StringComparison.Ordinal))
+        if (string.Equals(step, ProvisioningPipeline.Server, StringComparison.Ordinal))
         {
             var store = await _stores.GetAsync(job.StoreId, cancellationToken);
 
@@ -167,7 +173,7 @@ internal sealed class ProvisioningService : IProvisioningService
             job.RecordBaseImage(image.Version, now);
         }
 
-        var created = job.CompleteManualStep(stepName, actor, detail, now);
+        var created = job.CompleteManualStep(step, actor, detail, now);
         if (created is not null)
         {
             _jobs.RegisterNewStep(created);
@@ -181,7 +187,7 @@ internal sealed class ProvisioningService : IProvisioningService
             job.Id.ToString(),
             job.CustomerId,
             cancellationToken,
-            newValue: new { job.StoreId, step = stepName, detail, job.BaseImageVersion });
+            newValue: new { job.StoreId, step, detail, job.BaseImageVersion });
 
         return await AdvanceAsync(job, cancellationToken);
     }
