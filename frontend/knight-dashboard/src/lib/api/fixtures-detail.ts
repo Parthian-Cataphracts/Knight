@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 import type { InstallPlan } from "./domain";
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 import { minutesAgo } from "./fixtures";
 
 /** Detail-level fixtures: alerts, per-customer and per-store views, series data. */
@@ -228,39 +225,6 @@ export const incidentTimeline: Record<string, IncidentEvent[]> = {
 
 // --- Install preview ---------------------------------------------------------
 
-<<<<<<< HEAD
-export interface InstallPlan {
-  compatible: boolean;
-  verdict: string;
-  steps: { slug: string; version: string; role: "dependency" | "target"; alreadyInstalled: boolean }[];
-  migrations: { required: boolean; reversible: boolean; estimatedSeconds: number };
-  requiresRestart: boolean;
-  blockingReason: string | null;
-}
-
-export const installPlans: Record<string, InstallPlan> = {
-  ok: {
-    compatible: true,
-    verdict: "سازگار با نسخه فروشگاه ۴.۲.۰",
-    steps: [
-      { slug: "knight-feature-analytics-core", version: "1.2.3", role: "dependency", alreadyInstalled: true },
-      { slug: "knight-feature-analytics", version: "1.4.0", role: "target", alreadyInstalled: false },
-    ],
-    migrations: { required: true, reversible: true, estimatedSeconds: 30 },
-    requiresRestart: true,
-    blockingReason: null,
-  },
-  blocked: {
-    compatible: false,
-    verdict: "ناسازگار",
-    steps: [
-      { slug: "knight-feature-analytics", version: "1.4.0", role: "dependency", alreadyInstalled: false },
-      { slug: "knight-feature-ai-reports", version: "2.0.1", role: "target", alreadyInstalled: false },
-    ],
-    migrations: { required: true, reversible: false, estimatedSeconds: 90 },
-    requiresRestart: true,
-    blockingReason: "این قابلیت زیرساخت اختصاصی می‌خواهد؛ میزبانی این فروشگاه اشتراکی است.",
-=======
 
 export const installPlans: Record<string, InstallPlan> = {
   ok: {
@@ -305,7 +269,6 @@ export const installPlans: Record<string, InstallPlan> = {
         message: "Needs a store on 4.3.0 or later; this one reports 4.1.3.",
       },
     ],
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   },
 };
 

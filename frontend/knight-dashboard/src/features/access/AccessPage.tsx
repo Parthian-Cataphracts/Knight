@@ -12,10 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import { Drawer } from "@/components/data/Drawer";
 import { KeyValue } from "@/components/data/PageShell";
-<<<<<<< HEAD
-=======
 import { EditDrawer } from "@/features/shared/EditDrawer";
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 import { useAuthStore } from "@/store/auth";
 import { formatRelative } from "@/lib/utils/format";
 
@@ -30,13 +27,10 @@ export function AccessPage() {
 
   const [inviting, setInviting] = useState(false);
   const [selected, setSelected] = useState<AdminUser | null>(null);
-<<<<<<< HEAD
-=======
   const [renaming, setRenaming] = useState<AdminUser | null>(null);
   const [assigningRoles, setAssigningRoles] = useState<AdminUser | null>(null);
   const [creatingRole, setCreatingRole] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 
   // A one-time password exists in readable form for exactly one response. It is
   // held here to be shown and never fetched again — there is no endpoint that
@@ -148,17 +142,6 @@ export function AccessPage() {
         title={t("nav.access")}
         subtitle={t("access.subtitle")}
         actions={
-<<<<<<< HEAD
-          can("user.manage") ? (
-            <Button size="sm" onClick={() => setInviting(true)}>
-              <UserPlus className="size-4" aria-hidden />
-              {t("access.invite")}
-            </Button>
-          ) : undefined
-        }
-      />
-
-=======
           <>
             {tab === "users" && can("user.manage") ? (
               <Button size="sm" onClick={() => setInviting(true)}>
@@ -222,7 +205,6 @@ export function AccessPage() {
         }}
       />
 
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
       <CreateAccountForm
         open={inviting}
         roles={roles.data ?? []}
@@ -266,10 +248,7 @@ export function AccessPage() {
               columns={roleColumns}
               rows={rows}
               rowKey={(row) => row.id}
-<<<<<<< HEAD
-=======
               onRowClick={(row) => setEditingRole(row)}
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
               cardTitle={(row) => <Mono>{row.name}</Mono>}
               emptyMessage={t("common.noResults")}
             />
@@ -305,8 +284,6 @@ export function AccessPage() {
                 </Button>
               )}
 
-<<<<<<< HEAD
-=======
               <Button variant="outline" size="sm" onClick={() => setRenaming(selected)}>
                 {t("common.edit")}
               </Button>
@@ -315,7 +292,6 @@ export function AccessPage() {
                 {t("access.assignRoles")}
               </Button>
 
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
               {selected.mfaEnabled ? (
                 <Button
                   variant="outline"
@@ -490,8 +466,6 @@ function CreateAccountForm({
     </Drawer>
   );
 }
-<<<<<<< HEAD
-=======
 
 /**
  * Which roles an account holds.
@@ -770,4 +744,3 @@ function RoleEditor({
     </Drawer>
   );
 }
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5

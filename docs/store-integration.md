@@ -5,11 +5,6 @@ Status: **authoritative**, and implemented — see
 contract both sides test against is
 [`contracts/store-integration.schema.json`](contracts/store-integration.schema.json).
 
-<<<<<<< HEAD
-A customer store is an independent Django application. It talks to KNIGHT only
-through the contract in `api-contracts.md`, from a dedicated integration layer
-that is kept strictly separate from the store's business domain.
-=======
 A customer store is an independent application. It talks to KNIGHT only through
 the contract in `api-contracts.md`, from a dedicated integration layer that is
 kept strictly separate from the store's business domain.
@@ -19,7 +14,6 @@ contract itself is plain HTTP and a store may be written in anything;
 [`connecting-a-store.md`](connecting-a-store.md) is the same integration
 described without reference to a framework, and is the one to read when the
 store is not a Django application.
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 
 ## 1. Layout inside a store
 

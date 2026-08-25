@@ -120,20 +120,6 @@
     "info": "Info"
   },
   "customers": {
-<<<<<<< HEAD
-    "subtitle": "Businesses whose stores KNIGHT manages.",
-    "name": "Customer",
-    "plan": "Plan",
-    "stores": "Stores",
-    "createdAt": "Created",
-    "create": "New customer",
-    "suspend": "Suspend",
-    "activate": "Activate",
-    "archive": "Archive",
-    "edit": "Edit customer",
-    "contactEmail": "Contact email",
-    "noPlan": "No plan"
-=======
     "activate": "Activate",
     "archive": "Archive",
     "contactEmail": "Contact email",
@@ -150,7 +136,6 @@
     "stores": "Stores",
     "subtitle": "Businesses whose stores KNIGHT manages.",
     "suspend": "Suspend"
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   },
   "customerStatus": {
     "Active": "Active",
@@ -181,26 +166,6 @@
     "NotRegistered": "Not registered"
   },
   "stores": {
-<<<<<<< HEAD
-    "subtitle": "Independent Django stores under KNIGHT management.",
-    "domain": "Domain",
-    "environment": "Environment",
-    "integration": "Integration",
-    "version": "Version",
-    "hosting": "Hosting",
-    "features": "Features",
-    "lastSeen": "Last seen",
-    "register": "Register store",
-    "rotate": "Rotate secret",
-    "issueCredentials": "Issue credentials",
-    "installedFeatures": "Installed features",
-    "suspend": "Suspend store",
-    "activate": "Activate",
-    "archive": "Archive",
-    "secretShownOnce": "This secret is shown once and never again. Copy it now.",
-    "edit": "Edit store",
-    "primaryDomain": "Primary domain"
-=======
     "activate": "Activate",
     "archive": "Archive",
     "customer": "Customer",
@@ -229,7 +194,6 @@
     "subtitle": "Independent customer stores under KNIGHT management.",
     "suspend": "Suspend store",
     "version": "Version"
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   },
   "features": {
     "subtitle": "Central registry of versioned, deployable features.",
@@ -413,30 +377,6 @@
     "Overdue": "Overdue"
   },
   "infrastructure": {
-<<<<<<< HEAD
-    "subtitle": "Platform services and the servers hosting stores.",
-    "platformServices": "Platform services",
-    "servers": "Servers",
-    "server": "Server",
-    "ip": "IP address",
-    "load": "Load (CPU/RAM/Disk)",
-    "stores": "Stores",
-    "agent": "Agent",
-    "uptime": "Uptime",
-    "agentNote": "The agent only reports and runs typed jobs; it has no shell and executes no arbitrary commands.",
-    "cpuTrend": "CPU trend (last 12 samples)",
-    "memoryTrend": "Memory trend",
-    "registerServer": "Register server",
-    "addAgent": "Add agent",
-    "decommission": "Decommission",
-    "hostingModel": "Hosting model",
-    "provider": "Provider",
-    "region": "Region",
-    "tokenShownOnce": "This provisioning token is shown once and is burned on first use. Copy it now.",
-    "agents": "Agents",
-    "noAgents": "No agent has enrolled on this machine yet.",
-    "revokeAgent": "Revoke"
-=======
     "addAgent": "Add agent",
     "agent": "Agent",
     "agentNote": "The agent only reports and runs typed jobs; it has no shell and executes no arbitrary commands.",
@@ -469,7 +409,6 @@
     "subtitle": "Platform services and the servers hosting stores.",
     "tokenShownOnce": "This provisioning token is shown once and is burned on first use. Copy it now.",
     "uptime": "Uptime"
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   },
   "monitoring": {
     "subtitle": "Store health and the active alert rules.",
@@ -564,32 +503,6 @@
     "Failure": "Failure"
   },
   "access": {
-<<<<<<< HEAD
-    "subtitle": "Users, roles and permission scope.",
-    "users": "Users",
-    "roles": "Roles",
-    "user": "User",
-    "role": "Role",
-    "scope": "Scope",
-    "platform": "Platform",
-    "customer": "Customer",
-    "rolesColumn": "Roles",
-    "mfa": "MFA",
-    "permissions": "Permissions",
-    "userCount": "Users",
-    "system": "System",
-    "lastSeen": "Last seen",
-    "invite": "Invite user",
-    "suspend": "Suspend",
-    "activate": "Activate",
-    "resetMfa": "Reset MFA",
-    "resetPassword": "Reset password",
-    "email": "Work email",
-    "displayName": "Display name",
-    "passwordShownOnce": "This one-time password is shown once. Hand it over now; it cannot be read again.",
-    "inviteHint": "The account is created with a one-time password shown after saving. It has no way to sign in until you pass it on.",
-    "resetHint": "Resetting is the only recovery path, and every reset is audited."
-=======
     "activate": "Activate",
     "assignRoles": "Roles",
     "assignRolesNote": "The roles this account will hold afterwards. Unticking one takes it away.",
@@ -623,7 +536,6 @@
     "user": "User",
     "userCount": "Users",
     "users": "Users"
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   },
   "userStatus": {
     "Active": "Active",
@@ -785,28 +697,6 @@
     "revoke": "Revoke"
   },
   "createCustomer": {
-<<<<<<< HEAD
-    "title": "Create customer",
-    "subtitle": "Register the customer, its first store and the service plan.",
-    "basics": "Basics",
-    "name": "Customer name",
-    "slug": "Slug",
-    "contactEmail": "Contact email",
-    "firstAdmin": "First administrator",
-    "adminName": "Admin name",
-    "adminEmail": "Work email",
-    "adminNote": "A one-time password is shown after creation; hand it to the administrator yourself. Email delivery is not enabled yet.",
-    "store": "First store",
-    "domain": "Primary domain",
-    "domainNote": "Domain ownership must be verified before the store connects.",
-    "features": "Features",
-    "includedInPlan": "Included in plan",
-    "dedicatedOnly": "Needs dedicated infrastructure",
-    "noFeatures": "No features defined for this plan.",
-    "plan": "Service plan",
-    "summary": "Provisioning steps",
-    "provisioningNote": "After submission these steps run as jobs:",
-=======
     "adminEmail": "Work email",
     "adminName": "Admin name",
     "adminNote": "A one-time password is shown after creation; hand it to the administrator yourself. Email delivery is not enabled yet.",
@@ -831,35 +721,10 @@
     "required": "This field is required.",
     "slug": "Slug",
     "slugHint": "The store's identifier: lowercase letters, digits and single hyphens. Not shown to shoppers.",
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
     "step1": "Create the store and issue credentials",
     "step2": "Register the agent and handshake",
     "step3": "Install the plan's features automatically",
     "step4": "Health check and hand over",
-<<<<<<< HEAD
-    "submit": "Create customer",
-    "cancel": "Cancel",
-    "required": "This field is required.",
-    "invalidEmail": "Enter a valid email address.",
-    "failedAt": "The run stopped at \"{{step}}\": {{message}}",
-    "created": "Customer created",
-    "createdNote": "The store, the administrator account and the subscription were all recorded.",
-    "passwordNote": "This password is shown once and cannot be read again from any screen."
-  },
-  "installPreview": {
-    "title": "Install preview",
-    "plan": "Resolved plan",
-    "role_target": "Target feature",
-    "role_dependency": "Dependency",
-    "alreadyInstalled": "Already installed",
-    "willInstall": "Will install",
-    "migrations": "Database migrations",
-    "duration": "Estimated duration",
-    "restart": "Requires restart",
-    "irreversibleWarning": "This version's migration is irreversible; automatic rollback will not be possible if it fails.",
-    "typeToConfirm": "Type {{name}} to confirm:",
-    "confirm": "Start installation"
-=======
     "store": "First store",
     "submit": "Create customer",
     "subtitle": "Register the customer, its first store and the service plan.",
@@ -883,7 +748,6 @@
     "title": "Install preview",
     "typeToConfirm": "Type {{name}} to confirm:",
     "willChange": "{{count}} step(s) will change this store."
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   },
   "notifications": {
     "title": "Notifications",

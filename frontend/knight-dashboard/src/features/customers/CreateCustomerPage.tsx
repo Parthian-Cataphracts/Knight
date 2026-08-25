@@ -207,11 +207,8 @@ export function CreateCustomerPage() {
                 label={t("createCustomer.slug")}
                 required
                 dir="ltr"
-<<<<<<< HEAD
-=======
                 placeholder="phoenix-verify"
                 hint={t("createCustomer.slugHint")}
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
                 value={slug}
                 onChange={(event) => setSlug(event.target.value)}
                 error={errors["slug"]}

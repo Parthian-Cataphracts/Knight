@@ -3,9 +3,6 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Plus, KeyRound, RefreshCw } from "lucide-react";
 import { useCollection } from "@/lib/api/hooks";
-<<<<<<< HEAD
-import type { Installation, IntegrationStatus, Store } from "@/lib/api/domain";
-=======
 import { apiRequest } from "@/lib/api/client";
 import type {
   Customer,
@@ -16,17 +13,13 @@ import type {
   Store,
 } from "@/lib/api/domain";
 import type { Environment } from "@/lib/api/types";
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 import { PageShell, PageHeader, Toolbar, FilterTabs, KeyValue, Mono } from "@/components/data/PageShell";
 import { CollectionCard } from "@/components/data/CollectionCard";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { Drawer } from "@/components/data/Drawer";
 import { StatusChip, type Tone } from "@/components/ui/StatusChip";
 import { Button } from "@/components/ui/Button";
-<<<<<<< HEAD
-=======
 import { TextField } from "@/components/ui/TextField";
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 import { useAuthStore } from "@/store/auth";
 import { formatRelative } from "@/lib/utils/format";
 import { installationTone } from "@/features/installations/installationTone";
@@ -49,10 +42,7 @@ export function StoresPage() {
   const can = useAuthStore((state) => state.can);
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<Store | null>(null);
-<<<<<<< HEAD
-=======
   const [registering, setRegistering] = useState(false);
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 
   const all = query.data ?? [];
   const rows = all.filter((store) => filter === "all" || store.environment === filter);
@@ -119,8 +109,6 @@ export function StoresPage() {
 
   return (
     <PageShell>
-<<<<<<< HEAD
-=======
       <RegisterStoreForm
         open={registering}
         onClose={() => setRegistering(false)}
@@ -130,17 +118,12 @@ export function StoresPage() {
         }}
       />
 
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
       <PageHeader
         title={t("nav.stores")}
         subtitle={t("stores.subtitle")}
         actions={
           can("store.create") ? (
-<<<<<<< HEAD
-            <Button size="sm">
-=======
             <Button size="sm" onClick={() => setRegistering(true)}>
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
               <Plus className="size-4" aria-hidden />
               {t("stores.register")}
             </Button>
@@ -266,8 +249,6 @@ export function StoresPage() {
     </PageShell>
   );
 }
-<<<<<<< HEAD
-=======
 
 /**
  * Registering a store, including the machine it will run on.
@@ -480,4 +461,3 @@ function SelectField({
     </div>
   );
 }
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5

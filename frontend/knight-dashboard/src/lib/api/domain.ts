@@ -14,8 +14,6 @@ export type HostingModel = "SharedManaged" | "DedicatedManaged" | "CustomerManag
 export interface Customer {
   id: string;
   name: string;
-<<<<<<< HEAD
-=======
 
   /**
    * The three the API has always returned and the dashboard used not to declare.
@@ -27,7 +25,6 @@ export interface Customer {
   phone: string | null;
   notes: string | null;
 
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   contactEmail: string;
   status: CustomerStatus;
   /** Absent until the customer has a subscription. */
@@ -61,12 +58,9 @@ export interface Store {
   installedFeatureCount: number | null;
   lastSeenAt: string | null;
 
-<<<<<<< HEAD
-=======
   /** The machine this store runs on. Null when nobody has placed it yet. */
   serverId: string | null;
 
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   /** True when the store must present a client certificate as well as its credential. */
   requiresMutualTls: boolean;
 
@@ -351,8 +345,6 @@ export interface Invoice {
 
 // --- Infrastructure and observability ---------------------------------------
 
-<<<<<<< HEAD
-=======
 /**
  * A server as GET /servers returns it.
  *
@@ -362,22 +354,11 @@ export interface Invoice {
  * for every one of them against a real deployment. Load lives on the fleet
  * overview below, which reports every server in one batched call.
  */
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 export interface Server {
   id: string;
   name: string;
   hostingModel: HostingModel;
   environment: Environment;
-<<<<<<< HEAD
-  ipAddress: string;
-  status: HealthState;
-  cpuPercent: number;
-  memoryPercent: number;
-  diskPercent: number;
-  uptimePercent: number;
-  agentVersion: string | null;
-  storeCount: number;
-=======
   status: HealthState;
 
   /** Why it is in this status, in words. Null when it is simply healthy. */
@@ -423,7 +404,6 @@ export interface FleetOverview {
   openAlerts: number;
   criticalAlerts: number;
   servers: FleetServer[];
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 }
 
 export interface ErrorGroup {
@@ -487,9 +467,6 @@ export interface AdminUser {
   email: string;
   scope: "Platform" | "Customer";
   customerName: string | null;
-<<<<<<< HEAD
-  roles: string[];
-=======
 
   /** Role names, for display. */
   roles: string[];
@@ -497,7 +474,6 @@ export interface AdminUser {
   /** The same roles by id, which is what setting them takes. */
   roleIds: string[];
 
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   mfaEnabled: boolean;
   status: "Active" | "Suspended";
   /**
@@ -512,10 +488,6 @@ export interface AdminUser {
 export interface Role {
   id: string;
   name: string;
-<<<<<<< HEAD
-  scope: "Platform" | "Customer";
-  isSystem: boolean;
-=======
   description: string | null;
   scope: "Platform" | "Customer";
   isSystem: boolean;
@@ -523,13 +495,10 @@ export interface Role {
   /** The keys this role grants. The API has always sent them; nothing read them. */
   permissions: string[];
 
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   permissionCount: number;
   userCount: number;
 }
 
-<<<<<<< HEAD
-=======
 /**
  * The dry run behind the install preview: POST /installations/plan.
  *
@@ -579,7 +548,6 @@ export interface InstallPlan {
   failures: InstallPlanFailure[];
 }
 
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 // --- Staged rollouts -------------------------------------------------------
 
 export type RolloutState = "Planned" | "InProgress" | "Halted" | "Completed" | "Cancelled";

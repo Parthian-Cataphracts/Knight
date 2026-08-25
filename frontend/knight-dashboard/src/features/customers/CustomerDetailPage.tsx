@@ -287,11 +287,6 @@ export function CustomerDetailPage() {
         title={t("customers.edit")}
         subtitle={customer.name}
         path={`/customers/${customerId}`}
-<<<<<<< HEAD
-        fields={[
-          { key: "name", label: t("common.name"), value: customer.name },
-          { key: "contactEmail", label: t("customers.contactEmail"), value: customer.contactEmail, ltr: true },
-=======
         // Every field the update writes, whether or not it is being changed.
         // The endpoint replaces the whole profile, so a field this form omits is
         // a field it erases.
@@ -318,7 +313,6 @@ export function CustomerDetailPage() {
             required: false,
             note: t("customers.notesHint"),
           },
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
         ]}
         onClose={() => setEditing(false)}
         onSaved={() => {

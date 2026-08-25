@@ -3,11 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, KeyRound, RefreshCw, Ban, Globe } from "lucide-react";
 import { useAction, useCollection } from "@/lib/api/hooks";
-<<<<<<< HEAD
-import type { Customer, Installation, Store } from "@/lib/api/domain";
-=======
 import type { Customer, Installation, Server, Store } from "@/lib/api/domain";
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 import type { ActivityEntry, Deployment, StoreCredential, StoreDomain } from "@/lib/api/fixtures-detail";
 import { PageShell, PageHeader, KeyValue, Mono } from "@/components/data/PageShell";
 import { CollectionCard } from "@/components/data/CollectionCard";
@@ -71,10 +67,7 @@ export function StoreDetailPage() {
   // here to be shown, and never fetched again.
   const [issued, setIssued] = useState<{ clientId: string; clientSecret: string } | null>(null);
   const [editing, setEditing] = useState(false);
-<<<<<<< HEAD
-=======
   const [moving, setMoving] = useState(false);
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 
   const issueCredential = useAction<{ clientId: string; clientSecret: string }, void>(
     () => ({ path: `/stores/${storeId}/credentials` }),
@@ -107,8 +100,6 @@ export function StoreDetailPage() {
 
   const store = (stores.data ?? []).find((item) => item.id === storeId);
 
-<<<<<<< HEAD
-=======
   // A store may only sit on a machine of its own environment, and on a dedicated
   // machine only if that machine belongs to its customer. KNIGHT enforces both;
   // this narrows the list so an operator is not offered one that will be
@@ -123,7 +114,6 @@ export function StoreDetailPage() {
   );
 
 
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   // Why this store cannot connect, in one sentence, on the screen an operator is
   // already looking at.
   //
@@ -298,15 +288,12 @@ export function StoreDetailPage() {
                 {t("common.edit")}
               </Button>
 
-<<<<<<< HEAD
-=======
               {can("store.manage") ? (
                 <Button variant="outline" size="sm" onClick={() => setMoving(true)}>
                   {t("stores.moveServer")}
                 </Button>
               ) : null}
 
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
               {store.status !== "Archived" ? (
                 <Button
                   variant="outline"
@@ -323,8 +310,6 @@ export function StoreDetailPage() {
       />
 
       <EditDrawer
-<<<<<<< HEAD
-=======
         open={moving}
         title={t("stores.moveServer")}
         subtitle={store.name}
@@ -359,7 +344,6 @@ export function StoreDetailPage() {
       />
 
       <EditDrawer
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
         open={editing}
         title={t("stores.edit")}
         subtitle={store.primaryDomain}
@@ -427,8 +411,6 @@ export function StoreDetailPage() {
                   {store.lastSeenAt ? formatRelative(store.lastSeenAt) : "—"}
                 </KeyValue>
                 <KeyValue label={t("stores.features")}>{store.installedFeatureCount ?? "—"}</KeyValue>
-<<<<<<< HEAD
-=======
                 <KeyValue label={t("stores.server")}>
                   {placedOn === undefined ? (
                     <span className="text-on-surface-variant">{t("stores.noServer")}</span>
@@ -438,7 +420,6 @@ export function StoreDetailPage() {
                     </span>
                   )}
                 </KeyValue>
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
               </dl>
 
               {connectionBlocker ? (

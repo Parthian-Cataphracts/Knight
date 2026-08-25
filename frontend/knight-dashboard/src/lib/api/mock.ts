@@ -35,28 +35,6 @@ const session: LoginResponse = {
     displayName: "مدیر پلتفرم",
     customerId: null,
     roles: ["SuperAdmin"],
-<<<<<<< HEAD
-    permissions: [
-      "customer.view",
-      "store.view",
-      "store.manage",
-      "feature.view",
-      "feature.manage",
-      "feature.publish",
-      "installation.view",
-      "installation.manage",
-      "job.view",
-      "subscription.view",
-      "billing.view",
-      "server.view",
-      "monitoring.view",
-      "errors.view",
-      "incident.view",
-      "logs.view",
-      "audit.view",
-      "user.view",
-      "report.view",
-=======
     // Every permission a real SuperAdmin holds - ControlPlanePermissions
     // .AssignableToRoles, which is every key except the three only a machine
     // principal may have. Kept complete on purpose: a short list here makes
@@ -79,7 +57,6 @@ const session: LoginResponse = {
       "notification.manage",
       "audit.view", "report.view",
       "user.view", "user.manage", "role.view", "role.manage",
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
     ],
     mfaEnabled: true,
     mfaSatisfied: true,
@@ -144,8 +121,6 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
     return json({ items: detail.notificationChannels });
   }
 
-<<<<<<< HEAD
-=======
   // Not a collection: the fleet overview is one object carrying every server's
   // status and latest load.
   if (path === "/monitoring/fleet") {
@@ -158,7 +133,6 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
     return json({ items: keys, page: 1, pageSize: keys.length, totalCount: keys.length, totalPages: 1 });
   }
 
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   if (path === "/notifications/rules") {
     return json({
       items: [
@@ -182,16 +156,12 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
     });
   }
 
-<<<<<<< HEAD
-  const collection = collections[path];
-=======
   // GET only. Served for any method, a POST to a collection path would come back
   // as a page of items and read as a successful write - so a screen whose save
   // was never wired to anything would look like it worked, which is exactly the
   // defect these fixtures exist to catch. Writes have no fixtures, and the 404
   // below says so where the operator can see it.
   const collection = method === "GET" ? collections[path] : undefined;
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   if (collection) {
     return json({
       items: collection,
@@ -226,11 +196,6 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
     }
   }
 
-<<<<<<< HEAD
-  const installPlan = /^\/stores\/([^/]+)\/features\/([^/]+)\/plan$/.exec(path);
-  if (installPlan) {
-    return json(installPlan[2] === "f3" ? detail.installPlans["blocked"] : detail.installPlans["ok"]);
-=======
   // The dry run. A POST, on the path the API actually serves - this fixture used
   // to answer a GET on a path that has never existed, which is how the preview
   // dialog was written against a response shape nothing produced.
@@ -242,7 +207,6 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
     if (slug.includes("sms")) return json(detail.installPlans["irreversible"]);
     if (slug.includes("analytics")) return json(detail.installPlans["ok"]);
     return json(detail.installPlans["blocked"]);
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   }
 
   // The job detail endpoint returns the job plus its steps, which the list

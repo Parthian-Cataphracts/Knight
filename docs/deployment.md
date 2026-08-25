@@ -71,11 +71,6 @@ Reverse proxy (TLS termination, HSTS, rate limiting)
    └── cafe1.ir, cafe2.ir, ...     -> independent store deployments
 ```
 
-<<<<<<< HEAD
-The dashboard is a static bundle (any static host or the reverse proxy). The
-API is a container. Stores are deployed independently, on shared or dedicated
-servers, and are never redeployed by KNIGHT in the initial phases.
-=======
 The dashboard is a static bundle (any static host or the reverse proxy). Stores
 are deployed independently, on shared or dedicated servers, and are never
 redeployed by KNIGHT in the initial phases.
@@ -87,35 +82,11 @@ and `/health` to the API — costs one DNS record and one certificate instead of
 two, and removes cross-origin from the picture entirely, which is worth
 something given that a CORS mistake is invisible to every test that is not a
 browser. That is what [`installation.md`](installation.md) deploys.
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 
 ## 5. Configuration
 
 Standard .NET configuration precedence: `appsettings.json` →
 `appsettings.{Environment}.json` → environment variables → secret store.
-<<<<<<< HEAD
-`appsettings.Development.json` contains placeholders only.
-
-Required settings:
-
-```
-ConnectionStrings__KnightDb
-ConnectionStrings__Redis
-Knight__Environment                Development|Staging|Production
-Knight__Jwt__Issuer / Audience / SigningKey (or KeyPath)
-Knight__Jwt__AccessTokenMinutes / RefreshTokenDays
-Knight__Cors__AllowedOrigins
-Knight__Ingestion__MaxBatchSize / RateLimitPerMinute
-Knight__StorePolling__IntervalSeconds / TimeoutSeconds
-Knight__Registry__BaseUrl / Credentials
-Knight__Registry__SigningPublicKey        (agents verify against this)
-Knight__Jobs__DefaultTimeoutSeconds / MaxAttempts / PollIntervalSeconds
-Knight__Otel__Endpoint (optional)
-```
-
-Dashboard build-time config: `VITE_API_BASE_URL`, `VITE_SIGNALR_URL`,
-`VITE_DEFAULT_LOCALE`.
-=======
 `appsettings.Development.json` contains placeholders only. Environment variables
 use `__` where the setting path uses `:`.
 
@@ -179,7 +150,6 @@ SignalR silently falls back to long polling.
 [`installation.md`](installation.md) is the worked version of this section: one
 command that installs a single-hostname deployment on Ubuntu or Debian, sets
 every value above, and stays out of the way of anything else on the machine.
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 
 ## 6. Secrets
 

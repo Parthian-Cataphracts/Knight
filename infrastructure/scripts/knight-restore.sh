@@ -10,15 +10,11 @@
 # Usage:
 #   infrastructure/scripts/knight-restore.sh <dump-file> <target-database> [--force]
 #
-<<<<<<< HEAD
-# Environment: standard PG* variables for the connection.
-=======
 # Environment:
 #   standard PG* variables for the connection
 #   KNIGHT_ADMIN_PSQL   command allowed to drop and create a database, for
 #                       example "runuser -u postgres -- psql". Defaults to psql
 #   KNIGHT_DB_OWNER     role that should own the recreated database
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 
 set -euo pipefail
 
@@ -52,9 +48,6 @@ else
   echo "WARNING: no manifest beside $DUMP; restoring an unverified dump." >&2
 fi
 
-<<<<<<< HEAD
-EXISTS="$(psql --dbname=postgres -tAc "select 1 from pg_database where datname = '${TARGET}'")"
-=======
 # Dropping and creating a database needs a privilege the application role does
 # not have, and should not be given: it owns one database and has no business
 # creating others on a machine it may be sharing. KNIGHT_ADMIN_PSQL names the
@@ -76,7 +69,6 @@ fi
 OWNER="${KNIGHT_DB_OWNER:-}"
 
 EXISTS="$("${ADMIN_PSQL[@]}" --dbname=postgres -tAc "select 1 from pg_database where datname = '${TARGET}'")"
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 
 if [ -n "$EXISTS" ] && [ "$FORCE" != "--force" ]; then
   echo "Database '${TARGET}' already exists. Pass --force to drop and recreate it." >&2
@@ -87,15 +79,6 @@ if [ -n "$EXISTS" ]; then
   echo "Dropping existing '${TARGET}' ..."
   # Sessions still attached would make the drop fail; a restore that stops here
   # because a forgotten psql is open is a restore that has not happened.
-<<<<<<< HEAD
-  psql --dbname=postgres -q -c \
-    "select pg_terminate_backend(pid) from pg_stat_activity where datname = '${TARGET}' and pid <> pg_backend_pid()" >/dev/null
-  psql --dbname=postgres -q -c "drop database \"${TARGET}\""
-fi
-
-echo "Creating '${TARGET}' ..."
-psql --dbname=postgres -q -c "create database \"${TARGET}\""
-=======
   "${ADMIN_PSQL[@]}" --dbname=postgres -q -c \
     "select pg_terminate_backend(pid) from pg_stat_activity where datname = '${TARGET}' and pid <> pg_backend_pid()" >/dev/null
   "${ADMIN_PSQL[@]}" --dbname=postgres -q -c "drop database \"${TARGET}\""
@@ -107,7 +90,6 @@ if [ -n "$OWNER" ]; then
 else
   "${ADMIN_PSQL[@]}" --dbname=postgres -q -c "create database \"${TARGET}\""
 fi
->>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 
 echo "Restoring $(basename "$DUMP") into '${TARGET}' ..."
 
