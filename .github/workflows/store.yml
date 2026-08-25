@@ -49,22 +49,22 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
-      # Installed the way a store installs them, so the packaging is exercised
+      # Installed the way a store installs it, so the packaging is exercised
       # rather than assumed: a Feature that cannot be installed is a Feature that
       # does not work, however well its own tests pass.
-      - name: Install the optional Features
-        run: pip install ./features/knight-feature-promotions ./features/knight-feature-delivery
+      - name: Install the optional Feature
+        run: pip install ./features/knight-feature-promotions
 
-      # Installing the packages is not the same as installing the Features.
-      # Until the store's feature registry lists them they are not in
-      # INSTALLED_APPS, their models cannot be used, and every test that touches
-      # them skips — which is a green run over code nothing executed.
-      - name: Register the Features with the store
+      # Installing the package is not the same as installing the Feature.
+      # Until the store's feature registry lists it, it is not in INSTALLED_APPS,
+      # its models cannot be used, and every test that touches it skips — which
+      # is a green run over code nothing executed.
+      - name: Register the Feature with the store
         working-directory: stores/reference-store
         env:
           KNIGHT_FEATURE_ROOT: ${{ github.workspace }}/stores/knight-features
         run: |
-          python manage.py knight_install_local             ../../features/knight-feature-promotions             ../../features/knight-feature-delivery
+          python manage.py knight_install_local ../../features/knight-feature-promotions
 
       - name: Test
         working-directory: stores/reference-store

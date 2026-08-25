@@ -13,7 +13,14 @@ A Feature is **not** a boolean flag
 |---|---|
 | `knight-feature-analytics-core` | Records events and rolls them into daily counters. Owns the event table. |
 | `knight-feature-analytics-reports` | A reporting surface over that stream. Depends on the core, and exists to exercise dependency resolution against a real package. |
+| `knight-feature-promotions` | Advanced Promotions: buy X get Y, bundles and stacking rules. Plain coupons are the base store's ([`adr/0024`](../docs/adr/0024-base-store-versus-optional-feature.md)). |
 | `tools/knight_package.py` | Build, sign, validate and publish. |
+
+A directory's name is the Python distribution; the slug KNIGHT sells and
+delivers under is the short one in its manifest — `advanced-promotions`, not
+`knight-feature-promotions` ([`adr/0029`](../docs/adr/0029-one-slug-for-the-catalogue-and-the-package.md)).
+What is sold, and what belongs in the base store instead, is
+[`docs/feature-catalog.md`](../docs/feature-catalog.md).
 
 ## Getting started
 

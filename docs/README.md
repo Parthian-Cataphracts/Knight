@@ -79,6 +79,7 @@ Read in this order:
 17. [`development.md`](development.md) — how to run, test, and contribute
 18. [`phase-3-verification.md`](phase-3-verification.md) — the exact steps to bring KNIGHT, a store and the dashboard up together and see the link work
 19. [`phase-11-verification.md`](phase-11-verification.md) — the exact steps to install KNIGHT on a server and prove it did not disturb anything else on it
+20. [`phase-12-verification.md`](phase-12-verification.md) — moving two capabilities out of Features and into the base store, what it cost, and what running it found
 
 Project status and remaining work: [`../TODO.md`](../TODO.md).
 

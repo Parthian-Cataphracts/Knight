@@ -46,15 +46,15 @@ never sold. The rule that puts a capability here is in
 | `promotions` | Coupon codes, percentage and fixed discounts, validity, minimum order | `apps.promotions` |
 | `storefront` | The shopper-facing journey | `apps.shop` |
 
+Transactional notifications — order and payment confirmation, cancellation,
+fulfilment and password reset — are in the image as `apps.notifications`. They
+have no catalogue identity because there is nothing to sell or entitle: every
+store sends them, and marketing automation is a separate Feature that does a
+different thing.
+
 These appear in the catalogue as `isOptional: false` Features. They are
 identities for plan composition and nothing more: there is no artifact, no
 entitlement and no install job behind them.
-
-**Not built yet:** `notifications` — order and payment confirmations, password
-reset, fulfilment mail. It belongs in the base store by the rule above (a store
-that cannot tell a shopper their order was received is broken, not plainer) and
-it is on the phase plan rather than in the seed, because seeding a capability
-the image does not have would be a promise the product cannot keep.
 
 ---
 
@@ -71,7 +71,7 @@ in code.
 |---|---|---|---|---|
 | `analytics-core` | Analytics Core | Insight | 29 | `features/knight-feature-analytics-core` |
 | `analytics-reports` | Analytics Reports | Insight | 19 | `features/knight-feature-analytics-reports` |
-| `advanced-promotions` | Advanced Promotions | Growth | 39 | `features/knight-feature-promotions` |
+| `advanced-promotions` | Advanced Promotions | Growth | 39 | `features/knight-feature-promotions` (2.0.0) |
 | `log-shipping` | Log shipping | Insight | 19 | — none; see below |
 
 `log-shipping` is the one capability with no package. It is enforced by
@@ -81,9 +81,9 @@ not a flag in the sense [`adr/0014`](adr/0014-features-as-deployable-packages.md
 forbids: it is entitled, refused server-side when unentitled, and audited. It
 simply has nothing to install, because the code that does the work is KNIGHT's.
 
-`delivery-zones` exists as a Draft identity and is **deprecated** — shipping is
-base now, so phase 12 folds the package into `apps.fulfillment` and withdraws
-the Feature.
+`delivery-zones` is **withdrawn**. Shipping is base, so phase 12 folded the
+package into `apps.fulfillment` and removed both the package and its catalogue
+identity.
 
 ### On the roadmap
 
@@ -255,10 +255,13 @@ fixed ([`adr/0029`](adr/0029-one-slug-for-the-catalogue-and-the-package.md)),
 and the four packages in `features/` now resolve against the identities the seed
 creates.
 
+Phase 12 then closed the base-store boundary: coupons, shipping and
+transactional notifications are in the image, `advanced-promotions` 2.0.0 keeps
+only the sophistication, and `delivery-zones` is gone. What that cost, and what
+running it found, is in [`phase-12-verification.md`](phase-12-verification.md).
+
 The remaining work is the catalogue itself: eleven Features that are Draft
-identities with no package behind them, and two base capabilities
-(`promotions`, `shipping`) whose code currently lives in Features that need
-folding into the image. The order is in [`../TODO.md`](../TODO.md), phases 12
-to 17, and it runs low-risk first: contained migrations and no external
-services before anything that touches money, background workers or a
-third-party API.
+identities with no package behind them. The order is in
+[`../TODO.md`](../TODO.md), phases 13 to 17, and it runs low-risk first:
+contained migrations and no external services before anything that touches
+money, background workers or a third-party API.

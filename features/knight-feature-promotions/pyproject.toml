@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "knight-feature-promotions"
-version = "1.0.0"
+version = "2.0.0"
 description = "Promotions and coupons for a KNIGHT store."
 requires-python = ">=3.12"
 dependencies = ["Django>=5.0,<6.0"]

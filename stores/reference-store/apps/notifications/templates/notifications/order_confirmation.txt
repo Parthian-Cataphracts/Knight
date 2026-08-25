@@ -1,0 +1,16 @@
+{% comment %}
+Plain text on purpose. A transactional message has to be readable in any client,
+including the ones that strip HTML, and a shopper checking whether their order
+went through should not be waiting on a webfont.
+{% endcomment %}Thank you for your order{% if customer_name %}, {{ customer_name }}{% endif %}.
+
+Order {{ order_reference }} is confirmed.
+
+{% if lines %}What you ordered:
+{% for line in lines %}  {{ line.quantity }} x {{ line.name }}   {{ line.total }}
+{% endfor %}{% endif %}{% if discount_total %}Discount: -{{ discount_total }}
+{% endif %}{% if fulfillment_fee %}Delivery: {{ fulfillment_fee }}
+{% endif %}Total: {{ total }}
+
+{% if is_delivery %}We will deliver to {{ address }}{% if delivery_zone_name %} ({{ delivery_zone_name }}){% endif %}.{% else %}Your order will be ready for collection.{% endif %}{% if preparation_minutes %}
+Usually ready in about {{ preparation_minutes }} minutes.{% endif %}

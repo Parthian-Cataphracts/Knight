@@ -1,0 +1,3 @@
+{% if is_delivery %}Order {{ order_reference }} is on its way{% if address %} to {{ address }}{% endif %}.{% else %}Order {{ order_reference }} is ready for collection.{% endif %}
+
+{% if note %}{{ note }}{% endif %}

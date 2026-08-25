@@ -1,0 +1,6 @@
+We have received your payment of {{ amount }} for order {{ order_reference }}.
+
+{% if method %}Paid by {{ method }}.{% endif %}
+{% if reference %}Reference: {{ reference }}{% endif %}
+
+Keep this message for your records.

@@ -1,0 +1,6 @@
+Order {{ order_reference }} has been cancelled.
+
+{% if reason %}Reason: {{ reason }}{% endif %}
+{% if refund_expected %}Anything you have paid will be refunded.{% endif %}
+
+If you did not expect this, reply to this message and we will look into it.

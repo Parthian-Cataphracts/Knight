@@ -78,7 +78,9 @@ INSTALLED_APPS = [
     "apps.shoppers",
     "apps.orders",
     "apps.fulfillment",
+    "apps.promotions",
     "apps.payments",
+    "apps.notifications",
     "apps.shop",
 ]
 
@@ -126,6 +128,23 @@ CACHES = {
     )
 }
 
+# --- Outbound mail ---------------------------------------------------------
+#
+# Transactional notifications only: order and payment confirmations,
+# cancellations, fulfilment and password resets (apps.notifications).
+#
+# The console backend is the default deliberately. A developer running this store
+# on a laptop should not need an SMTP server to place a test order, and the
+# alternative default - silently discarding mail - would hide a broken
+# configuration until a real shopper failed to get a confirmation.
+EMAIL_BACKEND = _env("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = _env("EMAIL_HOST", "localhost")
+EMAIL_PORT = _int("EMAIL_PORT", 25)
+EMAIL_HOST_USER = _env("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = _env("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = _flag("EMAIL_USE_TLS", False)
+DEFAULT_FROM_EMAIL = _env("DEFAULT_FROM_EMAIL", "store@localhost")
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 USE_TZ = True
 TIME_ZONE = "UTC"
@@ -153,7 +172,7 @@ KNIGHT = {
     "CLIENT_SECRET": _env("KNIGHT_CLIENT_SECRET"),
     "ENVIRONMENT": _env("KNIGHT_ENVIRONMENT", "Development"),
     "STORE_ID": _env("KNIGHT_STORE_ID"),
-    "STORE_VERSION": _env("STORE_VERSION", "1.0.0"),
+    "STORE_VERSION": _env("STORE_VERSION", "2.0.0"),
     "ERROR_REPORTING": _flag("KNIGHT_ERROR_REPORTING", True),
     "LOG_SHIPPING": _flag("KNIGHT_LOG_SHIPPING", False),
     "FEATURE_REFRESH_SECONDS": _int("KNIGHT_FEATURE_REFRESH_SECONDS", 300),

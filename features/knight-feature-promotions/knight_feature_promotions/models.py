@@ -1,17 +1,22 @@
 """
-Promotions and coupons: how a store sells for less than list price.
+Merchandising beyond a coupon code.
 
-Ported from the frozen .NET `Promotions` module and shipped as an optional
-Feature rather than in the base image. A store without it sells at list price,
-which is a plainer store rather than a broken one — the test
-[`adr/0024`](../../../docs/adr/0024-base-store-versus-optional-feature.md) sets
-for exactly this decision.
+Plain coupons, percentage and fixed discounts, validity windows and minimums are
+the base store's, as of the catalogue revision
+([`adr/0024`](../../../docs/adr/0024-base-store-versus-optional-feature.md)).
+What is sold is the sophistication: buy X get Y, bundles, and the decision about
+whether a campaign may stack with the coupon a shopper also presented.
 
-Nothing in `apps.orders` imports this package, and nothing here imports an order.
-An order records the discount it received as a snapshot, so a receipt stays
-readable after this Feature is uninstalled and these tables are gone. That is
-the whole reason `orders.OrderPromotion` copies a promotion's name, type and
-value instead of pointing at this row.
+**This package does not extend the base store's promotion tables, and must not.**
+A Feature may never import store business code, so these rules own their own
+tables and answer through `services.price()`, which takes plain basket lines and
+returns plain data. The base store decides whether to ask and what to do with the
+answer. That is what keeps uninstalling this a matter of an app disappearing
+rather than of the store having been built around it.
+
+Products are referenced by plain id for the same reason: the catalogue lives in
+the base store, and a foreign key into it would be a database-level coupling
+between an optional package and the image.
 """
 
 from decimal import Decimal
@@ -22,103 +27,56 @@ from django.db import models
 from django.utils import timezone
 
 
-class PromotionStatus(models.TextChoices):
+class CampaignStatus(models.TextChoices):
     DRAFT = "Draft", "Draft"
     ACTIVE = "Active", "Active"
     ARCHIVED = "Archived", "Archived"
 
 
-class DiscountType(models.TextChoices):
-    PERCENTAGE = "Percentage", "Percentage"
-    FIXED_AMOUNT = "FixedAmount", "Fixed amount"
-
-
-class CouponStatus(models.TextChoices):
-    ACTIVE = "Active", "Active"
-    ARCHIVED = "Archived", "Archived"
-
-
-def normalize_code(value: str | None) -> str:
+class Campaign(models.Model):
     """
-    Reduces a coupon code to what it is matched by.
+    What every advanced rule has in common: a name, a window, and how it behaves
+    beside other discounts.
 
-    Shoppers type codes in whatever case and spacing they were given them in, so
-    " ramadan20 " and "RAMADAN20" are the same coupon. Uniqueness is declared on
-    the normalised value, which makes this the definition of sameness rather than
-    a convenience beside it.
-    """
-    if value is None or not value.strip():
-        raise ValidationError("A coupon needs a code.")
-
-    return "".join(value.split()).upper()
-
-
-class Promotion(models.Model):
-    """
-    A reason to charge less, and the limits on it.
-
-    Both caps exist because they fail differently. `minimum_subtotal` stops a
-    discount applying to a basket too small to be worth it; `maximum_discount_amount`
-    stops a percentage discount on an unexpectedly large basket from costing the
-    store more than it meant to offer. A percentage promotion without the second
-    is the classic way a business loses money on a campaign.
+    Abstract rather than a shared table. The two rule types have nothing in
+    common in their arithmetic, and a single table with half its columns null
+    per row is how a pricing engine becomes impossible to reason about.
     """
 
     name = models.CharField(max_length=200)
     description = models.TextField(max_length=1000, blank=True, default="")
-    status = models.CharField(max_length=20, choices=PromotionStatus, default=PromotionStatus.DRAFT)
-
-    discount_type = models.CharField(max_length=20, choices=DiscountType)
-    discount_value = models.DecimalField(
-        max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0"))]
-    )
-
-    minimum_subtotal = models.DecimalField(
-        max_digits=12, decimal_places=2, null=True, blank=True,
-        validators=[MinValueValidator(Decimal("0"))],
-    )
-    maximum_discount_amount = models.DecimalField(
-        max_digits=12, decimal_places=2, null=True, blank=True,
-        validators=[MinValueValidator(Decimal("0"))],
-    )
+    status = models.CharField(max_length=20, choices=CampaignStatus, default=CampaignStatus.DRAFT)
 
     starts_at = models.DateTimeField(null=True, blank=True)
     ends_at = models.DateTimeField(null=True, blank=True)
 
-    # Whether a shopper has to present a code. A promotion without one applies
-    # to every qualifying basket, which is a very different commercial decision.
-    requires_coupon = models.BooleanField(default=True)
-
-    # Which promotion wins when several qualify. Highest first; ties broken by
-    # id so the outcome is at least deterministic rather than whatever the
-    # database returned that day.
+    # Which rule wins when several qualify. Highest first, ties by id.
     priority = models.IntegerField(default=0)
+
+    # Whether this may be added to a discount the base store already found.
+    # False by default, and that default is the safe one: two rules applying in
+    # full is how a basket ends up discounted twice for the same reason. A
+    # merchant who means "as well as their coupon" has to say so.
+    stacks = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     archived_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        abstract = True
         ordering = ("-priority", "id")
-        indexes = [models.Index(fields=["status", "-priority"])]
 
     def clean(self) -> None:
         super().clean()
 
         if self.ends_at and self.starts_at and self.ends_at <= self.starts_at:
-            raise ValidationError({"ends_at": "A promotion cannot end before it starts."})
-
-        if self.discount_type == DiscountType.PERCENTAGE and self.discount_value > Decimal("100"):
-            # A discount over 100% would pay the shopper to order, which the
-            # order aggregate then clamps to zero — so the mistake would be
-            # invisible rather than refused.
-            raise ValidationError({"discount_value": "A percentage discount cannot exceed 100."})
+            raise ValidationError({"ends_at": "A campaign cannot end before it starts."})
 
     def is_live(self, at=None) -> bool:
-        """Whether this promotion may be applied right now."""
         moment = at or timezone.now()
 
-        if self.status != PromotionStatus.ACTIVE:
+        if self.status != CampaignStatus.ACTIVE:
             return False
 
         if self.starts_at and moment < self.starts_at:
@@ -129,136 +87,155 @@ class Promotion(models.Model):
 
         return True
 
-    def discount_for(self, subtotal: Decimal) -> Decimal:
-        """
-        What this promotion takes off the given subtotal.
-
-        Returns zero rather than raising when the basket does not qualify: not
-        qualifying is an ordinary outcome of pricing, not an error, and callers
-        that had to catch an exception per promotion would be worse for it.
-
-        Never returns more than the subtotal. A discount larger than the goods
-        is a refund, which is a different transaction entirely.
-        """
-        if subtotal <= Decimal("0"):
-            return Decimal("0")
-
-        if self.minimum_subtotal is not None and subtotal < self.minimum_subtotal:
-            return Decimal("0")
-
-        if self.discount_type == DiscountType.PERCENTAGE:
-            amount = (subtotal * self.discount_value / Decimal("100")).quantize(Decimal("0.01"))
-        else:
-            amount = self.discount_value
-
-        if self.maximum_discount_amount is not None:
-            amount = min(amount, self.maximum_discount_amount)
-
-        return min(amount, subtotal)
-
     def archive(self) -> None:
-        """
-        Withdraws the promotion without deleting it.
-
-        Redemptions point at its coupons, and a campaign whose results cannot be
-        counted afterwards was not worth running.
-        """
-        self.status = PromotionStatus.ARCHIVED
+        self.status = CampaignStatus.ARCHIVED
         self.archived_at = timezone.now()
 
     def __str__(self) -> str:
         return self.name
 
 
-class Coupon(models.Model):
+class BuyXGetY(Campaign):
     """
-    A code that unlocks a promotion.
+    Buy a quantity of one product, get another cheaper or free.
 
-    A promotion may have several — one per channel, so a campaign can be
-    measured by where its codes were used.
+    The reward is expressed as a percentage off the reward product rather than a
+    fixed amount, because "get one free" and "get the second half price" are the
+    same rule at 100 and 50 — and a merchant who has to choose between two
+    different features to express them will pick the wrong one.
     """
 
-    promotion = models.ForeignKey(Promotion, on_delete=models.CASCADE, related_name="coupons")
-    code = models.CharField(max_length=64)
-    normalized_code = models.CharField(max_length=64, unique=True, editable=False)
-    status = models.CharField(max_length=20, choices=CouponStatus, default=CouponStatus.ACTIVE)
+    trigger_product_id = models.BigIntegerField()
+    trigger_quantity = models.PositiveIntegerField(default=1)
 
-    # Null means unlimited. Zero would mean "usable no times", which is a
-    # different thing, and conflating them is how a campaign silently never runs.
-    usage_limit_total = models.PositiveIntegerField(null=True, blank=True)
+    reward_product_id = models.BigIntegerField()
+    reward_quantity = models.PositiveIntegerField(default=1)
+    reward_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal("100"),
+        validators=[MinValueValidator(Decimal("0"))],
+    )
 
-    starts_at = models.DateTimeField(null=True, blank=True)
-    ends_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    archived_at = models.DateTimeField(null=True, blank=True)
+    # How many times one basket may earn this. Null is unlimited; a shopper
+    # buying twelve of the trigger gets six rewards, which is usually what a
+    # "buy one get one" means and occasionally ruinous, hence the cap.
+    maximum_awards_per_order = models.PositiveIntegerField(null=True, blank=True)
+
+    class Meta(Campaign.Meta):
+        abstract = False
+        verbose_name_plural = "buy X get Y campaigns"
+
+    def clean(self) -> None:
+        super().clean()
+
+        if self.reward_percent > Decimal("100"):
+            raise ValidationError({"reward_percent": "A reward cannot exceed 100 percent off."})
+
+        if self.trigger_quantity < 1:
+            raise ValidationError({"trigger_quantity": "A trigger needs at least one item."})
+
+    def discount_for(self, lines) -> Decimal:
+        """
+        What this campaign takes off a basket.
+
+        Returns zero when the basket does not qualify. The reward is only ever
+        given on reward items actually present: a campaign cannot add goods to a
+        basket, only make what is there cheaper, and pricing a reward the shopper
+        is not buying would discount an item that never ships.
+        """
+        by_product: dict[int, object] = {line.product_id: line for line in lines}
+
+        trigger = by_product.get(self.trigger_product_id)
+        reward = by_product.get(self.reward_product_id)
+
+        if trigger is None or reward is None:
+            return Decimal("0")
+
+        awards = trigger.quantity // self.trigger_quantity
+
+        if awards <= 0:
+            return Decimal("0")
+
+        if self.maximum_awards_per_order is not None:
+            awards = min(awards, self.maximum_awards_per_order)
+
+        # When the trigger and the reward are the same product, the items that
+        # earned the reward cannot also be the reward. Otherwise "buy 2 get 1
+        # free" on one product discounts all three.
+        available = reward.quantity
+
+        if self.reward_product_id == self.trigger_product_id:
+            available = max(0, reward.quantity - awards * self.trigger_quantity)
+
+        rewarded = min(awards * self.reward_quantity, available)
+
+        if rewarded <= 0:
+            return Decimal("0")
+
+        return (reward.unit_price * rewarded * self.reward_percent / Decimal("100")).quantize(
+            Decimal("0.01")
+        )
+
+
+class Bundle(Campaign):
+    """
+    A set of products for one price.
+
+    The discount is the difference between what the items cost separately and
+    the bundle price, which means the saving follows the catalogue: a merchant
+    who raises a price does not have to remember to restate the bundle's saving.
+    """
+
+    bundle_price = models.DecimalField(
+        max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0"))]
+    )
+
+    class Meta(Campaign.Meta):
+        abstract = False
+
+    def discount_for(self, lines) -> Decimal:
+        """
+        What this bundle takes off a basket.
+
+        Awarded whole: a basket either contains every item in the required
+        quantity or the bundle does not apply. A partial bundle at a partial
+        discount is a different product and a merchant has not asked for it.
+        """
+        items = list(self.items.all())
+
+        if not items:
+            return Decimal("0")
+
+        by_product = {line.product_id: line for line in lines}
+        list_total = Decimal("0")
+
+        for item in items:
+            line = by_product.get(item.product_id)
+
+            if line is None or line.quantity < item.quantity:
+                return Decimal("0")
+
+            list_total += line.unit_price * item.quantity
+
+        saving = list_total - self.bundle_price
+
+        return saving if saving > Decimal("0") else Decimal("0")
+
+
+class BundleItem(models.Model):
+    """One product, and how many of it the bundle requires."""
+
+    bundle = models.ForeignKey(Bundle, on_delete=models.CASCADE, related_name="items")
+    product_id = models.BigIntegerField()
+    quantity = models.PositiveIntegerField(default=1)
 
     class Meta:
-        ordering = ("code",)
-
-    def save(self, *args, **kwargs):
-        self.normalized_code = normalize_code(self.code)
-
-        return super().save(*args, **kwargs)
-
-    @property
-    def times_redeemed(self) -> int:
-        return self.redemptions.count()
-
-    def is_redeemable(self, at=None) -> bool:
-        """
-        Whether this code can be used right now.
-
-        Its own window narrows the promotion's rather than replacing it: a code
-        cannot outlive the campaign it belongs to, which is what stops an
-        expired promotion being revived by a coupon somebody forgot to archive.
-        """
-        moment = at or timezone.now()
-
-        if self.status != CouponStatus.ACTIVE:
-            return False
-
-        if not self.promotion.is_live(moment):
-            return False
-
-        if self.starts_at and moment < self.starts_at:
-            return False
-
-        if self.ends_at and moment >= self.ends_at:
-            return False
-
-        if self.usage_limit_total is not None and self.times_redeemed >= self.usage_limit_total:
-            return False
-
-        return True
-
-    def __str__(self) -> str:
-        return self.code
-
-
-class CouponRedemption(models.Model):
-    """
-    A record that a code was used on an order.
-
-    The order is a plain id rather than a foreign key: orders live in the base
-    store and this Feature may be uninstalled, so a database-level relationship
-    between the two would be a coupling the split is designed to avoid.
-
-    Unique per coupon and order, which is what makes redeeming idempotent — a
-    retried checkout cannot count one use twice and exhaust a campaign early.
-    """
-
-    coupon = models.ForeignKey(Coupon, on_delete=models.CASCADE, related_name="redemptions")
-    source_order_id = models.BigIntegerField()
-    redeemed_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ("-redeemed_at",)
+        ordering = ("id",)
         constraints = [
             models.UniqueConstraint(
-                fields=["coupon", "source_order_id"],
-                name="promotions_redemption_once_per_order",
+                fields=["bundle", "product_id"],
+                name="advanced_promotions_bundle_product_once",
             ),
         ]
 
     def __str__(self) -> str:
-        return f"{self.coupon.code} on order {self.source_order_id}"
+        return f"{self.quantity} x product {self.product_id}"

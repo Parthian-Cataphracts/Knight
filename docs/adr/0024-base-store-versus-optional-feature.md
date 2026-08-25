@@ -66,19 +66,22 @@ coupon, and they are what `advanced-promotions` is.
 | Payments | `apps.payments` | Recording that money arrived. The *provider integrations* are separate; recording is not |
 | Shipping and fulfilment | `apps.fulfillment` | A store must say how it hands goods over, and what it charges to do so |
 | Coupons and discounts | `apps.promotions` | A shop that cannot discount cannot run a normal promotion, and every competing platform includes it |
+| Transactional notifications | `apps.notifications` | A store that cannot tell a shopper their order was received is broken, not plainer |
 | Storefront | `apps.shop` | The shopper-facing journey |
 
 **Optional Features** — versioned, signed, installed on entitlement:
 
 | Capability | Feature | Why optional |
 |---|---|---|
-| Advanced promotions | `advanced-promotions` | Buy X get Y, bundles, scheduling and stacking are merchandising sophistication, not the ability to discount |
+| Advanced promotions | `advanced-promotions` | Buy X get Y, bundles, scheduling and stacking are merchandising sophistication, not the ability to discount. It owns its own tables and never extends the base store's — a Feature may not import store business code, so it answers through a service taking plain basket lines |
 | Analytics | `analytics-core`, `analytics-reports` | Already built in phase 3.5, and the original example of a capability that measures rather than enables |
 | Everything in the catalogue | [`feature-catalog.md`](../feature-catalog.md) | The full commercial surface and its dependency graph |
 
-`delivery-zones` is **deprecated**: it is a Feature today because the original
-decision made it one, and phase 12 folds it into `apps.fulfillment`. It stays
-installable until then so no store loses its zones mid-flight.
+`delivery-zones` is **withdrawn**. It was a Feature because the original
+decision made it one; phase 12 folded it into `apps.fulfillment`, removed the
+package, and dropped its catalogue identity. Stores that still carry it move
+their rows across with `manage.py knight_absorb_delivery_zones` and then
+uninstall it.
 
 ## Consequences
 
@@ -88,23 +91,30 @@ business can run on, which is what makes the upgrade argument honest: a customer
 leaves Basic because KNIGHT helps them sell more, not because Basic was made
 unusable on purpose.
 
-**Negative — and this is the cost of the revision.** Two Features that exist,
-are published and are installed must move into the base image:
+**Negative — and this was the cost of the revision, now paid.** Two published,
+installed Features had to move into the base image, and the move is done:
 
-- `advanced-promotions` currently ships the base coupon rules. Phase 12 moves
-  those rules into `apps.promotions` and grows what remains into the advanced
-  set. Every store with the Feature installed needs its promotion rows moved
-  from the Feature's tables into the base store's, which is a data migration on
-  a live schema, not a `CreateModel`.
-- `delivery-zones` moves wholesale into `apps.fulfillment`, with the same
-  problem for its zone and fee rows.
+- `advanced-promotions` shipped the base coupon rules. Its 2.0.0 drops them and
+  keeps only buy X get Y, bundles and stacking. Every store with it installed
+  needs `manage.py knight_absorb_promotions` run **before** the upgrade, because
+  2.0.0's migration drops the promotion, coupon and redemption tables. The
+  manifest declares `reversible: false` for exactly that reason.
+- `delivery-zones` moved wholesale into `apps.fulfillment` and the package is
+  gone, with `manage.py knight_absorb_delivery_zones` for its rows.
 
 This is exactly the migration cost the original ADR warned about when it said
 moving a capability across the line later means migrating data on every store
-that has it. It is affordable **only** because the affected stores are
+that has it. It was affordable **only** because the affected stores were
 development installs with `sha256:local-development` digests and no customer
 data. Doing it after the first paying customer would have been considerably
-worse, which is the argument for doing it in phase 12 rather than deferring.
+worse, which was the argument for doing it now rather than deferring.
+
+**A concrete consequence nobody predicted:** the two sets of tables coexist
+during the transition, so their constraint names collided and Django refused the
+migration outright (`models.E032`). The base store's are namespaced —
+`fulfillment_zone_active_name_unique`, `base_promotion_redemption_once_per_order`
+— and that is forced by the transition rather than chosen
+([`phase-12-verification.md`](../phase-12-verification.md)).
 
 **Also — the snapshot rule survives and matters more than before.** Orders
 reference a promotion that may not be installed, so the order stores a

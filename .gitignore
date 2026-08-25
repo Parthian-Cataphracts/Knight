@@ -80,6 +80,11 @@ stores/knight-features/
 
 # Python build and cache output.
 __pycache__/
+
+# setuptools leaves a copy of the sources here when a Feature is built or
+# pip-installed from a directory. Generated, and committing it means two copies
+# of every Feature module in the tree with nothing keeping them in step.
+build/
 *.py[cod]
 *.egg-info/
 .pytest_cache/

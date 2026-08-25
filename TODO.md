@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-25** (revision 23 — the commercial catalogue, and the reason nothing in it could be delivered)
+Last updated: **2026-08-25** (revision 24 — phase 12 done: coupons, shipping and notifications are the base store's, and advanced-promotions keeps only the sophistication)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,9 +11,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 12 — Catalogue alignment. The delivery engine is finished and was delivering nothing: the commercial catalogue and the package registry shared no slug, so publishing any real package failed. Fixed; what remains is moving two capabilities into the base store** |
-| **Next phase** | Phase 13 — the first Features built on the corrected boundary: `reviews-ratings`, `advanced-search`, then the first dependency test |
-| **Overall progress** | **Platform ~99%, catalogue ~20%.** Two numbers on purpose: the control plane and the delivery engine are finished, and the product they exist to deliver is 4 sellable Features out of 17. The denominator grew again, for the same reason as revision 2 — [`docs/feature-catalog.md`](docs/feature-catalog.md) is the whole surface, and phases 13-17 build it. 597 backend tests green locally (584 unit, 13 architecture; the PostgreSQL-backed integration suite needs a cluster and runs in CI), plus 9 dashboard |
+| **Current phase** | **Phase 13 — the first Features built on the corrected boundary. Phase 12 is complete: one slug across the catalogue and the registry, coupons and shipping and notifications in the base image, `advanced-promotions` 2.0.0 carrying only the sophistication, and `delivery-zones` withdrawn** |
+| **Next phase** | `reviews-ratings`, then `advanced-search` on PostgreSQL only, then `customer-segmentation` as the first real dependency test |
+| **Overall progress** | **Platform ~99%, catalogue ~25%.** Two numbers on purpose: the control plane and the delivery engine are finished, and the product they exist to deliver is 4 sellable Features out of 16. The base store is now a plan a real shop can run on, which is what makes the upgrade argument honest. 597 backend tests green locally (584 unit, 13 architecture; the PostgreSQL-backed integration suite needs a cluster and runs in CI), plus **184 store tests with nothing skipped** and 9 dashboard |
 | **Blocking decisions** | **Are Features publishable for a store that is not Django?** Everything except the manifest is already stack-agnostic; `ManifestReader` is the one thing that is not (R26, decision 14 in [`docs/risks.md`](docs/risks.md)). Until it is answered, a non-Django store is entitled and observed but not delivered to. Separately, the **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -36,7 +36,7 @@ Phase 8    Business-domain port to Django ██████████ 100%
 Phase 9    Provisioning & professional infra ██████████ 100%
 Phase 10   Optimisation & hardening       █████████░  95%
 Phase 11   Deployment & installation       ████████░░  80%
-Phase 12   Catalogue alignment            ████░░░░░░  40%
+Phase 12   Catalogue alignment            ██████████ 100%
 Phase 13   Delivery validation on Features ░░░░░░░░░░   0%
 Phase 14   Commercial foundations         ░░░░░░░░░░   0%
 Phase 15   Automation                     ░░░░░░░░░░   0%
@@ -44,10 +44,10 @@ Phase 16   Operational expansion          ░░░░░░░░░░   0%
 Phase 17   Recurring revenue & integrations ░░░░░░░░░  0%
 ```
 
-**Catalogue status** — 7 base capabilities, 4 sellable Features
-(`analytics-core`, `analytics-reports`, `advanced-promotions`, `log-shipping`),
-13 Draft identities waiting on a package.
-[`docs/feature-catalog.md`](docs/feature-catalog.md) is the list.
+**Catalogue status** — 7 base capabilities plus transactional notifications in
+the image; 4 sellable Features (`analytics-core`, `analytics-reports`,
+`advanced-promotions` 2.0.0, `log-shipping`); 12 Draft identities waiting on a
+package. [`docs/feature-catalog.md`](docs/feature-catalog.md) is the list.
 
 ---
 
@@ -979,27 +979,71 @@ Basic is a plan a real shop can run on.
 - [x] [`docs/feature-catalog.md`](docs/feature-catalog.md) — the tiers, the
       catalogue, the dependency graph, and the procedure for adding a Feature
 
-### Not done
-- [ ] **Move the base coupon rules into `apps.promotions`.** They ship inside
-      `advanced-promotions` today. This is a data migration on a live schema,
-      not a `CreateModel`: every store with the Feature installed needs its
-      promotion rows moved into the base store's tables. Affordable only
-      because the affected stores are development installs
-- [ ] **Fold `delivery-zones` into `apps.fulfillment`** and withdraw the
-      Feature. Same data-migration problem for zone and fee rows
-- [ ] Re-publish `advanced-promotions` as 2.0.0 carrying only the advanced
-      rules — buy X get Y, bundles, scheduling, stacking
-- [ ] Confirm `OrderPromotionSnapshot` still holds when a rule moves between the
-      Feature and the base store. It was written to survive an uninstall; it now
-      has to survive a relocation, and an order priced with a coupon in 2026
-      must stay readable and correct either way
-- [ ] **`notifications` in the base store** — order and payment confirmation,
-      cancellation, password reset, fulfilment mail. A store that cannot tell a
-      shopper their order was received is broken rather than plainer, so it is
-      base by the rule. Not seeded until the image has it
+### Done, continued
+- [x] **Base coupon rules moved into `apps.promotions`.** They shipped inside
+      the promotions Feature. `manage.py knight_absorb_promotions` moves a
+      store's rows across — idempotent, with a `--dry-run` that is genuinely
+      dry — and was run against a store carrying a real campaign, a coupon and
+      two redemptions
+- [x] **`delivery-zones` folded into `apps.fulfillment` and withdrawn.** The
+      package is deleted, its catalogue identity removed, and CI no longer
+      installs it. `manage.py knight_absorb_delivery_zones` moves the zones, the
+      pause switch and the store default; the Feature's `DeliverySettings`
+      collapses into `FulfillmentSettings`
+- [x] **`advanced-promotions` 2.0.0** carries only the sophistication: buy X get
+      Y with the trigger items excluded from their own reward, whole-bundle
+      pricing, per-order award caps, and an explicit stacking flag. It owns its
+      own tables and never extends the base store's — a Feature may not import
+      store business code, so it answers through a service taking plain basket
+      lines and returning plain data
+- [x] The upgrade migration **declares itself irreversible**, because it drops
+      the promotion, coupon and redemption tables. Django can recreate the
+      tables and cannot recreate a customer's campaigns, so claiming otherwise
+      would mean a rollback that reports success and has destroyed a year of
+      redemption counts. Absorb first, then upgrade — in that order, and the
+      order is in the migration's own docstring
+- [x] `OrderPromotion` holds. It was written to survive an uninstall and now
+      also survives a *relocation*: an order priced by a rule that has since
+      moved into the base store, or been deleted with the Feature, still reads
+      correctly. Covered both ways in the suites
+- [x] **`notifications` in the base store** — order and payment confirmation,
+      cancellation, fulfilment and password reset, over Django mail with a
+      console backend by default so a laptop needs no SMTP. Every send is
+      recorded including the failures, because "did the customer get it" is the
+      first question support asks. One notification per order and kind, enforced
+      by constraint rather than by a check two concurrent checkouts both pass
+- [x] Store version bumped to **2.0.0**, which is what `advanced-promotions`
+      2.0.0 requires: on a 1.x store the base promotion tables do not exist and
+      the upgrade would drop the only promotions that store has
+- [x] Verified against a running PostgreSQL with real legacy data, not only in
+      tests: [`docs/phase-12-verification.md`](docs/phase-12-verification.md).
+      **184 store tests pass with nothing skipped**, up from 156
+
+### Found by verifying it, and fixed
+- [x] **Two constraint names collided** and Django refused the migration
+      (`models.E032`) before it reached the database. Both sets of tables exist
+      at once during the transition — that is the point of absorbing before
+      upgrading — and PostgreSQL will not hold two constraints of one name. The
+      base store's are namespaced now, with the reason in the model so nobody
+      tidies it back
+- [x] **The absorption commands crashed when run after the upgrade**, handing an
+      operator an `ImportError` for a model that no longer exists. That is the
+      most likely way to meet a transitional command — unsure whether it already
+      ran — so both recognise the state and say so
+- [x] **A zone could quote on a store that does not deliver.** Under the Feature
+      the two switches lived in different tables and nothing joined them, so a
+      collection-only store with leftover zones quoted delivery fees. `quote()`
+      checks both and says which one refused
+
+### Still open
 - [ ] Withdraw the orphan identities (`analytics`, `loyalty`, `order-management`,
       `ai-recommendations`) on any deployment seeded from the old file. Seeding
       is additive and never deletes, so this is an API action, not an edit
+- [ ] The dashboard has no screen for coupons, delivery zones or the
+      notification log. They are base-store capabilities with no control-plane
+      UI, which is consistent — KNIGHT is not a store's business backend — but
+      the reference store's own admin does not surface them either, so today
+      they are reachable only from a shell
 
 ---
 

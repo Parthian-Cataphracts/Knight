@@ -155,21 +155,6 @@
       ]
     },
     {
-      "$comment": [
-        "Draft, and deliberately not in any plan: shipping is base now, so this",
-        "Feature is being absorbed rather than sold. It keeps its identity so the",
-        "stores that already have it installed stay coherent until phase 12."
-      ],
-      "slug": "delivery-zones",
-      "name": "Delivery Zones",
-      "description": "Named delivery areas with a fee and minimum order each. Superseded by the base store's shipping capability.",
-      "category": "Operations",
-      "isOptional": true,
-      "requiresDedicatedInfrastructure": false,
-      "publish": false
-    },
-
-    {
       "slug": "reviews-ratings",
       "name": "Reviews and Ratings",
       "description": "Product reviews, star ratings, verified-purchase badges, merchant replies and moderation.",

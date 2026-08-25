@@ -4,7 +4,7 @@
 # (docs/feature-delivery.md section 5).
 apiVersion: knight.dev/v1
 slug: advanced-promotions
-version: 1.0.0
+version: 2.0.0
 name: Advanced Promotions
 description: >-
   Merchandising beyond a coupon code: buy X get Y, bundles, category and
@@ -12,28 +12,34 @@ description: >-
   part of the base store and are not sold
   (docs/adr/0024-base-store-versus-optional-feature.md).
 
-  This package still ships the base coupon rules; phase 12 moves them into the
-  base store and grows what is left into the set described above
-  (docs/feature-catalog.md).
+  Owns its own tables and never extends the base store's. A Feature may not
+  import store business code, so the rules here answer through services.price()
+  with plain basket lines in and plain data out (docs/feature-authoring.md).
 
 django:
   app_label: knight_promotions
   installed_app: knight_feature_promotions
 
 compatibility:
-  # Needs a store new enough to carry the order promotion snapshot, which is what
-  # makes a discount survive this feature being uninstalled.
+  # 2.0.0 is the store that owns coupons itself. On a 1.x store the base
+  # promotion tables do not exist, this version's rules have nothing to sit
+  # beside, and the upgrade would drop the only promotions that store has.
   storeVersion: ">=2.0.0"
   python: ">=3.12"
   django: ">=5.0,<6.0"
 
 migrations:
   required: true
-  # Plain CreateModel throughout, so the reverse exists and a failed upgrade can
-  # put the schema back. Declaring this honestly is what decides whether a
-  # rollback is possible at all.
-  reversible: true
-  estimatedDurationSeconds: 5
+  # False, and this is the field that matters most in this manifest. 2.0.0 drops
+  # the promotion, coupon and redemption tables, whose rows belong to the base
+  # store now. Django can recreate the tables and cannot recreate a customer's
+  # campaigns, so claiming reversible here would mean a rollback that reports
+  # success and has silently destroyed a year of redemption counts
+  # (docs/adr/0016-feature-migration-and-removal-policy.md).
+  #
+  # Run `manage.py knight_absorb_promotions` on the store before upgrading.
+  reversible: false
+  estimatedDurationSeconds: 10
   requiresMaintenanceWindow: false
 
 install:
@@ -42,7 +48,7 @@ install:
   healthCheck: knight_feature_promotions.checks.health
 
 uninstall:
-  # Redemptions are a campaign's results, and a business will ask about them
+  # A campaign's results are a business's history, and it will ask about them
   # after the campaign is over. Kept for a year rather than the usual month.
   strategy: disable-then-remove
   dataRetentionDays: 365

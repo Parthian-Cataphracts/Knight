@@ -1,20 +1,25 @@
 """
-The two optional Features, and the property that makes them optional.
+The optional Feature, and the property that makes it optional.
 
-These live in the store's test suite rather than in each package because what is
-being checked is the *seam*: that promotions and delivery price correctly, and
-that an order priced by them stays explicable once they are gone
+This suite used to cover promotions and delivery, because both were Features.
+Both are base-store capabilities now, and their tests moved with the code into
+`apps.promotions` and `apps.fulfillment` — where they run unconditionally,
+which is the point of the move
 ([`adr/0024`](../../../../../docs/adr/0024-base-store-versus-optional-feature.md)).
 
-Skipped when the packages are not installed, which is the honest thing for a
-suite that must also pass on a base store with no Features on it.
+What is left here is the *seam*: `advanced-promotions` prices rules the base
+store cannot, the store keeps working when it is absent, and an order priced by
+it stays explicable once it is gone.
 
-"Installed" here means installed *as a Feature* — present in the store's
-feature registry and therefore in `INSTALLED_APPS` — not merely importable.
-The two are different states, and only the first one makes the models usable:
-a package that pip has put on the path but the installer has never registered
-raises `RuntimeError` from the model metaclass, not `ImportError`. Asking
-Django's app registry is the only check that distinguishes them.
+Skipped when the package is not installed, which is the honest thing for a suite
+that must also pass on a base store with no Features on it.
+
+"Installed" here means installed *as a Feature* — present in the store's feature
+registry and therefore in `INSTALLED_APPS` — not merely importable. The two are
+different states, and only the first one makes the models usable: a package that
+pip has put on the path but the installer has never registered raises
+`RuntimeError` from the model metaclass, not `ImportError`. Asking Django's app
+registry is the only check that distinguishes them.
 """
 
 import os
@@ -23,268 +28,255 @@ from unittest import skipUnless
 
 from django.apps import apps as django_apps
 from django.test import TestCase
-from django.utils import timezone
 
-PROMOTIONS_INSTALLED = django_apps.is_installed("knight_feature_promotions")
-DELIVERY_INSTALLED = django_apps.is_installed("knight_feature_delivery")
+from apps.promotions import services as promotions
+from apps.promotions.models import DiscountType, Promotion, PromotionStatus
+from apps.promotions.services import BasketLine
 
-# CI installs both Features and must therefore run both suites. Skipping is the
+ADVANCED_INSTALLED = django_apps.is_installed("knight_feature_promotions")
+
+# CI installs the Feature and must therefore run this suite. Skipping is the
 # right behaviour on a base store and the wrong behaviour there, and the
 # difference is invisible in a green run — the same reason the backend suite
 # refuses to skip its PostgreSQL tests when REQUIRE_POSTGRES_TESTS is set
 # ([`adr/0005`](../../../../../docs/adr/0005-postgresql-integration-testing.md)).
-if os.environ.get("REQUIRE_FEATURE_TESTS") == "1":
-    missing = [
-        name
-        for name, installed in (
-            ("knight-feature-promotions", PROMOTIONS_INSTALLED),
-            ("knight-feature-delivery", DELIVERY_INSTALLED),
-        )
-        if not installed
-    ]
+if os.environ.get("REQUIRE_FEATURE_TESTS") == "1" and not ADVANCED_INSTALLED:
+    raise RuntimeError(
+        "REQUIRE_FEATURE_TESTS=1 but advanced-promotions is not installed on this store. "
+        "Register it with `manage.py knight_install_local` and pip install the package "
+        "before running the suite; letting these tests skip here would report a pass for "
+        "code nothing ran."
+    )
 
-    if missing:
-        raise RuntimeError(
-            "REQUIRE_FEATURE_TESTS=1 but these Features are not installed on this store: "
-            + ", ".join(missing)
-            + ". Register them with `manage.py knight_install_local` before running the suite; "
-            "letting these tests skip here would report a pass for code nothing ran."
-        )
-
-if PROMOTIONS_INSTALLED:  # pragma: no cover - guarded by the registry above
-    from knight_feature_promotions import services as promotions
-    from knight_feature_promotions.models import Coupon, DiscountType, Promotion, PromotionStatus
-
-if DELIVERY_INSTALLED:  # pragma: no cover
-    from knight_feature_delivery import services as delivery
-    from knight_feature_delivery.models import DeliverySettings, DeliveryZone
+if ADVANCED_INSTALLED:  # pragma: no cover - guarded by the registry above
+    from knight_feature_promotions.models import Bundle, BundleItem, BuyXGetY, CampaignStatus
 
 
-@skipUnless(PROMOTIONS_INSTALLED, "The promotions Feature is not installed.")
-class PromotionPricingTests(TestCase):
-    def _promotion(self, **overrides) -> "Promotion":
-        fields = {
-            "name": "Ramadan 20%",
-            "status": PromotionStatus.ACTIVE,
-            "discount_type": DiscountType.PERCENTAGE,
-            "discount_value": Decimal("20"),
-            "requires_coupon": False,
-        }
-        fields.update(overrides)
+class TheStoreWorksWithoutTheFeatureTests(TestCase):
+    """
+    Runs whether or not the Feature is installed, and has to pass either way.
 
-        return Promotion.objects.create(**fields)
+    That is the actual contract: base pricing does not change its answer because
+    an optional package happens to be on the machine.
+    """
 
-    def test_a_percentage_takes_the_right_amount(self):
-        promotion = self._promotion()
-
-        self.assertEqual(promotion.discount_for(Decimal("100000")), Decimal("20000"))
-
-    def test_a_fixed_amount_is_taken_as_given(self):
-        promotion = self._promotion(
-            discount_type=DiscountType.FIXED_AMOUNT, discount_value=Decimal("15000")
-        )
-
-        self.assertEqual(promotion.discount_for(Decimal("100000")), Decimal("15000"))
-
-    def test_a_discount_never_exceeds_the_basket(self):
-        # A store that owes a shopper money is a refund, not a negative order.
-        promotion = self._promotion(
-            discount_type=DiscountType.FIXED_AMOUNT, discount_value=Decimal("500000")
-        )
-
-        self.assertEqual(promotion.discount_for(Decimal("100000")), Decimal("100000"))
-
-    def test_a_basket_below_the_minimum_gets_nothing(self):
-        promotion = self._promotion(minimum_subtotal=Decimal("200000"))
-
-        self.assertEqual(promotion.discount_for(Decimal("100000")), Decimal("0"))
-
-    def test_a_percentage_is_capped_where_a_cap_is_set(self):
-        # The classic way a campaign costs more than intended: a percentage
-        # discount meeting an unexpectedly large basket.
-        promotion = self._promotion(maximum_discount_amount=Decimal("10000"))
-
-        self.assertEqual(promotion.discount_for(Decimal("1000000")), Decimal("10000"))
-
-    def test_a_draft_promotion_is_not_live(self):
-        promotion = self._promotion(status=PromotionStatus.DRAFT)
-
-        self.assertFalse(promotion.is_live())
-
-    def test_a_promotion_outside_its_window_is_not_live(self):
-        now = timezone.now()
-        promotion = self._promotion(
-            starts_at=now - timezone.timedelta(days=10),
-            ends_at=now - timezone.timedelta(days=1),
-        )
-
-        self.assertFalse(promotion.is_live(now))
-
-    def test_a_percentage_over_a_hundred_is_refused(self):
-        # Otherwise the order aggregate clamps it to zero and the mistake is
-        # invisible rather than refused.
-        promotion = Promotion(
-            name="Broken",
-            discount_type=DiscountType.PERCENTAGE,
-            discount_value=Decimal("150"),
-        )
-
-        with self.assertRaises(Exception):
-            promotion.full_clean()
-
-    def test_the_best_automatic_promotion_wins(self):
-        self._promotion(name="Small", discount_type=DiscountType.FIXED_AMOUNT, discount_value=Decimal("5000"))
-        self._promotion(name="Large", discount_type=DiscountType.FIXED_AMOUNT, discount_value=Decimal("25000"))
-
-        outcome = promotions.price(Decimal("100000"))
-
-        self.assertEqual(outcome.promotion_name, "Large")
-        self.assertEqual(outcome.discount_amount, Decimal("25000"))
-
-    def test_a_presented_code_is_honoured_over_a_better_automatic_one(self):
-        # A shopper who typed a code expects that code to be used. Silently
-        # substituting a better offer is a support call even though it saved
-        # them money.
-        self._promotion(name="Auto", discount_type=DiscountType.FIXED_AMOUNT, discount_value=Decimal("50000"))
-
-        coded = self._promotion(
-            name="Coded",
-            requires_coupon=True,
+    def test_base_pricing_answers_with_no_basket_lines_at_all(self):
+        # Lines are what the advanced rules need. The base rules never did, and
+        # a caller that does not pass them must still get priced.
+        Promotion.objects.create(
+            name="Ten off",
+            status=PromotionStatus.ACTIVE,
             discount_type=DiscountType.FIXED_AMOUNT,
             discount_value=Decimal("10000"),
-        )
-        Coupon.objects.create(promotion=coded, code="ramadan20")
-
-        outcome = promotions.price(Decimal("100000"), coupon_code="  RaMaDaN20 ")
-
-        self.assertEqual(outcome.promotion_name, "Coded")
-        self.assertEqual(outcome.discount_amount, Decimal("10000"))
-
-    def test_an_unknown_code_yields_nothing_rather_than_raising(self):
-        outcome = promotions.price(Decimal("100000"), coupon_code="NOPE")
-
-        self.assertFalse(outcome.applies)
-
-    def test_a_coupon_cannot_outlive_its_promotion(self):
-        now = timezone.now()
-        expired = self._promotion(
-            requires_coupon=True,
-            ends_at=now - timezone.timedelta(days=1),
-        )
-        coupon = Coupon.objects.create(promotion=expired, code="OLD")
-
-        self.assertFalse(coupon.is_redeemable(now))
-
-    def test_a_usage_limit_is_enforced(self):
-        promotion = self._promotion(requires_coupon=True)
-        coupon = Coupon.objects.create(promotion=promotion, code="ONCE", usage_limit_total=1)
-
-        self.assertTrue(promotions.redeem(coupon.pk, source_order_id=1))
-        self.assertFalse(coupon.is_redeemable())
-
-    def test_redeeming_the_same_order_twice_counts_once(self):
-        # Two concurrent checkouts both reading "not yet redeemed" is exactly how
-        # a limited campaign gets over-redeemed; the constraint settles it.
-        promotion = self._promotion(requires_coupon=True)
-        coupon = Coupon.objects.create(promotion=promotion, code="TWICE", usage_limit_total=5)
-
-        self.assertTrue(promotions.redeem(coupon.pk, source_order_id=7))
-        self.assertFalse(promotions.redeem(coupon.pk, source_order_id=7))
-        self.assertEqual(coupon.times_redeemed, 1)
-
-
-@skipUnless(DELIVERY_INSTALLED, "The delivery Feature is not installed.")
-class DeliveryQuotingTests(TestCase):
-    def setUp(self):
-        self.zone = DeliveryZone.objects.create(name="Central", fee=Decimal("30000"))
-
-    def test_a_zone_quotes_its_fee(self):
-        quote = delivery.quote(self.zone.pk, Decimal("100000"))
-
-        self.assertTrue(quote.accepted)
-        self.assertEqual(quote.fee, Decimal("30000"))
-
-    def test_an_unknown_zone_is_refused_with_a_reason(self):
-        # "We do not deliver there" and "your basket is too small" lead to
-        # completely different next actions for the shopper.
-        quote = delivery.quote(999999, Decimal("100000"))
-
-        self.assertFalse(quote.accepted)
-        self.assertIn("not available", quote.reason)
-
-    def test_a_basket_below_the_zone_minimum_is_refused(self):
-        self.zone.minimum_order_subtotal = Decimal("200000")
-        self.zone.save()
-
-        quote = delivery.quote(self.zone.pk, Decimal("100000"))
-
-        self.assertFalse(quote.accepted)
-        self.assertIn("Central", quote.reason)
-
-    def test_a_zone_minimum_overrides_the_store_default(self):
-        # A far suburb that only makes sense above a larger basket is what this
-        # exists for; two figures combined would be impossible to explain.
-        settings = DeliverySettings.current()
-        settings.default_minimum_order = Decimal("500000")
-        settings.save()
-
-        self.zone.minimum_order_subtotal = Decimal("50000")
-        self.zone.save()
-
-        self.assertTrue(delivery.quote(self.zone.pk, Decimal("100000")).accepted)
-
-    def test_pausing_deliveries_refuses_without_changing_the_zones(self):
-        # A kitchen stopping for an hour should not have to reconfigure, and
-        # turning it back on must restore exactly what was there.
-        settings = DeliverySettings.current()
-        settings.is_accepting_orders = False
-        settings.save()
-
-        self.assertFalse(delivery.quote(self.zone.pk, Decimal("100000")).accepted)
-
-        settings.is_accepting_orders = True
-        settings.save()
-
-        self.assertTrue(delivery.quote(self.zone.pk, Decimal("100000")).accepted)
-
-    def test_an_archived_zone_frees_its_name(self):
-        # A business reorganising its areas should not have to invent a name it
-        # has already used.
-        self.zone.archive()
-        self.zone.save()
-
-        DeliveryZone.objects.create(name="Central", fee=Decimal("40000"))
-
-        self.assertEqual(DeliveryZone.objects.filter(name="Central").count(), 2)
-
-
-@skipUnless(PROMOTIONS_INSTALLED, "The promotions Feature is not installed.")
-class SnapshotSurvivesUninstallTests(TestCase):
-    """
-    The property the whole base/Feature split rests on.
-
-    An order priced by a Feature must stay readable once that Feature is gone.
-    Simulated by deleting the promotion the order was priced from, which is what
-    an uninstall eventually does to its tables.
-    """
-
-    def test_an_order_keeps_its_discount_after_the_promotion_is_deleted(self):
-        from apps.orders.models import Order, OrderPromotion
-
-        promotion = Promotion.objects.create(
-            name="Ramadan 20%",
-            status=PromotionStatus.ACTIVE,
-            discount_type=DiscountType.PERCENTAGE,
-            discount_value=Decimal("20"),
             requires_coupon=False,
         )
 
         outcome = promotions.price(Decimal("100000"))
 
+        self.assertEqual(outcome.discount_amount, Decimal("10000"))
+
+    def test_an_empty_basket_is_priced_without_reaching_for_a_rule(self):
+        self.assertFalse(promotions.price(Decimal("0"), lines=[]).applies)
+
+
+@skipUnless(ADVANCED_INSTALLED, "The advanced-promotions Feature is not installed.")
+class AdvancedPricingTests(TestCase):
+    def test_buy_two_get_one_free_discounts_only_the_reward(self):
+        BuyXGetY.objects.create(
+            name="Buy 2 get 1 free",
+            status=CampaignStatus.ACTIVE,
+            trigger_product_id=7,
+            trigger_quantity=2,
+            reward_product_id=7,
+            reward_quantity=1,
+        )
+
+        outcome = promotions.price(
+            Decimal("150000"), lines=[BasketLine(7, 3, Decimal("50000"))]
+        )
+
+        self.assertEqual(outcome.discount_amount, Decimal("50000"))
+
+    def test_the_items_that_earned_the_reward_are_not_themselves_the_reward(self):
+        # Otherwise "buy 2 get 1 free" discounts all three of a basket of three.
+        BuyXGetY.objects.create(
+            name="Buy 2 get 1 free",
+            status=CampaignStatus.ACTIVE,
+            trigger_product_id=7,
+            trigger_quantity=2,
+            reward_product_id=7,
+            reward_quantity=1,
+        )
+
+        outcome = promotions.price(
+            Decimal("100000"), lines=[BasketLine(7, 2, Decimal("50000"))]
+        )
+
+        self.assertFalse(outcome.applies)
+
+    def test_a_reward_the_shopper_is_not_buying_is_not_discounted(self):
+        # A campaign cannot add goods to a basket, only make what is there
+        # cheaper — pricing an absent reward discounts an item that never ships.
+        BuyXGetY.objects.create(
+            name="Buy a coffee, get a cake",
+            status=CampaignStatus.ACTIVE,
+            trigger_product_id=1,
+            trigger_quantity=1,
+            reward_product_id=2,
+            reward_quantity=1,
+        )
+
+        outcome = promotions.price(
+            Decimal("50000"), lines=[BasketLine(1, 1, Decimal("50000"))]
+        )
+
+        self.assertFalse(outcome.applies)
+
+    def test_awards_can_be_capped_per_order(self):
+        BuyXGetY.objects.create(
+            name="Buy 1 get 1, once",
+            status=CampaignStatus.ACTIVE,
+            trigger_product_id=1,
+            trigger_quantity=1,
+            reward_product_id=2,
+            reward_quantity=1,
+            maximum_awards_per_order=1,
+        )
+
+        outcome = promotions.price(
+            Decimal("400000"),
+            lines=[BasketLine(1, 4, Decimal("50000")), BasketLine(2, 4, Decimal("50000"))],
+        )
+
+        self.assertEqual(outcome.discount_amount, Decimal("50000"))
+
+    def test_a_bundle_is_the_saving_against_list_price(self):
+        bundle = Bundle.objects.create(
+            name="Meal deal", status=CampaignStatus.ACTIVE, bundle_price=Decimal("90000")
+        )
+        BundleItem.objects.create(bundle=bundle, product_id=1, quantity=1)
+        BundleItem.objects.create(bundle=bundle, product_id=2, quantity=1)
+
+        outcome = promotions.price(
+            Decimal("120000"),
+            lines=[BasketLine(1, 1, Decimal("60000")), BasketLine(2, 1, Decimal("60000"))],
+        )
+
+        self.assertEqual(outcome.discount_amount, Decimal("30000"))
+
+    def test_an_incomplete_bundle_is_not_a_partial_discount(self):
+        bundle = Bundle.objects.create(
+            name="Meal deal", status=CampaignStatus.ACTIVE, bundle_price=Decimal("90000")
+        )
+        BundleItem.objects.create(bundle=bundle, product_id=1, quantity=1)
+        BundleItem.objects.create(bundle=bundle, product_id=2, quantity=1)
+
+        outcome = promotions.price(
+            Decimal("60000"), lines=[BasketLine(1, 1, Decimal("60000"))]
+        )
+
+        self.assertFalse(outcome.applies)
+
+    def test_a_draft_campaign_does_not_price(self):
+        BuyXGetY.objects.create(
+            name="Not yet",
+            status=CampaignStatus.DRAFT,
+            trigger_product_id=1,
+            trigger_quantity=1,
+            reward_product_id=1,
+            reward_quantity=1,
+        )
+
+        self.assertFalse(
+            promotions.price(Decimal("100000"), lines=[BasketLine(1, 2, Decimal("50000"))]).applies
+        )
+
+
+@skipUnless(ADVANCED_INSTALLED, "The advanced-promotions Feature is not installed.")
+class StackingTests(TestCase):
+    def setUp(self):
+        coded = Promotion.objects.create(
+            name="Ramadan 20%",
+            status=PromotionStatus.ACTIVE,
+            discount_type=DiscountType.PERCENTAGE,
+            discount_value=Decimal("20"),
+            requires_coupon=True,
+        )
+        from apps.promotions.models import Coupon
+
+        Coupon.objects.create(promotion=coded, code="RAMADAN20")
+
+        self.bundle = Bundle.objects.create(
+            name="Meal deal", status=CampaignStatus.ACTIVE, bundle_price=Decimal("90000")
+        )
+        BundleItem.objects.create(bundle=self.bundle, product_id=1, quantity=1)
+        BundleItem.objects.create(bundle=self.bundle, product_id=2, quantity=1)
+
+        self.lines = [BasketLine(1, 1, Decimal("60000")), BasketLine(2, 1, Decimal("60000"))]
+
+    def test_by_default_the_better_of_the_two_wins_and_they_do_not_add(self):
+        # Two rules applying in full is how a basket ends up discounted twice for
+        # the same reason, so not stacking is the default.
+        outcome = promotions.price(
+            Decimal("120000"), coupon_code="RAMADAN20", lines=self.lines
+        )
+
+        self.assertEqual(outcome.discount_amount, Decimal("30000"))
+        self.assertEqual(outcome.promotion_name, "Meal deal")
+
+    def test_a_rule_that_declares_itself_stackable_adds_to_the_coupon(self):
+        self.bundle.stacks = True
+        self.bundle.save()
+
+        outcome = promotions.price(
+            Decimal("120000"), coupon_code="RAMADAN20", lines=self.lines
+        )
+
+        self.assertEqual(outcome.discount_amount, Decimal("54000"))
+        self.assertIn("Ramadan", outcome.promotion_name)
+        self.assertIn("Meal deal", outcome.promotion_name)
+
+    def test_a_stacked_discount_never_exceeds_the_basket(self):
+        # A discount larger than the goods is a refund, which is a different
+        # transaction entirely.
+        self.bundle.stacks = True
+        self.bundle.bundle_price = Decimal("0")
+        self.bundle.save()
+
+        outcome = promotions.price(
+            Decimal("120000"), coupon_code="RAMADAN20", lines=self.lines
+        )
+
+        self.assertEqual(outcome.discount_amount, Decimal("120000"))
+
+
+@skipUnless(ADVANCED_INSTALLED, "The advanced-promotions Feature is not installed.")
+class SnapshotSurvivesUninstallTests(TestCase):
+    """
+    An order priced by the Feature must stay readable once the Feature is gone.
+
+    Simulated by deleting the campaign the order was priced from, which is what
+    an uninstall eventually does to its tables.
+    """
+
+    def test_an_order_keeps_an_advanced_discount_after_the_campaign_is_deleted(self):
+        from apps.orders.models import Order, OrderPromotion
+
+        bundle = Bundle.objects.create(
+            name="Meal deal", status=CampaignStatus.ACTIVE, bundle_price=Decimal("90000")
+        )
+        BundleItem.objects.create(bundle=bundle, product_id=1, quantity=1)
+        BundleItem.objects.create(bundle=bundle, product_id=2, quantity=1)
+
+        outcome = promotions.price(
+            Decimal("120000"),
+            lines=[BasketLine(1, 1, Decimal("60000")), BasketLine(2, 1, Decimal("60000"))],
+        )
+
         order = Order.place(
-            subtotal=Decimal("100000"),
+            subtotal=Decimal("120000"),
             discount_total=outcome.discount_amount,
-            total=Decimal("80000"),
+            total=Decimal("90000"),
         )
 
         OrderPromotion.objects.create(
@@ -298,10 +290,26 @@ class SnapshotSurvivesUninstallTests(TestCase):
         )
 
         # The Feature is uninstalled and its rows go with it.
-        promotion.delete()
+        bundle.delete()
 
         order.refresh_from_db()
 
-        self.assertEqual(order.promotion.promotion_name, "Ramadan 20%")
-        self.assertEqual(order.promotion.discount_amount, Decimal("20000"))
-        self.assertEqual(order.total, Decimal("80000"))
+        self.assertEqual(order.promotion.promotion_name, "Meal deal")
+        self.assertEqual(order.promotion.discount_amount, Decimal("30000"))
+        self.assertEqual(order.total, Decimal("90000"))
+
+    def test_the_snapshot_never_points_at_a_base_promotion_row(self):
+        # `source_promotion_id` names a row in apps.promotions. An advanced rule
+        # is not one, so recording the Feature's id there would make the snapshot
+        # point at the wrong table the moment anybody trusted it.
+        bundle = Bundle.objects.create(
+            name="Meal deal", status=CampaignStatus.ACTIVE, bundle_price=Decimal("90000")
+        )
+        BundleItem.objects.create(bundle=bundle, product_id=1, quantity=1)
+
+        outcome = promotions.price(
+            Decimal("120000"), lines=[BasketLine(1, 1, Decimal("120000"))]
+        )
+
+        self.assertTrue(outcome.applies)
+        self.assertIsNone(outcome.promotion_id)

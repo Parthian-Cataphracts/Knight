@@ -15,12 +15,13 @@ logger = logging.getLogger(__name__)
 def health() -> bool:
     """True when this feature's tables exist and are queryable."""
     try:
-        from .models import Coupon, Promotion
+        from .models import Bundle, BundleItem, BuyXGetY
 
-        Promotion.objects.exists()
-        Coupon.objects.exists()
+        BuyXGetY.objects.exists()
+        Bundle.objects.exists()
+        BundleItem.objects.exists()
     except Exception:  # noqa: BLE001 - any failure here means unhealthy
-        logger.exception("Promotions health check failed.")
+        logger.exception("Advanced promotions health check failed.")
         return False
 
     return True
