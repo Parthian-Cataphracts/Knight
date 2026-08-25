@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-24** (revision 22 — a contract audit of every path the dashboard calls, and the install preview it found was fictional)
+Last updated: **2026-08-25** (revision 23 — the commercial catalogue, and the reason nothing in it could be delivered)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,9 +11,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 11 — Deployment (the server install is done and verified; container images still wait on a hosting decision)** |
-| **Next phase** | Release preparation. What remains is the external security review and the container/registry half of the pipeline |
-| **Overall progress** | ~99% (732 backend tests green, plus 9 dashboard and 156 store; rollouts, indexes, caching and the restore drill driven through a browser against a live server — see [`docs/phase-10-verification.md`](docs/phase-10-verification.md)) |
+| **Current phase** | **Phase 12 — Catalogue alignment. The delivery engine is finished and was delivering nothing: the commercial catalogue and the package registry shared no slug, so publishing any real package failed. Fixed; what remains is moving two capabilities into the base store** |
+| **Next phase** | Phase 13 — the first Features built on the corrected boundary: `reviews-ratings`, `advanced-search`, then the first dependency test |
+| **Overall progress** | **Platform ~99%, catalogue ~20%.** Two numbers on purpose: the control plane and the delivery engine are finished, and the product they exist to deliver is 4 sellable Features out of 17. The denominator grew again, for the same reason as revision 2 — [`docs/feature-catalog.md`](docs/feature-catalog.md) is the whole surface, and phases 13-17 build it. 597 backend tests green locally (584 unit, 13 architecture; the PostgreSQL-backed integration suite needs a cluster and runs in CI), plus 9 dashboard |
 | **Blocking decisions** | **Are Features publishable for a store that is not Django?** Everything except the manifest is already stack-agnostic; `ManifestReader` is the one thing that is not (R26, decision 14 in [`docs/risks.md`](docs/risks.md)). Until it is answered, a non-Django store is entitled and observed but not delivered to. Separately, the **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -36,7 +36,18 @@ Phase 8    Business-domain port to Django ██████████ 100%
 Phase 9    Provisioning & professional infra ██████████ 100%
 Phase 10   Optimisation & hardening       █████████░  95%
 Phase 11   Deployment & installation       ████████░░  80%
+Phase 12   Catalogue alignment            ████░░░░░░  40%
+Phase 13   Delivery validation on Features ░░░░░░░░░░   0%
+Phase 14   Commercial foundations         ░░░░░░░░░░   0%
+Phase 15   Automation                     ░░░░░░░░░░   0%
+Phase 16   Operational expansion          ░░░░░░░░░░   0%
+Phase 17   Recurring revenue & integrations ░░░░░░░░░  0%
 ```
+
+**Catalogue status** — 7 base capabilities, 4 sellable Features
+(`analytics-core`, `analytics-reports`, `advanced-promotions`, `log-shipping`),
+13 Draft identities waiting on a package.
+[`docs/feature-catalog.md`](docs/feature-catalog.md) is the list.
 
 ---
 
@@ -933,6 +944,170 @@ nginx, and the six defects that only a real second install could show.
 - [ ] Running the installer against a real cloud VM with real DNS. The container
       run exercised everything except certificate issuance, which needs a
       resolvable domain
+
+---
+
+## Phase 12 — Catalogue alignment and the base-store boundary
+
+**Why this is first.** Everything below depends on the catalogue and the
+package registry naming the same things, and on the base/optional line being
+settled. Building eleven Features on top of an unsettled boundary means moving
+their data later.
+
+**Exit criteria:** a fresh deployment can be seeded, and every package in
+`features/` can be published and installed against it without a manual edit;
+Basic is a plan a real shop can run on.
+
+### Done
+- [x] **One slug for the catalogue and the package**
+      ([`adr/0029`](docs/adr/0029-one-slug-for-the-catalogue-and-the-package.md)).
+      The commercial seed named `analytics`, `loyalty`, `order-management`,
+      `ai-recommendations`; the packages were `knight-feature-*`. The two sets
+      did not overlap at all, so publishing any real package against a freshly
+      seeded KNIGHT failed on "no feature is registered with slug". The whole
+      delivery engine worked and nothing could be delivered. Manifests, seed,
+      dev registry and tests now use one short slug each
+- [x] **The base/optional line revised** — basic coupons and shipping are base,
+      only the sophistication is sold
+      ([`adr/0024`](docs/adr/0024-base-store-versus-optional-feature.md)). A
+      shop that cannot issue a discount code or charge by delivery area is
+      missing table stakes, and charging for them monetises a deficiency
+- [x] The catalogue seeded as the whole product surface: 7 base capabilities,
+      4 sellable Features, 13 Draft identities. Plans list published Features
+      only — a Draft one fails `CanBeEntitled`, so listing it would put a toggle
+      on the Custom screen that refuses every time it is used
+- [x] [`docs/feature-catalog.md`](docs/feature-catalog.md) — the tiers, the
+      catalogue, the dependency graph, and the procedure for adding a Feature
+
+### Not done
+- [ ] **Move the base coupon rules into `apps.promotions`.** They ship inside
+      `advanced-promotions` today. This is a data migration on a live schema,
+      not a `CreateModel`: every store with the Feature installed needs its
+      promotion rows moved into the base store's tables. Affordable only
+      because the affected stores are development installs
+- [ ] **Fold `delivery-zones` into `apps.fulfillment`** and withdraw the
+      Feature. Same data-migration problem for zone and fee rows
+- [ ] Re-publish `advanced-promotions` as 2.0.0 carrying only the advanced
+      rules — buy X get Y, bundles, scheduling, stacking
+- [ ] Confirm `OrderPromotionSnapshot` still holds when a rule moves between the
+      Feature and the base store. It was written to survive an uninstall; it now
+      has to survive a relocation, and an order priced with a coupon in 2026
+      must stay readable and correct either way
+- [ ] **`notifications` in the base store** — order and payment confirmation,
+      cancellation, password reset, fulfilment mail. A store that cannot tell a
+      shopper their order was received is broken rather than plainer, so it is
+      base by the rule. Not seeded until the image has it
+- [ ] Withdraw the orphan identities (`analytics`, `loyalty`, `order-management`,
+      `ai-recommendations`) on any deployment seeded from the old file. Seeding
+      is additive and never deletes, so this is an API action, not an edit
+
+---
+
+## Phase 13 — Delivery-engine validation on real Features
+
+**Why these three, in this order.** The point is not commercial value; it is to
+put progressively harder scenarios through the delivery engine while production
+risk stays low. Contained migrations, no external services, obvious UI changes,
+easy rollback — then the first real dependency.
+
+**Exit criteria:** each Feature installs, migrates, activates, is visible in a
+browser, and rolls back cleanly on a real store. Class A migrations only
+(`CreateModel`, nullable `AddField`, `AddIndex`).
+
+- [ ] **`reviews-ratings`** — the best first Feature: customer-visible,
+      commercially useful, database-backed, no external API, depends on the base
+      store only. Tests package install, dependency resolution against base,
+      migrations, admin and URL registration, template and static assets,
+      entitlement, activation and deactivation
+- [ ] **`advanced-search`** — a different category of Feature without
+      operational risk. **PostgreSQL full-text only for 1.0.** No Elasticsearch,
+      no OpenSearch, no external cluster: the goal is to test KNIGHT's delivery
+      engine, not distributed infrastructure. A search adapter keeps the door
+      open for a later provider
+- [ ] **`customer-segmentation`** — the first real dependency test, and the one
+      that proves a Feature can build on another Feature rather than on the base
+      store. Declares `analytics-core` as an optional dependency; verify the
+      resolver installs in topological order, refuses a range nothing satisfies,
+      and will not uninstall `analytics-core` while this depends on it
+- [ ] Verify an upgrade path, not only installs: publish `analytics-core` 1.1.0
+      and upgrade a store that is on 1.0.0 with `analytics-reports` installed
+      against it
+- [ ] Rollback drill per Feature, including one deliberately failed migration
+
+---
+
+## Phase 14 — Commercial foundations
+
+**Exit criteria:** the a-la-carte proposition is real — a Custom customer can
+assemble a meaningfully better store from published Features.
+
+- [ ] **`loyalty-rewards`** — points, tiers, earning and redemption rules, a
+      loyalty ledger. Needs transactional consistency against order events, and
+      a worker for expiry
+- [ ] **`gift-cards`** — the first Feature carrying a financial ledger, and the
+      first whose migrations are not automatically Class A. Balances spent
+      across orders, redemption transactions, strong transactional consistency.
+      Treat every migration touching a balance as Class C until proven otherwise
+- [ ] Publish the Growth and Retention bundles as plan compositions rather than
+      as new Features — bundling is a commercial act, and must not become a
+      fifteenth package
+
+---
+
+## Phase 15 — Automation
+
+**Exit criteria:** KNIGHT can act on a schedule on a store's behalf, with
+per-customer cost bounded and auditable.
+
+- [ ] **`marketing-automation`** — abandoned cart, welcome, post-purchase and
+      win-back campaigns. Depends on `customer-segmentation`. Requires workers,
+      an email provider integration, and delivery tracking. The first Feature
+      needing third-party credentials, so it is also the first real test of
+      named-not-valued secrets over the install channel
+- [ ] **`ai-reports`** — automated interpretation of the analytics data.
+      Depends on `analytics-core`. The only Feature requiring dedicated
+      infrastructure, which is fixed at publication and cannot be changed after
+- [ ] Usage limits and cost controls before it is sellable, not after. An AI
+      Feature whose per-customer spend is unbounded is a commercial risk, not a
+      technical one
+- [ ] Privacy safeguards: decide and document what store data may leave the
+      store for a model provider, and record it as an ADR
+
+---
+
+## Phase 16 — Operational expansion
+
+**Exit criteria:** KNIGHT is credible for a merchant with real operations
+behind the shop.
+
+- [ ] **`advanced-inventory`** — stock movements, reservations, low-stock
+      alerts, purchase orders, suppliers. Inventory ledger and reservation
+      locking; significant indexing
+- [ ] **`restaurant-operations`** — tables, kitchen states and display
+      workflow, preparation times, throttling, pickup scheduling. Needs
+      real-time order updates and additional order states
+- [ ] **`multi-location`** — location-scoped inventory, menus, staff and order
+      routing. **High migration risk and deliberately late**: it changes the
+      shape of data other Features already own, which is the argument for it
+      not being an early delivery-engine test
+
+---
+
+## Phase 17 — Recurring revenue and external integrations
+
+**Exit criteria:** the last two Feature families ship, and the catalogue is
+complete.
+
+- [ ] **`subscriptions`** — recurring order generation, a subscription state
+      machine, payment-provider integration, retry and failed-payment handling,
+      pause and resume. Financially sensitive: a bug bills a real customer
+- [ ] **`external-marketplaces`** — delivery marketplaces, POS and accounting
+      synchronisation. Integration framework, OAuth credentials, webhooks,
+      retry queues, idempotency, per-provider adapters and reconciliation.
+      Deliberately last: highest complexity, most third-party surface
+- [ ] Revisit R26 before this ships. If a non-Django store must receive
+      Features, the manifest's `django:` block needs a `runtime:` discriminator,
+      and that decision is cheaper before fourteen manifests exist than after
 
 ---
 

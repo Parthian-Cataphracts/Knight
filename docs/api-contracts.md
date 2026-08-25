@@ -226,8 +226,8 @@ A mutating call returns `202 Accepted` with the created job:
 
 ```json
 { "jobId": "...", "type": "Install", "status": "Queued",
-  "plan": [{ "slug": "knight-feature-analytics-core", "version": "1.2.3" },
-           { "slug": "knight-feature-ai-reports",     "version": "2.0.1" }],
+  "plan": [{ "slug": "analytics-core", "version": "1.2.3" },
+           { "slug": "ai-reports",     "version": "2.0.1" }],
   "totalSteps": 9 }
 ```
 
@@ -386,11 +386,11 @@ A job payload is **typed data, never a command string**:
   "steps": ["preflight","fetch","backup","install","migrate",
             "configure","enable","reload","healthcheck"],
   "target": {
-    "slug": "knight-feature-analytics", "version": "1.4.0",
-    "packageReference": "knight-feature-analytics==1.4.0",
+    "slug": "analytics-reports", "version": "1.4.0",
+    "packageReference": "analytics-reports==1.4.0",
     "artifactDigest": "sha256:…", "signature": "…"
   },
-  "dependencies": [{ "slug": "knight-feature-analytics-core", "version": "1.2.3" }],
+  "dependencies": [{ "slug": "analytics-core", "version": "1.2.3" }],
   "configuration": { "language": "fa", "schedule": "daily" },
   "constraints": { "requiresRestart": true, "timeoutSeconds": 900 }
 }

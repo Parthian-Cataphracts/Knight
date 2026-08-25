@@ -45,7 +45,7 @@ that does not deserve a column.
 > [`adr/0014`](adr/0014-features-as-deployable-packages.md).
 
 ```
-Feature            id, slug ("knight-feature-analytics"), name, description,
+Feature            id, slug ("analytics-core"), name, description,
                    category, isOptional, requiresDedicatedInfrastructure,
                    status (Draft|Published|Deprecated|Withdrawn)
 FeatureVersion     id, featureId, version (semver), packageReference,

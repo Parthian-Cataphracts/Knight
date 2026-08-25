@@ -4,36 +4,112 @@
     "or a component (docs/domain-model.md section 4); this file is what a fresh",
     "deployment starts from, and everything after that is edited through the API.",
     "",
-    "Features listed here are identities only — what may be sold. The versioned,",
-    "deployable packages behind them arrive with the registry in phase 3.5, so a",
-    "feature published here is sellable, not yet shippable.",
+    "A feature's slug is the slug its package declares. There is no mapping table",
+    "between what is sold and what is delivered, because the moment there is one,",
+    "the two drift and an entitlement points at nothing",
+    "(docs/adr/0029-one-slug-for-the-catalogue-and-the-package.md).",
+    "",
+    "`publish: false` seeds the identity in Draft: it appears in the catalogue and",
+    "in the roadmap, and it cannot be sold. That is the honest state for a feature",
+    "whose package does not exist yet - the alternative is selling a capability",
+    "nothing can deliver. Publishing one is a deliberate act once its package is",
+    "in the registry (docs/feature-catalog.md).",
+    "",
+    "Seeding is additive and never deletes. A deployment that was seeded from an",
+    "earlier version of this file keeps the identities it already has; retiring",
+    "one is a withdrawal through the API, not an edit here.",
     "",
     "An operator may point at a different file with Catalogue:SeedPath."
   ],
   "currency": "EUR",
   "features": [
     {
+      "$comment": [
+        "The base store. Present on every store on every plan, never entitled and",
+        "never sold. A capability is base if a store cannot function commercially",
+        "without it (docs/adr/0024-base-store-versus-optional-feature.md)."
+      ],
       "slug": "storefront",
       "name": "Storefront",
-      "description": "The customer-facing shop every store has.",
+      "description": "The customer-facing shop: browsing, product pages, cart and the checkout journey.",
       "category": "Core",
       "isOptional": false,
       "requiresDedicatedInfrastructure": false,
       "publish": true
     },
     {
-      "slug": "order-management",
-      "name": "Order management",
-      "description": "Order capture, status tracking and fulfilment handoff.",
+      "slug": "catalog",
+      "name": "Catalogue",
+      "description": "Products or menu items, categories, variants, modifiers, prices and availability.",
       "category": "Core",
       "isOptional": false,
       "requiresDedicatedInfrastructure": false,
       "publish": true
     },
     {
-      "slug": "analytics",
-      "name": "Analytics",
-      "description": "Sales and traffic reporting for the store's own data.",
+      "slug": "accounts",
+      "name": "Shopper accounts",
+      "description": "Shopper identity, sign-in, guest checkout and the address book.",
+      "category": "Core",
+      "isOptional": false,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true
+    },
+    {
+      "slug": "orders",
+      "name": "Orders and checkout",
+      "description": "The transaction itself: cart totals, checkout, the order lifecycle, cancellation and refund state.",
+      "category": "Core",
+      "isOptional": false,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true
+    },
+    {
+      "slug": "payments",
+      "name": "Payments",
+      "description": "Recording that money arrived, against a provider abstraction. Provider integrations are separate from recording.",
+      "category": "Core",
+      "isOptional": false,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true
+    },
+    {
+      "$comment": [
+        "Base as of the catalogue revision: a store must be able to say how it",
+        "hands goods over, and zone pricing is part of saying it. Absorbs the",
+        "delivery-zones Feature in phase 12."
+      ],
+      "slug": "shipping",
+      "name": "Shipping and fulfilment",
+      "description": "Delivery and collection modes, shipping methods, delivery zones and their fees, and fulfilment status.",
+      "category": "Core",
+      "isOptional": false,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true
+    },
+    {
+      "$comment": [
+        "Base as of the catalogue revision. Plain coupons are table stakes for a",
+        "small store; the sophistication is what is sold, as advanced-promotions."
+      ],
+      "slug": "promotions",
+      "name": "Coupons and discounts",
+      "description": "Coupon codes, percentage and fixed discounts, validity periods, minimum order value and product restrictions.",
+      "category": "Core",
+      "isOptional": false,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true
+    },
+
+    {
+      "$comment": [
+        "Optional features, in the order docs/feature-catalog.md develops them.",
+        "The four with a package in features/ are published; the rest are Draft",
+        "identities so the catalogue and the roadmap are the same list."
+      ],
+      "slug": "analytics-core",
+      "name": "Analytics Core",
+      "description": "Revenue, orders, average order value and best sellers over a date range. The event store everything else analytical builds on.",
       "category": "Insight",
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
@@ -43,15 +119,15 @@
       ]
     },
     {
-      "slug": "loyalty",
-      "name": "Loyalty programme",
-      "description": "Points, tiers and rewards for returning shoppers.",
-      "category": "Growth",
+      "slug": "analytics-reports",
+      "name": "Analytics Reports",
+      "description": "A reporting surface over the analytics event stream: daily summaries and exportable figures.",
+      "category": "Insight",
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
       "publish": true,
       "prices": [
-        { "amount": 39.00, "billingPeriod": "Monthly" }
+        { "amount": 19.00, "billingPeriod": "Monthly" }
       ]
     },
     {
@@ -67,57 +143,265 @@
       ]
     },
     {
-      "slug": "ai-recommendations",
-      "name": "AI recommendations",
-      "description": "Model-backed product recommendations. Runs its own workers and cannot share a host.",
+      "slug": "advanced-promotions",
+      "name": "Advanced Promotions",
+      "description": "Buy X get Y, bundles, category and customer-specific campaigns, scheduling, and stacking rules.",
       "category": "Growth",
       "isOptional": true,
-      "requiresDedicatedInfrastructure": true,
+      "requiresDedicatedInfrastructure": false,
       "publish": true,
       "prices": [
+        { "amount": 39.00, "billingPeriod": "Monthly" }
+      ]
+    },
+    {
+      "$comment": [
+        "Draft, and deliberately not in any plan: shipping is base now, so this",
+        "Feature is being absorbed rather than sold. It keeps its identity so the",
+        "stores that already have it installed stay coherent until phase 12."
+      ],
+      "slug": "delivery-zones",
+      "name": "Delivery Zones",
+      "description": "Named delivery areas with a fee and minimum order each. Superseded by the base store's shipping capability.",
+      "category": "Operations",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": false
+    },
+
+    {
+      "slug": "reviews-ratings",
+      "name": "Reviews and Ratings",
+      "description": "Product reviews, star ratings, verified-purchase badges, merchant replies and moderation.",
+      "category": "Growth",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": false,
+      "prices": [
+        { "amount": 19.00, "billingPeriod": "Monthly" }
+      ]
+    },
+    {
+      "slug": "advanced-search",
+      "name": "Advanced Search",
+      "description": "Full-text search with typo tolerance, filters, facets, sorting and suggestions over the catalogue.",
+      "category": "Growth",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": false,
+      "prices": [
+        { "amount": 29.00, "billingPeriod": "Monthly" }
+      ]
+    },
+    {
+      "slug": "loyalty-rewards",
+      "name": "Loyalty and Rewards",
+      "description": "Points, tiers, earning and redemption rules, and a loyalty ledger per shopper.",
+      "category": "Growth",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": false,
+      "prices": [
+        { "amount": 39.00, "billingPeriod": "Monthly" }
+      ]
+    },
+    {
+      "slug": "customer-segmentation",
+      "name": "Customer Segmentation",
+      "description": "VIP, new, dormant and high-value segments, recalculated on a schedule from order history.",
+      "category": "Insight",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": false,
+      "prices": [
+        { "amount": 29.00, "billingPeriod": "Monthly" }
+      ]
+    },
+    {
+      "slug": "gift-cards",
+      "name": "Gift Cards and Store Credit",
+      "description": "Gift cards a shopper can buy, send and redeem, and store credit spendable across orders. Carries a financial ledger.",
+      "category": "Revenue",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": false,
+      "prices": [
+        { "amount": 39.00, "billingPeriod": "Monthly" }
+      ]
+    },
+    {
+      "slug": "marketing-automation",
+      "name": "Marketing Automation",
+      "description": "Abandoned-cart, welcome, post-purchase and win-back campaigns against customer segments.",
+      "category": "Growth",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": false,
+      "prices": [
+        { "amount": 79.00, "billingPeriod": "Monthly" }
+      ]
+    },
+    {
+      "$comment": [
+        "The one capability that cannot share a host: it runs model inference on",
+        "its own workers, and its cost per customer is not something a shared",
+        "machine can bound. Whether a feature needs dedicated infrastructure is",
+        "fixed at publication and the aggregate refuses to change it afterwards,",
+        "so it is set correctly here or not at all."
+      ],
+      "slug": "ai-reports",
+      "name": "AI Reports",
+      "description": "Automated interpretation of the analytics data: what moved, what is unusual, and what to do about it.",
+      "category": "Insight",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": true,
+      "publish": false,
+      "prices": [
         { "amount": 149.00, "billingPeriod": "Monthly" }
+      ]
+    },
+    {
+      "slug": "advanced-inventory",
+      "name": "Advanced Inventory",
+      "description": "Stock movements, reservations, warehouses, low-stock alerts, purchase orders and suppliers.",
+      "category": "Operations",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": false,
+      "prices": [
+        { "amount": 59.00, "billingPeriod": "Monthly" }
+      ]
+    },
+    {
+      "slug": "restaurant-operations",
+      "name": "Restaurant Operations",
+      "description": "Tables, kitchen order states and display workflow, preparation times, throttling and pickup scheduling.",
+      "category": "Operations",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": false,
+      "prices": [
+        { "amount": 79.00, "billingPeriod": "Monthly" }
+      ]
+    },
+    {
+      "slug": "multi-location",
+      "name": "Multi-Location",
+      "description": "One merchant, several branches or warehouses: inventory, menus, staff and orders scoped per location.",
+      "category": "Operations",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": false,
+      "prices": [
+        { "amount": 99.00, "billingPeriod": "Monthly" }
+      ]
+    },
+    {
+      "slug": "subscriptions",
+      "name": "Subscriptions and Recurring Orders",
+      "description": "Recurring orders on a schedule, with pause, resume, cancellation and failed-payment handling.",
+      "category": "Revenue",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": false,
+      "prices": [
+        { "amount": 69.00, "billingPeriod": "Monthly" }
+      ]
+    },
+    {
+      "slug": "external-marketplaces",
+      "name": "Marketplace and Delivery Integrations",
+      "description": "Product, order, status and inventory synchronisation with delivery marketplaces, POS and accounting systems.",
+      "category": "Integrations",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": false,
+      "prices": [
+        { "amount": 99.00, "billingPeriod": "Monthly" }
       ]
     }
   ],
   "plans": [
     {
+      "$comment": [
+        "Basic is the whole base store and nothing else. It is a working shop, not",
+        "a crippled one: the reason to leave it is that KNIGHT helps the merchant",
+        "sell more, not that KNIGHT withheld the ability to sell at all."
+      ],
       "key": "basic",
       "name": "Basic",
-      "description": "A working store: storefront and order management, on shared hosting.",
+      "description": "A working store: catalogue, orders, payments, shipping and coupons, on shared hosting.",
       "basePrice": 49.00,
       "sortOrder": 1,
       "features": [
         { "slug": "storefront", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "order-management", "isIncluded": true, "isCustomerToggleable": false }
+        { "slug": "catalog", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "accounts", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "orders", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "payments", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "shipping", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "promotions", "isIncluded": true, "isCustomerToggleable": false }
       ]
     },
     {
+      "$comment": [
+        "Custom is a-la-carte: the base store, plus whichever optional features the",
+        "customer switches on for themselves.",
+        "",
+        "Only published features are listed. A Draft feature cannot be entitled",
+        "(Feature.CanBeEntitled), so listing one here would put a toggle on the",
+        "screen that refuses every time it is used - a screen that looks broken",
+        "rather than one that says the capability is not built yet. Each feature",
+        "joins its plans in the release that publishes it; seeding is additive, so",
+        "adding the line here is all it takes."
+      ],
       "key": "custom",
       "name": "Custom",
-      "description": "Basic plus the optional capabilities the customer chooses.",
+      "description": "Basic plus the optional capabilities the customer chooses, one by one.",
       "basePrice": 99.00,
       "sortOrder": 2,
       "features": [
         { "slug": "storefront", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "order-management", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "analytics", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "loyalty", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "log-shipping", "isIncluded": false, "isCustomerToggleable": true }
+        { "slug": "catalog", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "accounts", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "orders", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "payments", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "shipping", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "promotions", "isIncluded": true, "isCustomerToggleable": false },
+
+        { "slug": "analytics-core", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "analytics-reports", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "log-shipping", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "advanced-promotions", "isIncluded": false, "isCustomerToggleable": true }
       ]
     },
     {
+      "$comment": [
+        "Professional is every capability KNIGHT sells, plus a machine of their",
+        "own. As with Custom, only published features are listed, so this list",
+        "grows with each release rather than promising what is not built. When",
+        "ai-reports ships it joins as toggleable rather than included: it is the",
+        "one capability with a real per-use cost behind it, and it needs dedicated",
+        "infrastructure, which is what this plan provides."
+      ],
       "key": "professional",
       "name": "Professional",
-      "description": "Everything, with the dedicated-infrastructure capabilities available.",
+      "description": "Every capability KNIGHT sells, on dedicated infrastructure.",
       "basePrice": 299.00,
       "sortOrder": 3,
       "features": [
         { "slug": "storefront", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "order-management", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "analytics", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "catalog", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "accounts", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "orders", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "payments", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "shipping", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "promotions", "isIncluded": true, "isCustomerToggleable": false },
+
+        { "slug": "analytics-core", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "analytics-reports", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "log-shipping", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "loyalty", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "ai-recommendations", "isIncluded": false, "isCustomerToggleable": true }
+        { "slug": "advanced-promotions", "isIncluded": true, "isCustomerToggleable": false }
       ]
     }
   ]

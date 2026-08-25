@@ -8,6 +8,11 @@ A Feature is a **versioned, deployable Django package**, never a boolean flag
 once, publish it once, and KNIGHT delivers it to every store whose customer is
 entitled to it.
 
+Before writing one, check it belongs on this side of the line at all:
+[`feature-catalog.md`](feature-catalog.md) has the base-store rule, the
+catalogue as it stands, and the steps around this document — giving the Feature
+its catalogue identity before you build, and making it sellable after.
+
 ---
 
 ## 1. Layout
@@ -31,6 +36,12 @@ installed Feature and the shortest way to see every part in place.
 
 ### Rules that are not negotiable
 
+- **The slug is one name, shared.** The manifest's `slug` is also the slug the
+  commercial catalogue sells under; there is no mapping between them
+  ([`adr/0029`](adr/0029-one-slug-for-the-catalogue-and-the-package.md)). Use
+  the short product form — `reviews-ratings`, not `knight-feature-reviews-ratings`
+  — and let the Python distribution keep its prefix. The identity must already
+  exist in the catalogue, or publishing a version against it fails.
 - **Own your app label, explicitly.** Set `label` on the `AppConfig`. It ends up
   in the migration table, so letting Django infer it from the module name means a
   later rename orphans every migration you have applied to every customer.
@@ -86,7 +97,7 @@ Declare them by slug and **version range**, never by pin:
 ```yaml
 dependencies:
   features:
-    - { slug: knight-feature-analytics-core, version: ">=1.0.0,<2.0.0" }
+    - { slug: analytics-core, version: ">=1.0.0,<2.0.0" }
 ```
 
 Depend on the other Feature's `services.py`, not on its models. That is what
@@ -201,6 +212,7 @@ secret into a place your Feature then logs.
 
 ## 8. Checklist before publishing
 
+- [ ] The slug matches a Feature identity that exists in the catalogue
 - [ ] `AppConfig.label` set explicitly
 - [ ] No import of store business code
 - [ ] `migrations.reversible` is honest, and you have run the reverse

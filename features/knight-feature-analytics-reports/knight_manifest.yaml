@@ -3,7 +3,7 @@
 # uninstalling analytics-core while this is present must be refused
 # (docs/adr/0017-feature-compatibility-and-dependencies.md).
 apiVersion: knight.dev/v1
-slug: knight-feature-analytics-reports
+slug: analytics-reports
 version: 1.0.0
 name: Analytics Reports
 description: >-
@@ -26,7 +26,7 @@ dependencies:
   features:
     # A range rather than a pin. Analytics Core may fix bugs without this
     # feature needing a release, but a 2.0.0 could move the surface this reads.
-    - { slug: knight-feature-analytics-core, version: ">=1.0.0,<2.0.0" }
+    - { slug: analytics-core, version: ">=1.0.0,<2.0.0" }
 
 migrations:
   # This feature stores nothing of its own — it reads what analytics-core wrote.

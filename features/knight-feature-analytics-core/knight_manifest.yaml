@@ -3,7 +3,7 @@
 # installer reads its install and migration declarations
 # (docs/feature-delivery.md section 5).
 apiVersion: knight.dev/v1
-slug: knight-feature-analytics-core
+slug: analytics-core
 version: 1.0.0
 name: Analytics Core
 description: >-

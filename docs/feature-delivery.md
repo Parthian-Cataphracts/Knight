@@ -13,7 +13,7 @@ deployable Django artifact**.
 
 ```
 WRONG                                RIGHT
-feature_enabled = true               knight-feature-analytics == 1.4.0
+feature_enabled = true               analytics-core == 1.4.0
                                      installed, migrated, configured, healthy
 ```
 
@@ -56,7 +56,7 @@ KNIGHT owns the central catalogue of deployable Features.
 
 ```
 Feature                 identity of a capability across all versions
-  slug                  knight-feature-analytics
+  slug                  analytics-core
   name, description, category
   status                Draft | Published | Deprecated | Withdrawn
   isOptional            can a customer add it to a plan?
@@ -80,10 +80,10 @@ publishing a new version and yanking the old one — never mutating it.
 A Feature is a normal installable Django package — an app, not a service.
 
 ```
-knight_feature_analytics/
+knight_feature_analytics_reports/
 ├── knight_manifest.yaml
 ├── pyproject.toml
-├── knight_feature_analytics/
+├── knight_feature_analytics_reports/
 │   ├── apps.py            AppConfig with a KNIGHT hook
 │   ├── models.py
 │   ├── migrations/
@@ -109,20 +109,20 @@ install time.
 
 ```yaml
 apiVersion: knight.dev/v1
-slug: knight-feature-analytics
+slug: analytics-reports
 version: 1.4.0
-name: Advanced Analytics
+name: Analytics Reports
 django:
-  app_label: knight_analytics
-  installed_app: knight_feature_analytics
-  urls: { include: knight_feature_analytics.urls, prefix: analytics/ }
+  app_label: knight_analytics_reports
+  installed_app: knight_feature_analytics_reports
+  urls: { include: knight_feature_analytics_reports.urls, prefix: analytics/ }
 compatibility:
   storeVersion: ">=4.0.0,<6.0.0"
   python: ">=3.12"
   django: ">=5.0,<6.0"
 dependencies:
   features:
-    - { slug: knight-feature-analytics-core, version: ">=1.2.0,<2.0.0" }
+    - { slug: analytics-core, version: ">=1.2.0,<2.0.0" }
   python: ["pandas>=2.0,<3.0"]
 migrations:
   required: true
@@ -136,7 +136,7 @@ configuration:
 install:
   strategy: package-install     # package-install | vendored | no-op
   requiresRestart: true
-  healthCheck: knight_feature_analytics.checks.health
+  healthCheck: knight_feature_analytics_reports.checks.health
 uninstall:
   strategy: disable-then-remove
   dataRetentionDays: 30
@@ -272,7 +272,7 @@ first-class object rather than a loop: a **rollout**, made of ordered **waves**
 of stores.
 
 ```
-rollout: knight-feature-promotions 1.1.0, threshold 2
+rollout: advanced-promotions 1.1.0, threshold 2
   wave 0  canary      1 store    -> must succeed
   wave 1  50%         12 stores
   wave 2  the rest    13 stores

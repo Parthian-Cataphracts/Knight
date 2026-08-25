@@ -39,7 +39,7 @@ public sealed class RolloutTests
         return _fixture.CreateClient(await _fixture.SignInAsync(email, Password));
     }
 
-    private static object PlanBody(string slug = "knight-feature-promotions", string version = "1.1.0") => new
+    private static object PlanBody(string slug = "advanced-promotions", string version = "1.1.0") => new
     {
         slug,
         version,

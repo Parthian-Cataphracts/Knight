@@ -22,7 +22,7 @@ public sealed class FeatureRolloutTests
         FeatureRollout.Plan(
             Guid.NewGuid(),
             Guid.NewGuid(),
-            "knight-feature-promotions",
+            "advanced-promotions",
             Guid.NewGuid(),
             "1.1.0",
             Enumerable.Range(0, storeCount).Select(_ => Guid.NewGuid()).ToArray(),

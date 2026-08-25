@@ -3,13 +3,18 @@
 # installer reads its install and migration declarations
 # (docs/feature-delivery.md section 5).
 apiVersion: knight.dev/v1
-slug: knight-feature-promotions
+slug: advanced-promotions
 version: 1.0.0
-name: Promotions
+name: Advanced Promotions
 description: >-
-  Promotions and coupon codes. A store without this sells at list price, which is
-  why it is a Feature rather than part of the base image
+  Merchandising beyond a coupon code: buy X get Y, bundles, category and
+  customer-specific campaigns, scheduling and stacking rules. Plain coupons are
+  part of the base store and are not sold
   (docs/adr/0024-base-store-versus-optional-feature.md).
+
+  This package still ships the base coupon rules; phase 12 moves them into the
+  base store and grows what is left into the set described above
+  (docs/feature-catalog.md).
 
 django:
   app_label: knight_promotions

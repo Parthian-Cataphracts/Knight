@@ -119,7 +119,7 @@ public sealed class JobBroadcastTests
             customerId: Guid.NewGuid(),
             installationId: Guid.NewGuid(),
             featureId: Guid.NewGuid(),
-            featureSlug: "knight-feature-analytics-core",
+            featureSlug: "analytics-core",
             type: JobType.Install,
             targetVersionId: Guid.NewGuid(),
             targetVersion: "1.0.0",

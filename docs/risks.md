@@ -64,8 +64,8 @@ Status: **living document**. Update whenever a risk is resolved or discovered.
    fetches one through a short-lived signed URL minted per job, never a stored
    URL.
 9. ~~**Signing key custody**~~ **Resolved:** see R21.
-10. ~~**First feature**~~ **Resolved:** `knight-feature-analytics-core` and
-    `knight-feature-analytics-reports`, the second depending on the first. Two
+10. ~~**First feature**~~ **Resolved:** `analytics-core` and
+    `analytics-reports`, the second depending on the first. Two
     features rather than one because dependency resolution is the part of the
     phase most likely to be wrong, and a single feature never exercises it
     against a real package.
