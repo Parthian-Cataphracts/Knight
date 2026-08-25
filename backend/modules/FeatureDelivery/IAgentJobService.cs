@@ -28,7 +28,29 @@ public sealed record AgentJobAssignment(
     AgentArtifact? Artifact,
     AgentConfiguration? Configuration,
     AgentMigrationPolicy? Migrations,
+
+    /// <summary>
+    /// How the store wires the package into its runtime. Null only when the job
+    /// carries no target version, which is every job that installs nothing.
+    /// </summary>
+    AgentDjangoIntegration? Django,
     DateTimeOffset ClaimExpiresAt);
+
+/// <summary>
+/// The names a store needs to load a delivered package: which module to put in
+/// INSTALLED_APPS, what label its migrations are recorded under, and where to
+/// mount its URLs.
+///
+/// Sent rather than inferred. A store that guesses the module name from the slug
+/// is right only while the two happen to match, and after
+/// <c>adr/0029</c> shortened every slug they no longer do — so the guess
+/// silently registered an app that could not be imported.
+/// </summary>
+public sealed record AgentDjangoIntegration(
+    string AppLabel,
+    string InstalledApp,
+    string? UrlInclude,
+    string? UrlPrefix);
 
 public sealed record AgentArtifact(
     string PackageReference,

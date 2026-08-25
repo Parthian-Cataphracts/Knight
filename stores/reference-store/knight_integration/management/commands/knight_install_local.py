@@ -87,6 +87,12 @@ class Command(BaseCommand):
         django_section = manifest.get("django") or {}
         install_section = manifest.get("install") or {}
 
+        # Nested, as the manifest format declares it and as KNIGHT's own
+        # ManifestReader parses it. This used to read flat `url_include` and
+        # `url_prefix` keys that no manifest has ever had, so a Feature declaring
+        # routes was registered without them and served none of them.
+        urls_section = django_section.get("urls") or {}
+
         slug = manifest.get("slug")
         installed_app = django_section.get("installed_app")
 
@@ -105,8 +111,8 @@ class Command(BaseCommand):
             digest=LOCAL_DIGEST,
             installed_at=datetime.now(timezone.utc).isoformat(),
             enabled=enabled,
-            url_include=django_section.get("url_include"),
-            url_prefix=django_section.get("url_prefix"),
+            url_include=urls_section.get("include"),
+            url_prefix=urls_section.get("prefix"),
             health_check=install_section.get("healthCheck"),
         )
 
@@ -129,37 +135,96 @@ def _read_manifest(path: Path) -> dict:
 
 def _read_simple_yaml(text: str) -> dict:
     """
-    Enough YAML for a feature manifest: top-level scalars and one level of
-    nesting, which is all the schema allows. Anything else is ignored rather
-    than guessed at.
+    Enough YAML for a feature manifest, when PyYAML is not installed.
+
+    Indentation-aware to any depth, because the schema is: `django.urls.include`
+    is two levels down, and the version of this that handled exactly one level
+    silently flattened it to `django.include`. Nothing noticed, because the
+    caller was reading a third spelling that no manifest has ever used - so a
+    Feature declaring routes was registered without them and served none of them
+    (docs/phase-13-verification.md).
+
+    Deliberately partial, and explicit about it: sequences and block scalars are
+    skipped rather than guessed at. Nothing this command needs is inside one, and
+    a parser that half-read a dependency list would be worse than one that
+    admits it cannot. `pip install -r requirements-dev.txt` brings PyYAML, which
+    is what actually parses this in development and in CI.
     """
     document: dict = {}
-    section: dict | None = None
 
-    for line in text.splitlines():
-        if not line.strip() or line.lstrip().startswith("#"):
+    # (indent, container) from the outside in. The last entry is where a key at
+    # the current indent belongs.
+    stack: list[tuple[int, dict]] = [(-1, document)]
+
+    # Set while inside a block scalar or a sequence, to the indent of the line
+    # that opened it: everything more indented than this belongs to it.
+    skipping_deeper_than: int | None = None
+
+    for raw in text.splitlines():
+        if not raw.strip() or raw.lstrip().startswith("#"):
             continue
 
-        indented = line[0] in " \t"
-        stripped = line.strip()
+        indent = len(raw) - len(raw.lstrip(" "))
+
+        if skipping_deeper_than is not None:
+            if indent > skipping_deeper_than:
+                continue
+            skipping_deeper_than = None
+
+        stripped = raw.strip()
+
+        # A sequence item. Skipped whole, along with anything nested under it.
+        if stripped.startswith("- "):
+            skipping_deeper_than = indent
+            continue
 
         if ":" not in stripped:
             continue
 
         key, _, value = stripped.partition(":")
         key = key.strip()
-        value = value.strip().strip('"').strip("'")
+        value = value.strip()
 
-        if indented:
-            if section is not None and value:
-                section[key] = value
+        while stack and indent <= stack[-1][0]:
+            stack.pop()
+
+        if not stack:
+            stack = [(-1, document)]
+
+        parent = stack[-1][1]
+
+        # A block scalar: the value is the indented lines that follow, and this
+        # command needs none of them.
+        if value in (">", ">-", "|", "|-", ">+", "|+"):
+            parent[key] = ""
+            skipping_deeper_than = indent
+            continue
+
+        if value.startswith("{") and value.endswith("}"):
+            parent[key] = _read_inline_map(value)
             continue
 
         if value:
-            document[key] = value
-            section = None
-        else:
-            section = {}
-            document[key] = section
+            parent[key] = value.strip('"').strip("'")
+            continue
+
+        child: dict = {}
+        parent[key] = child
+        stack.append((indent, child))
 
     return document
+
+
+def _read_inline_map(value: str) -> dict:
+    """A single-line `{ key: value, key: value }` map, which the schema also allows."""
+    inner = value.strip()[1:-1]
+    result: dict = {}
+
+    for part in inner.split(","):
+        if ":" not in part:
+            continue
+
+        key, _, item = part.partition(":")
+        result[key.strip()] = item.strip().strip('"').strip("'")
+
+    return result

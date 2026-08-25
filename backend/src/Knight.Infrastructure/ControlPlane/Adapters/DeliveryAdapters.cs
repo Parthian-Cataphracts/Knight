@@ -200,10 +200,25 @@ internal sealed class FeatureVersionReader : IFeatureVersionReader
         var migrations = MigrationPolicy.None;
         var retentionDays = 30;
 
+        // The names the store needs to load the package. Read from the manifest
+        // for the same reason as the migration policy, and defaulted to the slug
+        // only so a version stored before this was carried does not fail to
+        // describe itself at all - the default is a guess, and it is wrong for
+        // every Feature whose distribution name is longer than its slug.
+        var appLabel = slug.Replace("-", "_");
+        var installedApp = appLabel;
+        string? urlInclude = null;
+        string? urlPrefix = null;
+
         if (FeatureManifest.TryParse(version.ManifestJson, out var manifest, out _))
         {
             migrations = manifest.Migrations;
             retentionDays = manifest.Uninstall.DataRetentionDays;
+
+            appLabel = manifest.Django.AppLabel;
+            installedApp = manifest.Django.InstalledApp;
+            urlInclude = manifest.Django.UrlInclude;
+            urlPrefix = manifest.Django.UrlPrefix;
         }
 
         return new DeliverableVersion(
@@ -218,7 +233,11 @@ internal sealed class FeatureVersionReader : IFeatureVersionReader
             migrations.Required,
             migrations.Reversible,
             migrations.RequiresMaintenanceWindow,
-            retentionDays);
+            retentionDays,
+            appLabel,
+            installedApp,
+            urlInclude,
+            urlPrefix);
     }
 }
 

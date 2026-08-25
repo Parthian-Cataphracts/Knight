@@ -287,6 +287,22 @@ public sealed record AgentMigrationResponse(
     bool Reversible,
     bool RequiresMaintenanceWindow);
 
+/// <summary>
+/// How the store wires the delivered package into its runtime: the module that
+/// goes into INSTALLED_APPS, the label its migrations are recorded under, and
+/// the urlconf to mount and where.
+///
+/// Sent rather than left to the store to infer from the slug. The two match only
+/// by coincidence, and after <c>adr/0029</c> shortened every slug they stopped
+/// matching - at which point a store guessing registered an app it could not
+/// import, and a Feature declaring URLs served none of them.
+/// </summary>
+public sealed record AgentDjangoResponse(
+    string AppLabel,
+    string InstalledApp,
+    string? UrlInclude,
+    string? UrlPrefix);
+
 public sealed record AgentJobResponse(
     Guid JobId,
     string Type,
@@ -305,6 +321,7 @@ public sealed record AgentJobResponse(
     AgentArtifactResponse? Artifact,
     AgentConfigurationResponse? Configuration,
     AgentMigrationResponse? Migrations,
+    AgentDjangoResponse? Django,
     DateTimeOffset ClaimExpiresAt);
 
 // --- Staged rollouts -------------------------------------------------------

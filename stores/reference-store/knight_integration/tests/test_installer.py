@@ -387,3 +387,92 @@ class ArchiveSafetyTests(SimpleTestCase):
         _extract_zip(archive, destination)
 
         self.assertTrue((destination / "analytics_core" / "__init__.py").exists())
+
+
+class RuntimeWiringTests(SimpleTestCase):
+    """
+    What the `enable` step records about how to load the package.
+
+    This is the regression pinned after phase 13: none of it was recorded at all.
+    The step took the module name from the slug with its hyphens swapped, which is
+    the right answer only while the two happen to match — and once `adr/0029`
+    shortened every slug they stopped matching. A Feature that declared routes
+    was registered without them, so its pages 404'd while every other step of the
+    install reported success.
+    """
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp(prefix="knight-wiring-"))
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+
+    def _enabled(self, job: dict):
+        from knight_integration.conf import get_settings
+        from knight_integration.installer.state import get_registry
+        from knight_integration.installer.steps import JobContext, enable
+
+        config = get_settings()
+        object.__setattr__(config, "feature_root", str(self.root))
+
+        registry = get_registry(self.root)
+        context = JobContext(job=job, config=config, registry=registry, workspace=self.root)
+        enable(context)
+
+        return registry.load()[job["featureSlug"]]
+
+    def _job(self, **django) -> dict:
+        return {
+            "jobId": "1",
+            "type": "Install",
+            "featureSlug": "reviews-ratings",
+            "targetVersion": "1.0.0",
+            "steps": ["enable"],
+            "artifact": {"digest": "sha256:abc"},
+            "django": django,
+        }
+
+    def test_the_module_to_load_comes_from_the_job_not_from_the_slug(self):
+        # The slug is `reviews-ratings`; the module is not `reviews_ratings`.
+        feature = self._enabled(
+            self._job(
+                appLabel="knight_reviews",
+                installedApp="knight_feature_reviews_ratings",
+            )
+        )
+
+        self.assertEqual(feature.installed_app, "knight_feature_reviews_ratings")
+        self.assertEqual(feature.app_label, "knight_reviews")
+
+    def test_a_feature_that_declares_routes_gets_them_recorded(self):
+        feature = self._enabled(
+            self._job(
+                appLabel="knight_reviews",
+                installedApp="knight_feature_reviews_ratings",
+                urlInclude="knight_feature_reviews_ratings.urls",
+                urlPrefix="reviews/",
+            )
+        )
+
+        self.assertEqual(feature.url_include, "knight_feature_reviews_ratings.urls")
+        self.assertEqual(feature.url_prefix, "reviews/")
+
+    def test_a_feature_that_serves_no_routes_records_none(self):
+        # None rather than a default prefix: the loader mounts nothing for a
+        # feature with no urlconf, and inventing one would mount an import error.
+        feature = self._enabled(
+            self._job(appLabel="knight_analytics_core", installedApp="knight_feature_analytics_core")
+        )
+
+        self.assertIsNone(feature.url_include)
+        self.assertIsNone(feature.url_prefix)
+
+    def test_a_job_from_before_knight_sent_this_still_installs(self):
+        # The fallback is a guess and is documented as one. It must still be a
+        # guess rather than a crash, because a job queued by an older KNIGHT is
+        # a job that has already been paid for.
+        job = self._job()
+        job.pop("django")
+
+        feature = self._enabled(job)
+
+        self.assertEqual(feature.installed_app, "reviews_ratings")
+        self.assertIsNone(feature.url_include)

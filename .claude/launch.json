@@ -37,6 +37,18 @@
       ],
       "cwd": "frontend/knight-dashboard",
       "port": 3000
+    },
+    {
+      "name": "reference-store",
+      "runtimeExecutable": ".venv312/Scripts/python.exe",
+      "runtimeArgs": [
+        "manage.py",
+        "runserver",
+        "8010",
+        "--noreload"
+      ],
+      "cwd": "stores/reference-store",
+      "port": 8010
     }
   ]
 }

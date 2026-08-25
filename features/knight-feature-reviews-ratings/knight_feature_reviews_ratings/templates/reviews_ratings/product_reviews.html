@@ -1,0 +1,67 @@
+{% load static %}<!doctype html>
+{% comment %}
+Shipped inside the package. A delivered Feature's templates and static files are
+a delivery path of their own, and an installer that copies the Python but misses
+the assets produces a Feature that imports cleanly and renders nothing — so this
+page exists partly to be looked at during verification.
+
+Standalone rather than extending a store base template. This Feature has no way
+to know what base template the store it lands on has, and guessing at one is how
+an optional package breaks a page it was never meant to own.
+{% endcomment %}
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reviews for product {{ product_id }}</title>
+  <link rel="stylesheet" href="{% static 'reviews_ratings/reviews.css' %}">
+</head>
+<body>
+  <main class="knight-reviews">
+    <h1>Reviews</h1>
+    <p class="knight-reviews__meta">Product {{ product_id }}</p>
+
+    {% if summary.has_reviews %}
+      <p class="knight-reviews__average">{{ summary.average }} <span class="knight-reviews__meta">out of 5</span></p>
+      <p class="knight-reviews__meta">{{ summary.count }} review{{ summary.count|pluralize }}</p>
+
+      {% for bar in bars %}
+        <div class="knight-reviews__bar">
+          <span>{{ bar.stars }}&#9733;</span>
+          <span class="knight-reviews__bar-track">
+            <span class="knight-reviews__bar-fill" style="width: {{ bar.percent }}%; display: block;"></span>
+          </span>
+          <span>{{ bar.count }}</span>
+        </div>
+      {% endfor %}
+
+      {% for review in reviews %}
+        <article class="knight-reviews__review">
+          <p>
+            <strong>{{ review.rating }}/5</strong>
+            {% if review.title %}&mdash; {{ review.title }}{% endif %}
+            {% if review.is_verified_purchase %}
+              <span class="knight-reviews__verified">Verified purchase</span>
+            {% endif %}
+          </p>
+          <p class="knight-reviews__meta">{{ review.author_name }}{% if review.published_at %} &middot; {{ review.published_at|date:"j M Y" }}{% endif %}</p>
+          {% if review.body %}<p>{{ review.body }}</p>{% endif %}
+          {% if review.reply %}
+            <div class="knight-reviews__reply">
+              <p class="knight-reviews__meta">The store replied</p>
+              <p>{{ review.reply }}</p>
+            </div>
+          {% endif %}
+        </article>
+      {% endfor %}
+    {% else %}
+      {% comment %}
+      A product with no reviews says so. The alternative — an empty page, or a
+      zero-star average — reads as the Feature being broken rather than the
+      product being new.
+      {% endcomment %}
+      <p class="knight-reviews__empty">No reviews yet. Reviews appear here once a shopper has left one and it has been approved.</p>
+    {% endif %}
+  </main>
+</body>
+</html>

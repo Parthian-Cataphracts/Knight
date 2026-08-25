@@ -89,6 +89,7 @@ build/
 *.egg-info/
 .pytest_cache/
 .venv/
+.venv312/
 
 # Database dumps. The default output directory of infrastructure/scripts/knight-backup.sh.
 # A control-plane dump holds every customer, credential hash and audit trail there is.

@@ -335,6 +335,8 @@ def enable(context: JobContext) -> str:
         installed_at=datetime.now(timezone.utc).isoformat(),
         enabled=True,
         config_version=int(configuration.get("version") or 0),
+        url_include=_url_include(context),
+        url_prefix=_url_prefix(context),
     )
 
     context.registry.record(feature)
@@ -489,13 +491,49 @@ def reverse_migrate(context: JobContext) -> str:
 # --- Helpers ----------------------------------------------------------------
 
 
+def _django(context: JobContext) -> dict[str, Any]:
+    """
+    The runtime wiring KNIGHT sends with the job: which module to load, what
+    label its migrations are recorded under, and where to mount its URLs.
+
+    Read from the job rather than guessed. The fallbacks below are a last resort
+    for a job queued before KNIGHT carried this, and they are a guess: the slug
+    with its hyphens swapped is the module name only by coincidence, and for
+    every Feature in this repository it is wrong.
+    """
+    return context.job.get("django") or {}
+
+
 def _installed_app(context: JobContext) -> str:
-    """The importable module path, defaulting to the slug with hyphens swapped."""
-    return context.job.get("installedApp") or context.slug.replace("-", "_")
+    """The importable module path."""
+    return (
+        _django(context).get("installedApp")
+        or context.job.get("installedApp")
+        or context.slug.replace("-", "_")
+    )
 
 
 def _installed_app_label(context: JobContext) -> str:
-    return context.job.get("appLabel") or _installed_app(context).split(".")[-1]
+    return (
+        _django(context).get("appLabel")
+        or context.job.get("appLabel")
+        or _installed_app(context).split(".")[-1]
+    )
+
+
+def _url_include(context: JobContext) -> str | None:
+    """
+    The feature's urlconf, or None when it serves no routes.
+
+    A feature that declares one and does not get it recorded here is a feature
+    whose pages 404 while every other part of the install reports success - which
+    is precisely how this went unnoticed until phase 13 opened one in a browser.
+    """
+    return _django(context).get("urlInclude")
+
+
+def _url_prefix(context: JobContext) -> str | None:
+    return _django(context).get("urlPrefix")
 
 
 def _run_django(arguments: list[str], context: JobContext) -> str:

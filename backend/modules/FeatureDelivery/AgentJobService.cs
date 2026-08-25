@@ -399,6 +399,7 @@ internal sealed class AgentJobService : IAgentJobService
     {
         AgentArtifact? artifact = null;
         AgentMigrationPolicy? migrations = null;
+        AgentDjangoIntegration? django = null;
 
         if (job.TargetVersionId is { } versionId)
         {
@@ -424,6 +425,12 @@ internal sealed class AgentJobService : IAgentJobService
                     version.MigrationsRequired,
                     version.MigrationsReversible,
                     version.RequiresMaintenanceWindow);
+
+                django = new AgentDjangoIntegration(
+                    version.AppLabel,
+                    version.InstalledApp,
+                    version.UrlInclude,
+                    version.UrlPrefix);
             }
         }
 
@@ -451,6 +458,7 @@ internal sealed class AgentJobService : IAgentJobService
             artifact,
             configuration,
             migrations,
+            django,
             job.ClaimExpiresAt ?? _clock.UtcNow.Add(_options.JobClaimTimeout));
     }
 
@@ -505,4 +513,14 @@ public sealed record DeliverableVersion(
     bool MigrationsRequired,
     bool MigrationsReversible,
     bool RequiresMaintenanceWindow,
-    int DataRetentionDays);
+    int DataRetentionDays,
+
+    /// <summary>
+    /// Read straight out of the signed manifest, like the migration policy above
+    /// and for the same reason: the manifest is what the author signed, and a
+    /// column beside it could drift from it.
+    /// </summary>
+    string AppLabel,
+    string InstalledApp,
+    string? UrlInclude,
+    string? UrlPrefix);

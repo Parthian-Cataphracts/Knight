@@ -7,3 +7,10 @@
 -r requirements.txt
 
 jsonschema==4.23.0
+
+# Parses a Feature's knight_manifest.yaml for `manage.py knight_install_local`.
+# The store depends on it nowhere in production - it reads job payloads, which
+# are JSON - so it is a development dependency. Without it that command falls
+# back to a partial parser, and a partial parser reading a contract is how a
+# Feature's routes went unregistered for two phases.
+PyYAML>=6.0,<7.0

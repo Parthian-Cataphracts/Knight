@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "knight-feature-reviews-ratings"
+version = "1.0.0"
+description = "Product reviews, ratings and moderation for a KNIGHT store."
+requires-python = ">=3.12"
+dependencies = ["Django>=5.0,<6.0"]
+
+[tool.setuptools]
+packages = ["knight_feature_reviews_ratings", "knight_feature_reviews_ratings.migrations"]
+
+[tool.setuptools.package-data]
+knight_feature_reviews_ratings = ["templates/reviews_ratings/*.html", "static/reviews_ratings/*"]

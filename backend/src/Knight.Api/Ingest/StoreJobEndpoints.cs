@@ -121,6 +121,13 @@ public static class StoreJobEndpoints
                 assignment.Migrations.Required,
                 assignment.Migrations.Reversible,
                 assignment.Migrations.RequiresMaintenanceWindow),
+        assignment.Django is null
+            ? null
+            : new AgentDjangoResponse(
+                assignment.Django.AppLabel,
+                assignment.Django.InstalledApp,
+                assignment.Django.UrlInclude,
+                assignment.Django.UrlPrefix),
         assignment.ClaimExpiresAt);
 
     /// <summary>

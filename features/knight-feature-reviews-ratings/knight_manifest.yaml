@@ -1,0 +1,64 @@
+# The contract between this Feature and everything that handles it: KNIGHT
+# validates it at publish, the resolver reads its dependencies, and the store's
+# installer reads its install and migration declarations
+# (docs/feature-delivery.md section 5).
+#
+# The first Feature of phase 13, and chosen to be first because it is contained:
+# customer-visible, database-backed, no external service, no background worker,
+# and dependent on nothing but the base store. What it exercises is the delivery
+# path itself - package install, migrations, URL mounting, templates and static
+# assets, entitlement, activation and rollback (docs/feature-catalog.md).
+apiVersion: knight.dev/v1
+slug: reviews-ratings
+version: 1.0.0
+name: Reviews and Ratings
+description: >-
+  Product reviews and star ratings, with verified-purchase badges, merchant
+  replies and moderation. Reviews arrive unpublished: the first thing an open
+  review box attracts is spam, and a store that removes it afterwards has
+  already shown it to shoppers.
+
+django:
+  app_label: knight_reviews
+  installed_app: knight_feature_reviews_ratings
+  urls:
+    include: knight_feature_reviews_ratings.urls
+    prefix: reviews/
+
+compatibility:
+  # Open at the top end: this feature touches no store internals. It references
+  # products and shoppers by plain id and never imports them, so a store major
+  # version can change without this needing a release.
+  storeVersion: ">=1.0.0"
+  python: ">=3.12"
+  django: ">=5.0,<6.0"
+
+migrations:
+  required: true
+  # Class A throughout - CreateModel, AddIndex and two constraints, nothing
+  # dropped and no data transformed - so the reverse genuinely exists and a
+  # failed upgrade can put the schema back. Declaring this honestly is what
+  # decides whether a rollback is possible at all
+  # (docs/adr/0016-feature-migration-and-removal-policy.md).
+  reversible: true
+  estimatedDurationSeconds: 5
+  requiresMaintenanceWindow: false
+
+configuration:
+  defaults:
+    # Publishing every review the moment it arrives is a supported choice and a
+    # bad default, so it is off. A store that wants it says so.
+    auto_publish: false
+    reviews_per_page: 20
+
+install:
+  strategy: package-install
+  requiresRestart: true
+  healthCheck: knight_feature_reviews_ratings.checks.health
+
+uninstall:
+  # Reviews are shoppers' own words about a business, and a merchant who
+  # switches the feature off for a month should not come back to an empty
+  # product page. Kept for a year rather than the usual month.
+  strategy: disable-then-remove
+  dataRetentionDays: 365

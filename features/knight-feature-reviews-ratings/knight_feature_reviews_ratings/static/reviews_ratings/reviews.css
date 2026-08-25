@@ -1,0 +1,16 @@
+/*
+ * Shipped inside the package so the page proves that a delivered Feature's
+ * static files arrive with its Python. Deliberately plain: a Feature that
+ * imposed a design on the store it lands in would be a Feature no store wants.
+ */
+.knight-reviews { font-family: system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; }
+.knight-reviews h1 { font-size: 1.25rem; margin-bottom: 0.25rem; }
+.knight-reviews__average { font-size: 2rem; font-weight: 600; }
+.knight-reviews__meta { color: #666; font-size: 0.875rem; }
+.knight-reviews__bar { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; }
+.knight-reviews__bar-track { background: #eee; height: 0.5rem; flex: 1; border-radius: 0.25rem; }
+.knight-reviews__bar-fill { background: #f5a623; height: 100%; border-radius: 0.25rem; }
+.knight-reviews__review { border-top: 1px solid #eee; padding: 1rem 0; }
+.knight-reviews__verified { color: #1a7f37; font-size: 0.75rem; font-weight: 600; }
+.knight-reviews__reply { border-left: 3px solid #ddd; margin-top: 0.75rem; padding-left: 0.75rem; color: #444; }
+.knight-reviews__empty { color: #666; padding: 1rem 0; }
