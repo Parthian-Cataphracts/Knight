@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using System.Threading.RateLimiting;
 using AccessControl;
@@ -18,6 +19,7 @@ using Knight.Infrastructure.HealthChecks;
 using Knight.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -64,6 +66,47 @@ builder.Services.AddControlPlaneInfrastructure(builder.Configuration);
 builder.Services.AddControlPlaneModules(builder.Configuration);
 builder.Services.AddPlatformHealthChecks(builder.Configuration);
 builder.Services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
+
+// TLS terminates at the reverse proxy in every topology this project deploys into
+// (docs/deployment.md section 4), so requests reach this process over plain HTTP
+// on the loopback. Two things go wrong if that is not accounted for, and neither
+// can happen on a test host, because a test host has no proxy in front of it:
+// UseHttpsRedirection sees "http" and answers 307 to the https URL the browser
+// just came from, and the rate limiter partitions every caller in the world into
+// one bucket keyed on the proxy's own address.
+//
+// A forwarded header is a claim, so only proxies this deployment names are
+// believed. The framework's defaults are the loopback addresses - the reverse
+// proxy on this machine - and a separate load balancer has to be listed in
+// ForwardedHeaders:KnownProxies, because an unlisted claimant could be anybody.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    // Deliberately not XForwardedHost: nothing here needs the proxy's word for
+    // the hostname, and taking it would open host-header injection for the sake
+    // of a value the Host header already carries.
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+    // One hop. A second set of values in the header would mean either a second
+    // proxy nobody declared, or a client that wrote them itself.
+    options.ForwardLimit = 1;
+
+    // The framework's default known-proxy list recognises the IPv6 loopback and
+    // the IPv6-mapped form of the IPv4 one, but not plain 127.0.0.1 - and plain
+    // 127.0.0.1 is exactly what Kestrel reports when it is listening on an IPv4
+    // address with the reverse proxy on the same machine. Left to the defaults,
+    // the header from nginx one hop away would be discarded and the redirect
+    // loop above would happen anyway. Both forms are named.
+    options.KnownProxies.Add(IPAddress.Loopback);
+    options.KnownProxies.Add(IPAddress.IPv6Loopback);
+
+    foreach (var proxy in builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [])
+    {
+        if (IPAddress.TryParse(proxy, out var address))
+        {
+            options.KnownProxies.Add(address);
+        }
+    }
+});
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
@@ -209,6 +252,11 @@ var app = builder.Build();
 // before the control-plane scope because the scope is established from validated
 // claims, and both run before authorization so policies and handlers can rely on
 // the customer boundary already being in place.
+// First, so that everything after it - the correlation log line, the rate
+// limiter's partition key, and the scheme UseHttpsRedirection compares - sees
+// the request as the client made it rather than as the proxy relayed it.
+app.UseForwardedHeaders();
+
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 

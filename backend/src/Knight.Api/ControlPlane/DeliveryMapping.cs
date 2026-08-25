@@ -127,7 +127,11 @@ internal static class DeliveryMapping
             step.InstalledVersion,
             step.Action.ToString(),
             step.IsRoot,
-            step.RequiredBy))],
+            step.RequiredBy,
+            step.MigrationsRequired,
+            step.MigrationsReversible,
+            step.MigrationSeconds,
+            step.RequiresRestart))],
         [.. plan.Failures.Select(failure =>
             new FeaturePlanFailureResponse(failure.Code, failure.Slug, failure.Message))]);
 

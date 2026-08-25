@@ -68,6 +68,12 @@ internal sealed class StoreManagementService : IStoreManagementService
             input.Environment,
             input.HostingModel);
 
+        if (input.ServerId is { } placement)
+        {
+            await EnsurePlacementIsAllowedAsync(store, placement, cancellationToken);
+            store.AssignServer(placement, now);
+        }
+
         await _stores.AddAsync(store, cancellationToken);
         await _stores.SaveChangesAsync(cancellationToken);
 
@@ -109,13 +115,6 @@ internal sealed class StoreManagementService : IStoreManagementService
 
         store.UpdateProfile(input.Name, input.PrimaryDomain, now);
 
-        if (input.ServerId is { } serverId)
-        {
-            await EnsurePlacementIsAllowedAsync(store, serverId, cancellationToken);
-        }
-
-        store.AssignServer(input.ServerId, now);
-
         if (input.Environment is { } environment)
         {
             store.ChangeEnvironment(environment, now);
@@ -124,6 +123,36 @@ internal sealed class StoreManagementService : IStoreManagementService
 
         await _audit.RecordAsync(
             "store.updated",
+            nameof(Store),
+            store.Id.ToString(),
+            store.CustomerId,
+            cancellationToken,
+            before,
+            Snapshot(store));
+
+        return store;
+    }
+
+    public async Task<Store> AssignServerAsync(Guid id, Guid? serverId, CancellationToken cancellationToken)
+    {
+        var store = await RequireAsync(id, cancellationToken);
+        var before = Snapshot(store);
+        var now = _clock.UtcNow;
+
+        if (serverId is { } placement)
+        {
+            await EnsurePlacementIsAllowedAsync(store, placement, cancellationToken);
+        }
+
+        store.AssignServer(serverId, now);
+        await _stores.SaveChangesAsync(cancellationToken);
+
+        // Two actions rather than one: "which machine is this customer's store
+        // on" and "this store is no longer anywhere" are different questions
+        // after an incident, and a single store.server.changed would answer
+        // neither without reading the payload.
+        await _audit.RecordAsync(
+            serverId is null ? "store.server.cleared" : "store.server.assigned",
             nameof(Store),
             store.Id.ToString(),
             store.CustomerId,

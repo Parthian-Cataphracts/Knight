@@ -120,6 +120,7 @@
     "info": "Info"
   },
   "customers": {
+<<<<<<< HEAD
     "subtitle": "Businesses whose stores KNIGHT manages.",
     "name": "Customer",
     "plan": "Plan",
@@ -132,6 +133,24 @@
     "edit": "Edit customer",
     "contactEmail": "Contact email",
     "noPlan": "No plan"
+=======
+    "activate": "Activate",
+    "archive": "Archive",
+    "contactEmail": "Contact email",
+    "create": "New customer",
+    "createdAt": "Created",
+    "edit": "Edit customer",
+    "legalName": "Legal name",
+    "name": "Customer",
+    "noPlan": "No plan",
+    "notes": "Notes",
+    "notesHint": "A standing note about the account. The dated notes on this page are separate.",
+    "phone": "Phone",
+    "plan": "Plan",
+    "stores": "Stores",
+    "subtitle": "Businesses whose stores KNIGHT manages.",
+    "suspend": "Suspend"
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   },
   "customerStatus": {
     "Active": "Active",
@@ -162,6 +181,7 @@
     "NotRegistered": "Not registered"
   },
   "stores": {
+<<<<<<< HEAD
     "subtitle": "Independent Django stores under KNIGHT management.",
     "domain": "Domain",
     "environment": "Environment",
@@ -180,6 +200,36 @@
     "secretShownOnce": "This secret is shown once and never again. Copy it now.",
     "edit": "Edit store",
     "primaryDomain": "Primary domain"
+=======
+    "activate": "Activate",
+    "archive": "Archive",
+    "customer": "Customer",
+    "domain": "Domain",
+    "domainNote": "KNIGHT polls this domain and reads the verification token from it, so it must be the address the store actually answers on.",
+    "edit": "Edit store",
+    "environment": "Environment",
+    "features": "Features",
+    "hosting": "Hosting",
+    "installedFeatures": "Installed features",
+    "integration": "Integration",
+    "issueCredentials": "Issue credentials",
+    "lastSeen": "Last seen",
+    "moveServer": "Move to another server",
+    "noCustomers": "There are no customers yet, and a store belongs to one. Create a customer first.",
+    "noEligibleServers": "No server matches this customer and environment. Register one, or dedicate an existing one to them.",
+    "noServer": "Not placed",
+    "primaryDomain": "Primary domain",
+    "register": "Register store",
+    "registerSubtitle": "Registering a store records it here. It connects once it has a credential and has proven it owns this domain.",
+    "rotate": "Rotate secret",
+    "secretShownOnce": "This secret is shown once and never again. Copy it now.",
+    "server": "Server",
+    "serverNote": "A dedicated machine must belong to this customer and be in the same environment. Leave it unset to decide later.",
+    "slug": "Slug",
+    "subtitle": "Independent customer stores under KNIGHT management.",
+    "suspend": "Suspend store",
+    "version": "Version"
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   },
   "features": {
     "subtitle": "Central registry of versioned, deployable features.",
@@ -363,6 +413,7 @@
     "Overdue": "Overdue"
   },
   "infrastructure": {
+<<<<<<< HEAD
     "subtitle": "Platform services and the servers hosting stores.",
     "platformServices": "Platform services",
     "servers": "Servers",
@@ -385,6 +436,40 @@
     "agents": "Agents",
     "noAgents": "No agent has enrolled on this machine yet.",
     "revokeAgent": "Revoke"
+=======
+    "addAgent": "Add agent",
+    "agent": "Agent",
+    "agentNote": "The agent only reports and runs typed jobs; it has no shell and executes no arbitrary commands.",
+    "agents": "Agents",
+    "cpuTrend": "CPU trend (last 12 samples)",
+    "decommission": "Decommission",
+    "dedicate": "Dedicate",
+    "dedicateNote": "A dedicated machine hosts one customer's stores and nobody else's. Leave it shared and any customer's store may be placed on it.",
+    "dedicatedTo": "Dedicated to",
+    "editServer": "Edit server",
+    "hostingModel": "Hosting model",
+    "ip": "IP address",
+    "ipHint": "The address KNIGHT and its agents reach this machine on.",
+    "lastSeen": "Last reported",
+    "load": "Load (CPU/RAM/Disk)",
+    "memoryTrend": "Memory trend",
+    "neverReported": "Never reported",
+    "noAgents": "No agent has enrolled on this machine yet.",
+    "noLoad": "No load has been reported for this machine. Enrol an agent on it, or wait for the first heartbeat.",
+    "platformServices": "Platform services",
+    "provider": "Provider",
+    "region": "Region",
+    "registerServer": "Register server",
+    "revokeAgent": "Revoke",
+    "server": "Server",
+    "servers": "Servers",
+    "shared": "Shared",
+    "statusReason": "Reason",
+    "stores": "Stores",
+    "subtitle": "Platform services and the servers hosting stores.",
+    "tokenShownOnce": "This provisioning token is shown once and is burned on first use. Copy it now.",
+    "uptime": "Uptime"
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   },
   "monitoring": {
     "subtitle": "Store health and the active alert rules.",
@@ -479,6 +564,7 @@
     "Failure": "Failure"
   },
   "access": {
+<<<<<<< HEAD
     "subtitle": "Users, roles and permission scope.",
     "users": "Users",
     "roles": "Roles",
@@ -503,6 +589,41 @@
     "passwordShownOnce": "This one-time password is shown once. Hand it over now; it cannot be read again.",
     "inviteHint": "The account is created with a one-time password shown after saving. It has no way to sign in until you pass it on.",
     "resetHint": "Resetting is the only recovery path, and every reset is audited."
+=======
+    "activate": "Activate",
+    "assignRoles": "Roles",
+    "assignRolesNote": "The roles this account will hold afterwards. Unticking one takes it away.",
+    "customer": "Customer",
+    "displayName": "Display name",
+    "editRole": "Edit role",
+    "email": "Work email",
+    "invite": "Invite user",
+    "inviteHint": "The account is created with a one-time password shown after saving. It has no way to sign in until you pass it on.",
+    "lastSeen": "Last seen",
+    "mfa": "MFA",
+    "newRole": "New role",
+    "passwordShownOnce": "This one-time password is shown once. Hand it over now; it cannot be read again.",
+    "permissions": "Permissions",
+    "platform": "Platform",
+    "rename": "Rename account",
+    "renameNote": "The name other administrators see. The email address is the identity and cannot be changed here.",
+    "resetHint": "Resetting is the only recovery path, and every reset is audited.",
+    "resetMfa": "Reset MFA",
+    "resetPassword": "Reset password",
+    "role": "Role",
+    "roleDescription": "Description",
+    "roles": "Roles",
+    "rolesColumn": "Roles",
+    "scope": "Scope",
+    "scopeNote": "A platform role is for your own staff. A customer role is held by people at a customer, and can never grant platform business.",
+    "subtitle": "Users, roles and permission scope.",
+    "suspend": "Suspend",
+    "system": "System",
+    "systemRoleNote": "A seeded role. What it grants is fixed, and is shown here so it can be read rather than guessed.",
+    "user": "User",
+    "userCount": "Users",
+    "users": "Users"
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   },
   "userStatus": {
     "Active": "Active",
@@ -664,6 +785,7 @@
     "revoke": "Revoke"
   },
   "createCustomer": {
+<<<<<<< HEAD
     "title": "Create customer",
     "subtitle": "Register the customer, its first store and the service plan.",
     "basics": "Basics",
@@ -684,10 +806,37 @@
     "plan": "Service plan",
     "summary": "Provisioning steps",
     "provisioningNote": "After submission these steps run as jobs:",
+=======
+    "adminEmail": "Work email",
+    "adminName": "Admin name",
+    "adminNote": "A one-time password is shown after creation; hand it to the administrator yourself. Email delivery is not enabled yet.",
+    "basics": "Basics",
+    "cancel": "Cancel",
+    "contactEmail": "Contact email",
+    "created": "Customer created",
+    "createdNote": "The store, the administrator account and the subscription were all recorded.",
+    "dedicatedOnly": "Needs dedicated infrastructure",
+    "domain": "Primary domain",
+    "domainNote": "Domain ownership must be verified before the store connects.",
+    "failedAt": "The run stopped at \"{{step}}\": {{message}}",
+    "features": "Features",
+    "firstAdmin": "First administrator",
+    "includedInPlan": "Included in plan",
+    "invalidEmail": "Enter a valid email address.",
+    "name": "Customer name",
+    "noFeatures": "No features defined for this plan.",
+    "passwordNote": "This password is shown once and cannot be read again from any screen.",
+    "plan": "Service plan",
+    "provisioningNote": "After submission these steps run as jobs:",
+    "required": "This field is required.",
+    "slug": "Slug",
+    "slugHint": "The store's identifier: lowercase letters, digits and single hyphens. Not shown to shoppers.",
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
     "step1": "Create the store and issue credentials",
     "step2": "Register the agent and handshake",
     "step3": "Install the plan's features automatically",
     "step4": "Health check and hand over",
+<<<<<<< HEAD
     "submit": "Create customer",
     "cancel": "Cancel",
     "required": "This field is required.",
@@ -710,6 +859,31 @@
     "irreversibleWarning": "This version's migration is irreversible; automatic rollback will not be possible if it fails.",
     "typeToConfirm": "Type {{name}} to confirm:",
     "confirm": "Start installation"
+=======
+    "store": "First store",
+    "submit": "Create customer",
+    "subtitle": "Register the customer, its first store and the service plan.",
+    "summary": "Provisioning steps",
+    "title": "Create customer"
+  },
+  "installPreview": {
+    "action_AlreadySatisfied": "Already installed",
+    "action_DowngradeRefused": "Refused: the store is on a newer version",
+    "action_Install": "Install",
+    "action_Upgrade": "Upgrade",
+    "confirm": "Start installation",
+    "duration": "Estimated duration",
+    "irreversibleWarning": "This version's migration is irreversible; automatic rollback will not be possible if it fails.",
+    "migrations": "Database migrations",
+    "nothingToDo": "Everything this Feature needs is already installed at the resolved version.",
+    "plan": "Resolved plan",
+    "requested": "Requested",
+    "requiredBy": "Required by {{by}}",
+    "restart": "Requires restart",
+    "title": "Install preview",
+    "typeToConfirm": "Type {{name}} to confirm:",
+    "willChange": "{{count}} step(s) will change this store."
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   },
   "notifications": {
     "title": "Notifications",

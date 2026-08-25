@@ -35,6 +35,7 @@ const session: LoginResponse = {
     displayName: "مدیر پلتفرم",
     customerId: null,
     roles: ["SuperAdmin"],
+<<<<<<< HEAD
     permissions: [
       "customer.view",
       "store.view",
@@ -55,6 +56,30 @@ const session: LoginResponse = {
       "audit.view",
       "user.view",
       "report.view",
+=======
+    // Every permission a real SuperAdmin holds - ControlPlanePermissions
+    // .AssignableToRoles, which is every key except the three only a machine
+    // principal may have. Kept complete on purpose: a short list here makes
+    // mock mode hide the create and manage actions on every screen, so the
+    // screens most worth exercising are the ones it cannot exercise. That is
+    // how a Register store button shipped with no handler on it.
+    permissions: [
+      "customer.view", "customer.create", "customer.update", "customer.archive",
+      "store.view", "store.create", "store.manage", "store.credentials.manage",
+      "store.provision", "store.deprovision",
+      "plan.view", "plan.manage",
+      "feature.view", "feature.manage", "feature.publish", "feature.yank",
+      "installation.view", "installation.manage", "installation.uninstall", "installation.rollback",
+      "job.view", "job.manage",
+      "subscription.view", "subscription.manage",
+      "billing.view", "billing.manage",
+      "server.view", "server.manage", "agent.manage",
+      "monitoring.view", "logs.view", "logs.export",
+      "errors.view", "errors.manage", "incident.view", "incident.manage",
+      "notification.manage",
+      "audit.view", "report.view",
+      "user.view", "user.manage", "role.view", "role.manage",
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
     ],
     mfaEnabled: true,
     mfaSatisfied: true,
@@ -119,6 +144,21 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
     return json({ items: detail.notificationChannels });
   }
 
+<<<<<<< HEAD
+=======
+  // Not a collection: the fleet overview is one object carrying every server's
+  // status and latest load.
+  if (path === "/monitoring/fleet") {
+    return json(fixtures.fleet);
+  }
+
+  // The permission catalogue the role editor offers.
+  if (path === "/roles/permissions") {
+    const keys = Array.from(new Set(fixtures.roles.flatMap((role) => role.permissions))).sort();
+    return json({ items: keys, page: 1, pageSize: keys.length, totalCount: keys.length, totalPages: 1 });
+  }
+
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   if (path === "/notifications/rules") {
     return json({
       items: [
@@ -142,7 +182,16 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
     });
   }
 
+<<<<<<< HEAD
   const collection = collections[path];
+=======
+  // GET only. Served for any method, a POST to a collection path would come back
+  // as a page of items and read as a successful write - so a screen whose save
+  // was never wired to anything would look like it worked, which is exactly the
+  // defect these fixtures exist to catch. Writes have no fixtures, and the 404
+  // below says so where the operator can see it.
+  const collection = method === "GET" ? collections[path] : undefined;
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   if (collection) {
     return json({
       items: collection,
@@ -177,9 +226,23 @@ export async function mockFetch(path: string, method: string, body: unknown): Pr
     }
   }
 
+<<<<<<< HEAD
   const installPlan = /^\/stores\/([^/]+)\/features\/([^/]+)\/plan$/.exec(path);
   if (installPlan) {
     return json(installPlan[2] === "f3" ? detail.installPlans["blocked"] : detail.installPlans["ok"]);
+=======
+  // The dry run. A POST, on the path the API actually serves - this fixture used
+  // to answer a GET on a path that has never existed, which is how the preview
+  // dialog was written against a response shape nothing produced.
+  if (path === "/installations/plan" && method === "POST") {
+    const slug = (body as { slug?: string } | undefined)?.slug ?? "";
+    // Pointed at a slug the installation fixtures actually carry, so the typed
+    // confirmation an irreversible migration demands can be walked through
+    // rather than only reasoned about.
+    if (slug.includes("sms")) return json(detail.installPlans["irreversible"]);
+    if (slug.includes("analytics")) return json(detail.installPlans["ok"]);
+    return json(detail.installPlans["blocked"]);
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   }
 
   // The job detail endpoint returns the job plus its steps, which the list

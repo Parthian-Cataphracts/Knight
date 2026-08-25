@@ -161,7 +161,11 @@ public sealed record FeaturePlanStepResponse(
     string? InstalledVersion,
     string Action,
     bool IsRoot,
-    string RequiredBy);
+    string RequiredBy,
+    bool MigrationsRequired,
+    bool MigrationsReversible,
+    int MigrationSeconds,
+    bool RequiresRestart);
 
 public sealed record FeaturePlanFailureResponse(string Code, string Slug, string Message);
 

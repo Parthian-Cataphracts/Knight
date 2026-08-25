@@ -13,5 +13,14 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test-setup.ts"],
+<<<<<<< HEAD
+=======
+
+    // Pinned, because the suite stubs fetch and the client only calls fetch when
+    // the mocks are off. A developer with VITE_USE_MOCKS=true in .env.local
+    // would otherwise watch seven screen tests fail for a reason that has
+    // nothing to do with anything they changed.
+    env: { VITE_USE_MOCKS: "false" },
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   },
 });

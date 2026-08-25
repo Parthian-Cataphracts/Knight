@@ -42,16 +42,16 @@ No feature is ever re-implemented or hand-copied per customer.
 | Know what is actually in this repo today | [`docs/current-state-analysis.md`](docs/current-state-analysis.md) |
 | Understand the target architecture | [`docs/architecture.md`](docs/architecture.md) |
 | Understand how Features are built and delivered | [`docs/feature-delivery.md`](docs/feature-delivery.md) |
+| Put it on a server | [`docs/installation.md`](docs/installation.md) |
 | Start developing | [`docs/development.md`](docs/development.md) |
 | See KNIGHT, a store and the dashboard working together | [`docs/phase-3-verification.md`](docs/phase-3-verification.md) |
 
-> **Important context for anyone (human or agent) picking this up:** the pivot to
-> the control-plane architecture above
-> ([`docs/adr/0010`](docs/adr/0010-pivot-to-control-plane.md)) is in progress. The
-> control plane, the store link and the dashboard are real; `backend/` also still
-> carries the *previous* product's business modules — a shared multi-tenant
-> food-service SaaS — frozen until phase 8 ports them to Django and deletes them.
-> Read `docs/README.md` before trusting any other document.
+> **Context for anyone picking this up:** the pivot to the control-plane
+> architecture above ([`docs/adr/0010`](docs/adr/0010-pivot-to-control-plane.md))
+> has landed. The business modules of the previous product — a shared
+> multi-tenant food-service SaaS — were ported to Django and deleted from this
+> solution in phase 8, and an architecture test fails the build if one
+> reappears. Read `docs/README.md` before trusting any other document.
 
 ## Scope
 
@@ -80,16 +80,35 @@ other store business logic. That lives in each store's own Django application.
 
 ```
 knight/
-├── backend/          .NET solution (control plane; store modules frozen pending port)
+├── backend/          .NET solution — the control plane, and nothing else
 ├── frontend/         React + Vite dashboard
 ├── stores/           Django reference store + the knight_integration layer
-├── features/         Feature packages, one per capability (to be created — Phase 3.5)
-├── infrastructure/   Compose file, database/storage/reverse-proxy notes
+├── features/         Feature packages, one per capability
+├── agent/            the daemon that runs on a managed server
+├── infrastructure/   compose file, backup/restore scripts, deployment notes
 ├── docs/             architecture, contracts, ADRs, security, risks
+├── install.sh        one-command server install
+├── knightctl.sh      management tool for an installed deployment
 └── TODO.md           phase-by-phase status
 ```
 
-## Quick start
+## Install it on a server
+
+Ubuntu 22.04+ or Debian 12+, as root, with the domain's DNS A record already
+pointing at the machine:
+
+```bash
+bash <(curl -Ls https://raw.githubusercontent.com/Parthian-Cataphracts/Knight/main/install.sh)
+```
+
+Everything KNIGHT owns lives under `/opt/knight` and runs as an unprivileged
+`knight` user: its own Redis instance, its own database, free ports chosen at
+install, one nginx site, and a private .NET and Node wherever the host's are too
+old to build with. A server already running something else keeps running it.
+`knightctl` manages the result. [`docs/installation.md`](docs/installation.md)
+says exactly what is created and what is not.
+
+## Quick start (development)
 
 Needs .NET 10, Node 20+, Python 3.12+ and a PostgreSQL. Docker is not required
 for anything, including the integration suite;

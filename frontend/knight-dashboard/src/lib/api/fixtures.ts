@@ -6,6 +6,10 @@ import type {
   ErrorGroup,
   Feature,
   FeatureVersion,
+<<<<<<< HEAD
+=======
+  FleetOverview,
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   Incident,
   Installation,
   Invoice,
@@ -26,6 +30,7 @@ const daysAgo = (d: number): string => new Date(now - d * 86_400_000).toISOStrin
 const daysAhead = (d: number): string => new Date(now + d * 86_400_000).toISOString();
 
 export const customers: Customer[] = [
+<<<<<<< HEAD
   { id: "c1", name: "کافه وان", contactEmail: "owner@cafe1.ir", status: "Active", planKey: "professional", storeCount: 2, dataRetentionOverrideDays: null, createdAt: daysAgo(420) },
   { id: "c2", name: "کافه تو", contactEmail: "info@cafe2.ir", status: "Active", planKey: "custom", storeCount: 1, dataRetentionOverrideDays: null, createdAt: daysAgo(300) },
   { id: "c3", name: "شیرینی سرای پارس", contactEmail: "hello@parsbakery.ir", status: "Active", planKey: "basic", storeCount: 1, dataRetentionOverrideDays: null, createdAt: daysAgo(180) },
@@ -40,6 +45,22 @@ export const stores: Store[] = [
   { id: "s4", customerId: "c3", customerName: "شیرینی سرای پارس", name: "فروشگاه اصلی", primaryDomain: "parsbakery.ir", environment: "Production", applicationVersion: "4.2.0", integrationStatus: "Connected", hostingModel: "SharedManaged", status: "Active", installedFeatureCount: 2, requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: minutesAgo(1) },
   { id: "s5", customerId: "c4", customerName: "رستوران البرز", name: "فروشگاه اصلی", primaryDomain: "alborz.ir", environment: "Production", applicationVersion: "3.9.2", integrationStatus: "Disconnected", hostingModel: "SharedManaged", status: "Suspended", installedFeatureCount: 2, requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: daysAgo(6) },
   { id: "s6", customerId: "c5", customerName: "قنادی نوین", name: "فروشگاه جدید", primaryDomain: "novin.ir", environment: "Production", applicationVersion: null, integrationStatus: "Pending", hostingModel: "SharedManaged", status: "Provisioning", installedFeatureCount: 0, requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: null },
+=======
+  { id: "c1", name: "کافه وان", legalName: "شرکت کافه وان", phone: "+982188001122", notes: "قرارداد سالانه، تمدید خودکار.", contactEmail: "owner@cafe1.ir", status: "Active", planKey: "professional", storeCount: 2, dataRetentionOverrideDays: null, createdAt: daysAgo(420) },
+  { id: "c2", name: "کافه تو", legalName: null, phone: "+982177445566", notes: null, contactEmail: "info@cafe2.ir", status: "Active", planKey: "custom", storeCount: 1, dataRetentionOverrideDays: null, createdAt: daysAgo(300) },
+  { id: "c3", name: "شیرینی سرای پارس", legalName: "شیرینی سرای پارس", phone: null, notes: null, contactEmail: "hello@parsbakery.ir", status: "Active", planKey: "basic", storeCount: 1, dataRetentionOverrideDays: null, createdAt: daysAgo(180) },
+  { id: "c4", name: "رستوران البرز", legalName: null, phone: null, notes: "تعلیق به دلیل صورتحساب معوق.", contactEmail: "admin@alborz.ir", status: "Suspended", planKey: "basic", storeCount: 1, dataRetentionOverrideDays: null, createdAt: daysAgo(150) },
+  { id: "c5", name: "قنادی نوین", legalName: null, phone: null, notes: null, contactEmail: "sales@novin.ir", status: "Prospect", planKey: "basic", storeCount: 0, dataRetentionOverrideDays: null, createdAt: daysAgo(12) },
+];
+
+export const stores: Store[] = [
+  { id: "s1", customerId: "c1", customerName: "کافه وان", name: "فروشگاه اصلی", primaryDomain: "cafe1.ir", environment: "Production", applicationVersion: "4.2.0", integrationStatus: "Connected", hostingModel: "DedicatedManaged", status: "Active", installedFeatureCount: 5, serverId: "srv2", requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: minutesAgo(2) },
+  { id: "s2", customerId: "c1", customerName: "کافه وان", name: "محیط آزمایشی", primaryDomain: "staging.cafe1.ir", environment: "Staging", applicationVersion: "4.3.0-rc1", integrationStatus: "Connected", hostingModel: "SharedManaged", status: "Active", installedFeatureCount: 6, serverId: "srv3", requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: minutesAgo(5) },
+  { id: "s3", customerId: "c2", customerName: "کافه تو", name: "فروشگاه اصلی", primaryDomain: "cafe2.ir", environment: "Production", applicationVersion: "4.1.3", integrationStatus: "Degraded", hostingModel: "SharedManaged", status: "Active", installedFeatureCount: 3, serverId: "srv1", requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: minutesAgo(18) },
+  { id: "s4", customerId: "c3", customerName: "شیرینی سرای پارس", name: "فروشگاه اصلی", primaryDomain: "parsbakery.ir", environment: "Production", applicationVersion: "4.2.0", integrationStatus: "Connected", hostingModel: "SharedManaged", status: "Active", installedFeatureCount: 2, serverId: "srv1", requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: minutesAgo(1) },
+  { id: "s5", customerId: "c4", customerName: "رستوران البرز", name: "فروشگاه اصلی", primaryDomain: "alborz.ir", environment: "Production", applicationVersion: "3.9.2", integrationStatus: "Disconnected", hostingModel: "SharedManaged", status: "Suspended", installedFeatureCount: 2, serverId: "srv4", requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: daysAgo(6) },
+  { id: "s6", customerId: "c5", customerName: "قنادی نوین", name: "فروشگاه جدید", primaryDomain: "novin.ir", environment: "Production", applicationVersion: null, integrationStatus: "Pending", hostingModel: "SharedManaged", status: "Provisioning", installedFeatureCount: 0, serverId: null, requiresMutualTls: false, mutualTlsThumbprint: null, lastSeenAt: null },
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 ];
 
 export const features: Feature[] = [
@@ -218,12 +239,43 @@ export const invoices: Invoice[] = [
 ];
 
 export const servers: Server[] = [
+<<<<<<< HEAD
   { id: "srv1", name: "prod-shared-01", hostingModel: "SharedManaged", environment: "Production", ipAddress: "10.12.5.101", status: "Healthy", cpuPercent: 42, memoryPercent: 61, diskPercent: 38, uptimePercent: 99.99, agentVersion: "1.2.0", storeCount: 3 },
   { id: "srv2", name: "prod-cafe1-dedicated", hostingModel: "DedicatedManaged", environment: "Production", ipAddress: "10.12.6.20", status: "Degraded", cpuPercent: 85, memoryPercent: 78, diskPercent: 62, uptimePercent: 98.5, agentVersion: "1.2.0", storeCount: 1 },
   { id: "srv3", name: "staging-shared-01", hostingModel: "SharedManaged", environment: "Staging", ipAddress: "10.13.1.5", status: "Healthy", cpuPercent: 18, memoryPercent: 34, diskPercent: 22, uptimePercent: 99.9, agentVersion: "1.2.0", storeCount: 2 },
   { id: "srv4", name: "legacy-alborz", hostingModel: "CustomerManaged", environment: "Production", ipAddress: "185.4.20.77", status: "Offline", cpuPercent: 0, memoryPercent: 0, diskPercent: 0, uptimePercent: 91.2, agentVersion: "1.0.4", storeCount: 1 },
 ];
 
+=======
+  { id: "srv1", name: "prod-shared-01", hostingModel: "SharedManaged", environment: "Production", status: "Healthy", statusReason: null, provider: "hetzner", region: "fsn1", ipAddress: "10.12.5.101", dedicatedCustomerId: null, lastSeenAt: minutesAgo(1), decommissionedAt: null },
+  { id: "srv2", name: "prod-cafe1-dedicated", hostingModel: "DedicatedManaged", environment: "Production", status: "Degraded", statusReason: "Disk above 80% for 20 minutes.", provider: "hetzner", region: "fsn1", ipAddress: "10.12.6.20", dedicatedCustomerId: "c1", lastSeenAt: minutesAgo(2), decommissionedAt: null },
+  { id: "srv3", name: "staging-shared-01", hostingModel: "SharedManaged", environment: "Staging", status: "Healthy", statusReason: null, provider: "hetzner", region: "nbg1", ipAddress: "10.13.1.5", dedicatedCustomerId: null, lastSeenAt: minutesAgo(1), decommissionedAt: null },
+  { id: "srv4", name: "legacy-alborz", hostingModel: "CustomerManaged", environment: "Production", status: "Offline", statusReason: "No heartbeat for 6 days.", provider: null, region: null, ipAddress: "185.4.20.77", dedicatedCustomerId: "c4", lastSeenAt: daysAgo(6), decommissionedAt: null },
+];
+
+/** What GET /monitoring/fleet answers: every machine's status and latest load. */
+export const fleet: FleetOverview = {
+  totalServers: 4,
+  healthyServers: 2,
+  degradedServers: 1,
+  offlineServers: 1,
+  unknownServers: 0,
+  totalAgents: 4,
+  onlineAgents: 3,
+  offlineAgents: 1,
+  openAlerts: 2,
+  criticalAlerts: 1,
+  servers: [
+    { id: "srv1", name: "prod-shared-01", environment: "Production", hostingModel: "SharedManaged", status: "Healthy", statusReason: null, lastSeenAt: minutesAgo(1), cpuPercent: 42, memoryPercent: 61, diskPercent: 38 },
+    { id: "srv2", name: "prod-cafe1-dedicated", environment: "Production", hostingModel: "DedicatedManaged", status: "Degraded", statusReason: "Disk above 80% for 20 minutes.", lastSeenAt: minutesAgo(2), cpuPercent: 85, memoryPercent: 78, diskPercent: 82 },
+    { id: "srv3", name: "staging-shared-01", environment: "Staging", hostingModel: "SharedManaged", status: "Healthy", statusReason: null, lastSeenAt: minutesAgo(1), cpuPercent: 18, memoryPercent: 34, diskPercent: 22 },
+    // Never reported, so it has no load at all - which the screen must show as
+    // nothing rather than as zero.
+    { id: "srv4", name: "legacy-alborz", environment: "Production", hostingModel: "CustomerManaged", status: "Offline", statusReason: "No heartbeat for 6 days.", lastSeenAt: daysAgo(6), cpuPercent: null, memoryPercent: null, diskPercent: null },
+  ],
+};
+
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 export const errorGroups: ErrorGroup[] = [
   { id: "eg1", storeName: "cafe1.ir", environment: "Production", exceptionType: "IntegrityError", title: "duplicate key value violates unique constraint", endpoint: "/api/orders/", occurrenceCount: 37, status: "New", firstSeenAt: minutesAgo(140), lastSeenAt: minutesAgo(4), firstSeenVersion: "4.2.0" , lastSeenVersion: "4.3.0", isRegression: true, incidentId: null },
   { id: "eg2", storeName: "cafe2.ir", environment: "Production", exceptionType: "OperationalError", title: "could not connect to server: Connection refused", endpoint: null, occurrenceCount: 12, status: "Acknowledged", firstSeenAt: daysAgo(1), lastSeenAt: minutesAgo(55), firstSeenVersion: "4.1.3" , lastSeenVersion: "4.1.3", isRegression: false, incidentId: "in1" },
@@ -256,6 +308,7 @@ export const auditEntries: AuditEntry[] = [
 ];
 
 export const admins: AdminUser[] = [
+<<<<<<< HEAD
   { id: "u1", displayName: "علی محمدی", email: "ali@knight.local", scope: "Platform", customerName: null, roles: ["SuperAdmin"], mfaEnabled: true, status: "Active", lastLoginAt: minutesAgo(5) },
   { id: "u2", displayName: "سارا رضایی", email: "sara@knight.local", scope: "Platform", customerName: null, roles: ["Admin"], mfaEnabled: true, status: "Active", lastLoginAt: minutesAgo(45) },
   { id: "u3", displayName: "رضا کریمی", email: "reza@knight.local", scope: "Platform", customerName: null, roles: ["Developer"], mfaEnabled: false, status: "Active", lastLoginAt: daysAgo(1) },
@@ -270,6 +323,22 @@ export const roles: Role[] = [
   { id: "r4", name: "Support", scope: "Platform", isSystem: true, permissionCount: 9, userCount: 0 },
   { id: "r5", name: "CustomerOwner", scope: "Customer", isSystem: true, permissionCount: 11, userCount: 1 },
   { id: "r6", name: "CustomerStaff", scope: "Customer", isSystem: true, permissionCount: 6, userCount: 1 },
+=======
+  { id: "u1", displayName: "علی محمدی", email: "ali@knight.local", scope: "Platform", customerName: null, roles: ["SuperAdmin"], roleIds: ["r1"], mfaEnabled: true, status: "Active", lastLoginAt: minutesAgo(5) },
+  { id: "u2", displayName: "سارا رضایی", email: "sara@knight.local", scope: "Platform", customerName: null, roles: ["Admin"], roleIds: ["r2"], mfaEnabled: true, status: "Active", lastLoginAt: minutesAgo(45) },
+  { id: "u3", displayName: "رضا کریمی", email: "reza@knight.local", scope: "Platform", customerName: null, roles: ["Developer"], roleIds: ["r3"], mfaEnabled: false, status: "Active", lastLoginAt: daysAgo(1) },
+  { id: "u4", displayName: "مالک کافه وان", email: "owner@cafe1.ir", scope: "Customer", customerName: "کافه وان", roles: ["CustomerOwner"], roleIds: ["r5"], mfaEnabled: false, status: "Active", lastLoginAt: daysAgo(2) },
+  { id: "u5", displayName: "پشتیبان کافه تو", email: "staff@cafe2.ir", scope: "Customer", customerName: "کافه تو", roles: ["CustomerStaff"], roleIds: ["r6"], mfaEnabled: false, status: "Suspended", lastLoginAt: daysAgo(20) },
+];
+
+export const roles: Role[] = [
+  { id: "r1", name: "SuperAdmin", description: "Everything, including role and plan definition.", permissions: ["customer.view", "customer.create", "customer.update", "customer.archive", "store.view", "store.create", "store.manage", "store.credentials.manage", "store.provision", "store.deprovision", "plan.view", "plan.manage", "feature.view", "feature.manage", "feature.publish", "feature.yank", "installation.view", "installation.manage", "installation.uninstall", "installation.rollback", "job.view", "job.manage", "subscription.view", "subscription.manage", "billing.view", "billing.manage", "server.view", "server.manage", "agent.manage", "monitoring.view", "logs.view", "logs.export", "errors.view", "errors.manage", "incident.view", "incident.manage", "notification.manage", "audit.view", "report.view", "user.view", "user.manage", "role.view", "role.manage"], scope: "Platform", isSystem: true, permissionCount: 34, userCount: 1 },
+  { id: "r2", name: "Admin", description: "Day-to-day operation of customers, stores and infrastructure.", permissions: ["customer.view", "customer.create", "customer.update", "store.view", "store.create", "store.manage", "store.credentials.manage", "plan.view", "feature.view", "installation.view", "installation.manage", "job.view", "subscription.view", "subscription.manage", "billing.view", "server.view", "server.manage", "monitoring.view", "logs.view", "errors.view", "errors.manage", "incident.view", "incident.manage", "audit.view", "report.view", "user.view", "user.manage", "role.view"], scope: "Platform", isSystem: true, permissionCount: 28, userCount: 1 },
+  { id: "r3", name: "Developer", description: "Builds and publishes Features, and follows their delivery.", permissions: ["customer.view", "store.view", "feature.view", "feature.manage", "feature.publish", "installation.view", "installation.manage", "job.view", "job.manage", "server.view", "monitoring.view", "logs.view", "errors.view", "incident.view"], scope: "Platform", isSystem: true, permissionCount: 14, userCount: 1 },
+  { id: "r4", name: "Support", description: "Read-only, for answering questions without changing anything.", permissions: ["customer.view", "store.view", "installation.view", "job.view", "monitoring.view", "logs.view", "errors.view", "incident.view", "report.view"], scope: "Platform", isSystem: true, permissionCount: 9, userCount: 0 },
+  { id: "r5", name: "CustomerOwner", description: "The customer's own owner: their stores, their subscription, their bill.", permissions: ["customer.view", "store.view", "installation.view", "installation.manage", "job.view", "subscription.view", "subscription.manage", "billing.view", "monitoring.view", "errors.view", "user.view"], scope: "Customer", isSystem: true, permissionCount: 11, userCount: 1 },
+  { id: "r6", name: "CustomerStaff", description: "The customer's staff: sees their stores and nothing else.", permissions: ["store.view", "installation.view", "job.view", "monitoring.view", "errors.view", "report.view"], scope: "Customer", isSystem: true, permissionCount: 6, userCount: 1 },
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 ];
 
 export const platformServices = [

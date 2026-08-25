@@ -5,11 +5,31 @@ interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   icon?: ReactNode;
   error?: string | undefined;
+<<<<<<< HEAD
 }
 
 export function TextField({ label, icon, error, className, ...rest }: TextFieldProps) {
   const id = useId();
   const errorId = `${id}-error`;
+=======
+
+  /**
+   * Shown under the field, and announced with it. For a value whose rules a
+   * reader cannot guess from its label - the server refusing it afterwards is
+   * a poor way to learn what it wanted.
+   */
+  hint?: string | undefined;
+}
+
+export function TextField({ label, icon, error, hint, className, ...rest }: TextFieldProps) {
+  const id = useId();
+  const errorId = `${id}-error`;
+  const hintId = `${id}-hint`;
+
+  // Both when both are present: the hint still explains the rule the error is
+  // about, so dropping it the moment something goes wrong is backwards.
+  const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(" ");
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -26,7 +46,11 @@ export function TextField({ label, icon, error, className, ...rest }: TextFieldP
           {...rest}
           id={id}
           aria-invalid={error ? true : undefined}
+<<<<<<< HEAD
           aria-describedby={error ? errorId : undefined}
+=======
+          aria-describedby={describedBy === "" ? undefined : describedBy}
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
           className={cn(
             "h-11 w-full rounded-md border bg-surface-low px-3 text-body text-on-surface",
             "placeholder:text-on-surface-variant/60",
@@ -37,6 +61,15 @@ export function TextField({ label, icon, error, className, ...rest }: TextFieldP
           )}
         />
       </div>
+<<<<<<< HEAD
+=======
+      {hint ? (
+        <p id={hintId} className="text-body-sm text-on-surface-variant">
+          {hint}
+        </p>
+      ) : null}
+
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
       {error ? (
         <p id={errorId} role="alert" className="text-body-sm text-error">
           {error}

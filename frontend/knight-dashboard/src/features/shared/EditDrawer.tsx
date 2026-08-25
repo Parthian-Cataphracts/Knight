@@ -17,6 +17,19 @@ export interface EditField {
   choices?: { value: string; label: string }[];
   /** Shown under the field. Use it where saving a value has a consequence worth stating before the operator saves. */
   note?: string;
+<<<<<<< HEAD
+=======
+
+  /**
+   * Send null rather than an empty string when the field is left blank.
+   *
+   * Needed for anything the API types as a nullable id: an empty string is not a
+   * guid, and the request is refused before it reaches a handler. Text fields
+   * mostly do not want this - the aggregates already fold blank to null - so it
+   * is opt-in rather than the default.
+   */
+  nullWhenEmpty?: boolean;
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 }
 
 /**
@@ -78,8 +91,21 @@ export function EditDrawer({
     setSaving(true);
     setError(null);
 
+<<<<<<< HEAD
     try {
       await apiRequest(path, { method, body: values });
+=======
+    // A field flagged nullWhenEmpty sends null, not "". See EditField.
+    const body: Record<string, string | null> = { ...values };
+    for (const field of fields) {
+      if (field.nullWhenEmpty && (body[field.key] ?? "") === "") {
+        body[field.key] = null;
+      }
+    }
+
+    try {
+      await apiRequest(path, { method, body });
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 
       onSaved();
     } catch (caught) {

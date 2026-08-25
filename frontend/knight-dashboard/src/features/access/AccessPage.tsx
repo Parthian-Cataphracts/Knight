@@ -12,6 +12,10 @@ import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import { Drawer } from "@/components/data/Drawer";
 import { KeyValue } from "@/components/data/PageShell";
+<<<<<<< HEAD
+=======
+import { EditDrawer } from "@/features/shared/EditDrawer";
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 import { useAuthStore } from "@/store/auth";
 import { formatRelative } from "@/lib/utils/format";
 
@@ -26,6 +30,13 @@ export function AccessPage() {
 
   const [inviting, setInviting] = useState(false);
   const [selected, setSelected] = useState<AdminUser | null>(null);
+<<<<<<< HEAD
+=======
+  const [renaming, setRenaming] = useState<AdminUser | null>(null);
+  const [assigningRoles, setAssigningRoles] = useState<AdminUser | null>(null);
+  const [creatingRole, setCreatingRole] = useState(false);
+  const [editingRole, setEditingRole] = useState<Role | null>(null);
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 
   // A one-time password exists in readable form for exactly one response. It is
   // held here to be shown and never fetched again — there is no endpoint that
@@ -137,6 +148,7 @@ export function AccessPage() {
         title={t("nav.access")}
         subtitle={t("access.subtitle")}
         actions={
+<<<<<<< HEAD
           can("user.manage") ? (
             <Button size="sm" onClick={() => setInviting(true)}>
               <UserPlus className="size-4" aria-hidden />
@@ -146,6 +158,71 @@ export function AccessPage() {
         }
       />
 
+=======
+          <>
+            {tab === "users" && can("user.manage") ? (
+              <Button size="sm" onClick={() => setInviting(true)}>
+                <UserPlus className="size-4" aria-hidden />
+                {t("access.invite")}
+              </Button>
+            ) : null}
+
+            {tab === "roles" && can("role.manage") ? (
+              <Button size="sm" onClick={() => setCreatingRole(true)}>
+                {t("access.newRole")}
+              </Button>
+            ) : null}
+          </>
+        }
+      />
+
+      <EditDrawer
+        open={renaming !== null}
+        title={t("access.rename")}
+        subtitle={renaming?.email}
+        path={`/users/${renaming?.id ?? ""}`}
+        fields={[
+          {
+            key: "displayName",
+            label: t("access.displayName"),
+            value: renaming?.displayName ?? "",
+            note: t("access.renameNote"),
+          },
+        ]}
+        onClose={() => setRenaming(null)}
+        onSaved={() => {
+          setRenaming(null);
+          setSelected(null);
+          void users.refetch();
+        }}
+      />
+
+      <AssignRolesForm
+        user={assigningRoles}
+        roles={roles.data ?? []}
+        onClose={() => setAssigningRoles(null)}
+        onSaved={() => {
+          setAssigningRoles(null);
+          setSelected(null);
+          void users.refetch();
+        }}
+      />
+
+      <RoleEditor
+        open={creatingRole || editingRole !== null}
+        role={editingRole}
+        onClose={() => {
+          setCreatingRole(false);
+          setEditingRole(null);
+        }}
+        onSaved={() => {
+          setCreatingRole(false);
+          setEditingRole(null);
+          void roles.refetch();
+        }}
+      />
+
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
       <CreateAccountForm
         open={inviting}
         roles={roles.data ?? []}
@@ -189,6 +266,10 @@ export function AccessPage() {
               columns={roleColumns}
               rows={rows}
               rowKey={(row) => row.id}
+<<<<<<< HEAD
+=======
+              onRowClick={(row) => setEditingRole(row)}
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
               cardTitle={(row) => <Mono>{row.name}</Mono>}
               emptyMessage={t("common.noResults")}
             />
@@ -224,6 +305,17 @@ export function AccessPage() {
                 </Button>
               )}
 
+<<<<<<< HEAD
+=======
+              <Button variant="outline" size="sm" onClick={() => setRenaming(selected)}>
+                {t("common.edit")}
+              </Button>
+
+              <Button variant="outline" size="sm" onClick={() => setAssigningRoles(selected)}>
+                {t("access.assignRoles")}
+              </Button>
+
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
               {selected.mfaEnabled ? (
                 <Button
                   variant="outline"
@@ -398,3 +490,284 @@ function CreateAccountForm({
     </Drawer>
   );
 }
+<<<<<<< HEAD
+=======
+
+/**
+ * Which roles an account holds.
+ *
+ * The API replaces the set rather than adding to it, so this shows every role
+ * with the current ones ticked - a form that only offered "add" would leave no
+ * way to take one away, and taking one away is the half that matters after
+ * somebody changes jobs.
+ *
+ * Roles are set by id, not by name. The account response carries both for that
+ * reason: a client matching on the name would pick the wrong one the first time
+ * a platform role and a customer role shared it.
+ */
+function AssignRolesForm({
+  user,
+  roles,
+  onClose,
+  onSaved,
+}: {
+  user: AdminUser | null;
+  roles: Role[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { t } = useTranslation();
+  const [roleIds, setRoleIds] = useState<string[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Null until the drawer is opened on somebody, so it starts from their roles
+  // rather than from the last account that was looked at.
+  const chosen = roleIds ?? user?.roleIds ?? [];
+
+  // An account belongs to a customer or to the platform, never both, and a role
+  // of the other scope cannot be held.
+  const offered = roles.filter((role) => role.scope === user?.scope);
+
+  const submit = async () => {
+    setSaving(true);
+    setError(null);
+
+    try {
+      await apiRequest(`/users/${user?.id ?? ""}/roles`, {
+        method: "PUT",
+        body: { roleIds: chosen },
+      });
+
+      setRoleIds(null);
+      onSaved();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Drawer
+      open={user !== null}
+      title={t("access.assignRoles")}
+      subtitle={user?.displayName}
+      onClose={() => {
+        setRoleIds(null);
+        onClose();
+      }}
+      footer={
+        <Button size="sm" disabled={saving} onClick={() => void submit()}>
+          {t("common.save")}
+        </Button>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {error ? (
+          <p role="alert" className="rounded-md bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+            {error}
+          </p>
+        ) : null}
+
+        <p className="text-body-sm text-on-surface-variant">{t("access.assignRolesNote")}</p>
+
+        <div className="flex flex-col gap-2">
+          {offered.map((role) => (
+            <label key={role.id} className="flex items-start gap-2.5 text-body-sm text-on-surface">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={chosen.includes(role.id)}
+                onChange={(event) =>
+                  setRoleIds(
+                    event.target.checked
+                      ? [...chosen, role.id]
+                      : chosen.filter((id) => id !== role.id),
+                  )
+                }
+              />
+              <span className="flex flex-col">
+                <Mono>{role.name}</Mono>
+                {role.description ? (
+                  <span className="text-on-surface-variant">{role.description}</span>
+                ) : null}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+    </Drawer>
+  );
+}
+
+/**
+ * Creating a role, and changing what an existing one grants.
+ *
+ * The permission list comes from the API rather than from a constant here, for
+ * the reason that endpoint exists: a role editor offering keys the server has
+ * never heard of would accept a typo and grant nothing, and nobody would find
+ * out until somebody could not do their job.
+ *
+ * A system role's permissions are fixed. It is shown, so an operator can read
+ * what SuperAdmin actually grants, and it cannot be saved.
+ */
+function RoleEditor({
+  open,
+  role,
+  onClose,
+  onSaved,
+}: {
+  open: boolean;
+  role: Role | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { t } = useTranslation();
+  const catalogue = useCollection<string>("/roles/permissions", open);
+
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [scope, setScope] = useState<"Platform" | "Customer">("Platform");
+  const [permissions, setPermissions] = useState<string[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const editing = role !== null;
+  const chosen = permissions ?? role?.permissions ?? [];
+  const locked = role?.isSystem === true;
+
+  const reset = () => {
+    setName("");
+    setDescription("");
+    setPermissions(null);
+    setError(null);
+  };
+
+  const submit = async () => {
+    setSaving(true);
+    setError(null);
+
+    try {
+      if (editing) {
+        await apiRequest(`/roles/${role.id}/permissions`, {
+          method: "PUT",
+          body: { permissions: chosen },
+        });
+      } else {
+        await apiRequest("/roles", {
+          method: "POST",
+          body: {
+            name: name.trim(),
+            description: description.trim(),
+            scope,
+            permissions: chosen,
+          },
+        });
+      }
+
+      reset();
+      onSaved();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Drawer
+      open={open}
+      title={editing ? t("access.editRole") : t("access.newRole")}
+      subtitle={role?.name}
+      onClose={() => {
+        reset();
+        onClose();
+      }}
+      footer={
+        locked ? undefined : (
+          <Button
+            size="sm"
+            disabled={saving || (!editing && name.trim() === "")}
+            onClick={() => void submit()}
+          >
+            {t("common.save")}
+          </Button>
+        )
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {error ? (
+          <p role="alert" className="rounded-md bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+            {error}
+          </p>
+        ) : null}
+
+        {locked ? (
+          <p className="rounded-md bg-surface-low px-3 py-2 text-body-sm text-on-surface-variant">
+            {t("access.systemRoleNote")}
+          </p>
+        ) : null}
+
+        {editing ? null : (
+          <>
+            <TextField
+              label={t("common.name")}
+              dir="ltr"
+              placeholder="BillingClerk"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+
+            <TextField
+              label={t("access.roleDescription")}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+            />
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="role-scope" className="text-body-sm font-medium text-on-surface-variant">
+                {t("access.scope")}
+              </label>
+              <select
+                id="role-scope"
+                value={scope}
+                onChange={(event) => setScope(event.target.value as "Platform" | "Customer")}
+                className="h-11 w-full rounded-md border border-outline-variant bg-surface-low px-3 text-body text-on-surface focus:border-primary focus:outline-none"
+              >
+                <option value="Platform">{t("access.platform")}</option>
+                <option value="Customer">{t("access.customer")}</option>
+              </select>
+              <p className="text-body-sm text-on-surface-variant">{t("access.scopeNote")}</p>
+            </div>
+          </>
+        )}
+
+        <div className="flex flex-col gap-2">
+          <p className="text-body-sm font-medium text-on-surface-variant">
+            {t("access.permissions")} ({chosen.length})
+          </p>
+
+          {(catalogue.data ?? []).map((permission) => (
+            <label key={permission} className="flex items-center gap-2.5 text-body-sm">
+              <input
+                type="checkbox"
+                disabled={locked}
+                checked={chosen.includes(permission)}
+                onChange={(event) =>
+                  setPermissions(
+                    event.target.checked
+                      ? [...chosen, permission]
+                      : chosen.filter((key) => key !== permission),
+                  )
+                }
+              />
+              <Mono>{permission}</Mono>
+            </label>
+          ))}
+        </div>
+      </div>
+    </Drawer>
+  );
+}
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5

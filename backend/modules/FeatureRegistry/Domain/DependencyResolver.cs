@@ -176,7 +176,11 @@ public sealed class DependencyResolver
                 installed,
                 action,
                 rootSlugs.Contains(slug),
-                DescribeRequirement(constraints[slug], rootSlugs.Contains(slug))));
+                DescribeRequirement(constraints[slug], rootSlugs.Contains(slug)),
+                version.Manifest.Migrations.Required,
+                version.Manifest.Migrations.Reversible,
+                version.Manifest.Migrations.EstimatedDurationSeconds,
+                version.Manifest.Install.RequiresRestart));
         }
 
         return failures.Count > 0

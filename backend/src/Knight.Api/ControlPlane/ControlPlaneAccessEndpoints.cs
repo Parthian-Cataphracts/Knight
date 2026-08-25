@@ -298,6 +298,7 @@ public static class ControlPlaneAccessEndpoints
             Id = user.Id,
             Scope = user.IsPlatformStaff ? "Platform" : "Customer",
             Roles = roles.GetValueOrDefault(user.Id) ?? [],
+            RoleIds = [.. user.Roles.Select(assignment => assignment.RoleId)],
             CustomerName = user.CustomerId is { } customerId ? customerNames.GetValueOrDefault(customerId) : null,
             Email = user.Email,
             DisplayName = user.DisplayName,

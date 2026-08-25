@@ -71,14 +71,29 @@ Reverse proxy (TLS termination, HSTS, rate limiting)
    └── cafe1.ir, cafe2.ir, ...     -> independent store deployments
 ```
 
+<<<<<<< HEAD
 The dashboard is a static bundle (any static host or the reverse proxy). The
 API is a container. Stores are deployed independently, on shared or dedicated
 servers, and are never redeployed by KNIGHT in the initial phases.
+=======
+The dashboard is a static bundle (any static host or the reverse proxy). Stores
+are deployed independently, on shared or dedicated servers, and are never
+redeployed by KNIGHT in the initial phases.
+
+Two hostnames is the topology to reach for when the API needs an address that
+does not move when the dashboard does. It is not the only valid one: a single
+hostname routing by path — `/` to the bundle, `/api/v1`, `/hubs`, `/artifacts`
+and `/health` to the API — costs one DNS record and one certificate instead of
+two, and removes cross-origin from the picture entirely, which is worth
+something given that a CORS mistake is invisible to every test that is not a
+browser. That is what [`installation.md`](installation.md) deploys.
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 
 ## 5. Configuration
 
 Standard .NET configuration precedence: `appsettings.json` →
 `appsettings.{Environment}.json` → environment variables → secret store.
+<<<<<<< HEAD
 `appsettings.Development.json` contains placeholders only.
 
 Required settings:
@@ -100,6 +115,71 @@ Knight__Otel__Endpoint (optional)
 
 Dashboard build-time config: `VITE_API_BASE_URL`, `VITE_SIGNALR_URL`,
 `VITE_DEFAULT_LOCALE`.
+=======
+`appsettings.Development.json` contains placeholders only. Environment variables
+use `__` where the setting path uses `:`.
+
+**Required. The host refuses to start in Production without them:**
+
+```
+ASPNETCORE_ENVIRONMENT               Development | Staging | Production
+ConnectionStrings__ControlPlane      the control-plane database
+ConnectionStrings__Redis             required outside Development (adr/0020)
+Jwt__SigningKey                      >= 32 characters; a placeholder is refused
+Stores__IntegrationSigningKey        >= 32 characters, and NOT the Jwt key
+```
+
+**Required for anything to reach it, or for a Feature to be installable:**
+
+```
+ASPNETCORE_URLS                      where Kestrel listens, behind the proxy
+ForwardedHeaders__KnownProxies__N    every proxy in front, beyond the loopback
+Cors__AllowedOrigins__N              only when the dashboard is a separate origin
+FeatureArtifacts__ArtifactRoot       the package store
+FeatureArtifacts__PublicBaseUrl      what a download URL is minted against
+FeatureArtifacts__ActiveKeyId        the key new versions are signed with
+FeatureArtifacts__Keys__<id>__PublicKey   what a signature is checked against
+```
+
+**Everything else has a working default** and is listed with its meaning in
+`appsettings.json`: `Jwt__Issuer`/`Audience`/lifetimes, `ControlPlaneAccess__*`,
+`Stores__*` (rotation, token lifetime, domain verification, probe),
+`Ingestion__*` (batch caps, per-store limit), `RateLimiting__*`,
+`FeatureDelivery__*` (job claim timeout, attempts), `Subscriptions__*`,
+`Billing__*`, `Provisioning__*`, `Servers__*`, `Observability__*`,
+`Retention__*`, `Storage__LocalRootPath`, `Catalogue__SeedPath`, and
+`Telemetry__{Enabled,OtlpEndpoint,ServiceName,SampleRatio,TraceDatabase}`.
+
+Outbound mail is off unless `Email__Host` and `Email__FromAddress` are set; a
+deployment without them falls back to a one-time password and says so.
+`Email__DashboardBaseUrl` has to be set with them, because KNIGHT cannot infer
+from an inbound request where the recipient will be able to reach it.
+
+**Dashboard build-time config** is `VITE_USE_MOCKS`, `VITE_DEFAULT_LOCALE`, and
+optionally `VITE_API_BASE_URL` and `VITE_SIGNALR_URL`. Leave the last two unset
+where the dashboard and the API share an origin: the bundle then addresses
+`/api/v1` and `/hubs/control-plane` relatively, which is one less thing to
+rebuild when a hostname changes and one less way to end up with a bundle that
+only works over the scheme it was built for.
+
+### The reverse proxy
+
+TLS terminates at the proxy, so requests reach the host over plain HTTP from the
+proxy's address. `X-Forwarded-Proto` and `X-Forwarded-For` are read — but only
+from an address the deployment names. The loopback is trusted by default
+(a proxy on the same machine); anything else has to be listed in
+`ForwardedHeaders__KnownProxies`, or the caller's real address never reaches the
+rate limiters and the audit trail records the proxy instead.
+
+The proxy must also pass `Upgrade` and `Connection` through on the hub path, or
+SignalR silently falls back to long polling.
+
+### Installing it
+
+[`installation.md`](installation.md) is the worked version of this section: one
+command that installs a single-hostname deployment on Ubuntu or Debian, sets
+every value above, and stays out of the way of anything else on the machine.
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 
 ## 6. Secrets
 

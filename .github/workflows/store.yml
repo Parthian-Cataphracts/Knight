@@ -76,6 +76,24 @@ jobs:
           REQUIRE_FEATURE_TESTS: '1'
         run: python manage.py test
 
+  contract:
+    name: Contract conformance
+    runs-on: ubuntu-latest
+
+    # The checker a new store integration is finished against, checked against
+    # the contract it claims to describe. It needs nothing running, and it is a
+    # job of its own because a checker that has drifted would otherwise report
+    # confident, wrong verdicts about somebody else's store.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Reproduce the contract's signed strings
+        run: python stores/conformance/knight_conformance.py selftest
+
   dashboard:
     name: Dashboard
     runs-on: ubuntu-latest

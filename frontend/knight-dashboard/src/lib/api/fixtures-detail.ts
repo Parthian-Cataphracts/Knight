@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+import type { InstallPlan } from "./domain";
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 import { minutesAgo } from "./fixtures";
 
 /** Detail-level fixtures: alerts, per-customer and per-store views, series data. */
@@ -224,6 +228,7 @@ export const incidentTimeline: Record<string, IncidentEvent[]> = {
 
 // --- Install preview ---------------------------------------------------------
 
+<<<<<<< HEAD
 export interface InstallPlan {
   compatible: boolean;
   verdict: string;
@@ -255,6 +260,52 @@ export const installPlans: Record<string, InstallPlan> = {
     migrations: { required: true, reversible: false, estimatedSeconds: 90 },
     requiresRestart: true,
     blockingReason: "این قابلیت زیرساخت اختصاصی می‌خواهد؛ میزبانی این فروشگاه اشتراکی است.",
+=======
+
+export const installPlans: Record<string, InstallPlan> = {
+  ok: {
+    isSuccessful: true,
+    steps: [
+      {
+        featureId: "f9", versionId: "v9", slug: "knight-feature-analytics-core", name: "Analytics core",
+        version: "1.2.3", installedVersion: "1.2.3", action: "AlreadySatisfied", isRoot: false,
+        requiredBy: "knight-feature-analytics >=1.2.0",
+        migrationsRequired: false, migrationsReversible: true, migrationSeconds: 0, requiresRestart: false,
+      },
+      {
+        featureId: "f2", versionId: "v2", slug: "knight-feature-analytics", name: "Advanced analytics",
+        version: "1.4.0", installedVersion: null, action: "Install", isRoot: true,
+        requiredBy: "requested",
+        migrationsRequired: true, migrationsReversible: true, migrationSeconds: 30, requiresRestart: true,
+      },
+    ],
+    failures: [],
+  },
+  // The case the typed confirmation exists for: a migration the author has
+  // declared cannot be undone.
+  irreversible: {
+    isSuccessful: true,
+    steps: [
+      {
+        featureId: "f3", versionId: "v3", slug: "knight-feature-sms", name: "SMS notifications",
+        version: "2.0.0", installedVersion: "1.8.1", action: "Upgrade", isRoot: true,
+        requiredBy: "requested",
+        migrationsRequired: true, migrationsReversible: false, migrationSeconds: 240, requiresRestart: true,
+      },
+    ],
+    failures: [],
+  },
+  blocked: {
+    isSuccessful: false,
+    steps: [],
+    failures: [
+      {
+        code: "IncompatibleStoreVersion",
+        slug: "knight-feature-analytics",
+        message: "Needs a store on 4.3.0 or later; this one reports 4.1.3.",
+      },
+    ],
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   },
 };
 

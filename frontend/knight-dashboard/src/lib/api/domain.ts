@@ -14,6 +14,20 @@ export type HostingModel = "SharedManaged" | "DedicatedManaged" | "CustomerManag
 export interface Customer {
   id: string;
   name: string;
+<<<<<<< HEAD
+=======
+
+  /**
+   * The three the API has always returned and the dashboard used not to declare.
+   * Leaving them out did not merely hide them: the edit form PATCHes the fields
+   * it knows about, and the update overwrites the profile wholesale, so every
+   * rename silently blanked the legal name and the phone number.
+   */
+  legalName: string | null;
+  phone: string | null;
+  notes: string | null;
+
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   contactEmail: string;
   status: CustomerStatus;
   /** Absent until the customer has a subscription. */
@@ -47,6 +61,12 @@ export interface Store {
   installedFeatureCount: number | null;
   lastSeenAt: string | null;
 
+<<<<<<< HEAD
+=======
+  /** The machine this store runs on. Null when nobody has placed it yet. */
+  serverId: string | null;
+
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   /** True when the store must present a client certificate as well as its credential. */
   requiresMutualTls: boolean;
 
@@ -331,11 +351,24 @@ export interface Invoice {
 
 // --- Infrastructure and observability ---------------------------------------
 
+<<<<<<< HEAD
+=======
+/**
+ * A server as GET /servers returns it.
+ *
+ * It carries no load figures, and used to be declared here as though it did -
+ * cpuPercent, memoryPercent, diskPercent, uptimePercent, agentVersion and
+ * storeCount were all fiction, and the infrastructure screen rendered undefined
+ * for every one of them against a real deployment. Load lives on the fleet
+ * overview below, which reports every server in one batched call.
+ */
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 export interface Server {
   id: string;
   name: string;
   hostingModel: HostingModel;
   environment: Environment;
+<<<<<<< HEAD
   ipAddress: string;
   status: HealthState;
   cpuPercent: number;
@@ -344,6 +377,53 @@ export interface Server {
   uptimePercent: number;
   agentVersion: string | null;
   storeCount: number;
+=======
+  status: HealthState;
+
+  /** Why it is in this status, in words. Null when it is simply healthy. */
+  statusReason: string | null;
+
+  provider: string | null;
+  region: string | null;
+  ipAddress: string | null;
+
+  /** The customer this machine is dedicated to. Null means it is shared. */
+  dedicatedCustomerId: string | null;
+
+  lastSeenAt: string | null;
+  decommissionedAt: string | null;
+}
+
+/** One server's latest load, from the fleet overview. */
+export interface FleetServer {
+  id: string;
+  name: string;
+  environment: Environment;
+  hostingModel: HostingModel;
+  status: HealthState;
+  statusReason: string | null;
+  lastSeenAt: string | null;
+
+  /** Null until the machine's agent has reported at least once. */
+  cpuPercent: number | null;
+  memoryPercent: number | null;
+  diskPercent: number | null;
+}
+
+/** GET /monitoring/fleet — every server's status and load, in one call. */
+export interface FleetOverview {
+  totalServers: number;
+  healthyServers: number;
+  degradedServers: number;
+  offlineServers: number;
+  unknownServers: number;
+  totalAgents: number;
+  onlineAgents: number;
+  offlineAgents: number;
+  openAlerts: number;
+  criticalAlerts: number;
+  servers: FleetServer[];
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 }
 
 export interface ErrorGroup {
@@ -407,7 +487,17 @@ export interface AdminUser {
   email: string;
   scope: "Platform" | "Customer";
   customerName: string | null;
+<<<<<<< HEAD
   roles: string[];
+=======
+
+  /** Role names, for display. */
+  roles: string[];
+
+  /** The same roles by id, which is what setting them takes. */
+  roleIds: string[];
+
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   mfaEnabled: boolean;
   status: "Active" | "Suspended";
   /**
@@ -422,12 +512,74 @@ export interface AdminUser {
 export interface Role {
   id: string;
   name: string;
+<<<<<<< HEAD
   scope: "Platform" | "Customer";
   isSystem: boolean;
+=======
+  description: string | null;
+  scope: "Platform" | "Customer";
+  isSystem: boolean;
+
+  /** The keys this role grants. The API has always sent them; nothing read them. */
+  permissions: string[];
+
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
   permissionCount: number;
   userCount: number;
 }
 
+<<<<<<< HEAD
+=======
+/**
+ * The dry run behind the install preview: POST /installations/plan.
+ *
+ * A plan is either steps or failures, never both - the resolver refuses to
+ * produce half a plan, because a partial install is worse than none.
+ */
+export interface InstallPlanStep {
+  featureId: string;
+  versionId: string;
+  slug: string;
+  name: string;
+  version: string;
+
+  /** The version the store is on now. Null when the Feature is not installed. */
+  installedVersion: string | null;
+
+  action: "Install" | "Upgrade" | "AlreadySatisfied" | "DowngradeRefused";
+
+  /** True for the Feature that was asked for; the rest are its dependencies. */
+  isRoot: boolean;
+
+  requiredBy: string;
+
+  migrationsRequired: boolean;
+
+  /**
+   * Declared by the Feature's author and treated as binding: it is the single
+   * input deciding whether a failed upgrade can put the database back.
+   */
+  migrationsReversible: boolean;
+
+  migrationSeconds: number;
+  requiresRestart: boolean;
+}
+
+export interface InstallPlanFailure {
+  /** What the dashboard branches on. */
+  code: string;
+  slug: string;
+  /** What a person reads. */
+  message: string;
+}
+
+export interface InstallPlan {
+  isSuccessful: boolean;
+  steps: InstallPlanStep[];
+  failures: InstallPlanFailure[];
+}
+
+>>>>>>> 389fa13b7f2681289077cda7a8f26f31ce4ef5e5
 // --- Staged rollouts -------------------------------------------------------
 
 export type RolloutState = "Planned" | "InProgress" | "Halted" | "Completed" | "Cancelled";

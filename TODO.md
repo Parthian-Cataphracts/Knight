@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-20** (revision 18 — phase 10: load test, indexes, caching, staged rollouts, CI/CD, the restore drill, and the billing run)
+Last updated: **2026-08-24** (revision 22 — a contract audit of every path the dashboard calls, and the install preview it found was fictional)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,10 +11,10 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 10 — Optimisation & hardening (complete except the external security review)** |
-| **Next phase** | Release preparation. The only build work left is what a hosting-platform decision unblocks |
+| **Current phase** | **Phase 11 — Deployment (the server install is done and verified; container images still wait on a hosting decision)** |
+| **Next phase** | Release preparation. What remains is the external security review and the container/registry half of the pipeline |
 | **Overall progress** | ~99% (732 backend tests green, plus 9 dashboard and 156 store; rollouts, indexes, caching and the restore drill driven through a browser against a live server — see [`docs/phase-10-verification.md`](docs/phase-10-verification.md)) |
-| **Blocking decisions** | The **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
+| **Blocking decisions** | **Are Features publishable for a store that is not Django?** Everything except the manifest is already stack-agnostic; `ManifestReader` is the one thing that is not (R26, decision 14 in [`docs/risks.md`](docs/risks.md)). Until it is answered, a non-Django store is entitled and observed but not delivered to. Separately, the **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
 > not a boolean flag ([`docs/adr/0014`](docs/adr/0014-features-as-deployable-packages.md)).
@@ -35,6 +35,7 @@ Phase 7    Observability                  ██████████ 100%
 Phase 8    Business-domain port to Django ██████████ 100%
 Phase 9    Provisioning & professional infra ██████████ 100%
 Phase 10   Optimisation & hardening       █████████░  95%
+Phase 11   Deployment & installation       ████████░░  80%
 ```
 
 ---
@@ -108,7 +109,13 @@ end to end by `ControlPlaneCustomerAndStoreTests` and the release-blocking
 - [x] Central `AuditLog` write path (with credential redaction) + query endpoint
 - [x] Endpoints: `/api/v1/auth/*`, `/api/v1/customers/*`, `/api/v1/stores/*`, `/api/v1/audit-logs`
 - [x] EF Core migrations for the control-plane schema
-- [ ] Account and role management endpoints (`/api/v1/users`, `/api/v1/roles`) — the model and seeded roles exist; the dashboard write paths land with phase 6's remaining work
+- [x] Account and role management endpoints (`/api/v1/users`, `/api/v1/roles`) — the
+      endpoints existed all along; the dashboard write paths landed with the
+      editability audit. Renaming an account, replacing the roles it holds,
+      creating a role and changing what one grants are all in the Access screen.
+      `AccountResponse` now carries `roleIds` beside the names, because a client
+      matching a role on its display name picks the wrong one the first time a
+      platform role and a customer role share it
 
 > The legacy `Identity` module was left untouched rather than reshaped: it
 > serves the frozen store-side modules until phase 8 removes them, and the
@@ -184,6 +191,71 @@ unit suites, and the store's own 36 Django tests.
 - [x] Contract tests both ways against `docs/contracts/store-integration.schema.json` and the worked signature examples beside it
 - [x] End-to-end: register → verify domain → health → error ingest → entitlement pull → enforcement
 - [x] Negative: wrong environment, revoked credential, suspended customer, tampered token, replayed nonce, cross-customer isolation
+
+### Contract audit
+
+Every path the dashboard calls, checked against the routes the API maps, and
+every response type checked against what the API returns. One screen was
+fiction end to end.
+
+- [x] **The install preview called an endpoint that has never existed.** It did
+      `GET /stores/{id}/features/{id}/plan`; the API serves
+      `POST /installations/plan`. The response type shared no field with
+      `FeaturePlanResponse` beyond a slug and a version, and the mock implemented
+      the fictional path — so the dialog worked against fixtures and 404'd
+      against a real server
+- [x] The plan now carries what carrying it out costs: whether each step
+      migrates, whether that migration is reversible, how long it is expected to
+      take, and whether the store restarts. The dashboard's irreversible-migration
+      gate depends on the second of those, and had been reading an invented field
+      ([`adr/0016`](docs/adr/0016-feature-migration-and-removal-policy.md))
+
+### Editability audit
+
+Every write the API offers, reachable from the dashboard. The audit was worth
+running: three of these were not missing features but silent data loss, because
+the endpoints replace a whole record and the forms sent back only part of it.
+
+- [x] **Customer** — the edit form sent name and contact email only, so every
+      rename blanked the legal name and the phone number. It edits the whole
+      profile now
+- [x] **Store** — placement was a field on the profile update and the form never
+      sent it, so renaming a store took it off its server. It is its own
+      operation, `PUT /stores/{id}/server`, with its own audit action
+- [x] **Store** — the Register store button had no handler at all, and a store
+      could only be created as a side effect of creating a customer
+- [x] **Server** — no edit form existed, and the address was not even on the
+      register form though the API has always taken it
+- [x] **Server** — dedication had an endpoint and no UI, so nobody could say
+      which customer a dedicated machine belonged to, or see it
+- [x] **Account** — renaming and role assignment had endpoints and no UI
+- [x] **Role** — creating one and changing its permissions had endpoints and no
+      UI, including a permission catalogue endpoint written for a role editor
+      that was never built
+- [x] The `Server` type described six fields the API has never returned, so the
+      infrastructure screen rendered `undefined` for load, uptime, agent version
+      and store count. Load comes from the fleet overview, which was not being
+      called at all
+
+### Any-stack integration
+- [x] The contract described without a framework —
+      [`docs/connecting-a-store.md`](docs/connecting-a-store.md): what a store of any
+      stack calls, what it must serve, the two signed strings byte for byte, and the
+      rules for enforcing an entitlement when KNIGHT is unreachable.
+      `store-integration.md` now says plainly that it is the *Django* implementation
+      of that contract rather than the definition of it
+- [x] A conformance checker an integration is finished against —
+      `stores/conformance/knight_conformance.py`. `selftest` reproduces the contract's
+      own signed strings and runs in CI on every push, so a checker that has drifted
+      fails before it can report a confident, wrong verdict about somebody else's
+      store. `check` performs a real handshake against a live deployment and asserts
+      the refusals too: an unsigned health request, a signature over a different path,
+      an hour-old request, a replayed handshake nonce
+- [!] **Feature delivery to a non-Django store** — the wire contract, the job
+      vocabulary and the step names are already runtime-neutral; the manifest is not.
+      `ManifestReader` refuses a manifest with no `django:` block, so a Feature cannot
+      be *published* for such a store at all. Recorded as R26 and decision 14 in
+      [`docs/risks.md`](docs/risks.md); it is a product decision, not an oversight
 
 ### Deferred, deliberately
 - [ ] DNS TXT domain verification — modelled, and the method provisioning will need in phase 9; only HTTP is implemented
@@ -750,6 +822,117 @@ found.
       to describe what is actually on the wire
 - [x] A critical advisory in `vitest` and a high in `vite`, found by the new
       dependency audit and fixed by upgrading rather than exempting
+
+---
+
+## Phase 11 — Deployment & installation
+
+**Exit criteria:** one command turns a fresh Ubuntu or Debian server into a
+working KNIGHT — reachable over TLS, with a first administrator, migrations
+applied and a nightly backup scheduled — without disturbing anything else
+already running on that machine.
+
+**Verification:** [`docs/phase-11-verification.md`](docs/phase-11-verification.md)
+— five installs across two systemd Ubuntu servers, the result driven through
+nginx, and the six defects that only a real second install could show.
+
+- [x] `install.sh` — a one-command install for Ubuntu 22.04+ and Debian 12+.
+      Asks everything up front, then runs unattended: packages, toolchain,
+      database, Redis, build, configuration, migrations, service, nginx, TLS,
+      first administrator, nightly backup
+- [x] `knightctl.sh` — status, checks, logs, start/stop/restart, update, backup,
+      restore, add an administrator, change the domain, set the signing key,
+      show configuration, uninstall. Installed as `/usr/local/bin/knightctl`
+- [x] [`docs/installation.md`](docs/installation.md) — what the installer
+      creates, what it deliberately does not, and the promises it keeps to the
+      other applications on the server
+- [x] **A single-hostname topology.** `deployment.md` §4 describes two hosts;
+      this deploys one, routing by path. One DNS record, one certificate, and no
+      cross-origin request to get wrong — which matters because a CORS mistake
+      is invisible to every test that is not a browser, and this project has
+      already been bitten by one
+- [x] The dashboard bundle carries **no hostname and no scheme**. Left unset,
+      `VITE_API_BASE_URL` and `VITE_SIGNALR_URL` default to relative paths, so
+      `knightctl domain` moves a deployment without rebuilding anything
+- [x] Sharing a server, verified rather than asserted: only `127.0.0.1`
+      listeners besides nginx, the stock nginx site still enabled and served,
+      one `conf.d` file with both of its names prefixed `knight_`, one
+      PostgreSQL role and one database, a dedicated Redis instance with its own
+      password and a 256MB `noeviction` ceiling, and a private .NET and Node
+      under `/opt/knight/toolchain` wherever the host's are too old — never a
+      second toolchain in `/usr/share`
+- [x] `knight-api` confined by systemd: `ProtectSystem=strict`,
+      `NoNewPrivileges`, and exactly three writable directories
+- [x] Nightly backup as a systemd timer — the scheduling `deployment.md` §10
+      listed as still missing. `knightctl backup` starts the same unit rather
+      than running the script itself, so a manual backup and a scheduled one
+      cannot drift apart
+- [x] Re-running the installer is safe: the token and store signing keys are
+      kept (rotating either would sign out every administrator or invalidate
+      every cached entitlement), and no second administrator is created
+
+### Found and fixed while verifying phase 11
+
+- [x] **Nothing read the reverse proxy's forwarded headers.** Every deployment
+      terminates TLS at a proxy, so every request arrived from `127.0.0.1` —
+      which handed the whole internet a single rate-limit bucket on sign-in and
+      ingestion, and recorded the proxy's address as the client's on every login
+      and audit row. `ForwardedHeaders` is now read, from named proxies only.
+      The framework's defaults do not recognise a plain IPv4 loopback, which is
+      exactly what Kestrel reports for a proxy on the same machine, so both
+      loopback forms are named explicitly. `ReverseProxyTests` covers the
+      scheme, the caller's address, and headers from an address that is not a
+      known proxy being ignored
+- [x] `docs/deployment.md` §5 listed configuration keys that do not exist —
+      `Knight__Jwt__SigningKey`, `Knight__Environment`, `Knight__Registry__*`.
+      Anyone deploying from it would have configured nothing at all. Rewritten
+      against the sections the code actually binds
+- [x] A machine-specific absolute path (`C:/Users/<name>/…`) was the development
+      artifact root, so every other checkout wrote artifacts to a directory that
+      did not exist
+- [x] **Every re-install and every `knightctl update` failed after the first
+      install.** `chown -R knight` puts the checkout under the service user, and
+      git run as root then refuses it — "detected dubious ownership". The first
+      install works, the second one aborts at the source step, and nothing shows
+      it until a server has been installed twice. The exception is now granted
+      per git invocation rather than written into root's global gitconfig, so it
+      does not apply to any other repository on the machine
+- [x] A re-install **silently dropped the artifact signing keys**. The
+      environment file is rewritten from scratch, and the keys live in it under
+      their own ids. A retired key still has to verify the versions it signed, so
+      losing one makes already-published Feature versions unverifiable. Every
+      key is now carried across, not only the active one
+- [x] The installer's exit status was whatever its last statement happened to
+      return. It is explicit now: zero unless the API never answered, which is
+      the one thing above a warning that a provisioning system needs to see
+- [x] **`knight-restore.sh` needed a privilege the application role does not
+      have.** It drops and recreates the target database, and the role KNIGHT
+      connects as owns one database and is not a superuser — so a real restore
+      dropped the database and then could not recreate it, leaving nothing. The
+      CI drill never showed it, because there the role owns the cluster. The two
+      statements now run through `KNIGHT_ADMIN_PSQL` (the local superuser, where
+      there is one) and the database is recreated with an explicit owner, so the
+      application role can restore into it. The drill is unchanged and still
+      passes
+- [x] `knightctl` reported success the moment systemd returned, several seconds
+      before the API was serving — so `domain`, `restart`, `signing-key`,
+      `update` and `restore` all sent the operator to a 502 they would
+      reasonably read as a broken deployment. They wait for the readiness probe
+      now, and say so when it does not come
+
+### Not done
+
+- [ ] Docker images and the deploy stages of `deployment.md` §8 — still waiting
+      on the hosting-platform decision, and now clearly separable from it:
+      deploying to a server no longer waits on choosing a platform
+- [ ] An offsite copy of the nightly dumps. The timer writes them to the same
+      machine, and the installer says so rather than implying otherwise. Where
+      they should go is a custody decision, not a default
+- [ ] `install-agent.sh` for the servers that host stores, and an installer for
+      a Django store. Both are other machines, and out of scope here
+- [ ] Running the installer against a real cloud VM with real DNS. The container
+      run exercised everything except certificate issuance, which needs a
+      resolvable domain
 
 ---
 
