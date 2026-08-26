@@ -120,7 +120,8 @@ public static class StoreJobEndpoints
             : new AgentMigrationResponse(
                 assignment.Migrations.Required,
                 assignment.Migrations.Reversible,
-                assignment.Migrations.RequiresMaintenanceWindow),
+                assignment.Migrations.RequiresMaintenanceWindow,
+                assignment.Migrations.Extensions),
         assignment.Django is null
             ? null
             : new AgentDjangoResponse(

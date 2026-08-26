@@ -54,7 +54,7 @@ internal sealed class ManifestReader
         var django = ReadDjango(root);
         var compatibility = ReadCompatibility(root);
         var dependencies = ReadDependencies(root);
-        var migrations = ReadMigrations(root);
+        var migrations = ReadMigrations(root, compatibility);
         var configuration = ReadConfiguration(root);
         var install = ReadInstall(root);
         var uninstall = ReadUninstall(root);
@@ -287,7 +287,32 @@ internal sealed class ManifestReader
         return new ManifestDependencies(features, pythonPackages);
     }
 
-    private MigrationPolicy ReadMigrations(JsonElement root)
+    /// <summary>
+    /// Database extensions a Feature may ask for, and the complete list of them.
+    ///
+    /// Closed, and closed for a security reason rather than a tidiness one. A
+    /// PostgreSQL extension can be a procedural language or a foreign-data
+    /// wrapper — <c>plpython3u</c>, <c>plperlu</c>, <c>file_fdw</c>,
+    /// <c>dblink</c> — and creating one of those is arbitrary code execution
+    /// against the database owner on every store that installs the Feature.
+    /// Adding to this list is a KNIGHT release, which is the point
+    /// (docs/adr/0031-database-extensions-are-declared-not-migrated.md).
+    ///
+    /// Everything here is additive, indexing or text handling, and is a trusted
+    /// extension on PostgreSQL 13 and later — so a store's own database owner can
+    /// create it without a superuser.
+    /// </summary>
+    private static readonly string[] SupportedExtensions =
+    [
+        "pg_trgm",     // trigram similarity: fuzzy search, typo tolerance
+        "btree_gin",   // plain-scalar columns inside a GIN index
+        "btree_gist",  // plain-scalar columns inside a GiST index, and exclusion constraints
+        "unaccent",    // accent-insensitive text matching
+        "citext",      // case-insensitive text
+        "pgcrypto",    // digests and random bytes
+    ];
+
+    private MigrationPolicy ReadMigrations(JsonElement root, CompatibilityConstraints compatibility)
     {
         if (!TryGetObject(root, "migrations", out var migrations))
         {
@@ -310,7 +335,75 @@ internal sealed class ManifestReader
 
         var maintenance = OptionalBool(migrations, "requiresMaintenanceWindow", "$.migrations.requiresMaintenanceWindow") ?? false;
 
-        return new MigrationPolicy(required, reversible, Math.Max(duration, 0), maintenance);
+        return new MigrationPolicy(
+            required,
+            reversible,
+            Math.Max(duration, 0),
+            maintenance,
+            ReadExtensions(migrations, compatibility));
+    }
+
+    /// <summary>
+    /// The declared database extensions, validated against the closed list.
+    ///
+    /// Three separate refusals, and each one is a failure somebody would
+    /// otherwise meet on a customer's store: a name nobody vetted, a name
+    /// declared twice, and an extension asked for by a Feature that never said it
+    /// needs PostgreSQL — which would install onto SQLite and fail in the middle
+    /// of a migration rather than before one
+    /// (docs/adr/0031-database-extensions-are-declared-not-migrated.md).
+    /// </summary>
+    private IReadOnlyList<string> ReadExtensions(JsonElement migrations, CompatibilityConstraints compatibility)
+    {
+        var declared = ReadStringArray(migrations, "extensions", "$.migrations.extensions");
+
+        if (declared.Count == 0)
+        {
+            return [];
+        }
+
+        var kept = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var index = 0;
+
+        foreach (var extension in declared)
+        {
+            var path = $"$.migrations.extensions[{index}]";
+            index++;
+
+            if (!SupportedExtensions.Contains(extension))
+            {
+                Fail(
+                    path,
+                    $"'{extension}' is not an extension KNIGHT allows a Feature to create. " +
+                    $"Use one of: {string.Join(", ", SupportedExtensions)}. " +
+                    "The list is closed because an extension can be a procedural language or a foreign-data " +
+                    "wrapper, and creating one of those runs arbitrary code on every store that installs this Feature.");
+                continue;
+            }
+
+            if (!seen.Add(extension))
+            {
+                Fail(path, $"'{extension}' is declared more than once.");
+                continue;
+            }
+
+            kept.Add(extension);
+        }
+
+        // An extension is a PostgreSQL concept, so a Feature that needs one runs
+        // nowhere else and must say so. Checked here rather than left to the
+        // installer, because the installer learns it from a failed migration.
+        if (kept.Count > 0 && compatibility.Database != "postgresql")
+        {
+            Fail(
+                "$.compatibility.database",
+                "A Feature that declares database extensions must also declare 'database: postgresql'. " +
+                $"Extensions are a PostgreSQL concept, and this manifest asks for {string.Join(", ", kept)} " +
+                $"while claiming to run on {compatibility.Database ?? "any engine"}.");
+        }
+
+        return kept;
     }
 
     private ConfigurationContract ReadConfiguration(JsonElement root)

@@ -150,9 +150,23 @@ public sealed record MigrationPolicy(
     bool Required,
     bool Reversible,
     int EstimatedDurationSeconds,
-    bool RequiresMaintenanceWindow)
+    bool RequiresMaintenanceWindow,
+
+    /// <summary>
+    /// Database extensions this Feature needs present before its migrations run.
+    ///
+    /// Declared here rather than written as a <c>CREATE EXTENSION</c> inside a
+    /// migration, and the difference is the whole of
+    /// <c>adr/0031</c>: an extension is shared state the Feature does not own, so
+    /// it is created before anything else changes, from a list KNIGHT closed at
+    /// publish, and it is never dropped by a rollback — another Feature may have
+    /// started using it in the meantime.
+    ///
+    /// Empty for every Feature that does not need one, which is most of them.
+    /// </summary>
+    IReadOnlyList<string> Extensions)
 {
-    public static MigrationPolicy None { get; } = new(false, true, 0, false);
+    public static MigrationPolicy None { get; } = new(false, true, 0, false, []);
 }
 
 /// <summary>

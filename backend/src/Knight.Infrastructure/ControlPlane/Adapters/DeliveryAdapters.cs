@@ -244,7 +244,8 @@ internal sealed class FeatureVersionReader : IFeatureVersionReader
             installedApp,
             urlInclude,
             urlPrefix,
-            workers);
+            workers,
+            migrations.Extensions);
     }
 }
 

@@ -168,4 +168,60 @@ public sealed class DeliveryPayloadTests
         Assert.Equal(365, deliverable.DataRetentionDays);
         Assert.Equal("knight_reviews", deliverable.AppLabel);
     }
+
+    private const string ManifestWithExtensions = """
+        {
+          "apiVersion": "knight.dev/v1",
+          "slug": "advanced-search",
+          "version": "1.1.0",
+          "name": "Advanced Search",
+          "django": {
+            "app_label": "knight_search",
+            "installed_app": "knight_feature_advanced_search",
+            "urls": { "include": "knight_feature_advanced_search.urls", "prefix": "search/" }
+          },
+          "compatibility": {
+            "storeVersion": ">=1.0.0", "python": ">=3.12", "django": ">=5.0,<6.0", "database": "postgresql"
+          },
+          "migrations": {
+            "required": true,
+            "reversible": true,
+            "estimatedDurationSeconds": 10,
+            "extensions": ["pg_trgm"]
+          },
+          "install": { "strategy": "package-install", "healthCheck": "knight_feature_advanced_search.checks.health" },
+          "uninstall": { "strategy": "disable-then-remove", "dataRetentionDays": 0 }
+        }
+        """;
+
+    [Fact]
+    public async Task ADeclaredExtensionTravelsToTheStoreWithTheJob()
+    {
+        if (!_fixture.IsAvailable) return;
+
+        // The same lesson as the module name above, applied early rather than
+        // after a phase of Features that did not work: a store cannot create an
+        // extension it was never told about, and a Feature whose migration then
+        // fails on a missing operator class reports a Postgres error naming
+        // nothing an operator can act on (docs/adr/0031).
+        var deliverable = await DescribeAsync("advanced-search", ManifestWithExtensions);
+
+        Assert.NotNull(deliverable);
+        Assert.Equal(["pg_trgm"], deliverable!.Extensions);
+
+        // And it is still a reversible migration, which is the point of keeping
+        // the extension out of it.
+        Assert.True(deliverable.MigrationsReversible);
+    }
+
+    [Fact]
+    public async Task AFeatureThatNeedsNoExtensionCarriesNone()
+    {
+        if (!_fixture.IsAvailable) return;
+
+        var deliverable = await DescribeAsync("analytics-core", ManifestWithoutRoutes);
+
+        Assert.NotNull(deliverable);
+        Assert.Empty(deliverable!.Extensions);
+    }
 }

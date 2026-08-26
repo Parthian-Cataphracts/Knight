@@ -86,7 +86,21 @@ public sealed record AgentConfiguration(
 /// are migrations, and whether it will be able to undo them if a later step
 /// fails.
 /// </summary>
-public sealed record AgentMigrationPolicy(bool Required, bool Reversible, bool RequiresMaintenanceWindow);
+/// <summary>
+/// What the store is told about this version's database work.
+///
+/// <c>Extensions</c> are the database extensions the manifest declared. They
+/// travel beside the migration policy rather than inside it and are created by
+/// their own step before <c>migrate</c> runs: an extension is shared state the
+/// Feature does not own, so it comes from a list KNIGHT closed at publish and is
+/// never dropped again — not by a rollback and not by an uninstall
+/// (docs/adr/0031-database-extensions-are-declared-not-migrated.md).
+/// </summary>
+public sealed record AgentMigrationPolicy(
+    bool Required,
+    bool Reversible,
+    bool RequiresMaintenanceWindow,
+    IReadOnlyList<string> Extensions);
 
 public sealed record StepReport(
     string Step,

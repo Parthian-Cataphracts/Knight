@@ -282,10 +282,20 @@ public sealed record AgentConfigurationResponse(
     string Values,
     IReadOnlyDictionary<string, string> Secrets);
 
+/// <summary>
+/// The database work this version needs, as the store's agent is told about it.
+///
+/// <c>Extensions</c> are created by their own step before the migrations run and
+/// are never dropped again: an extension is shared with the store and with every
+/// other Feature installed in the same database, so a rollback that removed one
+/// could break a Feature it has never heard of
+/// (docs/adr/0031-database-extensions-are-declared-not-migrated.md).
+/// </summary>
 public sealed record AgentMigrationResponse(
     bool Required,
     bool Reversible,
-    bool RequiresMaintenanceWindow);
+    bool RequiresMaintenanceWindow,
+    IReadOnlyList<string> Extensions);
 
 /// <summary>
 /// How the store wires the delivered package into its runtime: the module that

@@ -46,6 +46,7 @@ STEP_IMPLEMENTATIONS: dict[str, Callable[[JobContext], str]] = {
     "verify": steps.verify,
     "backup": steps.backup,
     "install": steps.install,
+    "create-extensions": steps.create_extensions,
     "migrate": steps.migrate,
     "configure": steps.configure,
     "enable": steps.enable,
@@ -66,6 +67,12 @@ KNOWN_JOB_TYPES = frozenset(
 #: Steps whose rollback is the same operation in reverse. Anything not here has
 #: nothing to undo — a fetch leaves only a temporary file, a health check leaves
 #: nothing at all.
+#:
+#: `create-extensions` is absent deliberately rather than by omission. It does
+#: change the database, and it is still not undone: an extension is shared with
+#: the store and with every other feature installed in the same database, so a
+#: rollback dropping one could break a feature it has never heard of
+#: (docs/adr/0031-database-extensions-are-declared-not-migrated.md).
 _ROLLBACK_FOR = {
     "install": "restore-package",
     "migrate": "reverse-migrate",

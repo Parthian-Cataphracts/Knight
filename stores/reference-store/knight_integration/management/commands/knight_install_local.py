@@ -62,6 +62,7 @@ class Command(BaseCommand):
             feature = self._feature(manifest, enabled=not options["disabled"])
 
             registry.record(feature)
+            self._extensions(manifest)
 
             self.stdout.write(
                 self.style.SUCCESS(
@@ -69,6 +70,58 @@ class Command(BaseCommand):
                     + ("" if feature.enabled else " (disabled)")
                 )
             )
+
+    def _extensions(self, manifest: dict) -> None:
+        """
+        Creates the database extensions the manifest declares.
+
+        The real installer does this in its own step before migrating; this
+        command is the other path to an installed Feature and has to do the same
+        thing, or a developer's first `migrate` fails on an operator class that
+        does not exist. Idempotent and never dropped again, exactly as there
+        (docs/adr/0031-database-extensions-are-declared-not-migrated.md).
+
+        Refused rather than created when the name is not one this store's
+        installer would accept: the same closed list, so that the shortcut cannot
+        do something the product path would not.
+        """
+        declared = [name for name in ((manifest.get("migrations") or {}).get("extensions") or []) if name]
+
+        if not declared:
+            return
+
+        from django.db import connection
+
+        from ...installer.steps import ALLOWED_EXTENSIONS
+
+        refused = sorted(name for name in declared if name not in ALLOWED_EXTENSIONS)
+        if refused:
+            raise CommandError(
+                f"This store will not create {', '.join(refused)}. "
+                f"It creates only: {', '.join(sorted(ALLOWED_EXTENSIONS))}."
+            )
+
+        if connection.vendor != "postgresql":
+            raise CommandError(
+                f"{manifest.get('slug')} needs the PostgreSQL extension(s) "
+                f"{', '.join(declared)} and this store runs {connection.vendor}."
+            )
+
+        for name in declared:
+            try:
+                with connection.cursor() as cursor:
+                    # Interpolated because an extension name cannot be a bound
+                    # parameter; safe because the list above is a frozenset of
+                    # literals.
+                    cursor.execute(f'CREATE EXTENSION IF NOT EXISTS "{name}"')
+            except Exception as exc:  # noqa: BLE001 - the reason matters more than the type
+                raise CommandError(
+                    f"The extension '{name}' could not be created: {exc}. Run "
+                    f'`CREATE EXTENSION IF NOT EXISTS "{name}";` as an administrator '
+                    "on this database and try again."
+                ) from exc
+
+            self.stdout.write(f"  extension {name} ensured")
 
         self.stdout.write(f"Registry: {registry.path}")
         self.stdout.write("Restart the store for the app registry to pick this up.")
@@ -144,7 +197,19 @@ def _read_manifest(path: Path) -> dict:
 
         return yaml.safe_load(text) or {}
     except ImportError:
-        return _read_simple_yaml(text)
+        try:
+            return _read_simple_yaml(text)
+        except ManifestUnreadable as exc:
+            raise CommandError(
+                f"{path}: {exc}\n"
+                "This store reads manifests with a small built-in parser when PyYAML is not "
+                "installed, and it refuses shapes it cannot read rather than dropping them. "
+                "Install PyYAML (`pip install -r requirements-dev.txt`) and run this again."
+            ) from exc
+
+
+class ManifestUnreadable(ValueError):
+    """A manifest shape this fallback reader will not guess at."""
 
 
 def _read_simple_yaml(text: str) -> dict:
@@ -158,23 +223,33 @@ def _read_simple_yaml(text: str) -> dict:
     Feature declaring routes was registered without them and served none of them
     (docs/phase-13-verification.md).
 
-    Deliberately partial, and explicit about it: sequences and block scalars are
-    skipped rather than guessed at. Nothing this command needs is inside one, and
-    a parser that half-read a dependency list would be worse than one that
-    admits it cannot. `pip install -r requirements-dev.txt` brings PyYAML, which
-    is what actually parses this in development and in CI.
+    It reads sequences too, which the version before phase 16 claimed to and did
+    not: every manifest in this repository writes `workers:` as block-style
+    mapping items, and every one of them came back as an empty mapping. The
+    effect was the phase-13 failure again one field along - a Feature registered
+    with no scheduled jobs, installing cleanly and then never running them - and
+    it stayed invisible because PyYAML is installed in development and in CI, so
+    this code path only ever runs on a bare store.
+
+    Still deliberately partial, and now loud about it. A shape it does not
+    understand raises `ManifestUnreadable` rather than skipping the line: a
+    reader that silently drops what it cannot parse is exactly how the last two
+    of these went unnoticed.
     """
     document: dict = {}
 
-    # (indent, container) from the outside in. The last entry is where a key at
-    # the current indent belongs.
-    stack: list[tuple[int, dict]] = [(-1, document)]
+    # (indent, container) from the outside in, where a container is the mapping
+    # or list that a line at the current indent belongs to. The root sits at -1
+    # so that a top-level key at indent 0 finds it.
+    stack: list[tuple[int, object]] = [(-1, document)]
 
-    # Set while inside a block scalar or a sequence, to the indent of the line
-    # that opened it: everything more indented than this belongs to it.
+    # Set while inside a block scalar, to the indent of the line that opened it:
+    # everything more indented belongs to the scalar and is not read.
     skipping_deeper_than: int | None = None
 
-    for raw in text.splitlines():
+    lines = text.splitlines()
+
+    for position, raw in enumerate(lines):
         if not raw.strip() or raw.lstrip().startswith("#"):
             continue
 
@@ -187,88 +262,170 @@ def _read_simple_yaml(text: str) -> dict:
 
         stripped = raw.strip()
 
-        # A sequence item.
-        #
-        # Inline maps are kept, because `workers:` is a list of them and a
-        # feature whose scheduled jobs were silently dropped would install
-        # cleanly and then never run them - the same class of failure as the
-        # urls block being flattened. Block-style items are still skipped: this
-        # parser is the fallback, PyYAML is what runs in development and CI, and
-        # a parser that half-read a sequence would be worse than one that admits
-        # it cannot.
+        while len(stack) > 1 and indent <= stack[-1][0]:
+            stack.pop()
+
+        container = stack[-1][1]
+
+        # A sequence item: a scalar (`- pg_trgm`), an inline map
+        # (`- { slug: x, version: y }`) or a block-style mapping whose remaining
+        # keys are the more-indented lines that follow (`- name: x` then
+        # `  entrypoint: y`). All three appear in the manifests in this
+        # repository, and dropping any of them loses something an install needs.
         if stripped.startswith("- "):
+            if not isinstance(container, list):
+                raise ManifestUnreadable(f"A list item appears where no list was opened: {stripped}")
+
             item = stripped[2:].strip()
 
-            if item.startswith("{") and item.endswith("}") and stack:
-                holder = stack[-1][1]
-                key = _last_key(holder)
-
-                if key is not None and isinstance(holder.get(key), dict) and not holder[key]:
-                    holder[key] = []
-
-                if key is not None and isinstance(holder.get(key), list):
-                    holder[key].append(_read_inline_map(item))
-
+            if item.startswith("{") and item.endswith("}"):
+                container.append(_read_inline_map(item))
                 continue
 
-            skipping_deeper_than = indent
+            if ":" not in item:
+                container.append(_unquote(item))
+                continue
+
+            entry: dict = {}
+            entry_key, _, entry_value = item.partition(":")
+
+            if not entry_value.strip():
+                # `- key:` with the value on the lines below. Rare, absent from
+                # every manifest here, and refused rather than guessed at.
+                raise ManifestUnreadable(f"Cannot read manifest line: {stripped}")
+
+            entry[entry_key.strip()] = _unquote(entry_value.strip())
+            container.append(entry)
+            stack.append((indent, entry))
             continue
 
         if ":" not in stripped:
-            continue
+            raise ManifestUnreadable(f"Cannot read manifest line: {stripped}")
+
+        if not isinstance(container, dict):
+            raise ManifestUnreadable(f"A mapping key appears inside a list: {stripped}")
 
         key, _, value = stripped.partition(":")
         key = key.strip()
         value = value.strip()
 
-        while stack and indent <= stack[-1][0]:
-            stack.pop()
-
-        if not stack:
-            stack = [(-1, document)]
-
-        parent = stack[-1][1]
-
         # A block scalar: the value is the indented lines that follow, and this
         # command needs none of them.
         if value in (">", ">-", "|", "|-", ">+", "|+"):
-            parent[key] = ""
+            container[key] = ""
             skipping_deeper_than = indent
             continue
 
         if value.startswith("{") and value.endswith("}"):
-            parent[key] = _read_inline_map(value)
+            container[key] = _read_inline_map(value)
             continue
 
         if value:
-            parent[key] = value.strip('"').strip("'")
+            container[key] = _unquote(value)
             continue
 
-        child: dict = {}
-        parent[key] = child
+        # An empty value opens either a mapping or a list, and only the next
+        # meaningful line says which.
+        child: object = [] if _next_meaningful(lines, position + 1).lstrip().startswith("- ") else {}
+        container[key] = child
         stack.append((indent, child))
 
     return document
 
 
-def _last_key(holder: dict):
-    """The key most recently opened on this mapping, or None when there is none."""
-    for key in reversed(list(holder)):
-        return key
+def _next_meaningful(lines: list[str], start: int) -> str:
+    """The next line that is neither blank nor a comment, or an empty string."""
+    for line in lines[start:]:
+        if line.strip() and not line.lstrip().startswith("#"):
+            return line
 
-    return None
+    return ""
+
+
+def _unquote(value: str):
+    """
+    A scalar, as its type rather than as text.
+
+    `true` read as the string "true" is truthy either way, which is exactly why
+    this is worth doing: the field where it stops being harmless is the one
+    nobody has written yet. `migrations.reversible` is the obvious candidate —
+    `"false"` is true.
+    """
+    value = value.strip()
+
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+
+    lowered = value.lower()
+
+    if lowered in ("true", "yes"):
+        return True
+    if lowered in ("false", "no"):
+        return False
+    if lowered in ("null", "~"):
+        return None
+
+    try:
+        return int(value)
+    except ValueError:
+        pass
+
+    try:
+        return float(value)
+    except ValueError:
+        return value
 
 
 def _read_inline_map(value: str) -> dict:
     """A single-line `{ key: value, key: value }` map, which the schema also allows."""
-    inner = value.strip()[1:-1]
     result: dict = {}
 
-    for part in inner.split(","):
+    for part in _split_outside_quotes(value.strip()[1:-1]):
         if ":" not in part:
             continue
 
         key, _, item = part.partition(":")
-        result[key.strip()] = item.strip().strip('"').strip("'")
+        result[key.strip()] = _unquote(item)
 
     return result
+
+
+def _split_outside_quotes(text: str) -> list[str]:
+    """
+    Splits on commas that are not inside a quoted string.
+
+    A plain `text.split(",")` tears a version range in half: the dependency
+    `{ slug: analytics-core, version: ">=1.0.0,<2.0.0" }` became a slug, a
+    version of `">=1.0.0`, and a third key called `<2.0.0"`. The packaging tool
+    had the identical bug and it was fixed there in phase 15; this copy was not
+    found at the time because nothing this command reads is inside an inline map
+    (docs/phase-15-verification.md).
+    """
+    parts: list[str] = []
+    current: list[str] = []
+    quote: str | None = None
+
+    for character in text:
+        if quote is not None:
+            current.append(character)
+
+            if character == quote:
+                quote = None
+
+            continue
+
+        if character in "\"'":
+            quote = character
+            current.append(character)
+            continue
+
+        if character == ",":
+            parts.append("".join(current))
+            current = []
+            continue
+
+        current.append(character)
+
+    parts.append("".join(current))
+
+    return parts

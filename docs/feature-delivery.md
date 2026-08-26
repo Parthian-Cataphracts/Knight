@@ -129,6 +129,7 @@ migrations:
   reversible: true          # declares whether down-migrations exist
   estimatedDurationSeconds: 30
   requiresMaintenanceWindow: false
+  extensions: [pg_trgm]     # created before the migrations; never dropped
 configuration:
   schema: config.schema.json    # JSON Schema, validated by KNIGHT
   defaults: { language: fa, schedule: daily }
@@ -145,6 +146,14 @@ uninstall:
 The manifest is the contract. KNIGHT rejects a publish whose manifest fails
 schema validation, whose digest does not match, or whose declared dependencies
 cannot be resolved in the registry.
+
+**`migrations.extensions`** names database extensions the Feature needs present
+before its own migrations run. The list KNIGHT accepts is closed — `pg_trgm`,
+`btree_gin`, `btree_gist`, `unaccent`, `citext`, `pgcrypto` — and declaring any
+of them requires `compatibility.database: postgresql`. They are created
+idempotently by their own step and are **never dropped**, by a rollback or by an
+uninstall: an extension is shared with the store and with every other Feature in
+the same database ([`adr/0031`](adr/0031-database-extensions-are-declared-not-migrated.md)).
 
 ## 6. Installation state machine
 
@@ -192,11 +201,12 @@ entitlement granted / admin action
    │                                      ├─ 2 fetch package + verify digest+signature
    │                                      ├─ 3 backup point (db snapshot ref, current versions)
    │                                      ├─ 4 install package
-   │                                      ├─ 5 apply migrations
-   │                                      ├─ 6 apply configuration
-   │                                      ├─ 7 enable in the app registry
-   │                                      ├─ 8 reload/restart if required
-   │                                      └─ 9 health check
+   │                                      ├─ 5 create declared extensions
+   │                                      ├─ 6 apply migrations
+   │                                      ├─ 7 apply configuration
+   │                                      ├─ 8 enable in the app registry
+   │                                      ├─ 9 reload/restart if required
+   │                                      └─ 10 health check
    │  ◄── step-by-step progress reports ──┘
    └─ on success: Installed · on failure: rollback → Failed, alert, audit
 ```
@@ -209,6 +219,11 @@ Properties:
 - A job has a timeout and a bounded retry policy with backoff.
 - Only one job at a time per store; jobs queue per store.
 - Every step and outcome is audited with a correlation id.
+- Extensions are created **before** the migrations and are never undone. The
+  privilege to create one is the privilege a store's database user most often
+  lacks, and this ordering means that failure arrives before the schema has been
+  touched, naming the statement an administrator must run
+  ([`adr/0031`](adr/0031-database-extensions-are-declared-not-migrated.md)).
 
 ## 8. Dependency resolution and compatibility
 

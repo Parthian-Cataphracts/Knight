@@ -174,12 +174,14 @@ public sealed class FeatureInstallationJobTests
             job.ReportStep(step, StepStatus.Succeeded, Now);
         }
 
-        // A manifest with no migrations skips the migrate step; the job must not
-        // sit waiting for a step that will never run.
+        // A manifest with no extensions and no migrations skips both steps; the
+        // job must not sit waiting for a step that will never run. Most Features
+        // skip the first of these and a good few skip the second.
+        job.ReportStep(JobPipeline.CreateExtensions, StepStatus.Skipped, Now);
         job.ReportStep(JobPipeline.Migrate, StepStatus.Skipped, Now);
 
         Assert.Equal(JobPipeline.Configure, job.NextStep());
-        Assert.Equal(6, job.CompletedStepCount);
+        Assert.Equal(7, job.CompletedStepCount);
     }
 
     [Fact]
@@ -376,5 +378,33 @@ public sealed class FeatureInstallationJobTests
         Assert.True(JobPipeline.TouchesDatabase(JobPipeline.ReverseMigrate));
         Assert.False(JobPipeline.TouchesDatabase(JobPipeline.Install));
         Assert.False(JobPipeline.TouchesDatabase(JobPipeline.Reload));
+
+        // Creating an extension writes to the database and still belongs on the
+        // false side: nothing ever drops one, so it can neither need a reverse
+        // nor stop one (docs/adr/0031).
+        Assert.False(JobPipeline.TouchesDatabase(JobPipeline.CreateExtensions));
+    }
+
+    [Fact]
+    public void AnInstallCreatesItsExtensionsBeforeItMigrates()
+    {
+        // The ordering is the reason the step exists. A store's database user is
+        // routinely not allowed to create an extension, and learning that before
+        // a migration has applied is the difference between a job that failed and
+        // one that has to be finished by hand (docs/adr/0031).
+        var steps = JobPipeline.StepsFor(JobType.Install).ToList();
+
+        Assert.True(steps.IndexOf(JobPipeline.Install) < steps.IndexOf(JobPipeline.CreateExtensions));
+        Assert.True(steps.IndexOf(JobPipeline.CreateExtensions) < steps.IndexOf(JobPipeline.Migrate));
+    }
+
+    [Fact]
+    public void NoRollbackPathEverDropsAnExtension()
+    {
+        // Stated as a test because it is the whole decision: a rollback cannot
+        // know whether another Feature has started using the extension, so it
+        // leaves it (docs/adr/0031).
+        Assert.DoesNotContain(JobPipeline.CreateExtensions, JobPipeline.StepsFor(JobType.Rollback));
+        Assert.DoesNotContain(JobPipeline.CreateExtensions, JobPipeline.StepsFor(JobType.Uninstall));
     }
 }

@@ -128,6 +128,7 @@ but they are **not** a description of KNIGHT's target architecture:
 | [0028](adr/0028-staged-rollouts-with-a-single-store-canary.md) | Staged rollouts with a single-store canary | Accepted |
 | [0029](adr/0029-one-slug-for-the-catalogue-and-the-package.md) | One slug for the commercial catalogue and the deployable package | Accepted |
 | [0030](adr/0030-what-store-data-may-reach-a-model-provider.md) | What store data may reach a model provider | Accepted |
+| [0031](adr/0031-database-extensions-are-declared-not-migrated.md) | Database extensions are declared, not migrated | Accepted, amends 0016 |
 
 **Revision note:** the first documentation revision treated a Feature as an
 entitlement flag. ADR 0014 corrects that. Where any older, un-updated document

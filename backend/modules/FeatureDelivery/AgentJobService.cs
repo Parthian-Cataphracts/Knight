@@ -424,7 +424,8 @@ internal sealed class AgentJobService : IAgentJobService
                 migrations = new AgentMigrationPolicy(
                     version.MigrationsRequired,
                     version.MigrationsReversible,
-                    version.RequiresMaintenanceWindow);
+                    version.RequiresMaintenanceWindow,
+                    version.Extensions);
 
                 django = new AgentDjangoIntegration(
                     version.AppLabel,
@@ -530,4 +531,11 @@ public sealed record DeliverableVersion(
     /// The scheduled jobs the store must start running once this is installed.
     /// Read from the signed manifest like everything else here.
     /// </summary>
-    IReadOnlyList<AgentWorker> Workers);
+    IReadOnlyList<AgentWorker> Workers,
+
+    /// <summary>
+    /// Database extensions that must exist before this version's migrations run.
+    /// From the manifest, allow-listed at publish, and never dropped afterwards
+    /// (docs/adr/0031-database-extensions-are-declared-not-migrated.md).
+    /// </summary>
+    IReadOnlyList<string> Extensions);

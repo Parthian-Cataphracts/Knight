@@ -79,6 +79,36 @@ guessing ([`adr/0016`](adr/0016-feature-migration-and-removal-policy.md)).
 generous at the top end unless you actually touch store internals — a needless
 upper bound creates upgrade work for every customer and every store version.
 
+**`migrations.extensions`** is how you get a PostgreSQL extension. Never write
+`CREATE EXTENSION` in a migration on its own:
+
+```yaml
+compatibility:
+  database: postgresql       # required as soon as you declare an extension
+migrations:
+  reversible: true           # unaffected by the line below
+  extensions:
+    - pg_trgm
+```
+
+KNIGHT accepts `pg_trgm`, `btree_gin`, `btree_gist`, `unaccent`, `citext` and
+`pgcrypto`, and nothing else. The store creates them before your migrations run
+and **never drops them** — another Feature may be using the same one
+([`adr/0031`](adr/0031-database-extensions-are-declared-not-migrated.md)).
+
+Your migration should still open with the same idempotent statement, so that
+`manage.py migrate` and Django's test database work with no installer involved:
+
+```python
+migrations.RunSQL(
+    sql='CREATE EXTENSION IF NOT EXISTS "pg_trgm"',
+    reverse_sql=migrations.RunSQL.noop,   # never dropped: adr/0031
+),
+```
+
+`django.contrib.postgres.operations.CreateExtension` is the one thing not to use:
+it reverses to `DROP EXTENSION`.
+
 **`workers`** declares what has to happen without anybody asking:
 
 ```yaml
@@ -234,6 +264,8 @@ secret into a place your Feature then logs.
 - [ ] `AppConfig.label` set explicitly
 - [ ] No import of store business code
 - [ ] `migrations.reversible` is honest, and you have run the reverse
+- [ ] Any database extension is declared in `migrations.extensions`, and no
+      migration of yours drops one
 - [ ] `compatibility` ranges reflect what you actually touch
 - [ ] Dependencies are ranges against another Feature's service surface
 - [ ] A health check that can fail

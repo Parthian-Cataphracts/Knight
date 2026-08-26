@@ -467,6 +467,20 @@ public static class JobPipeline
     public const string Verify = "verify";
     public const string Backup = "backup";
     public const string Install = "install";
+
+    /// <summary>
+    /// Creates the database extensions the manifest declares, before any
+    /// migration runs.
+    ///
+    /// Its own step rather than part of <see cref="Migrate"/> because it is the
+    /// one part of the schema work that a store's database user is routinely not
+    /// allowed to do — most managed PostgreSQL restricts it — and finding that
+    /// out before a migration has applied is the difference between a job that
+    /// failed and a job that has to be finished by hand
+    /// (docs/adr/0031-database-extensions-are-declared-not-migrated.md).
+    /// </summary>
+    public const string CreateExtensions = "create-extensions";
+
     public const string Migrate = "migrate";
     public const string Configure = "configure";
     public const string Enable = "enable";
@@ -478,7 +492,7 @@ public static class JobPipeline
     public const string ReverseMigrate = "reverse-migrate";
 
     private static readonly string[] InstallSteps =
-        [Preflight, Fetch, Verify, Backup, Install, Migrate, Configure, Enable, Reload, HealthCheck];
+        [Preflight, Fetch, Verify, Backup, Install, CreateExtensions, Migrate, Configure, Enable, Reload, HealthCheck];
 
     private static readonly string[] ConfigurationSteps = [Configure, Reload, HealthCheck];
 
@@ -504,6 +518,11 @@ public static class JobPipeline
     /// <summary>
     /// Whether a step changes the store's database. Only these need a reverse
     /// migration to undo, and only these can make a rollback impossible.
+    ///
+    /// <see cref="CreateExtensions"/> writes to the database and is deliberately
+    /// not here: an extension is shared state the Feature does not own, nothing
+    /// ever drops it, and so it can neither need a reverse nor block one
+    /// (docs/adr/0031-database-extensions-are-declared-not-migrated.md).
     /// </summary>
     public static bool TouchesDatabase(string step) =>
         string.Equals(step, Migrate, StringComparison.Ordinal) ||

@@ -265,6 +265,87 @@ def install(context: JobContext) -> str:
     return f"unpacked into {target}"
 
 
+#: Database extensions this store is willing to create because a job asked it to.
+#:
+#: The same closed list KNIGHT validates a manifest against at publish, repeated
+#: here on purpose. The store does not trust the job body — it re-checks a
+#: signature it already asked for, and it normalises workers rather than running
+#: what it is sent — and an extension is the strongest case for that rule: some
+#: PostgreSQL extensions are procedural languages, and creating one is arbitrary
+#: code execution against the database owner. The publish-time check protects
+#: every store from a careless author; this one protects *this* store from a
+#: KNIGHT that has been compromised or has simply moved on
+#: (docs/adr/0031-database-extensions-are-declared-not-migrated.md).
+ALLOWED_EXTENSIONS = frozenset(
+    {"pg_trgm", "btree_gin", "btree_gist", "unaccent", "citext", "pgcrypto"}
+)
+
+
+def create_extensions(context: JobContext) -> str:
+    """
+    Creates the database extensions the feature declared, before its migrations
+    run.
+
+    Its own step, before `migrate`, because the privilege to create an extension
+    is the one a store's database user routinely does not have — most managed
+    PostgreSQL restricts it. Finding that out here means nothing has been changed
+    yet and the message can name the statement an administrator must run; finding
+    it out inside a migration means a half-applied schema and a rollback.
+
+    Idempotent by construction: `IF NOT EXISTS`, every time. And nothing here
+    ever drops one — an extension is shared with the store and with every other
+    feature installed in the same database, so this step has no entry in the
+    rollback table and no reverse to call.
+    """
+    declared = [name for name in (context.migrations.get("extensions") or []) if name]
+
+    if not declared:
+        return "the manifest declares no extensions"
+
+    refused = [name for name in declared if name not in ALLOWED_EXTENSIONS]
+    if refused:
+        raise StepFailed(
+            "extensions.refused",
+            f"This store will not create {', '.join(sorted(refused))}. "
+            f"It creates only: {', '.join(sorted(ALLOWED_EXTENSIONS))}.",
+        )
+
+    from django.db import connection
+
+    if connection.vendor != "postgresql":
+        raise StepFailed(
+            "extensions.wrong_engine",
+            f"{context.slug} needs the PostgreSQL extension(s) {', '.join(declared)} "
+            f"and this store runs {connection.vendor}. The feature should not have been "
+            "delivered here; its manifest declares 'database: postgresql'.",
+        )
+
+    created = []
+
+    for name in declared:
+        try:
+            with connection.cursor() as cursor:
+                # Interpolated because an extension name cannot be a bound
+                # parameter. Safe because `name` has just been checked against a
+                # frozenset of literals — nothing else can reach this line.
+                cursor.execute(f'CREATE EXTENSION IF NOT EXISTS "{name}"')
+        except Exception as exc:  # noqa: BLE001 - the reason matters more than the type
+            raise StepFailed(
+                "extensions.denied",
+                f"The extension '{name}' could not be created: {exc}. "
+                f"On most managed PostgreSQL this needs an administrator: ask for "
+                f'`CREATE EXTENSION IF NOT EXISTS "{name}";` to be run once on this '
+                "database, then retry the job. Nothing has been changed on this store.",
+            ) from exc
+
+        created.append(name)
+
+    # Deliberately not appended to `context.applied`: there is nothing to undo,
+    # and a rollback that dropped one of these could break a feature that has
+    # been using it for a month (docs/adr/0031).
+    return f"ensured {', '.join(created)}"
+
+
 def migrate(context: JobContext) -> str:
     """
     Applies the feature's database migrations.

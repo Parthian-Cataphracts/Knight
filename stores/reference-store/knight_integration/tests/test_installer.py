@@ -19,7 +19,7 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 
 from knight_integration.installer.runner import KNOWN_JOB_TYPES, STEP_IMPLEMENTATIONS, JobRunner
 from knight_integration.installer.state import InstallationRegistry, InstalledFeature
@@ -306,8 +306,8 @@ class JobRunnerTests(SimpleTestCase):
 
     def test_every_step_knight_names_has_an_implementation(self):
         expected = {
-            "preflight", "fetch", "verify", "backup", "install", "migrate",
-            "configure", "enable", "reload", "healthcheck", "disable",
+            "preflight", "fetch", "verify", "backup", "install", "create-extensions",
+            "migrate", "configure", "enable", "reload", "healthcheck", "disable",
             "remove-package", "restore-package", "reverse-migrate",
         }
 
@@ -476,3 +476,246 @@ class RuntimeWiringTests(SimpleTestCase):
 
         self.assertEqual(feature.installed_app, "reviews_ratings")
         self.assertIsNone(feature.url_include)
+
+
+class ExtensionStepTests(TestCase):
+    """
+    Creating the database extensions a Feature declared.
+
+    Its own step, running before `migrate`, because the privilege to create an
+    extension is the one a store's database user routinely does not have. What
+    this class is mostly about is what it refuses: the job body is not signed, so
+    the list of extensions this store will create is held here rather than taken
+    from whatever a job asks for
+    (docs/adr/0031-database-extensions-are-declared-not-migrated.md).
+    """
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp(prefix="knight-extensions-"))
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+
+    def _context(self, extensions):
+        from knight_integration.conf import get_settings
+        from knight_integration.installer.state import get_registry
+        from knight_integration.installer.steps import JobContext
+
+        config = get_settings()
+        object.__setattr__(config, "feature_root", str(self.root))
+
+        job = {
+            "jobId": "1",
+            "type": "Install",
+            "featureSlug": "advanced-search",
+            "targetVersion": "1.1.0",
+            "migrations": {"required": True, "reversible": True, "extensions": extensions},
+        }
+
+        return JobContext(job=job, config=config, registry=get_registry(self.root), workspace=self.root)
+
+    def test_a_feature_that_declares_none_is_skipped_rather_than_run(self):
+        from knight_integration.installer.steps import create_extensions
+
+        output = create_extensions(self._context([]))
+
+        # The wording matters: the runner reads it to report Skipped rather than
+        # Succeeded, and the job record should say which it was.
+        self.assertTrue(output.startswith("the manifest declares no"))
+
+    def test_a_declared_extension_is_created(self):
+        from django.db import connection
+
+        from knight_integration.installer.steps import create_extensions
+
+        if connection.vendor != "postgresql":
+            self.skipTest("Extensions are a PostgreSQL concept.")
+
+        create_extensions(self._context(["unaccent"]))
+
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT count(*) FROM pg_extension WHERE extname = 'unaccent'")
+            self.assertEqual(1, cursor.fetchone()[0])
+
+    def test_creating_one_twice_is_not_an_error(self):
+        from django.db import connection
+
+        from knight_integration.installer.steps import create_extensions
+
+        if connection.vendor != "postgresql":
+            self.skipTest("Extensions are a PostgreSQL concept.")
+
+        # An agent that lost a reply re-runs the step. Every step in this
+        # pipeline is idempotent and this one is no exception.
+        create_extensions(self._context(["unaccent"]))
+        output = create_extensions(self._context(["unaccent"]))
+
+        self.assertIn("unaccent", output)
+
+    def test_an_extension_outside_the_stores_own_list_is_refused(self):
+        from knight_integration.installer.steps import StepFailed, create_extensions
+
+        # The whole reason the store keeps its own copy of the list. A job body
+        # is not signed, so a control plane that has been compromised - or has
+        # simply grown a field this store does not understand - must not be able
+        # to talk this store into loading a procedural language.
+        with self.assertRaises(StepFailed) as raised:
+            create_extensions(self._context(["plpython3u"]))
+
+        self.assertEqual("extensions.refused", raised.exception.code)
+        self.assertIn("plpython3u", raised.exception.detail)
+
+    def test_one_refused_name_stops_the_whole_step(self):
+        from django.db import connection
+
+        from knight_integration.installer.steps import StepFailed, create_extensions
+
+        if connection.vendor != "postgresql":
+            self.skipTest("Extensions are a PostgreSQL concept.")
+
+        # Refused before anything is created, not part-way through: a step that
+        # applied the allowed half and then failed would leave the store in a
+        # state nobody described.
+        with self.assertRaises(StepFailed):
+            create_extensions(self._context(["citext", "dblink"]))
+
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT count(*) FROM pg_extension WHERE extname = 'citext'")
+            created = cursor.fetchone()[0]
+
+        self.assertEqual(0, created, "citext was created despite the job being refused.")
+
+    def test_the_step_records_nothing_to_roll_back(self):
+        from django.db import connection
+
+        from knight_integration.installer.steps import create_extensions
+
+        if connection.vendor != "postgresql":
+            self.skipTest("Extensions are a PostgreSQL concept.")
+
+        context = self._context(["unaccent"])
+        create_extensions(context)
+
+        # The decision itself, as a test. A rollback walks `applied` backwards;
+        # an extension must never be on that list, because another Feature may
+        # have started using it in the meantime (docs/adr/0031).
+        self.assertEqual([], context.applied)
+
+    def test_no_rollback_path_can_undo_it(self):
+        from knight_integration.installer.runner import _ROLLBACK_FOR
+
+        self.assertNotIn("create-extensions", _ROLLBACK_FOR)
+
+
+class FallbackManifestReaderTests(SimpleTestCase):
+    """
+    The manifest reader `knight_install_local` uses when PyYAML is absent.
+
+    It is the least-exercised code in this package and has now been wrong three
+    times, each time in the same shape: it dropped something it could not parse
+    and nothing noticed, because PyYAML is installed in development and in CI and
+    this path only runs on a bare store.
+
+    Phase 13 found it flattening `django.urls.include`, so a Feature declaring
+    routes was registered without them. Phase 16 found it returning an empty
+    mapping for every `workers:` block in this repository, so a Feature declaring
+    scheduled jobs was registered with none — the same failure one field along.
+
+    So the tests here are differential: parse a real manifest both ways and
+    require the same document. A reader that quietly disagrees with PyYAML is the
+    whole bug, and only a comparison catches it.
+    """
+
+    @staticmethod
+    def _manifests():
+        root = Path(__file__).resolve().parents[4] / "features"
+        return sorted(root.glob("knight-feature-*/knight_manifest.yaml"))
+
+    def _both(self, path: Path):
+        import yaml
+
+        from knight_integration.management.commands.knight_install_local import _read_simple_yaml
+
+        text = path.read_text(encoding="utf-8")
+        fallback = _read_simple_yaml(text)
+        reference = yaml.safe_load(text)
+
+        # The one field it deliberately does not read: a folded scalar, needed by
+        # nobody, and skipped rather than half-joined.
+        fallback.pop("description", None)
+        reference.pop("description", None)
+
+        return fallback, reference
+
+    def test_every_manifest_in_this_repository_reads_the_same_as_pyyaml(self):
+        paths = self._manifests()
+        self.assertNotEqual([], paths, "No manifests found; this test would pass having checked nothing.")
+
+        for path in paths:
+            with self.subTest(manifest=path.parent.name):
+                fallback, reference = self._both(path)
+                self.assertEqual(reference, fallback)
+
+    def test_a_feature_that_declares_workers_gets_them(self):
+        # Named separately from the comparison above because this is the
+        # regression: `workers` came back as `{}` for every Feature that has one.
+        from knight_integration.management.commands.knight_install_local import _read_simple_yaml
+
+        document = _read_simple_yaml(
+            "slug: loyalty-rewards\n"
+            "workers:\n"
+            "  - name: expire-points\n"
+            "    entrypoint: knight_feature_loyalty_rewards.services.expire_stale\n"
+            "    schedule: daily\n"
+        )
+
+        self.assertEqual(
+            [{
+                "name": "expire-points",
+                "entrypoint": "knight_feature_loyalty_rewards.services.expire_stale",
+                "schedule": "daily",
+            }],
+            document["workers"],
+        )
+
+    def test_a_version_range_is_not_torn_in_half_at_its_comma(self):
+        # The packaging tool had this bug and it was fixed there in phase 15;
+        # this copy of the code had it too and nothing had read the field
+        # (docs/phase-15-verification.md).
+        from knight_integration.management.commands.knight_install_local import _read_simple_yaml
+
+        document = _read_simple_yaml(
+            'dependencies:\n  features:\n    - { slug: analytics-core, version: ">=1.0.0,<2.0.0" }\n'
+        )
+
+        self.assertEqual(
+            [{"slug": "analytics-core", "version": ">=1.0.0,<2.0.0"}],
+            document["dependencies"]["features"],
+        )
+
+    def test_a_scalar_sequence_is_read_rather_than_skipped(self):
+        from knight_integration.management.commands.knight_install_local import _read_simple_yaml
+
+        document = _read_simple_yaml("migrations:\n  required: true\n  extensions:\n    - pg_trgm\n")
+
+        self.assertEqual({"required": True, "extensions": ["pg_trgm"]}, document["migrations"])
+
+    def test_booleans_are_booleans_rather_than_the_string_true(self):
+        from knight_integration.management.commands.knight_install_local import _read_simple_yaml
+
+        # `"false"` is truthy, and `migrations.reversible` is the field where
+        # that would decide whether a rollback is attempted.
+        document = _read_simple_yaml("migrations:\n  required: true\n  reversible: false\n")
+
+        self.assertIs(True, document["migrations"]["required"])
+        self.assertIs(False, document["migrations"]["reversible"])
+
+    def test_a_shape_it_cannot_read_raises_rather_than_dropping_it(self):
+        from knight_integration.management.commands.knight_install_local import (
+            ManifestUnreadable,
+            _read_simple_yaml,
+        )
+
+        # The lesson of the three bugs above, as a rule: silence is what let each
+        # of them survive. A shape this reader does not understand is refused,
+        # and the command tells the operator to install PyYAML.
+        with self.assertRaises(ManifestUnreadable):
+            _read_simple_yaml("workers:\n  - name:\n      nested: deeper\n")
