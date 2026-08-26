@@ -25,6 +25,12 @@ def health() -> bool:
         # Exercises the tsvector column and the ranking expression. A query that
         # matches nothing is fine; one that raises means the column or the index
         # did not survive the migration.
+        #
+        # Since 1.1.0 it also exercises pg_trgm, and that is the point: a query
+        # matching nothing falls all the way through to the similarity pass, so
+        # this fails when the extension is missing. Which is exactly the install
+        # that has to fail — the package is fine, the migrations applied, and the
+        # search box would raise on the first typo a shopper made.
         services.search("knight-health-check-query-that-matches-nothing")
         services.stats()
     except Exception:  # noqa: BLE001 - any failure here means unhealthy

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "knight-feature-advanced-search"
-version = "1.0.0"
-description = "Full-text search, filters and facets over a KNIGHT store's catalogue."
+version = "1.1.0"
+description = "Full-text search, typo tolerance, filters and facets over a KNIGHT store's catalogue."
 requires-python = ">=3.12"
 dependencies = ["Django>=5.0,<6.0"]
 

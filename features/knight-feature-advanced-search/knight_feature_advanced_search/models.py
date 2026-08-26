@@ -80,6 +80,13 @@ class SearchDocument(models.Model):
             # The index that makes this a search feature rather than a slow LIKE.
             GinIndex(fields=["search_vector"], name="knight_search_vector_gin"),
             models.Index(fields=["object_type", "is_available"], name="knight_search_type_avail"),
+            # Trigrams over the title, for the typo pass. A separate index from
+            # the tsvector one because it answers a different question: the
+            # vector knows which words a document contains, and this knows which
+            # documents contain something *like* what was typed. Added in 1.1.0
+            # with the pg_trgm extension it needs
+            # (docs/adr/0031-database-extensions-are-declared-not-migrated.md).
+            GinIndex(fields=["title"], name="knight_search_title_trgm", opclasses=["gin_trgm_ops"]),
         ]
         constraints = [
             models.UniqueConstraint(

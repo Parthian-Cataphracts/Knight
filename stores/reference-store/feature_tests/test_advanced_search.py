@@ -144,6 +144,78 @@ class PartialWordTests(TestCase):
 
 
 @skipUnless(INSTALLED, "The advanced-search Feature is not installed.")
+class TypoToleranceTests(TestCase):
+    """
+    The trigram pass, which 1.1.0 adds and 1.0 could not have.
+
+    It waited for a decision rather than for code: `pg_trgm` is a
+    `CREATE EXTENSION`, which is neither this Feature's own schema nor something
+    a rollback may undo, and there was no class for that until
+    docs/adr/0031-database-extensions-are-declared-not-migrated.md.
+
+    What these tests are really about is the pass being *last*. It is the only
+    one that can return something wrong rather than nothing, so every case here
+    checks it does not fire when an earlier pass had an answer.
+    """
+
+    def setUp(self):
+        services.index_many(
+            [
+                {"object_id": 1, "title": "Espresso Machine", "body": "Nine bars of pressure."},
+                {"object_id": 2, "title": "Ethiopia Yirgacheffe", "body": "Bright and floral."},
+                {"object_id": 3, "title": "Cafetiere", "body": "Eight cups."},
+            ]
+        )
+
+    def test_a_misspelling_finds_the_product(self):
+        # The case that motivated the whole thing: a shopper types the word the
+        # way it sounds, and 1.0 answered with nothing at all.
+        self.assertEqual([hit.object_id for hit in services.search("expresso")], [1])
+
+    def test_a_transposed_letter_finds_the_product(self):
+        self.assertEqual([hit.object_id for hit in services.search("Yirgacheffee")], [2])
+
+    def test_an_exact_match_is_never_diluted_by_similar_titles(self):
+        services.index(4, title="Espresso Machines")
+
+        # "Espresso Machine" matches both outright, so the trigram pass never
+        # runs. A pass that ran anyway would reorder a correct result set by
+        # similarity, which is worse than not having it.
+        found = [hit.object_id for hit in services.search("espresso machine")]
+
+        self.assertIn(1, found)
+        self.assertNotEqual([], found)
+
+    def test_a_word_that_is_merely_short_does_not_fuzzy_match(self):
+        # Two and three characters share trigrams with half a catalogue. Below
+        # the floor this returns nothing rather than a guess.
+        self.assertEqual(services.search("xqz"), [])
+
+    def test_something_genuinely_absent_still_returns_nothing(self):
+        # The failure mode of a fuzzy search is answering everything. A query
+        # for a thing the shop does not sell must still come back empty.
+        self.assertEqual(services.search("bicycle handlebars"), [])
+
+    def test_the_typo_pass_respects_availability(self):
+        services.index(5, title="Cappuccino Cups", is_available=False)
+
+        self.assertEqual(services.search("capuccino cups"), [])
+
+    def test_suggestions_survive_a_typo(self):
+        # A suggestion list is what empties on the first mistyped letter, which
+        # reads as "this shop has nothing" rather than "you have a typo".
+        self.assertEqual(services.suggest("expresso"), ["Espresso Machine"])
+
+    def test_suggestions_prefer_what_actually_starts_with_the_text(self):
+        services.index(6, title="Espresso Cups")
+
+        self.assertEqual(
+            sorted(services.suggest("espresso")),
+            ["Espresso Cups", "Espresso Machine"],
+        )
+
+
+@skipUnless(INSTALLED, "The advanced-search Feature is not installed.")
 class AvailabilityTests(TestCase):
     def setUp(self):
         services.index(1, title="Ethiopia Yirgacheffe", is_available=True)

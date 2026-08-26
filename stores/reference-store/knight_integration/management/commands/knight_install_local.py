@@ -71,6 +71,9 @@ class Command(BaseCommand):
                 )
             )
 
+        self.stdout.write(f"Registry: {registry.path}")
+        self.stdout.write("Restart the store for the app registry to pick this up.")
+
     def _extensions(self, manifest: dict) -> None:
         """
         Creates the database extensions the manifest declares.
@@ -122,9 +125,6 @@ class Command(BaseCommand):
                 ) from exc
 
             self.stdout.write(f"  extension {name} ensured")
-
-        self.stdout.write(f"Registry: {registry.path}")
-        self.stdout.write("Restart the store for the app registry to pick this up.")
 
     def _manifest(self, source: Path) -> dict:
         if not source.is_dir():

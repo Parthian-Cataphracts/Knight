@@ -12,7 +12,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
-from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+from django.contrib.postgres.search import (
+    SearchQuery,
+    SearchRank,
+    SearchVector,
+    TrigramSimilarity,
+)
 from django.db import transaction
 from django.db.models import Count, F, QuerySet
 
@@ -29,6 +34,22 @@ BODY_WEIGHT = "C"
 #: wrong one for some catalogues; 'simple' does no stemming at all and is the
 #: safer default for a store whose products are named rather than described.
 CONFIG = "english"
+
+#: How alike a title has to be to a misspelling before it counts as a match.
+#:
+#: 0.3 is PostgreSQL's own default for the `%` operator, and it is stated here as
+#: well as relied on there: `pg_trgm.similarity_threshold` is a session setting,
+#: so a store that changed it would silently change what this Feature returns.
+#: Applied as an explicit floor, the two can only agree or this can be stricter.
+#:
+#: Lower would be worse than useless. A search box that answers "kettle" with
+#: "cattle" has not been helpful, it has been confidently wrong, and a shopper
+#: reads the results as what the shop sells rather than as guesses.
+SIMILARITY_FLOOR = 0.3
+
+#: Below this, a typo pass is guessing. Two- and three-character strings share
+#: trigrams with half a catalogue.
+MINIMUM_FUZZY_LENGTH = 4
 
 
 @dataclass(frozen=True)
@@ -157,15 +178,18 @@ def search(
     """
     Ranked results for a query.
 
-    Two passes, and the second one matters more than it looks. A full-text match
-    needs whole words, so a shopper who has typed "yirg" while still typing has
-    matched nothing — and a search box that goes blank mid-word reads as broken.
-    The prefix pass catches that. It runs only when the first found nothing, so
-    a complete query is never diluted by partial matches.
+    Three passes, each a fallback for the one before, and each running only when
+    the previous found nothing — so a query that matched properly is never
+    diluted by weaker matches.
 
-    Fuzzy matching — real typo tolerance — needs the pg_trgm extension, which is
-    a `CREATE EXTENSION` and therefore not the Class A migration this phase is
-    limited to. Deliberately left to 1.1 rather than smuggled in.
+    1. **Full text.** Whole words, stemmed, ranked by where they appear.
+    2. **Prefix.** A full-text match needs whole words, so a shopper who has
+       typed "yirg" while still typing has matched nothing, and a search box that
+       goes blank mid-word reads as broken.
+    3. **Trigram similarity**, added in 1.1.0. The first two both need the letters
+       to be right; this one is what answers "expresso" with the espresso
+       machine. It is last because it is the only pass that can be *wrong* rather
+       than merely empty.
     """
     text = (query or "").strip()
 
@@ -180,7 +204,12 @@ def search(
     if hits:
         return hits
 
-    return _ranked(base, _prefix_query(text), limit, offset)
+    hits = _ranked(base, _prefix_query(text), limit, offset)
+
+    if hits:
+        return hits
+
+    return _similar(base, text, limit, offset)
 
 
 def facets(
@@ -225,17 +254,29 @@ def suggest(prefix: str, *, limit: int = 8) -> list[str]:
 
     Titles rather than hits: a suggestion list is a list of things to search for,
     and returning ranks with it invites a caller to treat it as results.
+
+    Falls back to similar titles when nothing starts with the text, which is the
+    case a suggestion list is worst at: one mistyped letter and the dropdown
+    empties, telling a shopper the shop has nothing rather than that they have a
+    typo.
     """
     text = (prefix or "").strip()
 
     if len(text) < 2:
         return []
 
-    return list(
+    limit = max(1, min(limit, 25))
+
+    starting = list(
         SearchDocument.objects.filter(is_available=True, title__istartswith=text)
         .order_by("title")
-        .values_list("title", flat=True)[: max(1, min(limit, 25))]
+        .values_list("title", flat=True)[:limit]
     )
+
+    if starting or len(text) < MINIMUM_FUZZY_LENGTH:
+        return starting
+
+    return [hit.title for hit in _similar(_filtered(None, None, False), text, limit, 0)]
 
 
 def stats() -> dict[str, int]:
@@ -273,6 +314,43 @@ def _ranked(queryset: QuerySet, search_query, limit: int, offset: int) -> list[H
     rows = (
         queryset.filter(search_vector=search_query)
         .annotate(rank=SearchRank(F("search_vector"), search_query))
+        .order_by("-rank", "title")[offset : offset + limit]
+        .values("object_type", "object_id", "title", "rank")
+    )
+
+    return [
+        Hit(
+            object_type=row["object_type"],
+            object_id=row["object_id"],
+            title=row["title"],
+            rank=float(row["rank"] or 0),
+        )
+        for row in rows
+    ]
+
+
+def _similar(queryset: QuerySet, text: str, limit: int, offset: int) -> list[Hit]:
+    """
+    Titles that are *like* what was typed, for when nothing matches what was
+    actually typed.
+
+    Filtered with `__trigram_similar` and then ranked by `TrigramSimilarity`,
+    which looks redundant and is not. The filter compiles to the `%` operator,
+    which the GIN trigram index can answer; a bare `similarity(...) >= 0.3` is a
+    sequential scan over every document in the catalogue, computing a similarity
+    for each. Same rows, and the difference on a real catalogue is the difference
+    between a search box and a timeout.
+
+    Only the title. Trigrams over a body of prose match almost anything, which
+    turns a typo pass into a random-product generator.
+    """
+    if len(text) < MINIMUM_FUZZY_LENGTH:
+        return []
+
+    rows = (
+        queryset.filter(title__trigram_similar=text)
+        .annotate(rank=TrigramSimilarity("title", text))
+        .filter(rank__gte=SIMILARITY_FLOOR)
         .order_by("-rank", "title")[offset : offset + limit]
         .values("object_type", "object_id", "title", "rank")
     )

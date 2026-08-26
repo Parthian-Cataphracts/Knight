@@ -10,13 +10,13 @@
 # delivery engine, not to test a search cluster (docs/feature-catalog.md).
 apiVersion: knight.dev/v1
 slug: advanced-search
-version: 1.0.0
+version: 1.1.0
 name: Advanced Search
 description: >-
-  Full-text search over the catalogue with ranking, filters, facets and
-  suggestions, on PostgreSQL's own text search. The store pushes documents into
-  an index rather than this reading its tables, which is both what a Feature is
-  allowed to do and what a search feature is.
+  Full-text search over the catalogue with ranking, filters, facets, suggestions
+  and typo tolerance, on PostgreSQL's own text search and trigram matching. The
+  store pushes documents into an index rather than this reading its tables,
+  which is both what a Feature is allowed to do and what a search feature is.
 
 django:
   app_label: knight_search
@@ -43,17 +43,22 @@ compatibility:
 
 migrations:
   required: true
-  # Class A: one CreateModel, two indexes and a unique constraint. Nothing is
-  # dropped and no data is transformed, so the reverse genuinely exists.
-  #
-  # This is also why 1.0 has no fuzzy matching. Real typo tolerance wants
-  # pg_trgm, and `CREATE EXTENSION` is not Class A - it is a cluster-level
-  # change that a rollback cannot safely undo, because another feature may have
-  # started using the extension in the meantime. It waits for 1.1
-  # (docs/adr/0016-feature-migration-and-removal-policy.md).
+  # Class A throughout: CreateModel, indexes and a unique constraint in 1.0.0,
+  # one AddIndex in 1.1.0. Nothing is dropped and no data is transformed, so the
+  # reverse genuinely exists
+  # (docs/adr/0031-database-extensions-are-declared-not-migrated.md).
   reversible: true
   estimatedDurationSeconds: 10
   requiresMaintenanceWindow: false
+
+  # The trigram index 1.1.0 adds needs this, and it is the reason 1.0 shipped
+  # with a prefix pass and no typo tolerance: `CREATE EXTENSION` is Class B -
+  # shared state this Feature does not own - so it is declared here rather than
+  # written into a migration, created before the migrations run, and never
+  # dropped. `advanced-inventory` uses the same extension, which is exactly the
+  # case a rollback that dropped it would break.
+  extensions:
+    - pg_trgm
 
 configuration:
   defaults:

@@ -73,7 +73,7 @@ in code.
 | `analytics-reports` | Analytics Reports | Insight | 19 | `features/knight-feature-analytics-reports` |
 | `advanced-promotions` | Advanced Promotions | Growth | 39 | `features/knight-feature-promotions` (2.0.0) |
 | `reviews-ratings` | Reviews and Ratings | Growth | 19 | `features/knight-feature-reviews-ratings` |
-| `advanced-search` | Advanced Search | Growth | 29 | `features/knight-feature-advanced-search` |
+| `advanced-search` | Advanced Search | Growth | 29 | `features/knight-feature-advanced-search` (1.1.0) |
 | `customer-segmentation` | Customer Segmentation | Insight | 29 | `features/knight-feature-customer-segmentation` |
 | `loyalty-rewards` | Loyalty and Rewards | Growth | 39 | `features/knight-feature-loyalty-rewards` |
 | `gift-cards` | Gift Cards and Store Credit | Revenue | 39 | `features/knight-feature-gift-cards` |
@@ -106,11 +106,21 @@ that publishes its package.
 | `subscriptions` | Subscriptions and Recurring Orders | Revenue | 69 | base only |
 | `external-marketplaces` | Marketplace and Delivery Integrations | Integrations | 99 | `advanced-inventory` (optional) |
 
-`advanced-search` is the only Feature that **requires a particular database**.
-Its index is a `tsvector` column and a GIN index, so it declares
+`advanced-search` is the Feature that **requires a particular database** most
+visibly. Its index is a `tsvector` column and a GIN index, so it declares
 `compatibility.database: postgresql` and the resolver refuses a store on any
 other engine before an install rather than after a failed health check. That key
 was a comment until phase 14, because the schema had nowhere to put it.
+
+Since 1.1.0 it also declares a **database extension**, `pg_trgm`, which is what
+its typo tolerance is built on. Extensions are declared in
+`migrations.extensions`, created by the store before the Feature's migrations
+run, and never dropped again — an extension is shared with the store and with
+every other Feature in the same database, so a rollback that removed one could
+break a Feature it has never heard of
+([`adr/0031`](adr/0031-database-extensions-are-declared-not-migrated.md)). The
+list KNIGHT accepts is closed, and declaring anything on it requires
+`compatibility.database: postgresql`.
 
 `ai-reports` is the only Feature that **requires dedicated infrastructure**, and
 the reason is cost rather than data: its per-customer spend is not something a
