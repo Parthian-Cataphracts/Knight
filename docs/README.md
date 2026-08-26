@@ -82,6 +82,7 @@ Read in this order:
 20. [`phase-12-verification.md`](phase-12-verification.md) — moving two capabilities out of Features and into the base store, what it cost, and what running it found
 21. [`phase-13-verification.md`](phase-13-verification.md) — three Features through the delivery engine, and the runtime wiring it turned out never to send
 22. [`phase-14-verification.md`](phase-14-verification.md) — the two Features that keep a balance, and the two transaction bugs that only a real database shows
+23. [`phase-15-verification.md`](phase-15-verification.md) — scheduled work, the first third-party credential, and a spend cap that refuses before it costs anything
 
 Project status and remaining work: [`../TODO.md`](../TODO.md).
 
@@ -126,6 +127,7 @@ but they are **not** a description of KNIGHT's target architecture:
 | [0027](adr/0027-the-restore-drill-is-the-backup-test.md) | The restore drill is the backup test, and it runs in CI | Accepted |
 | [0028](adr/0028-staged-rollouts-with-a-single-store-canary.md) | Staged rollouts with a single-store canary | Accepted |
 | [0029](adr/0029-one-slug-for-the-catalogue-and-the-package.md) | One slug for the commercial catalogue and the deployable package | Accepted |
+| [0030](adr/0030-what-store-data-may-reach-a-model-provider.md) | What store data may reach a model provider | Accepted |
 
 **Revision note:** the first documentation revision treated a Feature as an
 entitlement flag. ADR 0014 corrects that. Where any older, un-updated document

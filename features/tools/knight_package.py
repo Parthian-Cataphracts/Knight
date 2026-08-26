@@ -108,7 +108,38 @@ def _read_simple_yaml(text: str) -> dict:
             item = content[2:].strip()
             if not isinstance(container, list):
                 raise ValueError(f"Unexpected list item outside a list: {content}")
-            container.append(_scalar(item))
+
+            # A block-style mapping item, which is how `workers:` is written:
+            #
+            #   workers:
+            #     - name: expire-points
+            #       entrypoint: pkg.module.function
+            #
+            # The first pair opens a dict and the dict goes on the stack, so the
+            # more-indented lines that follow land inside it. Without this the
+            # first pair was appended as the string "name: expire-points" and the
+            # next line raised - which is what the tool did, correctly, rather
+            # than guessing. `dependencies.features` never hit it because those
+            # items are written inline.
+            if item.startswith("{") or ":" not in item:
+                container.append(_scalar(item))
+                continue
+
+            entry: dict = {}
+            entry_key, _, entry_value = item.partition(":")
+            entry_value = entry_value.strip()
+
+            if entry_value:
+                entry[entry_key.strip()] = _scalar(entry_value)
+            else:
+                # `- key:` with the value on the following lines. Rare, and
+                # refused rather than guessed at: this reader produces signed
+                # artifacts and a manifest misread here becomes the wrong
+                # contract.
+                raise ValueError(f"Cannot read manifest line: {content}")
+
+            container.append(entry)
+            stack.append((indent, entry))
             continue
 
         if ":" not in content:
@@ -159,12 +190,54 @@ def _in_quotes(line: str) -> bool:
     return line.count('"') % 2 == 1
 
 
+def _split_outside_quotes(text: str) -> list[str]:
+    """
+    Splits on commas that are not inside a quoted string.
+
+    A plain `text.split(",")` tears a version range in half: the dependency
+    `{ slug: analytics-core, version: ">=1.0.0,<2.0.0" }` became a slug, a
+    `version` of `">=1.0.0`, and a third key called `<2.0.0"`. Nothing noticed,
+    because this tool reads a manifest for the slug, the version and the package
+    directory and does not resolve dependencies itself — so it built a correct
+    artifact from a manifest it had misread, which is the worst shape a parser
+    bug can take (docs/phase-15-verification.md).
+    """
+    parts: list[str] = []
+    current: list[str] = []
+    quote: str | None = None
+
+    for character in text:
+        if quote is not None:
+            current.append(character)
+
+            if character == quote:
+                quote = None
+
+            continue
+
+        if character in "\"'":
+            quote = character
+            current.append(character)
+            continue
+
+        if character == ",":
+            parts.append("".join(current))
+            current = []
+            continue
+
+        current.append(character)
+
+    parts.append("".join(current))
+
+    return parts
+
+
 def _scalar(value: str):
     value = value.strip()
 
     if value.startswith("{") and value.endswith("}"):
         result = {}
-        for part in value[1:-1].split(","):
+        for part in _split_outside_quotes(value[1:-1]):
             if not part.strip():
                 continue
             key, _, item = part.partition(":")

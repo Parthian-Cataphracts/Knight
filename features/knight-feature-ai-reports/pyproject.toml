@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "knight-feature-ai-reports"
+version = "1.0.0"
+description = "Automated interpretation of a KNIGHT store's analytics."
+requires-python = ">=3.12"
+dependencies = ["Django>=5.0,<6.0"]
+
+[tool.setuptools]
+packages = ["knight_feature_ai_reports", "knight_feature_ai_reports.migrations"]

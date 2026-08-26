@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-26** (revision 26 — phase 14 done: the two Features that keep a balance, and the two transaction bugs only a real database shows)
+Last updated: **2026-08-26** (revision 27 — phase 15 done: scheduled work, the first third-party credential, and a spend cap that refuses before it costs anything)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,9 +11,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 15 — automation. Phase 14 is complete: `loyalty-rewards` and `gift-cards` are published, both built on a derived-balance ledger; `compatibility.database` is enforced; the uninstall guard is tested; and Growth and Retention are plans rather than packages** |
-| **Next phase** | **Manifest-declared workers first** — `marketing-automation` cannot work without them, and phase 14 refused to fake a `workers:` block the schema does not read. Then `marketing-automation`, then `ai-reports` |
-| **Overall progress** | **Platform ~99%, catalogue ~60%.** Two numbers on purpose: the control plane and the delivery engine are finished, and the product they exist to deliver is 9 sellable Features out of 16, in 5 plans. **761 backend tests green** (595 unit, 13 architecture, 153 PostgreSQL-backed integration), plus **367 store tests with nothing skipped**, the same 367 passing with no Feature installed at all, and 9 dashboard |
+| **Current phase** | **Phase 16 — operational expansion. Phase 15 is complete: Features declare scheduled work in their manifests and KNIGHT delivers it, `marketing-automation` and `ai-reports` are published, per-use cost is capped before it is spent, and [`adr/0030`](docs/adr/0030-what-store-data-may-reach-a-model-provider.md) settles what may leave a store** |
+| **Next phase** | How a `CREATE EXTENSION` is classified, once and for both callers, then `advanced-inventory` and `restaurant-operations`. `multi-location` is deliberately last in the phase: it reshapes data other Features already own |
+| **Overall progress** | **Platform ~99%, catalogue ~75%.** Two numbers on purpose: the control plane and the delivery engine are finished, and the product they exist to deliver is 11 sellable Features out of 16, in 5 plans. **775 backend tests green** (609 unit, 13 architecture, 153 PostgreSQL-backed integration), plus **479 store tests with nothing skipped**, the same 479 passing with no Feature installed at all, and 9 dashboard |
 | **Blocking decisions** | **Are Features publishable for a store that is not Django?** Everything except the manifest is already stack-agnostic; `ManifestReader` is the one thing that is not (R26, decision 14 in [`docs/risks.md`](docs/risks.md)). Until it is answered, a non-Django store is entitled and observed but not delivered to. Separately, the **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -39,16 +39,18 @@ Phase 11   Deployment & installation       ████████░░  80%
 Phase 12   Catalogue alignment            ██████████ 100%
 Phase 13   Delivery validation on Features ██████████ 100%
 Phase 14   Commercial foundations         ██████████ 100%
-Phase 15   Automation                     ░░░░░░░░░░   0%
+Phase 15   Automation                     ██████████ 100%
 Phase 16   Operational expansion          ░░░░░░░░░░   0%
 Phase 17   Recurring revenue & integrations ░░░░░░░░░  0%
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
-the image; **9 sellable Features** (`analytics-core` 1.1.0, `analytics-reports`,
+the image; **11 sellable Features** (`analytics-core` 1.1.0, `analytics-reports`,
 `advanced-promotions` 2.0.0, `reviews-ratings`, `advanced-search`,
-`customer-segmentation`, `loyalty-rewards`, `gift-cards`, `log-shipping`); 7
-Draft identities waiting on a package; 5 plans, two of them bundles.
+`customer-segmentation`, `loyalty-rewards` 1.1.0, `gift-cards`,
+`marketing-automation`, `ai-reports`, `log-shipping`); 5 Draft identities waiting
+on a package; 5 plans, two of them bundles. Three Features now run scheduled
+work declared in their own manifests.
 [`docs/feature-catalog.md`](docs/feature-catalog.md) is the list.
 
 ---
@@ -1229,27 +1231,100 @@ assemble a meaningfully better store from published Features.
 **Exit criteria:** KNIGHT can act on a schedule on a store's behalf, with
 per-customer cost bounded and auditable.
 
-- [ ] **Manifest-declared workers, first.** The schema has no concept of a
-      scheduled job: `ManifestReader` does not read one and
-      [`feature-delivery.md`](docs/feature-delivery.md) does not describe one.
-      Phase 14 refused to declare a `workers:` block that would have looked like
-      a guarantee and scheduled nothing, and shipped loyalty expiry as a store
-      management command instead. `marketing-automation` cannot be built that
-      way — a campaign nobody triggers is not a campaign — so this comes before
-      it, and loyalty expiry moves onto it once it exists
-- [ ] **`marketing-automation`** — abandoned cart, welcome, post-purchase and
-      win-back campaigns. Depends on `customer-segmentation`. Requires workers,
-      an email provider integration, and delivery tracking. The first Feature
-      needing third-party credentials, so it is also the first real test of
-      named-not-valued secrets over the install channel
-- [ ] **`ai-reports`** — automated interpretation of the analytics data.
-      Depends on `analytics-core`. The only Feature requiring dedicated
-      infrastructure, which is fixed at publication and cannot be changed after
-- [ ] Usage limits and cost controls before it is sellable, not after. An AI
-      Feature whose per-customer spend is unbounded is a commercial risk, not a
-      technical one
-- [ ] Privacy safeguards: decide and document what store data may leave the
-      store for a model provider, and record it as an ADR
+### Done
+- [x] **Manifest-declared workers.** A Feature declares a scheduled job, KNIGHT
+      delivers the declaration with the install, and the store runs it — so
+      installing a Feature installs its schedule. `hourly | daily | weekly`
+      rather than a cron expression: a cron string is a parser, a timezone
+      question and a support surface, and the word travels so the store decides
+      what it means for its own timezone
+- [x] Validated hard at publish, because a worker is code KNIGHT causes a store
+      to run on a timer with nobody watching. A malformed entrypoint would fail
+      silently every hour for as long as the Feature is installed; two workers
+      of one name are refused because a store records the last run per name
+- [x] The runner is built around what goes wrong on a timer: one misbehaving
+      worker loses its own run and nothing else, every run is recorded including
+      the failures, and a failure does **not** move the next run forward — a job
+      failing for three days is still due rather than quietly rescheduled. A
+      corrupt run history is refused rather than read as empty, because reading
+      it as empty would mail a store's whole customer list twice
+- [x] `loyalty-rewards` 1.1.0 moves its expiry onto a declared worker, as phase
+      14 said it would
+- [x] **`marketing-automation`** — welcome, post-purchase, abandoned-cart and
+      win-back campaigns, audiences from `customer-segmentation` and triggers
+      from `analytics-core`. The first Feature whose dangerous failure is
+      *sending*, so: consent is a fact the store records rather than something
+      inferred, suppression is keyed on the address so a new customer id is not
+      a fresh start, and a unique constraint per campaign and subject is what
+      makes double-mailing impossible. Installs with every campaign off and the
+      provider in recording mode
+- [x] **The first named-not-valued secret, end to end.** Declared in the
+      manifest without a value, delivered over the install channel, read through
+      `config.secret()`, reported by name only, and absent from every error
+      message. Tested both ways round
+- [x] **`ai-reports`** — findings computed by arithmetic and narration generated
+      optionally. Deterministic, auditable and free, and correct with no provider
+      configured at all: a number a merchant acts on is never something a model
+      produced
+- [x] **Cost controls before it is sellable, not after.** A monthly token and
+      cost cap, priced *before* the call so an over-budget store never makes it,
+      the window rolled over on read rather than by a job, and the findings
+      surviving a refusal — so a capped store still gets the part it can act on.
+      Visible to the merchant at `/ai-reports/usage/`
+- [x] **Privacy settled and written down**:
+      [`adr/0030`](docs/adr/0030-what-store-data-may-reach-a-model-provider.md).
+      Only aggregates KNIGHT's own arithmetic computed may leave a store, by
+      **allow-list** — a deny-list is one new field away from leaking. A finding
+      may not carry a customer reference at all, which is why the concentration
+      finding says "62% from a single customer" and not which one
+- [x] [`docs/phase-15-verification.md`](docs/phase-15-verification.md)
+
+### Found by verifying it, and fixed
+- [x] **A test module that could not be imported on a base store.**
+      `test_ai_reports.py` annotated a helper with a type that only exists when
+      the Feature is installed, and Python evaluates annotations at
+      function-definition time — so the module errored instead of skipping.
+      Caught only by the run with **no Features installed**, which is exactly
+      what that configuration is for
+- [x] **An unused statistical helper that failed its own motivating example.** A
+      z-score outlier rule where the single outlier inflated the standard
+      deviation enough to hide itself — deviation 72, threshold exactly 72.0.
+      Removed rather than tuned: dead statistical code that fails on the case it
+      exists for is worse than none, and anomaly detection should arrive with a
+      finding that uses it
+- [x] **A `DateField` defaulted to `timezone.now`**, which returns a datetime.
+      Django coerced it on save so the mistake survived a round trip and
+      surfaced only in the API response, where a usage window printed a full
+      timestamp
+- [x] **The packaging tool could not read a `workers:` block** — the third phase
+      running in which a hand-rolled YAML fallback was the thing that broke. It
+      handled inline sequence items, because `dependencies.features` is written
+      that way, and raised on block-style ones. Raising rather than guessing was
+      right; it reads both now
+- [x] **And fixing that exposed a worse bug, present since phase 3.5.** The
+      inline-map reader split on every comma, so
+      `{ slug: analytics-core, version: ">=1.0.0,<2.0.0" }` parsed as a slug, a
+      version of `">=1.0.0` and a third key called `<2.0.0"`. Nothing noticed
+      because the tool never resolves dependencies — so it built a **correct
+      artifact from a manifest it had misread**, which is the worst shape a
+      parser bug can take. The split is quote-aware now
+
+### Still open
+- [ ] **Neither `api` provider calls a vendor.** Both read their named secret,
+      validate it and refuse clearly. Wiring one is an integration against a
+      real account under a real agreement, and inventing it here would mean
+      shipping code nobody has watched work. Which provider, under what
+      agreement, in which jurisdiction is a commercial and legal question
+      [`adr/0030`](docs/adr/0030-what-store-data-may-reach-a-model-provider.md)
+      names rather than answers — and it has to be answered before either is
+      wired up
+- [ ] **Abandoned-cart needs an event the base store does not emit.** The
+      trigger reads `cart.abandoned`; a store wanting that campaign has to emit
+      it. The Feature names the event rather than inventing one
+- [ ] **Concurrency is argued, not proven** — carried from phase 14. The worker
+      runner's isolation and the send constraint are the right shapes and every
+      idempotency path has a test, but nothing runs two transactions at once to
+      watch them contend
 
 ---
 

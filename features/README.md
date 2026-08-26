@@ -19,6 +19,8 @@ A Feature is **not** a boolean flag
 | `knight-feature-customer-segmentation` | Segments computed from the analytics event stream. Depends on `analytics-core >=1.1.0`, and is the pair that exercises dependency resolution. |
 | `knight-feature-loyalty-rewards` | Points in lots with their own expiry, spent oldest-first, and tiers. The first Feature with a running balance. |
 | `knight-feature-gift-cards` | Gift cards and store credit. This one is money: the ledger is the truth and there is no balance column anywhere. |
+| `knight-feature-marketing-automation` | Triggered email campaigns. Installs switched off, in recording mode, and needs a named secret to send for real. |
+| `knight-feature-ai-reports` | Findings computed by arithmetic, narrated optionally and under a spend cap ([`adr/0030`](../docs/adr/0030-what-store-data-may-reach-a-model-provider.md)). |
 | `tools/knight_package.py` | Build, sign, validate and publish. |
 
 A directory's name is the Python distribution; the slug KNIGHT sells and

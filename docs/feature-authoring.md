@@ -79,6 +79,24 @@ guessing ([`adr/0016`](adr/0016-feature-migration-and-removal-policy.md)).
 generous at the top end unless you actually touch store internals — a needless
 upper bound creates upgrade work for every customer and every store version.
 
+**`workers`** declares what has to happen without anybody asking:
+
+```yaml
+workers:
+  - name: expire-points
+    entrypoint: knight_feature_loyalty_rewards.services.expire_stale
+    schedule: daily        # hourly | daily | weekly
+```
+
+The entrypoint is a callable the store imports and calls with **no arguments** —
+a worker that took parameters would need somewhere for them to come from, and the
+only honest source is the Feature's own configuration, which it can read itself.
+Two workers of one name are refused: a store records the last run per name.
+
+Write the job so it is safe to run twice. The runner re-runs anything whose last
+*successful* run is older than the interval, so a job that has been failing is
+still due, and an operator recovering from an outage will run it by hand.
+
 Check a manifest before you build anything:
 
 ```bash
@@ -220,5 +238,6 @@ secret into a place your Feature then logs.
 - [ ] Dependencies are ranges against another Feature's service surface
 - [ ] A health check that can fail
 - [ ] Manifest validates
-- [ ] Secrets named, never valued
+- [ ] Secrets named, never valued — and the Feature works without them
+- [ ] Any worker is idempotent, and its entrypoint takes no arguments
 - [ ] Version number is new — you cannot overwrite a published one

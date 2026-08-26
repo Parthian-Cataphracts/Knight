@@ -1,0 +1,95 @@
+# The contract between this Feature and everything that handles it: KNIGHT
+# validates it at publish, the resolver reads its dependencies, and the store's
+# installer reads its install and migration declarations
+# (docs/feature-delivery.md section 5).
+#
+# The first Feature that sends mail to real people on a timer, which makes it
+# the first one where the dangerous failure is not losing data - it is sending.
+# Every default below is chosen accordingly.
+apiVersion: knight.dev/v1
+slug: marketing-automation
+version: 1.0.0
+name: Marketing Automation
+description: >-
+  Welcome, post-purchase, abandoned-cart and win-back campaigns, triggered from
+  the analytics event stream and aimed at customer segments. Every send is
+  recorded with the provider's message id, nobody is mailed twice, and nobody is
+  mailed without a recorded consent or against the suppression list.
+
+  Installs with every campaign switched off and the provider set to recording
+  mode. A marketing package that began mailing the moment it was installed would
+  be the worst default in this catalogue.
+
+django:
+  app_label: knight_marketing
+  installed_app: knight_feature_marketing_automation
+  urls:
+    include: knight_feature_marketing_automation.urls
+    prefix: marketing/
+
+compatibility:
+  storeVersion: ">=1.0.0"
+  python: ">=3.12"
+  django: ">=5.0,<6.0"
+
+dependencies:
+  features:
+    # Audiences. Welcome draws from new-customers and win-back from
+    # dormant-customers, both of which segmentation seeds - so this is a hard
+    # dependency rather than a preference.
+    - { slug: customer-segmentation, version: ">=1.0.0,<2.0.0" }
+    # Event triggers. Declared directly even though segmentation already depends
+    # on it, because this Feature imports its service surface itself: a
+    # dependency you use is a dependency you declare.
+    - { slug: analytics-core, version: ">=1.1.0,<2.0.0" }
+
+migrations:
+  required: true
+  # Class A: four CreateModels, four indexes and one unique constraint. Nothing
+  # dropped, nothing transformed.
+  #
+  # What will not stay Class A: anything touching the Suppression table. Those
+  # rows are people who asked not to be contacted, and a reverse migration that
+  # dropped them would resume mailing somebody who opted out - a legal problem
+  # rather than a data one
+  # (docs/adr/0016-feature-migration-and-removal-policy.md).
+  reversible: true
+  estimatedDurationSeconds: 10
+  requiresMaintenanceWindow: false
+
+configuration:
+  defaults:
+    # Records what would be sent and sends nothing. The merchant switches this
+    # to django-mail once they have read the templates.
+    provider: recording
+    from_email: ""
+    from_name: ""
+    maximum_per_run: 200
+    unsubscribe_url: ""
+
+  secrets:
+    # Named, never valued - here or anywhere else in this repository. The value
+    # is encrypted at rest in KNIGHT, travels only to the store that needs it,
+    # and is read through config.secret(). Required only by the 'api' provider.
+    - email_api_key
+
+workers:
+  # Hourly, because abandoned cart is the one trigger whose delay is measured in
+  # hours: a daily sweep would send it a day late, by which time the basket is
+  # not abandoned, it is forgotten.
+  - name: run-campaigns
+    entrypoint: knight_feature_marketing_automation.services.run_all
+    schedule: hourly
+
+install:
+  strategy: package-install
+  requiresRestart: true
+  healthCheck: knight_feature_marketing_automation.checks.health
+
+uninstall:
+  # The suppression list is the part that matters. Everything else here is a
+  # campaign a merchant can rewrite; a suppression is somebody's withdrawn
+  # permission, and losing it means mailing them again. Seven years, which is
+  # the longest retention in the catalogue and the least negotiable.
+  strategy: disable-then-remove
+  dataRetentionDays: 2555

@@ -221,7 +221,7 @@
       "category": "Growth",
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
-      "publish": false,
+      "publish": true,
       "prices": [
         { "amount": 79.00, "billingPeriod": "Monthly" }
       ]
@@ -240,7 +240,7 @@
       "category": "Insight",
       "isOptional": true,
       "requiresDedicatedInfrastructure": true,
-      "publish": false,
+      "publish": true,
       "prices": [
         { "amount": 149.00, "billingPeriod": "Monthly" }
       ]
@@ -362,7 +362,8 @@
         { "slug": "advanced-search", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "customer-segmentation", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "loyalty-rewards", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "gift-cards", "isIncluded": false, "isCustomerToggleable": true }
+        { "slug": "gift-cards", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "marketing-automation", "isIncluded": false, "isCustomerToggleable": true }
       ]
     },
     {
@@ -396,7 +397,16 @@
         { "slug": "advanced-search", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "customer-segmentation", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "loyalty-rewards", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "gift-cards", "isIncluded": true, "isCustomerToggleable": false }
+        { "slug": "gift-cards", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "marketing-automation", "isIncluded": true, "isCustomerToggleable": false },
+
+        { "$comment": [
+            "Toggleable rather than included: it is the one capability with a",
+            "real per-use cost behind it, and a customer should switch it on",
+            "deliberately. Professional is also the only plan it can appear in,",
+            "because it needs dedicated infrastructure."
+          ],
+          "slug": "ai-reports", "isIncluded": false, "isCustomerToggleable": true }
       ]
     },
     {
@@ -458,7 +468,8 @@
         { "slug": "analytics-core", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "customer-segmentation", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "loyalty-rewards", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "gift-cards", "isIncluded": true, "isCustomerToggleable": false }
+        { "slug": "gift-cards", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "marketing-automation", "isIncluded": true, "isCustomerToggleable": false }
       ]
     }
   ]

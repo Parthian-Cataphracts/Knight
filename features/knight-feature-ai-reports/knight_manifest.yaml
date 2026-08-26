@@ -1,0 +1,94 @@
+# The contract between this Feature and everything that handles it: KNIGHT
+# validates it at publish, the resolver reads its dependencies, and the store's
+# installer reads its install and migration declarations
+# (docs/feature-delivery.md section 5).
+#
+# The only Feature in the catalogue that requires dedicated infrastructure, and
+# the only one that can spend money per use. Both of those shape what is below.
+apiVersion: knight.dev/v1
+slug: ai-reports
+version: 1.0.0
+name: AI Reports
+description: >-
+  Automated interpretation of the analytics data: what moved, what is unusual,
+  and what to look at today.
+
+  Findings are computed by arithmetic - deterministic, auditable, free, and
+  correct whether or not a model provider is reachable. A language model only
+  narrates them. A number a merchant acts on is never something a model
+  produced, and what leaves the store is aggregates and nothing else
+  (docs/adr/0030-what-store-data-may-reach-a-model-provider.md).
+
+django:
+  app_label: knight_ai_reports
+  installed_app: knight_feature_ai_reports
+  urls:
+    include: knight_feature_ai_reports.urls
+    prefix: ai-reports/
+
+compatibility:
+  storeVersion: ">=1.0.0"
+  python: ">=3.12"
+  django: ">=5.0,<6.0"
+
+dependencies:
+  features:
+    # The event stream every finding is computed from. 1.1.0 is the floor
+    # because per-subject aggregation is what the concentration finding needs,
+    # and without it a spike caused by one customer looks like growth.
+    - { slug: analytics-core, version: ">=1.1.0,<2.0.0" }
+
+migrations:
+  required: true
+  # Class A: three CreateModels and one unique constraint. Nothing dropped,
+  # nothing transformed, and everything here is derived from the event stream -
+  # so a rollback loses a computation rather than a fact.
+  reversible: true
+  estimatedDurationSeconds: 5
+  requiresMaintenanceWindow: false
+
+configuration:
+  defaults:
+    # Assembles the findings into prose inside the store. No provider, no key,
+    # no cost, nothing leaving the store - and a merchant on the default still
+    # gets a report they can read. Switching to 'api' is a deliberate act.
+    provider: local
+
+    # Priced before a call is made, so the caps below can refuse it. A budget
+    # that can only be checked after the money is spent is not a budget.
+    price_per_1k_tokens: "0.01"
+
+    # The caps. Not advisory: an AI Feature whose per-customer spend is
+    # unbounded is a commercial risk rather than a technical one, and this is
+    # the phase-15 exit criterion - cost bounded and auditable, before it is
+    # sellable rather than after.
+    #
+    # The window is the calendar month, because that is the unit a bill arrives
+    # in. Raising a customer's limit is a configuration change delivered over
+    # the install channel, not a database edit.
+    monthly_token_cap: 200000
+    monthly_cost_cap: "20.00"
+
+  secrets:
+    # Named, never valued - here or anywhere else in this repository. Required
+    # only by the 'api' provider, and read through config.secret().
+    - model_api_key
+
+workers:
+  # Daily, covering yesterday. A report for a day that is still happening is a
+  # report that changes under whoever is reading it.
+  - name: daily-report
+    entrypoint: knight_feature_ai_reports.services.generate_daily
+    schedule: daily
+
+install:
+  strategy: package-install
+  requiresRestart: true
+  healthCheck: knight_feature_ai_reports.checks.health
+
+uninstall:
+  # Reports are derived from the event stream and can be recomputed, so there is
+  # little here worth keeping. The usage record is the exception - it is what a
+  # bill was based on - which is why this is not zero.
+  strategy: disable-then-remove
+  dataRetentionDays: 90

@@ -77,6 +77,8 @@ in code.
 | `customer-segmentation` | Customer Segmentation | Insight | 29 | `features/knight-feature-customer-segmentation` |
 | `loyalty-rewards` | Loyalty and Rewards | Growth | 39 | `features/knight-feature-loyalty-rewards` |
 | `gift-cards` | Gift Cards and Store Credit | Revenue | 39 | `features/knight-feature-gift-cards` |
+| `marketing-automation` | Marketing Automation | Growth | 79 | `features/knight-feature-marketing-automation` |
+| `ai-reports` | AI Reports | Insight | 149 | `features/knight-feature-ai-reports` |
 | `log-shipping` | Log shipping | Insight | 19 | — none; see below |
 
 `log-shipping` is the one capability with no package. It is enforced by
@@ -98,8 +100,6 @@ that publishes its package.
 
 | Slug | Name | Category | Price | Depends on |
 |---|---|---|---|---|
-| `marketing-automation` | Marketing Automation | Growth | 79 | `customer-segmentation` |
-| `ai-reports` | AI Reports | Insight | 149 | `analytics-core` |
 | `advanced-inventory` | Advanced Inventory | Operations | 59 | base only |
 | `restaurant-operations` | Restaurant Operations | Operations | 79 | base only |
 | `multi-location` | Multi-Location | Operations | 99 | base only |
@@ -112,13 +112,19 @@ Its index is a `tsvector` column and a GIN index, so it declares
 other engine before an install rather than after a failed health check. That key
 was a comment until phase 14, because the schema had nowhere to put it.
 
-`ai-reports` is the only Feature that **requires dedicated infrastructure**: it
-runs model inference on its own workers and its cost per customer is not
-something a shared machine can bound. Entitling it to a customer on shared
-hosting is refused rather than sold and discovered later. Whether a Feature
-needs dedicated infrastructure is fixed at publication and the aggregate
-refuses to change it afterwards, so it is set correctly in the seed or not at
-all.
+`ai-reports` is the only Feature that **requires dedicated infrastructure**, and
+the reason is cost rather than data: its per-customer spend is not something a
+shared machine can bound. Entitling it to a customer on shared hosting is refused
+rather than sold and discovered later, and it is the one Feature that appears in
+Professional alone. Whether a Feature needs dedicated infrastructure is fixed at
+publication and the aggregate refuses to change it afterwards, so it is set
+correctly in the seed or not at all.
+
+What its data does is a separate decision, and a stricter one: only aggregates
+computed by KNIGHT's own arithmetic may reach a model provider, by allow-list
+([`adr/0030`](adr/0030-what-store-data-may-reach-a-model-provider.md)). Its
+findings are computed locally and are correct with no provider configured at
+all — the model only narrates them.
 
 ---
 
@@ -131,7 +137,7 @@ there are two things to build, test and deliver for one thing to sell.
 | Plan | Price | What it adds to the base store |
 |---|---|---|
 | `growth` | 179 | `analytics-core`, `analytics-reports`, `advanced-promotions`, `reviews-ratings`, `advanced-search`, `customer-segmentation` |
-| `retention` | 199 | `analytics-core`, `customer-segmentation`, `loyalty-rewards`, `gift-cards` |
+| `retention` | 199 | `analytics-core`, `customer-segmentation`, `loyalty-rewards`, `gift-cards`, `marketing-automation` |
 
 Growth sells what a shop uses to find customers; Retention sells what it uses on
 the ones it has. `customer-segmentation` is in both deliberately — it is the
@@ -139,12 +145,42 @@ Feature that makes the others worth having, and a bundle without it would be
 cheaper and worse.
 
 Like every plan, a bundle lists only **published** Features, so both grow as the
-catalogue does: `marketing-automation` joins Retention in phase 15.
+catalogue does — `marketing-automation` joined Retention in phase 15.
 
 Two more are described in the strategy and not yet sellable, because the Features
 in them are still Draft: Operations (`advanced-inventory`,
 `restaurant-operations`, `multi-location`) and Intelligence (`analytics-core`,
 `customer-segmentation`, `ai-reports`).
+
+---
+
+## 3.2 Scheduled work
+
+A Feature that needs something to happen without anybody asking declares it in
+its manifest:
+
+```yaml
+workers:
+  - name: expire-points
+    entrypoint: knight_feature_loyalty_rewards.services.expire_stale
+    schedule: daily
+```
+
+KNIGHT delivers the declaration with the install and the store runs it, so
+**installing a Feature installs its schedule**. A worker that has to be wired up
+by hand on every store is a worker that does nothing on the stores where
+somebody forgot.
+
+`schedule` is one of `hourly`, `daily`, `weekly` — a closed list rather than a
+cron expression. A cron string is a parser, a timezone question and a support
+surface, and the word travels so the store can decide what it means for its own
+timezone. The store runs `manage.py knight_run_workers` on its own cron; that
+command decides what is actually due.
+
+Three Features use it today: `loyalty-rewards` expires points daily,
+`ai-reports` writes yesterday's report daily, and `marketing-automation` runs
+campaigns hourly — hourly because abandoned cart is the one trigger whose delay
+is measured in hours.
 
 ---
 
@@ -166,7 +202,7 @@ base store (catalog, orders, accounts, payments, shipping, promotions)
                      ├── ai-reports
                      └── customer-segmentation    (>=1.1.0,<2.0.0)
                                 │
-                                └── marketing-automation
+                                └── marketing-automation    (>=1.0.0,<2.0.0)
 
 advanced-inventory ── external-marketplaces
 ```
@@ -310,9 +346,16 @@ made `compatibility.database` a real constraint the resolver enforces, tested th
 uninstall guard, and turned the first two bundles into plans
 ([`phase-14-verification.md`](phase-14-verification.md)).
 
-The remaining work is the catalogue itself: seven Features that are Draft
+Phase 15 gave the catalogue scheduled work — declared in a manifest, delivered
+with an install — and then the two Features that need it. `marketing-automation`
+is the first to use a third-party credential, and `ai-reports` the first that can
+spend money per use, so it arrived with a cap that refuses before it costs
+anything and with [`adr/0030`](adr/0030-what-store-data-may-reach-a-model-provider.md)
+settling what may leave a store at all
+([`phase-15-verification.md`](phase-15-verification.md)).
+
+The remaining work is the catalogue itself: five Features that are Draft
 identities with no package behind them. The order is in
-[`../TODO.md`](../TODO.md), phases 15 to 17, and it runs low-risk first:
-contained migrations and no external services before anything that touches
-background workers or a third-party API. The next phase needs
-manifest-declared workers, which the schema does not have yet.
+[`../TODO.md`](../TODO.md), phases 16 and 17, and it runs low-risk first —
+`multi-location` is deliberately late because it reshapes data other Features
+already own.
