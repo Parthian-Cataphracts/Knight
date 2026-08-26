@@ -79,6 +79,7 @@ in code.
 | `gift-cards` | Gift Cards and Store Credit | Revenue | 39 | `features/knight-feature-gift-cards` |
 | `marketing-automation` | Marketing Automation | Growth | 79 | `features/knight-feature-marketing-automation` |
 | `ai-reports` | AI Reports | Insight | 149 | `features/knight-feature-ai-reports` |
+| `advanced-inventory` | Advanced Inventory | Operations | 59 | `features/knight-feature-advanced-inventory` |
 | `log-shipping` | Log shipping | Insight | 19 | — none; see below |
 
 `log-shipping` is the one capability with no package. It is enforced by
@@ -100,7 +101,6 @@ that publishes its package.
 
 | Slug | Name | Category | Price | Depends on |
 |---|---|---|---|---|
-| `advanced-inventory` | Advanced Inventory | Operations | 59 | base only |
 | `restaurant-operations` | Restaurant Operations | Operations | 79 | base only |
 | `multi-location` | Multi-Location | Operations | 99 | base only |
 | `subscriptions` | Subscriptions and Recurring Orders | Revenue | 69 | base only |
@@ -187,10 +187,18 @@ surface, and the word travels so the store can decide what it means for its own
 timezone. The store runs `manage.py knight_run_workers` on its own cron; that
 command decides what is actually due.
 
-Three Features use it today: `loyalty-rewards` expires points daily,
-`ai-reports` writes yesterday's report daily, and `marketing-automation` runs
+Four Features use it today: `loyalty-rewards` expires points daily,
+`ai-reports` writes yesterday's report daily, `marketing-automation` runs
 campaigns hourly — hourly because abandoned cart is the one trigger whose delay
-is measured in hours.
+is measured in hours — and `advanced-inventory` declares two, an hourly one that
+ends expired stock holds and a daily one that sweeps for low stock.
+
+`advanced-inventory` is the one to read for what a worker should and should not
+be responsible for. Its hourly expiry is **tidying, not correctness**: an expired
+hold has already stopped counting against what may be sold, because `available()`
+excludes it by time rather than by state. A store whose cron never runs still
+sells the right things; it just accumulates dead reservation rows. Arithmetic
+that depended on a job having run would be arithmetic at the mercy of a crontab.
 
 ---
 

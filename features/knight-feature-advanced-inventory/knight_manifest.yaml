@@ -1,0 +1,108 @@
+# The contract between this Feature and everything that handles it: KNIGHT
+# validates it at publish, the resolver reads its dependencies, and the store's
+# installer reads its install and migration declarations
+# (docs/feature-delivery.md section 5).
+#
+# The first Feature of phase 16, and the first whose dangerous failure is
+# arithmetic: a stock number that is wrong sells something twice or refuses to
+# sell something the shop has. Everything here is built on a ledger for that
+# reason - the movements are the truth and the quantity is derived.
+apiVersion: knight.dev/v1
+slug: advanced-inventory
+version: 1.0.0
+name: Advanced Inventory
+description: >-
+  Stock as an append-only ledger: movements, reservations that make a checkout
+  honest, suppliers, purchase orders and low-stock alerts. Nothing here keeps a
+  quantity column - what a shop has is the sum of what arrived minus what left,
+  which is what makes "why is this 7" a question with an answer.
+
+django:
+  app_label: knight_inventory
+  installed_app: knight_feature_advanced_inventory
+  urls:
+    include: knight_feature_advanced_inventory.urls
+    prefix: inventory/
+
+compatibility:
+  # Open at the top end: this Feature touches no store internals. It is handed
+  # SKUs and quantities and never reads a catalogue table, so a store major
+  # version can change without this needing a release.
+  storeVersion: ">=1.0.0"
+  python: ">=3.12"
+  django: ">=5.0,<6.0"
+
+  # Required, and doubly so since this declares an extension. The stock picker
+  # is trigram-matched and the partial unique constraint on open alerts is a
+  # PostgreSQL index; neither exists elsewhere.
+  database: postgresql
+
+migrations:
+  required: true
+  # Class A: seven CreateModels, indexes, unique and check constraints. Nothing
+  # is dropped and no data is transformed, so the reverse genuinely exists.
+  #
+  # What will not stay Class A: anything touching StockMovement. Those rows are
+  # what a shop's stock *is*, and a reverse migration that dropped or rewrote
+  # them would leave a merchant with numbers nobody can explain and no history to
+  # explain them from - the same argument gift-cards makes about money and
+  # loyalty-rewards about points
+  # (docs/adr/0016-feature-migration-and-removal-policy.md).
+  reversible: true
+  estimatedDurationSeconds: 15
+  requiresMaintenanceWindow: false
+
+  # Trigram matching for the SKU and supplier pickers. The same extension
+  # `advanced-search` declares, which is exactly the case that made the rule
+  # necessary: whichever of the two is rolled back, the other is still using it,
+  # so nothing ever drops it
+  # (docs/adr/0031-database-extensions-are-declared-not-migrated.md).
+  extensions:
+    - pg_trgm
+
+configuration:
+  defaults:
+    # How long stock stays held for a basket that has not paid. Twenty minutes
+    # is a checkout, not a shopping trip: long enough that nobody loses an item
+    # while typing card details, short enough that an abandoned basket returns
+    # it to sale while the shop is still open.
+    reservation_minutes: 20
+    # The location a store with one shop records everything against. Named here
+    # so that a store which grows into several is not rewriting its history.
+    default_location: ""
+    # Whether the low-stock sweep raises alerts for items nobody has set a
+    # reorder point on. Off: a shop that has not said what "low" means for an
+    # item has not asked to be told about it.
+    alert_without_reorder_point: false
+
+workers:
+  # Hourly, because the failure it prevents is measured in minutes of unsellable
+  # stock. A daily sweep would let a basket abandoned at 09:05 keep the last one
+  # of something off sale for the rest of the trading day.
+  #
+  # It is tidying rather than correctness: `available()` already excludes expired
+  # holds, so a store whose cron never runs still sells the right things. That
+  # order is deliberate - arithmetic that depended on a job having run would be
+  # arithmetic at the mercy of a crontab.
+  - name: expire-reservations
+    entrypoint: knight_feature_advanced_inventory.services.run_expiry
+    schedule: hourly
+
+  # Daily, because a low-stock alert is something a merchant reads with their
+  # coffee, and one that arrived hourly would be one they stopped reading.
+  - name: low-stock-sweep
+    entrypoint: knight_feature_advanced_inventory.services.run_low_stock_sweep
+    schedule: daily
+
+install:
+  strategy: package-install
+  requiresRestart: true
+  healthCheck: knight_feature_advanced_inventory.checks.health
+
+uninstall:
+  # The ledger is the part that matters. Movements are a shop's account of its
+  # own stock, they are what a stocktake is checked against, and in most
+  # jurisdictions they are part of what a tax inspection asks for. Seven years,
+  # the same as the two Features that hold money.
+  strategy: disable-then-remove
+  dataRetentionDays: 2555
