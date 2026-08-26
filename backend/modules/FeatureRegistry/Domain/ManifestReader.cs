@@ -120,6 +120,12 @@ internal sealed class ManifestReader
         return _errors.Count > 0 ? null : new DjangoIntegration(appLabel!, installedApp!, include, prefix);
     }
 
+    /// <summary>
+    /// Database engines a Feature may require, spelled the way a store reports
+    /// them. Closed on purpose: see the failure message in ReadCompatibility.
+    /// </summary>
+    private static readonly string[] SupportedDatabases = ["postgresql", "mysql", "sqlite"];
+
     private CompatibilityConstraints ReadCompatibility(JsonElement root)
     {
         if (!TryGetObject(root, "compatibility", out var compatibility))
@@ -130,10 +136,25 @@ internal sealed class ManifestReader
             return new CompatibilityConstraints(VersionRange.Any, VersionRange.Any, VersionRange.Any);
         }
 
+        var database = OptionalString(compatibility, "database");
+
+        if (database is not null && !SupportedDatabases.Contains(database))
+        {
+            // A closed list rather than free text. A Feature declaring
+            // "postgres" against a store reporting "postgresql" would be
+            // refused for a spelling, which is the kind of failure nobody can
+            // read - so the spelling is fixed here, at publish, where the author
+            // is present to fix it.
+            Fail(
+                "$.compatibility.database",
+                $"'{database}' is not a database KNIGHT knows. Use one of: {string.Join(", ", SupportedDatabases)}.");
+        }
+
         return new CompatibilityConstraints(
             OptionalRange(compatibility, "storeVersion", "$.compatibility.storeVersion"),
             OptionalRange(compatibility, "python", "$.compatibility.python"),
-            OptionalRange(compatibility, "django", "$.compatibility.django"));
+            OptionalRange(compatibility, "django", "$.compatibility.django"),
+            database);
     }
 
     private ManifestDependencies ReadDependencies(JsonElement root)

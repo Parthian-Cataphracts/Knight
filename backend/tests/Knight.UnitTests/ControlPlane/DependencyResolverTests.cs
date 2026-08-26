@@ -23,7 +23,8 @@ public sealed class DependencyResolverTests
         (string Slug, string Range)[]? dependencies = null,
         string? storeVersion = null,
         string? python = null,
-        string? django = null)
+        string? django = null,
+        string? database = null)
     {
         var json = new
         {
@@ -37,6 +38,7 @@ public sealed class DependencyResolverTests
                 storeVersion = storeVersion ?? "*",
                 python = python ?? "*",
                 django = django ?? "*",
+                database,
             },
             dependencies = new
             {
@@ -61,7 +63,8 @@ public sealed class DependencyResolverTests
         bool requiresDedicated = false,
         string? storeVersion = null,
         string? python = null,
-        string? django = null) =>
+        string? django = null,
+        string? database = null) =>
         new(
             Guid.CreateVersion7(),
             slug,
@@ -71,7 +74,7 @@ public sealed class DependencyResolverTests
             [.. versions.Select(version => new RegistryVersion(
                 Guid.CreateVersion7(),
                 SemanticVersion.Parse(version.Version),
-                Manifest(slug, version.Version, version.Dependencies, storeVersion, python, django),
+                Manifest(slug, version.Version, version.Dependencies, storeVersion, python, django, database),
                 version.Installable))]);
 
     private static RegistryFeature Simple(string slug, params string[] versions) =>
@@ -82,13 +85,15 @@ public sealed class DependencyResolverTests
         string? python = "3.12",
         string? django = "5.1",
         bool dedicated = false,
+        string? database = "postgresql",
         params (string Slug, string Version)[] installed) =>
         new(
             storeVersion,
             python,
             django,
             dedicated,
-            installed.ToDictionary(entry => entry.Slug, entry => SemanticVersion.Parse(entry.Version), StringComparer.Ordinal));
+            installed.ToDictionary(entry => entry.Slug, entry => SemanticVersion.Parse(entry.Version), StringComparer.Ordinal),
+            database);
 
     // --- The straightforward cases ----------------------------------------
 
@@ -661,8 +666,77 @@ public sealed class DependencyResolverTests
 
         Assert.True(result.IsSuccessful, string.Join("; ", result.Failures));
 
-        var core = Assert.Single(result.Steps.Where(step => step.Slug == "analytics-core"));
+        var core = Assert.Single(result.Steps, step => step.Slug == "analytics-core");
         Assert.Equal("1.1.0", core.Version.ToString());
         Assert.Equal(0, result.Steps.ToList().FindIndex(step => step.Slug == "analytics-core"));
+    }
+
+    // --- The database a Feature needs --------------------------------------
+    //
+    // Added in phase 14. `advanced-search` genuinely requires PostgreSQL - its
+    // index is a tsvector column and a GIN index - and until the manifest could
+    // say so, the install succeeded and the health check failed afterwards,
+    // which is a worse way to learn it (docs/phase-13-verification.md).
+
+    private static DependencyResolver SearchNeedingPostgres() =>
+        new([Feature("advanced-search", [("1.0.0", true, null)], database: "postgresql")]);
+
+    [Fact]
+    public void AFeatureRequiringPostgres_InstallsOnAPostgresStore()
+    {
+        var result = SearchNeedingPostgres().Resolve(
+            "advanced-search", VersionRange.Any, Store(database: "postgresql"));
+
+        Assert.True(result.IsSuccessful, string.Join("; ", result.Failures));
+    }
+
+    [Fact]
+    public void AFeatureRequiringPostgres_IsRefusedOnAnotherEngine()
+    {
+        var result = SearchNeedingPostgres().Resolve(
+            "advanced-search", VersionRange.Any, Store(database: "mysql"));
+
+        Assert.False(result.IsSuccessful);
+        var failure = Assert.Single(result.Failures);
+        Assert.Equal(ResolutionFailureCode.IncompatibleStore, failure.Code);
+        Assert.Contains("mysql", failure.Message);
+    }
+
+    [Fact]
+    public void AStoreThatHasNotSaidWhichDatabaseItRuns_IsNotTreatedAsAPass()
+    {
+        // The same rule as an unreported runtime version. Installing because
+        // nothing contradicted the requirement is exactly the optimism this
+        // check exists to remove.
+        var result = SearchNeedingPostgres().Resolve(
+            "advanced-search", VersionRange.Any, Store(database: null));
+
+        Assert.False(result.IsSuccessful);
+        Assert.Contains(result.Failures, f => f.Code == ResolutionFailureCode.IncompatibleStore);
+    }
+
+    [Fact]
+    public void AFeatureThatDoesNotCareAboutTheDatabase_InstallsAnywhere()
+    {
+        var resolver = new DependencyResolver([Simple("reviews-ratings", "1.0.0")]);
+
+        foreach (var engine in new string?[] { "postgresql", "mysql", "sqlite", null })
+        {
+            var result = resolver.Resolve("reviews-ratings", VersionRange.Any, Store(database: engine));
+
+            Assert.True(result.IsSuccessful, string.Join("; ", result.Failures));
+        }
+    }
+
+    [Fact]
+    public void TheEngineIsComparedWithoutCaring_AboutCase()
+    {
+        // A store reporting "PostgreSQL" and a manifest saying "postgresql" are
+        // the same engine, and refusing for a capital letter is a failure nobody
+        // can read.
+        var result = SearchNeedingPostgres().Resolve(
+            "advanced-search", VersionRange.Any, Store(database: "PostgreSQL"));
+
+        Assert.True(result.IsSuccessful, string.Join("; ", result.Failures));
     }
 }

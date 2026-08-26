@@ -33,13 +33,13 @@ compatibility:
   python: ">=3.12"
   django: ">=5.0,<6.0"
 
-  # There is a fourth constraint and the schema has nowhere to put it: the
-  # tsvector column and the ranking are PostgreSQL, so a store on another
-  # database cannot run this. It is NOT declared as a key here on purpose -
-  # ManifestReader reads storeVersion, python and django and ignores anything
-  # else, so a `database:` field would look like a guarantee and be nothing.
-  # The health check catches it at install instead, which is late but honest.
-  # Making it enforceable needs a schema change (docs/risks.md).
+  # The fourth constraint, and a real one: the tsvector column and the ranking
+  # are PostgreSQL, so a store on another engine cannot run this. It was a
+  # comment until phase 14, because the schema had nowhere to say it and a key
+  # nothing read would have looked like a guarantee. The resolver enforces it
+  # now, so the refusal happens before an install rather than in a health check
+  # afterwards.
+  database: postgresql
 
 migrations:
   required: true

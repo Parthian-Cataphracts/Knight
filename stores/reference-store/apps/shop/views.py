@@ -11,6 +11,11 @@ It also demonstrates the distinction the whole product rests on. A capability is
 servable only when the customer is entitled to it *and* the code that implements
 it is installed. Entitled-but-not-installed is a delivery gap, and the store says
 so rather than pretending the feature is off (docs/README.md rule 10).
+
+The slugs here are the catalogue's real ones. They used to be `loyalty` and
+`analytics`, which stopped existing when adr/0029 gave every Feature one slug -
+so this demonstration was gating on entitlements no catalogue could grant, and
+would have refused a customer who had genuinely paid.
 """
 
 from __future__ import annotations
@@ -32,8 +37,8 @@ def catalogue(request: HttpRequest) -> JsonResponse:
             # Shown so the reference store is legible from the outside; a real
             # storefront would simply render or omit the feature.
             "capabilities": {
-                "loyalty": _describe("loyalty"),
-                "analytics": _describe("analytics"),
+                "loyalty-rewards": _describe("loyalty-rewards"),
+                "analytics-core": _describe("analytics-core"),
             },
         }
     )
@@ -47,20 +52,20 @@ def loyalty(request: HttpRequest) -> JsonResponse:
     frontend flag is never sufficient (docs/store-integration.md §3).
     """
     try:
-        require("loyalty")
+        require("loyalty-rewards")
     except FeatureNotEntitled as exc:
         return JsonResponse(
             {"detail": str(exc), "code": "feature_not_entitled"},
             status=402,
         )
 
-    if not is_installed("loyalty"):
+    if not is_installed("loyalty-rewards"):
         # Paid for, not delivered. Answering 503 rather than 402 is the honest
         # distinction: the customer has bought this and it is KNIGHT's job to
         # install it, not theirs to buy it again.
         return JsonResponse(
             {
-                "detail": "This store is entitled to loyalty, but the feature is not installed yet.",
+                "detail": "This store is entitled to loyalty-rewards, but the feature is not installed yet.",
                 "code": "feature_not_installed",
             },
             status=503,

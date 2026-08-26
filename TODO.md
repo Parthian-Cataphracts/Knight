@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-26** (revision 25 — phase 13 done: three Features through the delivery engine, and the runtime wiring it turned out never to send)
+Last updated: **2026-08-26** (revision 26 — phase 14 done: the two Features that keep a balance, and the two transaction bugs only a real database shows)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,9 +11,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 14 — commercial foundations. Phase 13 is complete: `reviews-ratings`, `advanced-search` and `customer-segmentation` are published, the upgrade and rollback drills passed, and the delivery engine turned out never to have sent a store the names it needs to load a package — fixed, with tests both sides** |
-| **Next phase** | `loyalty-rewards`, then `gift-cards` — the first Feature carrying a financial ledger, and the first whose migrations are not automatically Class A |
-| **Overall progress** | **Platform ~99%, catalogue ~45%.** Two numbers on purpose: the control plane and the delivery engine are finished, and the product they exist to deliver is 7 sellable Features out of 16. **753 backend tests green** (590 unit, 13 architecture, 150 PostgreSQL-backed integration — run locally this time, not deferred), plus **274 store tests with nothing skipped**, the same 274 passing with no Feature installed at all, and 9 dashboard |
+| **Current phase** | **Phase 15 — automation. Phase 14 is complete: `loyalty-rewards` and `gift-cards` are published, both built on a derived-balance ledger; `compatibility.database` is enforced; the uninstall guard is tested; and Growth and Retention are plans rather than packages** |
+| **Next phase** | **Manifest-declared workers first** — `marketing-automation` cannot work without them, and phase 14 refused to fake a `workers:` block the schema does not read. Then `marketing-automation`, then `ai-reports` |
+| **Overall progress** | **Platform ~99%, catalogue ~60%.** Two numbers on purpose: the control plane and the delivery engine are finished, and the product they exist to deliver is 9 sellable Features out of 16, in 5 plans. **761 backend tests green** (595 unit, 13 architecture, 153 PostgreSQL-backed integration), plus **367 store tests with nothing skipped**, the same 367 passing with no Feature installed at all, and 9 dashboard |
 | **Blocking decisions** | **Are Features publishable for a store that is not Django?** Everything except the manifest is already stack-agnostic; `ManifestReader` is the one thing that is not (R26, decision 14 in [`docs/risks.md`](docs/risks.md)). Until it is answered, a non-Django store is entitled and observed but not delivered to. Separately, the **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -38,17 +38,18 @@ Phase 10   Optimisation & hardening       █████████░  95%
 Phase 11   Deployment & installation       ████████░░  80%
 Phase 12   Catalogue alignment            ██████████ 100%
 Phase 13   Delivery validation on Features ██████████ 100%
-Phase 14   Commercial foundations         ░░░░░░░░░░   0%
+Phase 14   Commercial foundations         ██████████ 100%
 Phase 15   Automation                     ░░░░░░░░░░   0%
 Phase 16   Operational expansion          ░░░░░░░░░░   0%
 Phase 17   Recurring revenue & integrations ░░░░░░░░░  0%
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
-the image; **7 sellable Features** (`analytics-core` 1.1.0, `analytics-reports`,
+the image; **9 sellable Features** (`analytics-core` 1.1.0, `analytics-reports`,
 `advanced-promotions` 2.0.0, `reviews-ratings`, `advanced-search`,
-`customer-segmentation`, `log-shipping`); 9 Draft identities waiting on a
-package. [`docs/feature-catalog.md`](docs/feature-catalog.md) is the list.
+`customer-segmentation`, `loyalty-rewards`, `gift-cards`, `log-shipping`); 7
+Draft identities waiting on a package; 5 plans, two of them bundles.
+[`docs/feature-catalog.md`](docs/feature-catalog.md) is the list.
 
 ---
 
@@ -1144,16 +1145,73 @@ browser, and rolls back cleanly on a real store. Class A migrations only
 **Exit criteria:** the a-la-carte proposition is real — a Custom customer can
 assemble a meaningfully better store from published Features.
 
-- [ ] **`loyalty-rewards`** — points, tiers, earning and redemption rules, a
-      loyalty ledger. Needs transactional consistency against order events, and
-      a worker for expiry
-- [ ] **`gift-cards`** — the first Feature carrying a financial ledger, and the
-      first whose migrations are not automatically Class A. Balances spent
-      across orders, redemption transactions, strong transactional consistency.
-      Treat every migration touching a balance as Class C until proven otherwise
-- [ ] Publish the Growth and Retention bundles as plan compositions rather than
-      as new Features — bundling is a commercial act, and must not become a
-      fifteenth package
+### Done
+- [x] **`loyalty-rewards`** — points earned in **lots** with their own expiry and
+      spent oldest-first, tiers on lifetime points so redeeming never demotes
+      anybody, and a ledger nothing edits. Lots rather than a counter because a
+      counter cannot answer either question a programme is actually asked: how
+      many points are about to expire, and which points a redemption used
+- [x] **`gift-cards`** — cards spendable across several orders, store credit per
+      customer, two ledgers and no balance column anywhere. Codes come from a
+      cryptographic source over an alphabet with no ambiguous characters, because
+      a guessable code is a way to spend somebody else's money. Partial
+      settlement is the normal case: 5.00 left against a 20.00 basket pays 5.00
+- [x] Both manifests state **what their reversibility claim will stop being true
+      of**: any later migration touching `points_remaining`, an amount or a
+      status is Class C whatever its operations look like. Django can put a
+      column back and cannot put money back
+- [x] **Growth and Retention are plans**, not packages. Bundling is a commercial
+      act, and the moment it becomes a fifteenth package there are two things to
+      build, test and deliver for one thing to sell
+- [x] [`docs/phase-14-verification.md`](docs/phase-14-verification.md)
+
+### Carried in from phase 13, and closed
+- [x] **The uninstall guard is tested.** Three integration tests: a dependency
+      cannot be removed while something needs it, the dependent itself can be,
+      and once it is gone the dependency follows — because "uninstall the
+      dependent features first" has to actually work or the refusal is advice
+      nobody can act on
+- [x] **`compatibility.database` is a real constraint.** Parsed, validated
+      against a closed list at publish, and enforced by the resolver.
+      `advanced-search` declares `postgresql` and a store on another engine is
+      refused *before* an install rather than by a health check afterwards. It
+      was a comment until now, because the schema had nowhere to put it
+
+### Found by verifying it, and fixed
+- [x] **An `IntegrityError` poisons the transaction it happens in.** Both ledgers
+      use a unique constraint for idempotency and then reported the balance — and
+      on PostgreSQL a failed statement marks the whole transaction broken, so the
+      duplicate branch could not run a query. A retried checkout raised
+      `TransactionManagementError` instead of being told it had already settled.
+      Every insert that can collide is in its own savepoint now
+- [x] **`FOR UPDATE` cannot be applied to the nullable side of an outer join.**
+      Locking the loyalty account with `select_related("tier")` made Django emit
+      a LEFT JOIN on a nullable relation and PostgreSQL refused outright. The
+      lock is `of=("self",)` — the account row, which is all that was contended
+- [x] **A Feature's route was silently shadowed by the store's own.**
+      `loyalty-rewards` mounted at `loyalty/`, which the storefront demo already
+      serves, and the loader adds Feature URLs last on purpose — so an installed,
+      working Feature answered somebody else's view with a 402. Both new
+      Features now take the prefix that matches their slug, which is also the
+      loader's default; and the loader is handed the store's own routes and
+      **logs an error** naming the Feature, the prefix and the consequence. The
+      store still wins, and is no longer quiet about it
+- [x] **The storefront demo gated on slugs that stopped existing.**
+      `apps/shop/views.py` checked `loyalty` and `analytics`, which
+      [`adr/0029`](docs/adr/0029-one-slug-for-the-catalogue-and-the-package.md)
+      replaced in phase 12 — so the demonstration of server-side entitlement was
+      refusing customers who had genuinely paid
+
+### Still open
+- [ ] **Concurrency is argued, not proven.** The locks and constraints are the
+      right ones and every idempotency path has a test, but nothing runs two
+      transactions at once to watch them contend. That needs a harness with real
+      parallel connections, and it is worth having before the first customer
+      sells a gift card
+- [ ] Neither ledger is reachable from the dashboard, so issuing a card, voiding
+      one, granting credit and adjusting points are shell commands. Consistent
+      with KNIGHT not being a store's business backend, and still a gap for
+      whoever runs a shop
 
 ---
 
@@ -1162,6 +1220,14 @@ assemble a meaningfully better store from published Features.
 **Exit criteria:** KNIGHT can act on a schedule on a store's behalf, with
 per-customer cost bounded and auditable.
 
+- [ ] **Manifest-declared workers, first.** The schema has no concept of a
+      scheduled job: `ManifestReader` does not read one and
+      [`feature-delivery.md`](docs/feature-delivery.md) does not describe one.
+      Phase 14 refused to declare a `workers:` block that would have looked like
+      a guarantee and scheduled nothing, and shipped loyalty expiry as a store
+      management command instead. `marketing-automation` cannot be built that
+      way — a campaign nobody triggers is not a campaign — so this comes before
+      it, and loyalty expiry moves onto it once it exists
 - [ ] **`marketing-automation`** — abandoned cart, welcome, post-purchase and
       win-back campaigns. Depends on `customer-segmentation`. Requires workers,
       an email provider integration, and delivery tracking. The first Feature

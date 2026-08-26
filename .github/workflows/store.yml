@@ -4,9 +4,9 @@ name: Store
 #
 # Phase 8 moved the business domains out of the .NET solution and into Django,
 # which made this suite the only thing standing behind catalogue, orders,
-# fulfilment, payments and the two optional Features. Leaving it out of CI would
-# have meant the backend workflow going green while the code that actually runs
-# a shop was never compiled, let alone tested.
+# fulfilment, payments, promotions, notifications and every optional Feature.
+# Leaving it out of CI would have meant the backend workflow going green while
+# the code that actually runs a shop was never compiled, let alone tested.
 
 on:
   push:
@@ -49,22 +49,40 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
-      # Installed the way a store installs it, so the packaging is exercised
+      # Installed the way a store installs them, so the packaging is exercised
       # rather than assumed: a Feature that cannot be installed is a Feature that
       # does not work, however well its own tests pass.
-      - name: Install the optional Feature
-        run: pip install ./features/knight-feature-promotions
+      #
+      # Globbed rather than listed. A named list went stale twice - once when a
+      # Feature was withdrawn and once when three were added - and the second
+      # time it took CI down, because REQUIRE_FEATURE_TESTS turns an
+      # uninstalled Feature into a hard failure rather than a skip. The glob
+      # cannot drift.
+      - name: Install every Feature package
+        run: |
+          set -euo pipefail
+          packages=(features/knight-feature-*/)
 
-      # Installing the package is not the same as installing the Feature.
-      # Until the store's feature registry lists it, it is not in INSTALLED_APPS,
-      # its models cannot be used, and every test that touches it skips — which
-      # is a green run over code nothing executed.
-      - name: Register the Feature with the store
+          if [ ${#packages[@]} -eq 0 ]; then
+            echo "::error::No Feature packages found. The glob matched nothing." >&2
+            exit 1
+          fi
+
+          echo "Installing ${#packages[@]} package(s):"
+          printf '  %s\n' "${packages[@]}"
+          pip install "${packages[@]}"
+
+      # Installing the packages is not the same as installing the Features.
+      # Until the store's feature registry lists them they are not in
+      # INSTALLED_APPS, their models cannot be used, and every test that touches
+      # them skips — which is a green run over code nothing executed.
+      - name: Register the Features with the store
         working-directory: stores/reference-store
         env:
           KNIGHT_FEATURE_ROOT: ${{ github.workspace }}/stores/knight-features
         run: |
-          python manage.py knight_install_local ../../features/knight-feature-promotions
+          set -euo pipefail
+          python manage.py knight_install_local ../../features/knight-feature-*/
 
       - name: Test
         working-directory: stores/reference-store

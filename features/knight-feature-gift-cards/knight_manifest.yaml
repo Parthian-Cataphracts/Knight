@@ -1,0 +1,74 @@
+# The contract between this Feature and everything that handles it: KNIGHT
+# validates it at publish, the resolver reads its dependencies, and the store's
+# installer reads its install and migration declarations
+# (docs/feature-delivery.md section 5).
+#
+# This one is money. A gift card is a bearer instrument somebody paid real
+# currency for and store credit is a debt the shop owes, so every declaration
+# below is the conservative one.
+apiVersion: knight.dev/v1
+slug: gift-cards
+version: 1.0.0
+name: Gift Cards and Store Credit
+description: >-
+  Gift cards a shopper can buy, send and redeem across several orders, and store
+  credit held against a customer. Both are ledgers: the balance is derived from
+  the entries and is never stored beside them, because a cached balance that
+  drifts on a gift card is either theft from the customer or a loss for the shop.
+
+  Codes are generated from a cryptographic source over an alphabet with no
+  ambiguous characters. A guessable code is a way to spend somebody else's money.
+
+django:
+  app_label: knight_gift_cards
+  installed_app: knight_feature_gift_cards
+  urls:
+    include: knight_feature_gift_cards.urls
+    # The slug, which is also the loader's default. A prefix that collides with
+    # a route the store already serves is silently shadowed - the store wins -
+    # and matching the slug is the shape least likely to collide.
+    prefix: gift-cards/
+
+compatibility:
+  storeVersion: ">=1.0.0"
+  python: ">=3.12"
+  django: ">=5.0,<6.0"
+
+migrations:
+  required: true
+  # True *for this version*, and the qualifier is the point. 1.0.0 is three
+  # CreateModels, three indexes, two unique constraints and two checks: nothing
+  # dropped, nothing transformed, so the reverse genuinely exists and it takes
+  # a store that has issued no cards yet back to where it started.
+  #
+  # It will not stay true. Any later migration that touches an `amount`, a
+  # `status`, or the shape of either ledger is **Class C** whatever its
+  # operations look like, and must declare `reversible: false`. Django can put a
+  # column back and cannot put money back, and a rollback that reports success
+  # while leaving a customer's card worth the wrong amount is worse than one
+  # that refuses (docs/adr/0016-feature-migration-and-removal-policy.md).
+  reversible: true
+  estimatedDurationSeconds: 10
+  requiresMaintenanceWindow: false
+
+configuration:
+  defaults:
+    currency: EUR
+    # Zero means cards never expire, which is the law in several jurisdictions
+    # and the right default in the rest.
+    expiry_months: 0
+    minimum_card_amount: 5
+
+install:
+  strategy: package-install
+  requiresRestart: true
+  healthCheck: knight_feature_gift_cards.checks.health
+
+uninstall:
+  # An unspent gift card is money the merchant has already been paid and still
+  # owes. Losing that ledger would leave a shop unable to honour cards it sold
+  # or to say what it owes; several jurisdictions require the records for
+  # longer than this. Seven years, and it should be reviewed rather than
+  # trusted.
+  strategy: disable-then-remove
+  dataRetentionDays: 2555

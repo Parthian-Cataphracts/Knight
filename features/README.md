@@ -17,6 +17,8 @@ A Feature is **not** a boolean flag
 | `knight-feature-reviews-ratings` | Product reviews, ratings, replies and moderation. Ships templates and a stylesheet, so it also exercises asset delivery. |
 | `knight-feature-advanced-search` | Full-text search over an index the store pushes documents into. PostgreSQL only. |
 | `knight-feature-customer-segmentation` | Segments computed from the analytics event stream. Depends on `analytics-core >=1.1.0`, and is the pair that exercises dependency resolution. |
+| `knight-feature-loyalty-rewards` | Points in lots with their own expiry, spent oldest-first, and tiers. The first Feature with a running balance. |
+| `knight-feature-gift-cards` | Gift cards and store credit. This one is money: the ledger is the truth and there is no balance column anywhere. |
 | `tools/knight_package.py` | Build, sign, validate and publish. |
 
 A directory's name is the Python distribution; the slug KNIGHT sells and

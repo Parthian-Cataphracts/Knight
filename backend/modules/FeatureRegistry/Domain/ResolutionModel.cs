@@ -38,7 +38,14 @@ public sealed record StoreCompatibilityContext(
     string? PythonVersion,
     string? DjangoVersion,
     bool HasDedicatedInfrastructure,
-    IReadOnlyDictionary<string, SemanticVersion> InstalledFeatures)
+    IReadOnlyDictionary<string, SemanticVersion> InstalledFeatures,
+
+    /// <summary>
+    /// The database engine the store reports running, lowercased. Null when it
+    /// has never said, which is treated the same way an unreported runtime
+    /// version is: not a pass.
+    /// </summary>
+    string? Database = null)
 {
     public static StoreCompatibilityContext Empty { get; } =
         new(null, null, null, false, new Dictionary<string, SemanticVersion>(StringComparer.Ordinal));

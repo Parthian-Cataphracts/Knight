@@ -17,5 +17,7 @@ urlpatterns = [
 ]
 
 # Installed features mount themselves under their own declared prefixes. Added
-# last so a feature cannot shadow a route the store already serves.
-urlpatterns += feature_urlpatterns()
+# last so a feature cannot shadow a route the store already serves — and handed
+# what the store already serves, so a collision is reported instead of being
+# discovered by opening the page.
+urlpatterns += feature_urlpatterns(existing=urlpatterns)

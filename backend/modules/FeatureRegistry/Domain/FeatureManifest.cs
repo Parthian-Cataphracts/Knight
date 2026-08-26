@@ -101,7 +101,23 @@ public sealed record DjangoIntegration(
 public sealed record CompatibilityConstraints(
     VersionRange StoreVersion,
     VersionRange Python,
-    VersionRange Django);
+    VersionRange Django,
+
+    /// <summary>
+    /// The database engine this Feature requires, or null when it does not care.
+    ///
+    /// Added because <c>advanced-search</c> genuinely requires PostgreSQL — its
+    /// index is a tsvector column and a GIN index — and the schema had nowhere
+    /// to say so. A comment in the manifest is not a constraint, and an
+    /// undeclared requirement is one the resolver cannot refuse: the install
+    /// would succeed and the health check would fail afterwards, which is a
+    /// worse way to learn it (docs/phase-13-verification.md).
+    ///
+    /// A plain string rather than a range: an engine is a name, not a version,
+    /// and the version of it that matters is already covered by the store
+    /// reporting what it runs.
+    /// </summary>
+    string? Database = null);
 
 /// <summary>A dependency on another Feature, by slug and permitted version range.</summary>
 public sealed record FeatureDependencyDeclaration(string Slug, VersionRange Version);

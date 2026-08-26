@@ -1,0 +1,89 @@
+# The contract between this Feature and everything that handles it: KNIGHT
+# validates it at publish, the resolver reads its dependencies, and the store's
+# installer reads its install and migration declarations
+# (docs/feature-delivery.md section 5).
+#
+# The first Feature of phase 14, and the first anywhere in the catalogue that
+# keeps a running balance. The rule it is built on: the ledger is the truth and
+# the balance is derived from it. A stored balance beside a ledger is two
+# sources of truth that agree until the first crash, and the one a customer
+# argues about is the one that is wrong.
+apiVersion: knight.dev/v1
+slug: loyalty-rewards
+version: 1.0.0
+name: Loyalty and Rewards
+description: >-
+  Points, tiers, earning and redemption rules, and the ledger underneath them.
+  Points are earned in lots with their own expiry and are spent oldest first, so
+  the programme can answer the two questions it is actually asked - how many
+  points are about to expire, and which points a redemption used.
+
+  A customer is an opaque subject string, the same one the store passes when it
+  records an order. This package cannot see the shopper table.
+
+django:
+  app_label: knight_loyalty
+  installed_app: knight_feature_loyalty_rewards
+  urls:
+    include: knight_feature_loyalty_rewards.urls
+    # The slug, not the shorter word. `loyalty/` is already served by the
+    # reference store's own demo route, and the store's urlconf wins - so a
+    # Feature mounted there is silently shadowed on that exact path while every
+    # step of the install reports success. Matching the slug is also the
+    # loader's own default when a manifest declares no prefix, which makes it
+    # the shape least likely to collide with anything.
+    prefix: loyalty-rewards/
+
+compatibility:
+  storeVersion: ">=1.0.0"
+  python: ">=3.12"
+  django: ">=5.0,<6.0"
+
+migrations:
+  required: true
+  # Class A: four CreateModels, one index, two unique constraints and a check.
+  # Nothing dropped, no data transformed.
+  #
+  # It is worth saying what this claim will stop being true of. Any later
+  # migration that touches `points_remaining` is Class C, not Class A, whatever
+  # its operations look like: that column is the balance, and a reverse that
+  # restores the schema while leaving the arithmetic wrong is worse than a
+  # reverse that refuses
+  # (docs/adr/0016-feature-migration-and-removal-policy.md).
+  reversible: true
+  estimatedDurationSeconds: 10
+  requiresMaintenanceWindow: false
+
+configuration:
+  defaults:
+    points_per_currency_unit: 1
+    currency_per_point: 0.01
+    expiry_months: 12
+    minimum_redemption_points: 100
+    # Whether the install seeds a three-rung ladder. On, because a loyalty
+    # feature whose every customer sits outside the ladder looks broken rather
+    # than unconfigured.
+    seed_default_tiers: true
+
+install:
+  strategy: package-install
+  requiresRestart: true
+  healthCheck: knight_feature_loyalty_rewards.checks.health
+
+# There is no `workers:` block here, and expiry needs one. The manifest schema
+# has no concept of a scheduled job - ManifestReader does not read one and
+# docs/feature-delivery.md does not describe one - so declaring it would look
+# like a guarantee and schedule nothing, the same trap a `database:` key would
+# have been for advanced-search.
+#
+# Until the schema has it, expiry is `manage.py knight_expire_loyalty_points`
+# on the store, run by whatever already runs that store's cron. Phase 15 needs
+# manifest-declared workers for real, because marketing-automation cannot work
+# without them - it is recorded there rather than faked here.
+
+uninstall:
+  # A points balance is a liability the merchant owes their customers. Losing
+  # the ledger a month after somebody pauses the feature would mean a shop that
+  # cannot answer what it owes. Kept for two years.
+  strategy: disable-then-remove
+  dataRetentionDays: 730

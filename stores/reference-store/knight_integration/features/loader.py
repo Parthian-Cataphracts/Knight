@@ -71,13 +71,20 @@ def ensure_import_path(feature_root: str | Path | None = None) -> None:
         sys.path.append(root)
 
 
-def feature_urlpatterns(feature_root: str | Path | None = None):
+def feature_urlpatterns(feature_root: str | Path | None = None, existing=None):
     """
     URL patterns contributed by enabled features, for the project's root urlconf.
 
     Each feature is mounted under its declared prefix and imported in isolation:
     one feature with a bad urls module loses that feature, not the store's
     checkout page.
+
+    Pass `existing` — the patterns the store has already registered — and a
+    prefix that collides with one of them is reported. The store still wins,
+    which is deliberate: a delivered package must not be able to take over a
+    route the shop already serves. What is not acceptable is doing it in
+    silence, because the result is a Feature whose install succeeded, whose
+    health check passed, and whose pages answer somebody else's view.
     """
     from django.urls import include, path
 
@@ -89,11 +96,22 @@ def feature_urlpatterns(feature_root: str | Path | None = None):
         logger.exception("The feature registry could not be read; mounting no feature URLs.")
         return patterns
 
+    taken = _declared_prefixes(existing)
+
     for feature in features:
         if not feature.url_include:
             continue
 
         prefix = (feature.url_prefix or f"{feature.slug}/").lstrip("/")
+
+        if prefix in taken:
+            logger.error(
+                "Feature '%s' asks for the prefix '%s', which this store already serves. "
+                "The store's own route wins, so this feature will not answer there. "
+                "Change the prefix in its manifest.",
+                feature.slug,
+                prefix,
+            )
 
         try:
             patterns.append(path(prefix, include(feature.url_include)))
@@ -101,6 +119,44 @@ def feature_urlpatterns(feature_root: str | Path | None = None):
             logger.exception("Feature '%s' has a urls module that could not be mounted.", feature.slug)
 
     return patterns
+
+
+def _declared_prefixes(existing) -> set[str]:
+    """
+    The route prefixes the store already serves, as far as they can be read.
+
+    Best effort on purpose: this is a warning, not a gate, and a resolver shape
+    it cannot read must not stop a store from starting.
+    """
+    if not existing:
+        return set()
+
+    prefixes: set[str] = set()
+
+    for entry in existing:
+        try:
+            pattern = str(getattr(entry, "pattern", ""))
+        except Exception:  # noqa: BLE001
+            continue
+
+        if not pattern:
+            continue
+
+        # An include() of the store's own urlconf mounted at "" contributes its
+        # children's prefixes rather than its own.
+        children = getattr(entry, "url_patterns", None)
+
+        if pattern == "" and children:
+            for child in children:
+                child_pattern = str(getattr(child, "pattern", ""))
+
+                if child_pattern:
+                    prefixes.add(child_pattern.lstrip("/"))
+            continue
+
+        prefixes.add(pattern.lstrip("/"))
+
+    return prefixes
 
 
 def installed_feature_report(feature_root: str | Path | None = None) -> list[dict[str, object]]:

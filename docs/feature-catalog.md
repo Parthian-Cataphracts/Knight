@@ -75,6 +75,8 @@ in code.
 | `reviews-ratings` | Reviews and Ratings | Growth | 19 | `features/knight-feature-reviews-ratings` |
 | `advanced-search` | Advanced Search | Growth | 29 | `features/knight-feature-advanced-search` |
 | `customer-segmentation` | Customer Segmentation | Insight | 29 | `features/knight-feature-customer-segmentation` |
+| `loyalty-rewards` | Loyalty and Rewards | Growth | 39 | `features/knight-feature-loyalty-rewards` |
+| `gift-cards` | Gift Cards and Store Credit | Revenue | 39 | `features/knight-feature-gift-cards` |
 | `log-shipping` | Log shipping | Insight | 19 | — none; see below |
 
 `log-shipping` is the one capability with no package. It is enforced by
@@ -96,8 +98,6 @@ that publishes its package.
 
 | Slug | Name | Category | Price | Depends on |
 |---|---|---|---|---|
-| `loyalty-rewards` | Loyalty and Rewards | Growth | 39 | base only |
-| `gift-cards` | Gift Cards and Store Credit | Revenue | 39 | base only |
 | `marketing-automation` | Marketing Automation | Growth | 79 | `customer-segmentation` |
 | `ai-reports` | AI Reports | Insight | 149 | `analytics-core` |
 | `advanced-inventory` | Advanced Inventory | Operations | 59 | base only |
@@ -106,6 +106,12 @@ that publishes its package.
 | `subscriptions` | Subscriptions and Recurring Orders | Revenue | 69 | base only |
 | `external-marketplaces` | Marketplace and Delivery Integrations | Integrations | 99 | `advanced-inventory` (optional) |
 
+`advanced-search` is the only Feature that **requires a particular database**.
+Its index is a `tsvector` column and a GIN index, so it declares
+`compatibility.database: postgresql` and the resolver refuses a store on any
+other engine before an install rather than after a failed health check. That key
+was a comment until phase 14, because the schema had nowhere to put it.
+
 `ai-reports` is the only Feature that **requires dedicated infrastructure**: it
 runs model inference on its own workers and its cost per customer is not
 something a shared machine can bound. Entitling it to a customer on shared
@@ -113,6 +119,32 @@ hosting is refused rather than sold and discovered later. Whether a Feature
 needs dedicated infrastructure is fixed at publication and the aggregate
 refuses to change it afterwards, so it is set correctly in the seed or not at
 all.
+
+---
+
+## 3.1 Bundles
+
+A bundle is a **plan composition**, never a package. The same Features at a price
+that suits a shape of business — and the moment one becomes a fifteenth package
+there are two things to build, test and deliver for one thing to sell.
+
+| Plan | Price | What it adds to the base store |
+|---|---|---|
+| `growth` | 179 | `analytics-core`, `analytics-reports`, `advanced-promotions`, `reviews-ratings`, `advanced-search`, `customer-segmentation` |
+| `retention` | 199 | `analytics-core`, `customer-segmentation`, `loyalty-rewards`, `gift-cards` |
+
+Growth sells what a shop uses to find customers; Retention sells what it uses on
+the ones it has. `customer-segmentation` is in both deliberately — it is the
+Feature that makes the others worth having, and a bundle without it would be
+cheaper and worse.
+
+Like every plan, a bundle lists only **published** Features, so both grow as the
+catalogue does: `marketing-automation` joins Retention in phase 15.
+
+Two more are described in the strategy and not yet sellable, because the Features
+in them are still Draft: Operations (`advanced-inventory`,
+`restaurant-operations`, `multi-location`) and Intelligence (`analytics-core`,
+`customer-segmentation`, `ai-reports`).
 
 ---
 
@@ -272,8 +304,15 @@ Feature's URLs had ever been mounted, including an endpoint that had shipped
 since phase 3.5. That is fixed and pinned by tests both sides
 ([`phase-13-verification.md`](phase-13-verification.md)).
 
-The remaining work is the catalogue itself: nine Features that are Draft
+Phase 14 added the two Features that keep a running balance, and both are built
+on one rule: the ledger is the truth and the balance is derived from it. It also
+made `compatibility.database` a real constraint the resolver enforces, tested the
+uninstall guard, and turned the first two bundles into plans
+([`phase-14-verification.md`](phase-14-verification.md)).
+
+The remaining work is the catalogue itself: seven Features that are Draft
 identities with no package behind them. The order is in
-[`../TODO.md`](../TODO.md), phases 14 to 17, and it runs low-risk first:
+[`../TODO.md`](../TODO.md), phases 15 to 17, and it runs low-risk first:
 contained migrations and no external services before anything that touches
-money, background workers or a third-party API.
+background workers or a third-party API. The next phase needs
+manifest-declared workers, which the schema does not have yet.

@@ -81,6 +81,7 @@ Read in this order:
 19. [`phase-11-verification.md`](phase-11-verification.md) — the exact steps to install KNIGHT on a server and prove it did not disturb anything else on it
 20. [`phase-12-verification.md`](phase-12-verification.md) — moving two capabilities out of Features and into the base store, what it cost, and what running it found
 21. [`phase-13-verification.md`](phase-13-verification.md) — three Features through the delivery engine, and the runtime wiring it turned out never to send
+22. [`phase-14-verification.md`](phase-14-verification.md) — the two Features that keep a balance, and the two transaction bugs that only a real database shows
 
 Project status and remaining work: [`../TODO.md`](../TODO.md).
 

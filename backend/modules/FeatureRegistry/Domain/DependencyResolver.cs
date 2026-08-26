@@ -284,6 +284,52 @@ public sealed class DependencyResolver
         CheckRange(feature.Slug, "store version", store.StoreVersion, compatibility.StoreVersion, version, failures);
         CheckRange(feature.Slug, "Python version", store.PythonVersion, compatibility.Python, version, failures);
         CheckRange(feature.Slug, "Django version", store.DjangoVersion, compatibility.Django, version, failures);
+        CheckDatabase(feature.Slug, store.Database, compatibility.Database, version, failures);
+    }
+
+    /// <summary>
+    /// Checks the database engine a Feature requires against the one the store
+    /// reports.
+    ///
+    /// Not a version range: an engine is a name. Otherwise the same rule as
+    /// every other compatibility fact — a store that has never reported its
+    /// engine is a store KNIGHT cannot certify against, and installing anyway
+    /// because nothing contradicted the requirement is the optimism this check
+    /// exists to remove.
+    ///
+    /// Added in phase 14 for <c>advanced-search</c>, whose index is a tsvector
+    /// column and a GIN index. Before it, that requirement was a comment in the
+    /// manifest — which meant the install succeeded and the health check failed
+    /// afterwards (docs/phase-13-verification.md).
+    /// </summary>
+    private static void CheckDatabase(
+        string slug,
+        string? reported,
+        string? required,
+        RegistryVersion version,
+        List<ResolutionFailure> failures)
+    {
+        if (string.IsNullOrWhiteSpace(required))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(reported))
+        {
+            failures.Add(new ResolutionFailure(
+                ResolutionFailureCode.IncompatibleStore,
+                slug,
+                $"{slug} {version.Version} requires the '{required}' database, and the store has not reported which database it runs."));
+            return;
+        }
+
+        if (!string.Equals(reported.Trim(), required, StringComparison.OrdinalIgnoreCase))
+        {
+            failures.Add(new ResolutionFailure(
+                ResolutionFailureCode.IncompatibleStore,
+                slug,
+                $"{slug} {version.Version} requires the '{required}' database and the store reports '{reported}'."));
+        }
     }
 
     /// <summary>
