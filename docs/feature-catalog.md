@@ -69,9 +69,12 @@ in code.
 
 | Slug | Name | Category | Price | Package |
 |---|---|---|---|---|
-| `analytics-core` | Analytics Core | Insight | 29 | `features/knight-feature-analytics-core` |
+| `analytics-core` | Analytics Core | Insight | 29 | `features/knight-feature-analytics-core` (1.1.0) |
 | `analytics-reports` | Analytics Reports | Insight | 19 | `features/knight-feature-analytics-reports` |
 | `advanced-promotions` | Advanced Promotions | Growth | 39 | `features/knight-feature-promotions` (2.0.0) |
+| `reviews-ratings` | Reviews and Ratings | Growth | 19 | `features/knight-feature-reviews-ratings` |
+| `advanced-search` | Advanced Search | Growth | 29 | `features/knight-feature-advanced-search` |
+| `customer-segmentation` | Customer Segmentation | Insight | 29 | `features/knight-feature-customer-segmentation` |
 | `log-shipping` | Log shipping | Insight | 19 | — none; see below |
 
 `log-shipping` is the one capability with no package. It is enforced by
@@ -93,10 +96,7 @@ that publishes its package.
 
 | Slug | Name | Category | Price | Depends on |
 |---|---|---|---|---|
-| `reviews-ratings` | Reviews and Ratings | Growth | 19 | base only |
-| `advanced-search` | Advanced Search | Growth | 29 | base only |
 | `loyalty-rewards` | Loyalty and Rewards | Growth | 39 | base only |
-| `customer-segmentation` | Customer Segmentation | Insight | 29 | `analytics-core` (optional) |
 | `gift-cards` | Gift Cards and Store Credit | Revenue | 39 | base only |
 | `marketing-automation` | Marketing Automation | Growth | 79 | `customer-segmentation` |
 | `ai-reports` | AI Reports | Insight | 149 | `analytics-core` |
@@ -130,9 +130,11 @@ base store (catalog, orders, accounts, payments, shipping, promotions)
 ├── gift-cards               advanced-inventory     restaurant-operations
 ├── multi-location           subscriptions
 │
-└── analytics-core ──┬── analytics-reports
+└── analytics-core ──┬── analytics-reports        (>=1.0.0,<2.0.0)
                      ├── ai-reports
-                     └── customer-segmentation ── marketing-automation
+                     └── customer-segmentation    (>=1.1.0,<2.0.0)
+                                │
+                                └── marketing-automation
 
 advanced-inventory ── external-marketplaces
 ```
@@ -152,10 +154,14 @@ job and an explanation. It never downgrades an installed Feature to satisfy a
 dependency, and a Feature another installed Feature depends on cannot be
 uninstalled until the dependent goes first.
 
-Optional dependencies in the table above mean the Feature works without the
-other one and works better with it — `customer-segmentation` can score
-customers from order history alone, and uses the analytics event stream when it
-is there.
+`customer-segmentation` was listed as *optionally* depending on analytics while
+it was a roadmap entry. Building it settled the question the other way, and the
+reason is worth keeping: a Feature may not import store business code, so
+segmentation cannot read the order table at all. The analytics event stream is
+its only possible source, which makes the dependency mandatory — and the lower
+bound `>=1.1.0` equally so, because 1.0.x cannot group events by subject. This
+is the pair that exercises the resolver end to end
+([`phase-13-verification.md`](phase-13-verification.md)).
 
 ---
 
@@ -260,8 +266,14 @@ transactional notifications are in the image, `advanced-promotions` 2.0.0 keeps
 only the sophistication, and `delivery-zones` is gone. What that cost, and what
 running it found, is in [`phase-12-verification.md`](phase-12-verification.md).
 
-The remaining work is the catalogue itself: eleven Features that are Draft
+Phase 13 then put three real Features through the delivery engine and found
+that it had never sent a store the names it needs to load a package — so no
+Feature's URLs had ever been mounted, including an endpoint that had shipped
+since phase 3.5. That is fixed and pinned by tests both sides
+([`phase-13-verification.md`](phase-13-verification.md)).
+
+The remaining work is the catalogue itself: nine Features that are Draft
 identities with no package behind them. The order is in
-[`../TODO.md`](../TODO.md), phases 13 to 17, and it runs low-risk first:
+[`../TODO.md`](../TODO.md), phases 14 to 17, and it runs low-risk first:
 contained migrations and no external services before anything that touches
 money, background workers or a third-party API.

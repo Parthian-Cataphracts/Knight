@@ -518,4 +518,151 @@ public sealed class DependencyResolverTests
             second.Steps.Select(step => step.Slug));
         Assert.Equal(["a", "z", "app"], first.Steps.Select(step => step.Slug));
     }
+
+    // --- The phase 13 graph, as it actually exists -------------------------
+    //
+    // The cases above are synthetic on purpose: each isolates one rule. These
+    // use the real catalogue, because the rules interacting is what phase 13
+    // set out to validate and a fixture that agrees with itself proves nothing
+    // about the manifests that were actually written.
+    //
+    // The graph: reviews-ratings and advanced-search depend on nothing but the
+    // base store. customer-segmentation depends on analytics-core >=1.1.0,
+    // which is a hard lower bound rather than a preference - 1.0.x has no
+    // per-subject aggregation, so a segment cannot be computed at all.
+
+    private static DependencyResolver PhaseThirteenCatalogue() =>
+        new(
+        [
+            Feature("analytics-core", [("1.0.0", true, null), ("1.1.0", true, null)]),
+            Feature("analytics-reports", [("1.0.0", true, [("analytics-core", ">=1.0.0,<2.0.0")])]),
+            Feature(
+                "customer-segmentation",
+                [("1.0.0", true, [("analytics-core", ">=1.1.0,<2.0.0")])]),
+            Simple("reviews-ratings", "1.0.0"),
+            Simple("advanced-search", "1.0.0"),
+        ]);
+
+    [Fact]
+    public void TheTwoSelfContainedFeatures_ResolveToThemselvesAlone()
+    {
+        var resolver = PhaseThirteenCatalogue();
+
+        foreach (var slug in new[] { "reviews-ratings", "advanced-search" })
+        {
+            var result = resolver.Resolve(slug, VersionRange.Any, Store());
+
+            Assert.True(result.IsSuccessful, string.Join("; ", result.Failures));
+            var step = Assert.Single(result.Steps);
+            Assert.Equal(slug, step.Slug);
+            Assert.True(step.IsRoot);
+        }
+    }
+
+    [Fact]
+    public void Segmentation_PullsAnalyticsCoreInFirstAndNamesWhoAskedForIt()
+    {
+        var resolver = PhaseThirteenCatalogue();
+
+        var result = resolver.Resolve("customer-segmentation", VersionRange.Any, Store());
+
+        Assert.True(result.IsSuccessful, string.Join("; ", result.Failures));
+        Assert.Equal(
+            ["analytics-core", "customer-segmentation"],
+            result.Steps.Select(step => step.Slug));
+
+        var dependency = result.Steps[0];
+        Assert.False(dependency.IsRoot);
+        // Carries the version too - "customer-segmentation 1.0.0" - because the
+        // message a refusal produces has to say which release wanted it.
+        Assert.StartsWith("customer-segmentation", dependency.RequiredBy);
+
+        // The lower bound decides the version, not "whatever is newest": 1.1.0
+        // is the first release that can answer the question this Feature asks.
+        Assert.Equal("1.1.0", dependency.Version.ToString());
+    }
+
+    [Fact]
+    public void AStoreOnAnalyticsOnePointZero_IsUpgradedBeforeSegmentationInstalls()
+    {
+        // The scenario the phase was built around. Installing segmentation on a
+        // store that already has analytics-core 1.0.0 is not a fresh install of
+        // one Feature - it is an upgrade of another, sequenced first.
+        var resolver = PhaseThirteenCatalogue();
+
+        var result = resolver.Resolve(
+            "customer-segmentation",
+            VersionRange.Any,
+            Store(installed: ("analytics-core", "1.0.0")));
+
+        Assert.True(result.IsSuccessful, string.Join("; ", result.Failures));
+
+        var upgrade = result.Steps.Single(step => step.Slug == "analytics-core");
+        Assert.Equal(PlanAction.Upgrade, upgrade.Action);
+        Assert.Equal("1.0.0", upgrade.InstalledVersion?.ToString());
+        Assert.Equal("1.1.0", upgrade.Version.ToString());
+
+        // And in that order, because the dependent cannot run against 1.0.0.
+        Assert.Equal(0, result.Steps.ToList().FindIndex(step => step.Slug == "analytics-core"));
+    }
+
+    [Fact]
+    public void AStoreAlreadyOnAnalyticsOnePointOne_OnlyInstallsSegmentation()
+    {
+        var resolver = PhaseThirteenCatalogue();
+
+        var result = resolver.Resolve(
+            "customer-segmentation",
+            VersionRange.Any,
+            Store(installed: ("analytics-core", "1.1.0")));
+
+        Assert.True(result.IsSuccessful, string.Join("; ", result.Failures));
+
+        var satisfied = result.Steps.Single(step => step.Slug == "analytics-core");
+        Assert.Equal(PlanAction.AlreadySatisfied, satisfied.Action);
+        Assert.Equal(
+            PlanAction.Install,
+            result.Steps.Single(step => step.Slug == "customer-segmentation").Action);
+    }
+
+    [Fact]
+    public void SegmentationAgainstACatalogueWithoutOnePointOne_IsRefusedRatherThanDowngraded()
+    {
+        // A range nothing satisfies produces no job and an explanation. The
+        // alternative - installing 1.0.0 because it is the only thing there -
+        // gives the store a Feature that computes every segment as empty, which
+        // a merchant reads as having no customers.
+        var resolver = new DependencyResolver(
+        [
+            Simple("analytics-core", "1.0.0"),
+            Feature(
+                "customer-segmentation",
+                [("1.0.0", true, [("analytics-core", ">=1.1.0,<2.0.0")])]),
+        ]);
+
+        var result = resolver.Resolve("customer-segmentation", VersionRange.Any, Store());
+
+        Assert.False(result.IsSuccessful);
+        Assert.Empty(result.Steps);
+        Assert.Contains(result.Failures, failure => failure.Slug == "analytics-core");
+    }
+
+    [Fact]
+    public void SegmentationAndReportsTogether_ShareOneAnalyticsCoreThatSuitsBoth()
+    {
+        // The diamond as the real catalogue contains it: reports accepts
+        // >=1.0.0 and segmentation demands >=1.1.0, so the shared dependency
+        // has to be 1.1.0 and has to be planned once.
+        var resolver = PhaseThirteenCatalogue();
+
+        var result = resolver.Resolve(
+            [RootRequest.Latest("customer-segmentation"), RootRequest.Latest("analytics-reports")],
+            Store());
+
+        Assert.True(result.IsSuccessful, string.Join("; ", result.Failures));
+
+        var core = Assert.Single(result.Steps.Where(step => step.Slug == "analytics-core"));
+        Assert.Equal("1.1.0", core.Version.ToString());
+        Assert.Equal(0, result.Steps.ToList().FindIndex(step => step.Slug == "analytics-core"));
+    }
 }

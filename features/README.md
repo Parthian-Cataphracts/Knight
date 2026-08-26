@@ -14,6 +14,9 @@ A Feature is **not** a boolean flag
 | `knight-feature-analytics-core` | Records events and rolls them into daily counters. Owns the event table. |
 | `knight-feature-analytics-reports` | A reporting surface over that stream. Depends on the core, and exists to exercise dependency resolution against a real package. |
 | `knight-feature-promotions` | Advanced Promotions: buy X get Y, bundles and stacking rules. Plain coupons are the base store's ([`adr/0024`](../docs/adr/0024-base-store-versus-optional-feature.md)). |
+| `knight-feature-reviews-ratings` | Product reviews, ratings, replies and moderation. Ships templates and a stylesheet, so it also exercises asset delivery. |
+| `knight-feature-advanced-search` | Full-text search over an index the store pushes documents into. PostgreSQL only. |
+| `knight-feature-customer-segmentation` | Segments computed from the analytics event stream. Depends on `analytics-core >=1.1.0`, and is the pair that exercises dependency resolution. |
 | `tools/knight_package.py` | Build, sign, validate and publish. |
 
 A directory's name is the Python distribution; the slug KNIGHT sells and

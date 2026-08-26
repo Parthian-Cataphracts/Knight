@@ -4,11 +4,14 @@
 # (docs/feature-delivery.md section 5).
 apiVersion: knight.dev/v1
 slug: analytics-core
-version: 1.0.0
+version: 1.1.0
 name: Analytics Core
 description: >-
   Records events for a store and rolls them into daily counters. Everything else
   analytics-related builds on this; it owns the event table.
+
+  1.1.0 adds an optional subject to an event, and per-subject aggregation over a
+  window - which is what customer-segmentation groups on.
 
 django:
   app_label: knight_analytics_core
@@ -23,6 +26,19 @@ compatibility:
 
 migrations:
   required: true
+  # 1.1.0 adds a `subject` column with a default and an index on it. Class A
+  # both: nothing is dropped, nothing is transformed and no existing row is
+  # rewritten - which is exactly why the subject is left empty on historical
+  # events rather than backfilled. A backfill would have to invent who each
+  # past event was about.
+  #
+  # `reversible: true` is a claim about the *schema*, and it is worth being
+  # precise about what it does not claim. Reversing 0002 drops the column, so
+  # every subject written while 1.1.0 was installed goes with it - the events
+  # themselves survive, and the dimension does not. That is acceptable for an
+  # optional field on a log and would not be for anything a customer typed,
+  # which is the distinction adr/0016 draws between reversing a migration and
+  # reversing a business fact.
   # Every operation is a plain CreateModel, so the reverse exists and a failed
   # upgrade can put the schema back. Declaring this honestly is what decides
   # whether a rollback is possible at all.

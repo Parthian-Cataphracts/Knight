@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "knight-feature-customer-segmentation"
+version = "1.0.0"
+description = "Customer segments computed from a KNIGHT store's analytics event stream."
+requires-python = ">=3.12"
+dependencies = ["Django>=5.0,<6.0"]
+
+[tool.setuptools]
+packages = ["knight_feature_customer_segmentation", "knight_feature_customer_segmentation.migrations"]

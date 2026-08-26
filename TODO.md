@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-25** (revision 24 — phase 12 done: coupons, shipping and notifications are the base store's, and advanced-promotions keeps only the sophistication)
+Last updated: **2026-08-26** (revision 25 — phase 13 done: three Features through the delivery engine, and the runtime wiring it turned out never to send)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,9 +11,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 13 — the first Features built on the corrected boundary. Phase 12 is complete: one slug across the catalogue and the registry, coupons and shipping and notifications in the base image, `advanced-promotions` 2.0.0 carrying only the sophistication, and `delivery-zones` withdrawn** |
-| **Next phase** | `reviews-ratings`, then `advanced-search` on PostgreSQL only, then `customer-segmentation` as the first real dependency test |
-| **Overall progress** | **Platform ~99%, catalogue ~25%.** Two numbers on purpose: the control plane and the delivery engine are finished, and the product they exist to deliver is 4 sellable Features out of 16. The base store is now a plan a real shop can run on, which is what makes the upgrade argument honest. 597 backend tests green locally (584 unit, 13 architecture; the PostgreSQL-backed integration suite needs a cluster and runs in CI), plus **184 store tests with nothing skipped** and 9 dashboard |
+| **Current phase** | **Phase 14 — commercial foundations. Phase 13 is complete: `reviews-ratings`, `advanced-search` and `customer-segmentation` are published, the upgrade and rollback drills passed, and the delivery engine turned out never to have sent a store the names it needs to load a package — fixed, with tests both sides** |
+| **Next phase** | `loyalty-rewards`, then `gift-cards` — the first Feature carrying a financial ledger, and the first whose migrations are not automatically Class A |
+| **Overall progress** | **Platform ~99%, catalogue ~45%.** Two numbers on purpose: the control plane and the delivery engine are finished, and the product they exist to deliver is 7 sellable Features out of 16. **753 backend tests green** (590 unit, 13 architecture, 150 PostgreSQL-backed integration — run locally this time, not deferred), plus **274 store tests with nothing skipped**, the same 274 passing with no Feature installed at all, and 9 dashboard |
 | **Blocking decisions** | **Are Features publishable for a store that is not Django?** Everything except the manifest is already stack-agnostic; `ManifestReader` is the one thing that is not (R26, decision 14 in [`docs/risks.md`](docs/risks.md)). Until it is answered, a non-Django store is entitled and observed but not delivered to. Separately, the **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -37,7 +37,7 @@ Phase 9    Provisioning & professional infra ██████████ 100%
 Phase 10   Optimisation & hardening       █████████░  95%
 Phase 11   Deployment & installation       ████████░░  80%
 Phase 12   Catalogue alignment            ██████████ 100%
-Phase 13   Delivery validation on Features ░░░░░░░░░░   0%
+Phase 13   Delivery validation on Features ██████████ 100%
 Phase 14   Commercial foundations         ░░░░░░░░░░   0%
 Phase 15   Automation                     ░░░░░░░░░░   0%
 Phase 16   Operational expansion          ░░░░░░░░░░   0%
@@ -45,8 +45,9 @@ Phase 17   Recurring revenue & integrations ░░░░░░░░░  0%
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
-the image; 4 sellable Features (`analytics-core`, `analytics-reports`,
-`advanced-promotions` 2.0.0, `log-shipping`); 12 Draft identities waiting on a
+the image; **7 sellable Features** (`analytics-core` 1.1.0, `analytics-reports`,
+`advanced-promotions` 2.0.0, `reviews-ratings`, `advanced-search`,
+`customer-segmentation`, `log-shipping`); 9 Draft identities waiting on a
 package. [`docs/feature-catalog.md`](docs/feature-catalog.md) is the list.
 
 ---
@@ -1058,25 +1059,83 @@ easy rollback — then the first real dependency.
 browser, and rolls back cleanly on a real store. Class A migrations only
 (`CreateModel`, nullable `AddField`, `AddIndex`).
 
-- [ ] **`reviews-ratings`** — the best first Feature: customer-visible,
-      commercially useful, database-backed, no external API, depends on the base
-      store only. Tests package install, dependency resolution against base,
-      migrations, admin and URL registration, template and static assets,
-      entitlement, activation and deactivation
-- [ ] **`advanced-search`** — a different category of Feature without
-      operational risk. **PostgreSQL full-text only for 1.0.** No Elasticsearch,
-      no OpenSearch, no external cluster: the goal is to test KNIGHT's delivery
-      engine, not distributed infrastructure. A search adapter keeps the door
-      open for a later provider
-- [ ] **`customer-segmentation`** — the first real dependency test, and the one
-      that proves a Feature can build on another Feature rather than on the base
-      store. Declares `analytics-core` as an optional dependency; verify the
-      resolver installs in topological order, refuses a range nothing satisfies,
-      and will not uninstall `analytics-core` while this depends on it
-- [ ] Verify an upgrade path, not only installs: publish `analytics-core` 1.1.0
-      and upgrade a store that is on 1.0.0 with `analytics-reports` installed
-      against it
-- [ ] Rollback drill per Feature, including one deliberately failed migration
+### Done
+- [x] **`reviews-ratings`** — moderation by default, verified-purchase badges
+      asserted by the caller rather than guessed, merchant replies, and a page
+      of its own. Ships templates and a stylesheet inside the package, so it
+      exercises asset delivery as well as code delivery
+- [x] **`advanced-search`** — PostgreSQL full-text only, as the phase required.
+      An index the store pushes documents into rather than a view over the
+      catalogue, because a Feature may not read `apps.catalog` and because an
+      index is what a search feature actually is. Weighted title/keyword/body
+      ranking, facets, suggestions, and a prefix pass so a half-typed word still
+      matches. Hostile queries are stripped rather than passed to `to_tsquery`
+- [x] **`analytics-core` 1.1.0** — an optional `subject` on an event and
+      per-subject aggregation over a window. Class A: a column with a default
+      and one index, nothing rewritten, historical events left without an
+      invented subject
+- [x] **`customer-segmentation`** — five definitions seeded at install, computed
+      from the analytics event stream. The first Feature whose data comes from
+      another Feature, and the dependency is mandatory for a reason worth
+      keeping: it may not import store business code, so the order table is not
+      available to it and analytics is the only possible source
+- [x] **The upgrade path, on a real store.** 15 events on analytics-core 1.0.0
+      with analytics-reports installed against it, upgraded in place: events
+      survived, the dependent kept answering, the migration reversed and
+      re-applied
+- [x] **The rollback drill.** All three new Features reverse to zero and
+      re-apply. Plus a deliberately broken migration, which left nothing behind
+      — same column count, no half-applied field, recorded unapplied, health
+      check still passing
+- [x] Six resolver tests on the **real** catalogue rather than synthetic
+      fixtures: topological order, the 1.0.0 store being upgraded first, an
+      unsatisfiable range refused rather than downgraded, and the diamond where
+      reports and segmentation share one analytics-core
+- [x] [`docs/phase-13-verification.md`](docs/phase-13-verification.md)
+
+### Found by verifying it, and fixed
+- [x] **The delivery path never told a store how to load a package.**
+      `ManifestReader` parsed `app_label`, `installed_app` and the urlconf out of
+      every manifest and dropped all four: they were never persisted, never in
+      the job payload, never recorded by `enable`. The store guessed the module
+      name from the slug, which was right only until
+      [`adr/0029`](docs/adr/0029-one-slug-for-the-catalogue-and-the-package.md)
+      shortened every slug in phase 12 — after which delivery would have
+      registered an app no store can import
+- [x] **No Feature's URLs had ever been mounted.** The same gap, and older:
+      `analytics-reports` has declared a urlconf and shipped a `views.py` since
+      phase 3.5 and its endpoint has never been reachable on any store.
+      Publishing succeeded, the job ran, every step reported success. Found by
+      opening a page in a browser, which is the argument for that being a
+      release step rather than a courtesy
+- [x] **Nothing tested the agent job payload at all**, which is how the above
+      survived. Four integration tests on the delivery projection, four
+      store-side regression tests on `enable`
+- [x] **The local install command read a spelling no manifest has ever used**,
+      and the hand-rolled YAML fallback flattened `django.urls.include` to
+      `django.include` while claiming one level of nesting was all the schema
+      allowed. Parser is indentation-aware now; PyYAML is a dev dependency so
+      the real parser runs in development and CI
+- [x] **A stale `build/` directory resurrects deleted files into an installed
+      package** — a renamed migration shipped twice and Django refused two leaf
+      nodes. Untracked and gitignored in phase 12, so a fresh checkout cannot
+      hit it; a developer's machine can, and the error names neither cause nor
+      directory
+- [x] **Django 5.1 does not support Python 3.14.** Its test client cannot copy a
+      template context there, so every test rendering a template errors. No
+      existing test rendered one, so nothing had noticed. A `.venv312` matching
+      CI now sits beside the 3.14 one
+
+### Carried into phase 14
+- [ ] **The uninstall guard is untested.** `FeatureDeliveryService` refuses to
+      uninstall a Feature something else depends on; the resolver half it rests
+      on is covered and the refusal itself is not. Needs a service-level test
+      with a seeded installation
+- [ ] Fuzzy matching for `advanced-search` 1.1, once a `CREATE EXTENSION` for
+      `pg_trgm` can be classified honestly — it is not Class A, because another
+      Feature may start using the extension and a rollback cannot know
+- [ ] `advanced-search` requires PostgreSQL and the manifest schema has nowhere
+      to say so. The health check catches it at install, which is late
 
 ---
 

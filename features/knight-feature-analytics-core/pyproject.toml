@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "knight-feature-analytics-core"
-version = "1.0.0"
+version = "1.1.0"
 description = "Event recording and daily rollups for a KNIGHT store."
 requires-python = ">=3.12"
 dependencies = ["Django>=5.0,<6.0"]

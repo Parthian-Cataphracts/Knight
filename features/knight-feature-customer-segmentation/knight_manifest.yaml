@@ -1,0 +1,78 @@
+# The contract between this Feature and everything that handles it: KNIGHT
+# validates it at publish, the resolver reads its dependencies, and the store's
+# installer reads its install and migration declarations
+# (docs/feature-delivery.md section 5).
+#
+# The third Feature of phase 13, and the one that tests something the first two
+# could not: a Feature whose data comes from another Feature rather than from the
+# base store. Installing it must install or upgrade analytics-core first, and
+# uninstalling analytics-core while this is present must be refused
+# (docs/adr/0017-feature-compatibility-and-dependencies.md).
+apiVersion: knight.dev/v1
+slug: customer-segmentation
+version: 1.0.0
+name: Customer Segmentation
+description: >-
+  New, frequent, high-value, VIP and dormant customers, recomputed from the
+  analytics event stream on a schedule. Ships the five definitions a merchant
+  expects rather than an empty screen.
+
+  A customer is an opaque subject string - the same one the store passes when it
+  records an event. This package cannot see the order table, because a Feature
+  may not import store business code, which is why it reads analytics instead.
+
+django:
+  app_label: knight_segments
+  installed_app: knight_feature_customer_segmentation
+  urls:
+    include: knight_feature_customer_segmentation.urls
+    prefix: segments/
+
+compatibility:
+  storeVersion: ">=1.0.0"
+  python: ">=3.12"
+  django: ">=5.0,<6.0"
+
+dependencies:
+  features:
+    # A hard dependency, and the lower bound is the interesting half. 1.0.x has
+    # no per-subject aggregation at all, so this is not "better with" analytics
+    # - it cannot compute a single segment without `subjects_between`, which
+    # arrived in 1.1.0. A store on 1.0.x must be upgraded before this installs.
+    #
+    # The upper bound is a major version because the surface this reads could
+    # move there. A range rather than a pin: analytics-core may fix bugs and
+    # add events without this needing a release.
+    - { slug: analytics-core, version: ">=1.1.0,<2.0.0" }
+
+migrations:
+  required: true
+  # Class A: two CreateModels, one index, one unique constraint. Nothing is
+  # dropped and no data is transformed, so the reverse genuinely exists - and
+  # everything here is derived from the event stream anyway, so a rollback loses
+  # a computation rather than a fact.
+  reversible: true
+  estimatedDurationSeconds: 5
+  requiresMaintenanceWindow: false
+
+configuration:
+  defaults:
+    # How far back a recomputation scans by default. Each segment overrides it;
+    # this is the value the seeded definitions start from.
+    window_days: 90
+    # Whether the install seeds the five default segments. On, because a
+    # segmentation feature that installs empty makes the buyer invent five
+    # definitions themselves.
+    seed_default_segments: true
+
+install:
+  strategy: package-install
+  requiresRestart: true
+  healthCheck: knight_feature_customer_segmentation.checks.health
+
+uninstall:
+  # Memberships are derived from analytics events and are rebuilt by one run, so
+  # there is nothing here worth keeping. The segment *definitions* are a
+  # merchant's own work, which is why this is not zero.
+  strategy: disable-then-remove
+  dataRetentionDays: 30

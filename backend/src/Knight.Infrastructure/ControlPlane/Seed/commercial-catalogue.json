@@ -173,7 +173,7 @@
       "category": "Growth",
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
-      "publish": false,
+      "publish": true,
       "prices": [
         { "amount": 29.00, "billingPeriod": "Monthly" }
       ]
@@ -197,7 +197,7 @@
       "category": "Insight",
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
-      "publish": false,
+      "publish": true,
       "prices": [
         { "amount": 29.00, "billingPeriod": "Monthly" }
       ]
@@ -358,7 +358,9 @@
         { "slug": "analytics-reports", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "log-shipping", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "advanced-promotions", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "reviews-ratings", "isIncluded": false, "isCustomerToggleable": true }
+        { "slug": "reviews-ratings", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "advanced-search", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "customer-segmentation", "isIncluded": false, "isCustomerToggleable": true }
       ]
     },
     {
@@ -388,7 +390,9 @@
         { "slug": "analytics-reports", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "log-shipping", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "advanced-promotions", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "reviews-ratings", "isIncluded": true, "isCustomerToggleable": false }
+        { "slug": "reviews-ratings", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "advanced-search", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "customer-segmentation", "isIncluded": true, "isCustomerToggleable": false }
       ]
     }
   ]
