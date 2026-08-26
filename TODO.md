@@ -1128,15 +1128,19 @@ browser, and rolls back cleanly on a real store. Class A migrations only
       CI now sits beside the 3.14 one
 
 ### Carried into phase 14
-- [ ] **The uninstall guard is untested.** `FeatureDeliveryService` refuses to
-      uninstall a Feature something else depends on; the resolver half it rests
-      on is covered and the refusal itself is not. Needs a service-level test
-      with a seeded installation
-- [ ] Fuzzy matching for `advanced-search` 1.1, once a `CREATE EXTENSION` for
-      `pg_trgm` can be classified honestly — it is not Class A, because another
-      Feature may start using the extension and a rollback cannot know
-- [ ] `advanced-search` requires PostgreSQL and the manifest schema has nowhere
-      to say so. The health check catches it at install, which is late
+- [x] **The uninstall guard is untested.** Closed in phase 14: three integration
+      tests, including that the dependency can be removed once the dependent is
+      gone
+- [x] `advanced-search` requires PostgreSQL and the manifest schema has nowhere
+      to say so. Closed in phase 14: `compatibility.database` is parsed,
+      validated and enforced by the resolver, so the refusal happens before an
+      install rather than in a health check afterwards
+- [ ] Fuzzy matching for `advanced-search` 1.1 — **still open, and deliberately
+      so**. It wants `pg_trgm`, and a `CREATE EXTENSION` cannot be classified as
+      Class A: another Feature may start using the extension, so a rollback
+      cannot know whether dropping it is safe. Carried on to phase 16, where
+      `advanced-inventory` raises the same question about extensions and the two
+      are worth answering together rather than twice
 
 ---
 
@@ -1203,6 +1207,11 @@ assemble a meaningfully better store from published Features.
       refusing customers who had genuinely paid
 
 ### Still open
+- [ ] Fuzzy matching for `advanced-search` 1.1, carried through from phase 13 and
+      on to phase 16. It needs `pg_trgm`, and a `CREATE EXTENSION` is not Class A
+      — another Feature may start using the extension, so a rollback cannot know
+      whether dropping it is safe. `advanced-inventory` raises the same question
+      in phase 16, and answering it once for both is better than twice
 - [ ] **Concurrency is argued, not proven.** The locks and constraints are the
       right ones and every idempotency path has a test, but nothing runs two
       transactions at once to watch them contend. That needs a harness with real
@@ -1249,6 +1258,11 @@ per-customer cost bounded and auditable.
 **Exit criteria:** KNIGHT is credible for a merchant with real operations
 behind the shop.
 
+- [ ] **How a `CREATE EXTENSION` is classified**, once and for both callers.
+      `advanced-search` wants `pg_trgm` for fuzzy matching and this phase's
+      inventory work wants extensions of its own; neither is Class A, because a
+      rollback cannot know whether another Feature has started using the
+      extension in the meantime. An ADR amendment, then both Features can use it
 - [ ] **`advanced-inventory`** — stock movements, reservations, low-stock
       alerts, purchase orders, suppliers. Inventory ledger and reservation
       locking; significant indexing
