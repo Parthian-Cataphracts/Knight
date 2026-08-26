@@ -127,7 +127,9 @@ public static class StoreJobEndpoints
                 assignment.Django.AppLabel,
                 assignment.Django.InstalledApp,
                 assignment.Django.UrlInclude,
-                assignment.Django.UrlPrefix),
+                assignment.Django.UrlPrefix,
+                [.. assignment.Django.Workers.Select(worker =>
+                    new AgentWorkerResponse(worker.Name, worker.Entrypoint, worker.Schedule))]),
         assignment.ClaimExpiresAt);
 
     /// <summary>

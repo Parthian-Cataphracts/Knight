@@ -93,6 +93,11 @@ class Command(BaseCommand):
         # routes was registered without them and served none of them.
         urls_section = django_section.get("urls") or {}
 
+        # Workers are a top-level block, not part of the django one: they are a
+        # scheduling fact rather than a framework-integration fact, and a
+        # non-Django store would still have them (docs/risks.md R26).
+        declared_workers = manifest.get("workers") or []
+
         slug = manifest.get("slug")
         installed_app = django_section.get("installed_app")
 
@@ -113,6 +118,15 @@ class Command(BaseCommand):
             enabled=enabled,
             url_include=urls_section.get("include"),
             url_prefix=urls_section.get("prefix"),
+            workers=[
+                {
+                    "name": str(worker.get("name", "")),
+                    "entrypoint": str(worker.get("entrypoint", "")),
+                    "schedule": str(worker.get("schedule", "daily")).lower(),
+                }
+                for worker in declared_workers
+                if isinstance(worker, dict) and worker.get("name") and worker.get("entrypoint")
+            ],
             health_check=install_section.get("healthCheck"),
         )
 
@@ -173,8 +187,30 @@ def _read_simple_yaml(text: str) -> dict:
 
         stripped = raw.strip()
 
-        # A sequence item. Skipped whole, along with anything nested under it.
+        # A sequence item.
+        #
+        # Inline maps are kept, because `workers:` is a list of them and a
+        # feature whose scheduled jobs were silently dropped would install
+        # cleanly and then never run them - the same class of failure as the
+        # urls block being flattened. Block-style items are still skipped: this
+        # parser is the fallback, PyYAML is what runs in development and CI, and
+        # a parser that half-read a sequence would be worse than one that admits
+        # it cannot.
         if stripped.startswith("- "):
+            item = stripped[2:].strip()
+
+            if item.startswith("{") and item.endswith("}") and stack:
+                holder = stack[-1][1]
+                key = _last_key(holder)
+
+                if key is not None and isinstance(holder.get(key), dict) and not holder[key]:
+                    holder[key] = []
+
+                if key is not None and isinstance(holder.get(key), list):
+                    holder[key].append(_read_inline_map(item))
+
+                continue
+
             skipping_deeper_than = indent
             continue
 
@@ -213,6 +249,14 @@ def _read_simple_yaml(text: str) -> dict:
         stack.append((indent, child))
 
     return document
+
+
+def _last_key(holder: dict):
+    """The key most recently opened on this mapping, or None when there is none."""
+    for key in reversed(list(holder)):
+        return key
+
+    return None
 
 
 def _read_inline_map(value: str) -> dict:

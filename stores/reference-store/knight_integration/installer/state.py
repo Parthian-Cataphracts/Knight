@@ -55,6 +55,13 @@ class InstalledFeature:
     url_prefix: str | None = None
     health_check: str | None = None
     config_version: int = 0
+
+    #: Scheduled jobs this feature declared, as {name, entrypoint, schedule}.
+    #: Recorded here so `knight_run_workers` can find them without importing
+    #: every installed package to ask - a feature that fails to import must not
+    #: stop the others from running.
+    workers: list[dict[str, Any]] = field(default_factory=list)
+
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -78,6 +85,7 @@ def _defaults() -> dict[str, Any]:
         "url_prefix": None,
         "health_check": None,
         "config_version": 0,
+        "workers": [],
         "extra": {},
     }
 

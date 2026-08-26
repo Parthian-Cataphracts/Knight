@@ -430,7 +430,8 @@ internal sealed class AgentJobService : IAgentJobService
                     version.AppLabel,
                     version.InstalledApp,
                     version.UrlInclude,
-                    version.UrlPrefix);
+                    version.UrlPrefix,
+                    version.Workers);
             }
         }
 
@@ -523,4 +524,10 @@ public sealed record DeliverableVersion(
     string AppLabel,
     string InstalledApp,
     string? UrlInclude,
-    string? UrlPrefix);
+    string? UrlPrefix,
+
+    /// <summary>
+    /// The scheduled jobs the store must start running once this is installed.
+    /// Read from the signed manifest like everything else here.
+    /// </summary>
+    IReadOnlyList<AgentWorker> Workers);

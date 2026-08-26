@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "knight-feature-loyalty-rewards"
-version = "1.0.0"
+version = "1.1.0"
 description = "Points, tiers and a loyalty ledger for a KNIGHT store."
 requires-python = ">=3.12"
 dependencies = ["Django>=5.0,<6.0"]

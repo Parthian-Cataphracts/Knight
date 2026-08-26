@@ -337,6 +337,7 @@ def enable(context: JobContext) -> str:
         config_version=int(configuration.get("version") or 0),
         url_include=_url_include(context),
         url_prefix=_url_prefix(context),
+        workers=_workers(context),
     )
 
     context.registry.record(feature)
@@ -534,6 +535,43 @@ def _url_include(context: JobContext) -> str | None:
 
 def _url_prefix(context: JobContext) -> str | None:
     return _django(context).get("urlPrefix")
+
+
+def _workers(context: JobContext) -> list[dict[str, Any]]:
+    """
+    The scheduled jobs KNIGHT sent with this install.
+
+    Normalised on the way in rather than trusted: a worker missing a name or an
+    entrypoint is dropped here, where the install can still report it, instead
+    of failing every hour afterwards inside a timer nobody is watching.
+    """
+    declared = _django(context).get("workers") or []
+    kept: list[dict[str, Any]] = []
+
+    for worker in declared:
+        if not isinstance(worker, dict):
+            continue
+
+        name = worker.get("name")
+        entrypoint = worker.get("entrypoint")
+
+        if not name or not entrypoint:
+            logger.warning(
+                "Feature '%s' declared a worker with no %s; skipping it.",
+                context.slug,
+                "name" if not name else "entrypoint",
+            )
+            continue
+
+        kept.append(
+            {
+                "name": str(name),
+                "entrypoint": str(entrypoint),
+                "schedule": str(worker.get("schedule") or "daily").lower(),
+            }
+        )
+
+    return kept
 
 
 def _run_django(arguments: list[str], context: JobContext) -> str:

@@ -301,7 +301,17 @@ public sealed record AgentDjangoResponse(
     string AppLabel,
     string InstalledApp,
     string? UrlInclude,
-    string? UrlPrefix);
+    string? UrlPrefix,
+    IReadOnlyList<AgentWorkerResponse> Workers);
+
+/// <summary>
+/// A scheduled job the store must run once the Feature is installed.
+///
+/// Sent with the install rather than configured per store, so that installing a
+/// Feature installs its schedule too. A worker wired up by hand on every store
+/// is a worker that does nothing on the stores where somebody forgot.
+/// </summary>
+public sealed record AgentWorkerResponse(string Name, string Entrypoint, string Schedule);
 
 public sealed record AgentJobResponse(
     Guid JobId,

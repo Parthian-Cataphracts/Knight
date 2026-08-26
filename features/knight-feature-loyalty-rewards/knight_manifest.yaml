@@ -10,7 +10,7 @@
 # argues about is the one that is wrong.
 apiVersion: knight.dev/v1
 slug: loyalty-rewards
-version: 1.0.0
+version: 1.1.0
 name: Loyalty and Rewards
 description: >-
   Points, tiers, earning and redemption rules, and the ledger underneath them.
@@ -70,16 +70,20 @@ install:
   requiresRestart: true
   healthCheck: knight_feature_loyalty_rewards.checks.health
 
-# There is no `workers:` block here, and expiry needs one. The manifest schema
-# has no concept of a scheduled job - ManifestReader does not read one and
-# docs/feature-delivery.md does not describe one - so declaring it would look
-# like a guarantee and schedule nothing, the same trap a `database:` key would
-# have been for advanced-search.
-#
-# Until the schema has it, expiry is `manage.py knight_expire_loyalty_points`
-# on the store, run by whatever already runs that store's cron. Phase 15 needs
-# manifest-declared workers for real, because marketing-automation cannot work
-# without them - it is recorded there rather than faked here.
+workers:
+  # Expiry is the only thing here that has to happen without anybody asking.
+  #
+  # This block was deliberately absent in 1.0.0: the schema had no concept of a
+  # scheduled job, so declaring one would have looked like a guarantee and
+  # scheduled nothing. Phase 15 built it, and this is the first Feature to use
+  # it (docs/phase-15-verification.md).
+  #
+  # Daily rather than hourly: a point that expires at midnight and is written
+  # off at 03:00 has cost nobody anything, and an hourly sweep over a ledger is
+  # a great deal of lock contention for that.
+  - name: expire-points
+    entrypoint: knight_feature_loyalty_rewards.services.expire_stale
+    schedule: daily
 
 uninstall:
   # A points balance is a liability the merchant owes their customers. Losing

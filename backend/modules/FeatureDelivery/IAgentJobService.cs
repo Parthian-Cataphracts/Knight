@@ -50,7 +50,17 @@ public sealed record AgentDjangoIntegration(
     string AppLabel,
     string InstalledApp,
     string? UrlInclude,
-    string? UrlPrefix);
+    string? UrlPrefix,
+    IReadOnlyList<AgentWorker> Workers);
+
+/// <summary>
+/// One scheduled job, as the store is told about it.
+///
+/// The schedule is a word rather than a cron expression: the store decides what
+/// "daily" means for it, which is the only party that can — it knows its own
+/// timezone and when its quiet hours are.
+/// </summary>
+public sealed record AgentWorker(string Name, string Entrypoint, string Schedule);
 
 public sealed record AgentArtifact(
     string PackageReference,

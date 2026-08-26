@@ -209,6 +209,7 @@ internal sealed class FeatureVersionReader : IFeatureVersionReader
         var installedApp = appLabel;
         string? urlInclude = null;
         string? urlPrefix = null;
+        IReadOnlyList<AgentWorker> workers = [];
 
         if (FeatureManifest.TryParse(version.ManifestJson, out var manifest, out _))
         {
@@ -219,6 +220,11 @@ internal sealed class FeatureVersionReader : IFeatureVersionReader
             installedApp = manifest.Django.InstalledApp;
             urlInclude = manifest.Django.UrlInclude;
             urlPrefix = manifest.Django.UrlPrefix;
+
+            workers = [.. manifest.Workers.Select(worker => new AgentWorker(
+                worker.Name,
+                worker.Entrypoint,
+                worker.Schedule.ToString().ToLowerInvariant()))];
         }
 
         return new DeliverableVersion(
@@ -237,7 +243,8 @@ internal sealed class FeatureVersionReader : IFeatureVersionReader
             appLabel,
             installedApp,
             urlInclude,
-            urlPrefix);
+            urlPrefix,
+            workers);
     }
 }
 

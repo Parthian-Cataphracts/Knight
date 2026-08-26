@@ -58,6 +58,7 @@ internal sealed class ManifestReader
         var configuration = ReadConfiguration(root);
         var install = ReadInstall(root);
         var uninstall = ReadUninstall(root);
+        var workers = ReadWorkers(root);
 
         if (_errors.Count > 0)
         {
@@ -76,7 +77,8 @@ internal sealed class ManifestReader
             migrations,
             configuration,
             install!,
-            uninstall);
+            uninstall,
+            workers);
     }
 
     private DjangoIntegration? ReadDjango(JsonElement root)
@@ -125,6 +127,69 @@ internal sealed class ManifestReader
     /// them. Closed on purpose: see the failure message in ReadCompatibility.
     /// </summary>
     private static readonly string[] SupportedDatabases = ["postgresql", "mysql", "sqlite"];
+
+    /// <summary>
+    /// Scheduled jobs, validated hard.
+    ///
+    /// Hard because a worker is code KNIGHT causes a store to run on a timer with
+    /// nobody watching. A malformed entrypoint is a job that fails silently every
+    /// hour for as long as the Feature is installed, so it is refused at publish
+    /// where the author is present to fix it.
+    /// </summary>
+    private IReadOnlyList<WorkerDeclaration> ReadWorkers(JsonElement root)
+    {
+        if (!root.TryGetProperty("workers", out var workers) || workers.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        var declared = new List<WorkerDeclaration>();
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        var index = 0;
+
+        foreach (var element in workers.EnumerateArray())
+        {
+            var path = $"$.workers[{index}]";
+            index++;
+
+            if (element.ValueKind != JsonValueKind.Object)
+            {
+                Fail(path, "A worker must be an object.");
+                continue;
+            }
+
+            var name = RequireString(element, "name", $"{path}.name");
+            var entrypoint = RequireString(element, "entrypoint", $"{path}.entrypoint");
+            var schedule = OptionalString(element, "schedule") ?? "daily";
+
+            if (name is not null && !names.Add(name))
+            {
+                // Two workers of one name cannot both be tracked: a store records
+                // the last run per name, so the second would overwrite the first.
+                Fail($"{path}.name", $"'{name}' is declared more than once.");
+            }
+
+            if (entrypoint is not null && !IsDottedPythonPath(entrypoint))
+            {
+                Fail($"{path}.entrypoint", $"'{entrypoint}' is not a valid Python callable path.");
+            }
+
+            if (!Enum.TryParse<WorkerSchedule>(schedule, ignoreCase: true, out var parsed))
+            {
+                Fail(
+                    $"{path}.schedule",
+                    $"'{schedule}' is not a schedule KNIGHT knows. Use one of: {string.Join(", ", Enum.GetNames<WorkerSchedule>()).ToLowerInvariant()}.");
+                continue;
+            }
+
+            if (name is not null && entrypoint is not null)
+            {
+                declared.Add(new WorkerDeclaration(name, entrypoint, parsed));
+            }
+        }
+
+        return declared;
+    }
 
     private CompatibilityConstraints ReadCompatibility(JsonElement root)
     {

@@ -32,7 +32,17 @@ public sealed record FeatureManifest(
     MigrationPolicy Migrations,
     ConfigurationContract Configuration,
     InstallPolicy Install,
-    UninstallPolicy Uninstall)
+    UninstallPolicy Uninstall,
+
+    /// <summary>
+    /// Scheduled jobs this Feature needs. Empty for most of them.
+    ///
+    /// Declared here rather than left to each store's cron so that installing a
+    /// Feature installs its schedule too. A Feature whose worker has to be wired
+    /// up by hand on every store is a Feature that silently does nothing on the
+    /// stores where somebody forgot.
+    /// </summary>
+    IReadOnlyList<WorkerDeclaration> Workers)
 {
     /// <summary>
     /// The only manifest API version this build understands. It is checked
@@ -151,6 +161,34 @@ public sealed record MigrationPolicy(
 /// channel, so a package that carried one would be a package that leaked it to
 /// every customer who received it (docs/feature-delivery.md §9).
 /// </summary>
+/// <summary>
+/// How often a worker runs.
+///
+/// A closed list rather than a cron expression, deliberately. A cron string is a
+/// parser, a timezone question and a support surface, and every scheduled job a
+/// Feature has actually wanted so far is one of these three. Widening it later is
+/// additive; narrowing it after somebody has shipped a cron string is not.
+/// </summary>
+public enum WorkerSchedule
+{
+    Hourly = 0,
+    Daily = 1,
+    Weekly = 2,
+}
+
+/// <summary>
+/// A job the Feature needs run on a schedule, without anybody asking.
+///
+/// The entrypoint is a callable the store imports and calls with no arguments.
+/// No arguments on purpose: a worker that took parameters would need somewhere
+/// for them to come from, and the only honest source is the Feature's own
+/// configuration, which it can read itself.
+/// </summary>
+public sealed record WorkerDeclaration(
+    string Name,
+    string Entrypoint,
+    WorkerSchedule Schedule);
+
 public sealed record ConfigurationContract(
     string? SchemaPath,
     JsonElement? Defaults,
