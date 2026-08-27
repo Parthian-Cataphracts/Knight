@@ -11,8 +11,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **None — the planned phases are done. Phase 17 completed the catalogue: `subscriptions` and `external-marketplaces` are published, and R26 was answered *yes* and built, so a Feature may now be delivered to a store that is not Django ([`adr/0032`](docs/adr/0032-a-feature-declares-its-runtime.md), [`phase-17-verification.md`](docs/phase-17-verification.md))** |
-| **Next phase** | Nothing is scheduled. What remains is the standing work below and the items phases 16 and 17 carried forward, none of which is a phase: the external security review nobody inside the project can close, wiring real vendors to the four Features that honestly refuse without one, and teaching KNIGHT a store's runtime so a mismatched job is refused before it is queued |
+| **Current phase** | **Phase 18 — the catalogue through its own delivery path. Sixteen Features exist and every one of them was installed by a command that bypasses the delivery engine; this phase installs them the way a customer would.** Phase 17 is complete. Phase 17 completed the catalogue: `subscriptions` and `external-marketplaces` are published, and R26 was answered *yes* and built, so a Feature may now be delivered to a store that is not Django ([`adr/0032`](docs/adr/0032-a-feature-declares-its-runtime.md), [`phase-17-verification.md`](docs/phase-17-verification.md))** |
+| **Next phase** | Nothing scheduled after 18. What remains is the standing work below and the items phases 16 and 17 carried forward, none of which is a phase: the external security review nobody inside the project can close, wiring real vendors to the four Features that honestly refuse without one, and teaching KNIGHT a store's runtime so a mismatched job is refused before it is queued |
 | **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **808 backend tests green** (640 unit, 13 architecture, 155 PostgreSQL-backed integration), plus **775 store tests with nothing skipped**, the same 775 passing with no Feature installed at all, 14 node-store tests, and 9 dashboard |
 | **Blocking decisions** | **Are Features publishable for a store that is not Django?** Everything except the manifest is already stack-agnostic; `ManifestReader` is the one thing that is not (R26, decision 14 in [`docs/risks.md`](docs/risks.md)). Until it is answered, a non-Django store is entitled and observed but not delivered to. Separately, the **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
 
@@ -42,6 +42,7 @@ Phase 14   Commercial foundations         ██████████ 100%
 Phase 15   Automation                     ██████████ 100%
 Phase 16   Operational expansion          ██████████ 100%
 Phase 17   Recurring revenue & integrations ██████████ 100%
+Phase 18   The catalogue through delivery  ░░░░░░░░░░   0%
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -1456,6 +1457,46 @@ Carried out of phase 16, none of it blocking:
       two-connection races behind them. Ticket transitions, the routing decision
       and the marketplace queue rely on locks and constraints that have
       idempotency tests but no thread racing them
+
+---
+
+## Phase 18 — The catalogue through its own delivery path
+
+**Exit criteria:** a store goes from empty to **fully entitled and installed
+through KNIGHT's own delivery path** — signed artifacts, real jobs, real
+claims — with `knight_install_local` used nowhere, and a Feature upgraded and
+rolled back on it afterwards.
+
+Why this and not more Features: every Feature in this repository was authored and
+tested with `knight_install_local`, which exists **precisely because it bypasses
+the delivery path**. That is the right tool for writing a Feature and it means
+the delivery engine has never carried the whole catalogue. Phase 13 put three
+Features through it; sixteen is a different question, and it is the question the
+entire product rests on.
+
+Phase 17 already produced the evidence that the two paths diverge rather than
+merely differ. The runtime check lived in `preflight`, where a delivered package
+is checked — and had to be added to `knight_install_local` separately, because
+they are two code paths that had silently drifted. Nobody found that by reading;
+CI found it. Whatever else has drifted is in the half nobody exercises.
+
+- [ ] **Publish the whole catalogue** as signed artifacts against a running
+      KNIGHT: build, sign, upload, register, publish, for all sixteen sellable
+      Features plus the node conformance one
+- [ ] **Set a customer up the way an operator would** — customer, store,
+      credentials, plan, subscription, entitlements — through the API and the
+      dashboard rather than by writing rows
+- [ ] **Let the store install everything it is entitled to** by claiming jobs.
+      Every step real: download over a signed URL, digest, signature, install,
+      migrate, configure, enable, health check
+- [ ] **Upgrade one Feature across the fleet** — publish a new version and let
+      the rollout move a store onto it
+- [ ] **Roll one back** and prove the store returns to the previous version with
+      its data intact, which is the Class A claim `adr/0016` makes
+- [ ] **Withdraw an entitlement** and prove the Feature is disabled rather than
+      deleted, and that its data survives
+- [ ] Fix everything this finds, and write down what the two paths disagreed
+      about
 
 ---
 
