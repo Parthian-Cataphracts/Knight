@@ -93,11 +93,19 @@ public interface IFeaturePlanResolver
     /// The versions the caller will accept — usually the plan's pinned range.
     /// Null or "*" means whichever published version is newest.
     /// </param>
+    /// <param name="moveForward">
+    /// Whether the named Feature should resolve to the newest satisfying version
+    /// rather than keeping what the store already runs. False for an install,
+    /// true for an upgrade - where it is the whole request, and where the
+    /// default silently made `upgrade` do nothing unless the caller named an
+    /// exact version.
+    /// </param>
     Task<FeaturePlan> ResolveAsync(
         string slug,
         string? versionRange,
         FeaturePlanContext context,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        bool moveForward = false);
 
     /// <summary>
     /// Resolves several Features together. Provisioning installs a whole plan's
@@ -107,7 +115,8 @@ public interface IFeaturePlanResolver
     Task<FeaturePlan> ResolveManyAsync(
         IReadOnlyList<(string Slug, string? VersionRange)> roots,
         FeaturePlanContext context,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        bool moveForward = false);
 }
 
 /// <summary>

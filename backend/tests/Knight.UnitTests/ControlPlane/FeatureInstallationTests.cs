@@ -37,6 +37,51 @@ public sealed class FeatureInstallationTests
         return (installation, jobId);
     }
 
+    // --- An operator-requested rollback ------------------------------------
+
+    [Fact]
+    public void AnOperatorRollback_LandsOnTheVersionItRestored()
+    {
+        // Phase 18 rolled a real store back and watched KNIGHT go on reporting
+        // the version the store had just left. The job was queued beside an
+        // installation that knew nothing about it, so the store's completion
+        // report was refused with "an installation in state 'Installed' cannot
+        // be marked installed" - the job stayed Running for ever and the control
+        // plane's picture of the fleet was permanently wrong.
+        var (installation, _) = Installed("1.0.0");
+
+        var upgrade = Guid.CreateVersion7();
+        installation.QueueJob(upgrade, VersionId, "1.0.1", Now);
+        installation.BeginWork(upgrade, Now);
+        installation.MarkInstalled(upgrade, Now);
+
+        Assert.Equal("1.0.1", installation.InstalledVersion);
+        Assert.Equal("1.0.0", installation.PreviousVersion);
+
+        // What the rollback path now does: queue the job against the aggregate,
+        // targeting the version being restored.
+        var rollback = Guid.CreateVersion7();
+        installation.QueueJob(rollback, VersionId, installation.PreviousVersion!, Now);
+        installation.BeginWork(rollback, Now);
+        installation.MarkInstalled(rollback, Now);
+
+        Assert.Equal(InstallationState.Installed, installation.State);
+        Assert.Equal("1.0.0", installation.InstalledVersion);
+    }
+
+    [Fact]
+    public void AnInstallationInFlight_RefusesASecondJob()
+    {
+        // The guard the rollback path now goes through, stated so that queuing
+        // one cannot quietly become a way around it.
+        var (installation, _) = Installed("1.0.0");
+
+        installation.QueueJob(Guid.CreateVersion7(), VersionId, "1.0.1", Now);
+
+        Assert.Throws<DomainException>(() =>
+            installation.QueueJob(Guid.CreateVersion7(), VersionId, "1.0.2", Now));
+    }
+
     // --- Creation ----------------------------------------------------------
 
     [Fact]

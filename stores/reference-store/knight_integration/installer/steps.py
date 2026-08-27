@@ -14,6 +14,7 @@ so instead of applying again, because an agent that lost a reply will re-run it
 
 from __future__ import annotations
 
+import json
 import logging
 import shutil
 import subprocess
@@ -21,7 +22,7 @@ import sys
 import tarfile
 import tempfile
 import zipfile
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -210,21 +211,44 @@ def backup(context: JobContext) -> str:
     """
     Records what to return to, and keeps the current package tree.
 
-    The tree is moved aside rather than deleted so that restoring it is a rename
-    rather than a second download — which matters when the reason for the
-    rollback is that the network is broken.
+    The tree is kept **beside the feature, not in the job's workspace**, and that
+    is the whole point. A workspace is scratch for one job and is deleted when it
+    finishes; a rollback is a *different* job with a different workspace, so a
+    backup kept there is gone before anything could ever restore it. It was, and
+    `restore-package` duly reported "no previous version to restore" and the job
+    reported success — a rollback that rolled nothing back and said it had, which
+    is worse than one that fails (docs/phase-18-verification.md).
+
+    The registry entry is written beside the tree, because a rollback needs to
+    record what the restored version *was* and the running registry by then says
+    what it is now.
     """
     if context.previous is None or not context.target_dir.exists():
         return "nothing installed yet; no backup needed"
 
-    backup_dir = context.workspace / "previous"
+    backup_dir = _previous_dir(context)
+
     if backup_dir.exists():
         shutil.rmtree(backup_dir, ignore_errors=True)
 
     shutil.copytree(context.target_dir, backup_dir)
+    _previous_record(context).write_text(
+        json.dumps(asdict(context.previous), indent=2),
+        encoding="utf-8",
+    )
     context.applied.append("backup")
 
     return f"kept {context.previous.slug} {context.previous.version}"
+
+
+def _previous_dir(context: JobContext) -> Path:
+    """Where the version being replaced is kept, beside the one replacing it."""
+    return context.target_dir.with_name(f"{context.target_dir.name}.previous")
+
+
+def _previous_record(context: JobContext) -> Path:
+    """The registry entry the kept tree belonged to."""
+    return context.target_dir.with_name(f"{context.target_dir.name}.previous.json")
 
 
 def install(context: JobContext) -> str:
@@ -555,22 +579,43 @@ def healthcheck(context: JobContext) -> str:
 
 
 def restore_package(context: JobContext) -> str:
-    """Puts back the package tree that `backup` kept."""
-    backup_dir = context.workspace / "previous"
+    """
+    Puts back the package tree that `backup` kept.
+
+    Refuses rather than reporting success when there is nothing to restore. A
+    rollback that finds no backup has not rolled anything back, and saying so is
+    the only useful thing it can do - an operator who is told a store is back on
+    the old version stops looking.
+    """
+    backup_dir = _previous_dir(context)
 
     if not backup_dir.exists():
-        return "no previous version to restore"
+        raise StepFailed(
+            "rollback.no_backup",
+            f"There is no kept copy of a previous {context.slug} to restore, so nothing was rolled back.",
+        )
 
     target = context.target_dir
+
     if target.exists():
         shutil.rmtree(target)
 
     shutil.copytree(backup_dir, target)
 
+    # What the restored tree *was*, not what the registry currently says: by now
+    # the registry describes the version being rolled back from.
+    record = _previous_record(context)
+
+    if record.exists():
+        restored = InstalledFeature.from_dict(json.loads(record.read_text(encoding="utf-8")))
+        context.registry.record(restored)
+
+        return f"restored {restored.slug} {restored.version}"
+
     if context.previous is not None:
         context.registry.record(context.previous)
 
-    return f"restored {context.previous.version if context.previous else 'previous version'}"
+    return "restored the previous package"
 
 
 def reverse_migrate(context: JobContext) -> str:
@@ -593,10 +638,51 @@ def reverse_migrate(context: JobContext) -> str:
         )
 
     app_label = _installed_app_label(context)
-    target = context.previous.version if context.previous else "zero"
-    output = _run_django(["migrate", app_label, "zero" if context.previous is None else target, "--noinput"], context)
+    target = _restored_migration(context)
+
+    if target is None:
+        # Never "zero" on a rollback. That is what this used to fall back to, and
+        # because `RollbackSteps` has no preflight step the fallback fired every
+        # time: every rollback migrated the Feature to zero and dropped all of
+        # its tables. A rollback that destroys a merchant's data is the exact
+        # opposite of what adr/0016's Class A promise means, and it reported
+        # success while doing it.
+        raise StepFailed(
+            "rollback.no_target",
+            f"The restored copy of {context.slug} names no migration to return to, so nothing was reversed. "
+            "This store needs a human and a restore point.",
+        )
+
+    output = _run_django(["migrate", app_label, target, "--noinput"], context)
 
     return f"reversed {app_label} to {target}: {output}"
+
+
+def _restored_migration(context: JobContext) -> str | None:
+    """
+    The migration the restored package expects to be at.
+
+    A **migration name**, read from the package that `restore-package` just put
+    back - not a release version. `manage.py migrate <app> <target>` takes the
+    name of a migration; it has never taken "1.0.1", and passing one was the
+    other half of the same bug.
+
+    The newest migration in the restored tree is by definition the schema that
+    version shipped with, so migrating to it unapplies whatever the version being
+    rolled back from had added and nothing else.
+    """
+    migrations = context.target_dir / _installed_app(context).split(".")[-1] / "migrations"
+
+    if not migrations.is_dir():
+        return None
+
+    names = sorted(
+        path.stem
+        for path in migrations.glob("[0-9]*.py")
+        if path.stem != "__init__"
+    )
+
+    return names[-1] if names else None
 
 
 # --- Helpers ----------------------------------------------------------------

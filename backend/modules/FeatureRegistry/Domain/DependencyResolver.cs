@@ -41,8 +41,12 @@ public sealed class DependencyResolver
     /// means "whatever is newest".
     /// </param>
     /// <param name="store">What the target store is running.</param>
-    public ResolutionResult Resolve(string rootSlug, VersionRange rootRange, StoreCompatibilityContext store)
-        => Resolve([new RootRequest(rootSlug, rootRange)], store);
+    public ResolutionResult Resolve(
+        string rootSlug,
+        VersionRange rootRange,
+        StoreCompatibilityContext store,
+        bool moveRootsForward = false)
+        => Resolve([new RootRequest(rootSlug, rootRange)], store, moveRootsForward);
 
     /// <summary>
     /// Resolves several roots together. Provisioning installs a whole plan's
@@ -50,7 +54,21 @@ public sealed class DependencyResolver
     /// of them settle on incompatible versions of a shared dependency before
     /// anyone noticed (docs/store-provisioning.md).
     /// </summary>
-    public ResolutionResult Resolve(IReadOnlyList<RootRequest> roots, StoreCompatibilityContext store)
+    /// <param name="moveRootsForward">
+    /// Whether the Features the caller named should resolve to the newest
+    /// satisfying version rather than keeping what is installed.
+    ///
+    /// False for an install, where keeping what works is right. True for an
+    /// upgrade, where it is the entire request - and where the default made
+    /// `upgrade` a no-op unless the caller happened to name an exact version,
+    /// which phase 18 found by asking a store to upgrade and watching nothing
+    /// happen. Dependencies are never moved forward either way: an upgrade of
+    /// one Feature should not quietly bump three others.
+    /// </param>
+    public ResolutionResult Resolve(
+        IReadOnlyList<RootRequest> roots,
+        StoreCompatibilityContext store,
+        bool moveRootsForward = false)
     {
         ArgumentNullException.ThrowIfNull(roots);
         ArgumentNullException.ThrowIfNull(store);
@@ -82,7 +100,12 @@ public sealed class DependencyResolver
 
             foreach (var slug in constraints.Keys.ToList())
             {
-                var selection = Select(slug, constraints[slug], store, failures);
+                var selection = Select(
+                    slug,
+                    constraints[slug],
+                    store,
+                    failures,
+                    keepInstalled: !(moveRootsForward && rootSlugs.Contains(slug)));
                 if (selection is null)
                 {
                     continue;
@@ -195,12 +218,19 @@ public sealed class DependencyResolver
     /// already satisfies everything asked of it, resolution keeps it rather than
     /// planning an upgrade nobody requested. An install of one Feature should not
     /// quietly bump three others.
+    ///
+    /// <paramref name="keepInstalled"/> turns that off, and an upgrade turns it
+    /// off for the Feature it was asked about and for nothing else. Without it
+    /// an upgrade resolved to the version already installed and did nothing,
+    /// which is what phase 18 found the first time a store was asked to move
+    /// forward.
     /// </summary>
     private RegistryVersion? Select(
         string slug,
         List<Constraint> constraints,
         StoreCompatibilityContext store,
-        List<ResolutionFailure> failures)
+        List<ResolutionFailure> failures,
+        bool keepInstalled = true)
     {
         if (!_features.TryGetValue(slug, out var feature))
         {
@@ -253,7 +283,7 @@ public sealed class DependencyResolver
             return null;
         }
 
-        if (store.InstalledFeatures.TryGetValue(slug, out var installed))
+        if (keepInstalled && store.InstalledFeatures.TryGetValue(slug, out var installed))
         {
             var keep = satisfying.FirstOrDefault(candidate => candidate.Version == installed);
             if (keep is not null)

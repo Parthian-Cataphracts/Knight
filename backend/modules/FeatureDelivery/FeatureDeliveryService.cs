@@ -84,7 +84,15 @@ internal sealed class FeatureDeliveryService : IFeatureDeliveryService
         var customerId = await RequireCustomerAsync(input.StoreId, cancellationToken);
         var context = await RequireContextAsync(input.StoreId, cancellationToken);
 
-        var plan = await _resolver.ResolveAsync(input.Slug, input.VersionRange, context, cancellationToken);
+        // An upgrade asks for the newest satisfying version; an install keeps
+        // whatever already works. Without the distinction an upgrade resolved to
+        // the version already installed and queued nothing at all.
+        var plan = await _resolver.ResolveAsync(
+            input.Slug,
+            input.VersionRange,
+            context,
+            cancellationToken,
+            moveForward: type is JobType.Upgrade);
 
         var root = plan.Steps.FirstOrDefault(step => step.IsRoot);
 
@@ -508,6 +516,21 @@ internal sealed class FeatureDeliveryService : IFeatureDeliveryService
             traceParent: TraceParent());
 
         await _jobs.AddAsync(job, cancellationToken);
+
+        // A rollback moves the installation, so it has to go through the same
+        // aggregate transitions an install does: queued -> in flight ->
+        // installed at the version it landed on. Without this the job was queued
+        // beside an installation that knew nothing about it, and the store's
+        // completion report was refused - "an installation in state 'Installed'
+        // cannot be marked installed" - so the job stayed Running for ever and
+        // KNIGHT went on reporting the version the store had just rolled away
+        // from. Enable, disable and configure need none of this because they do
+        // not change which version is installed.
+        if (type is JobType.Rollback)
+        {
+            installation.QueueJob(job.Id, installation.InstalledVersionId ?? Guid.Empty, installation.PreviousVersion!, now);
+            await _installations.SaveChangesAsync(cancellationToken);
+        }
 
         if (save)
         {

@@ -27,13 +27,15 @@ internal sealed class FeaturePlanResolver : IFeaturePlanResolver
         string slug,
         string? versionRange,
         FeaturePlanContext context,
-        CancellationToken cancellationToken)
-        => ResolveManyAsync([(slug, versionRange)], context, cancellationToken);
+        CancellationToken cancellationToken,
+        bool moveForward = false)
+        => ResolveManyAsync([(slug, versionRange)], context, cancellationToken, moveForward);
 
     public async Task<FeaturePlan> ResolveManyAsync(
         IReadOnlyList<(string Slug, string? VersionRange)> roots,
         FeaturePlanContext context,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool moveForward = false)
     {
         ArgumentNullException.ThrowIfNull(roots);
         ArgumentNullException.ThrowIfNull(context);
@@ -101,7 +103,8 @@ internal sealed class FeaturePlanResolver : IFeaturePlanResolver
                 context.DjangoVersion,
                 context.HasDedicatedInfrastructure,
                 installed,
-                context.Database));
+                context.Database),
+            moveForward);
 
         return new FeaturePlan(
             [.. result.Steps.Select(Translate)],

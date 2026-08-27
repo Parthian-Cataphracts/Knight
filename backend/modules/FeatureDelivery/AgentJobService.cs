@@ -73,12 +73,16 @@ internal sealed class AgentJobService : IAgentJobService
         var now = _clock.UtcNow;
         job.Claim(now, _options.JobClaimTimeout);
 
-        // Only install and upgrade jobs put the installation into Pending when
-        // they were queued, so only they have work to begin. A disable or
-        // uninstall acts on a feature that is installed and staying that way
+        // Install, upgrade and rollback put the installation into Pending when
+        // they were queued, so those are the ones with work to begin. A disable
+        // or uninstall acts on a feature that is installed and staying that way
         // until the job reports, and telling it to begin work would be an
         // illegal transition the aggregate would rightly refuse.
-        if (job.Type is JobType.Install or JobType.Upgrade)
+        //
+        // Rollback joined this list in phase 18 with the queueing half of the
+        // same fix: it moves which version is installed, so it has to travel the
+        // same transitions as the job that put the store where it is.
+        if (job.Type is JobType.Install or JobType.Upgrade or JobType.Rollback)
         {
             var installation = await _installations.GetByIdAsync(job.InstallationId, cancellationToken);
             installation?.BeginWork(job.Id, now);

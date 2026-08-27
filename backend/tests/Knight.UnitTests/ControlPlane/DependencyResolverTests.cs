@@ -326,6 +326,69 @@ public sealed class DependencyResolverTests
     }
 
     [Fact]
+    public void AnUpgradeMovesTheFeatureItWasAskedAbout_ToTheNewest()
+    {
+        // Phase 18 asked a store to upgrade a Feature with no version named and
+        // watched nothing happen: the resolver kept the installed version
+        // because it still satisfied "*", so the plan came back
+        // AlreadySatisfied and queued no job. An upgrade that cannot move
+        // forward unless the caller already knows the version number is not an
+        // upgrade.
+        var resolver = new DependencyResolver([Simple("reviews", "1.0.0", "1.0.1")]);
+
+        var result = resolver.Resolve(
+            "reviews",
+            VersionRange.Any,
+            Store(installed: ("reviews", "1.0.0")),
+            moveRootsForward: true);
+
+        Assert.True(result.IsSuccessful);
+        var step = Assert.Single(result.Steps);
+        Assert.Equal("1.0.1", step.Version.ToString());
+        Assert.Equal(PlanAction.Upgrade, step.Action);
+    }
+
+    [Fact]
+    public void AnInstallDoesNotMoveAnythingForward()
+    {
+        // The other half of the same rule, and the reason it is a parameter
+        // rather than a change of behaviour: asking to install something already
+        // installed and satisfying must not turn into an upgrade nobody asked
+        // for.
+        var resolver = new DependencyResolver([Simple("reviews", "1.0.0", "1.0.1")]);
+
+        var result = resolver.Resolve("reviews", VersionRange.Any, Store(installed: ("reviews", "1.0.0")));
+
+        Assert.Equal(PlanAction.AlreadySatisfied, Assert.Single(result.Steps).Action);
+    }
+
+    [Fact]
+    public void AnUpgradeDoesNotBumpTheDependenciesItFindsOnTheWay()
+    {
+        // "An upgrade of one Feature should not quietly bump three others" is
+        // the rule the keep-installed preference exists for, and moving the root
+        // forward must not weaken it.
+        var resolver = new DependencyResolver([
+            Feature("reports", [("1.0.0", true, [("core", ">=1.0.0")]), ("1.1.0", true, [("core", ">=1.0.0")])]),
+            Simple("core", "1.0.0", "2.0.0"),
+        ]);
+
+        var result = resolver.Resolve(
+            "reports",
+            VersionRange.Any,
+            Store(installed: [("reports", "1.0.0"), ("core", "1.0.0")]),
+            moveRootsForward: true);
+
+        Assert.True(result.IsSuccessful);
+        Assert.Equal("1.1.0", Assert.Single(result.Steps, step => step.Slug == "reports").Version.ToString());
+
+        // Untouched: it satisfies everything asked of it.
+        var core = Assert.Single(result.Steps, step => step.Slug == "core");
+        Assert.Equal("1.0.0", core.Version.ToString());
+        Assert.Equal(PlanAction.AlreadySatisfied, core.Action);
+    }
+
+    [Fact]
     public void AnInstalledVersionOutsideTheRange_IsUpgraded()
     {
         var resolver = new DependencyResolver([
