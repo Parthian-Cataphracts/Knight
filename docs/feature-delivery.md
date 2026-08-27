@@ -112,7 +112,8 @@ apiVersion: knight.dev/v1
 slug: analytics-reports
 version: 1.4.0
 name: Analytics Reports
-django:
+runtime: django            # closed list; omitted means django
+django:                    # the block is named for the runtime above
   app_label: knight_analytics_reports
   installed_app: knight_feature_analytics_reports
   urls: { include: knight_feature_analytics_reports.urls, prefix: analytics/ }
@@ -155,6 +156,49 @@ idempotently by their own step and are **never dropped**, by a rollback or by an
 uninstall: an extension is shared with the store and with every other Feature in
 the same database ([`adr/0031`](adr/0031-database-extensions-are-declared-not-migrated.md)).
 
+
+### The runtime, and the three names every runtime shares
+
+`runtime:` says which runtime the Feature is built for, and the block below it is
+named for that runtime. Omitting it means `django`, because every manifest
+written before phase 17 is a Django Feature and refusing them would have broken a
+published contract to add a field they all imply
+([`adr/0032`](adr/0032-a-feature-declares-its-runtime.md)).
+
+A manifest carrying a block for a runtime it does not declare is **refused**:
+that is an author who has copied a file.
+
+The same Feature for a node store:
+
+```yaml
+runtime: node
+node:
+  namespace: knight_analytics_reports
+  module: "@knight/feature-analytics-reports"
+  mount: { export: router, prefix: analytics/ }
+install:
+  healthCheck: "@knight/feature-analytics-reports#health"
+```
+
+Both blocks say the same three things, and everything downstream of the reader —
+the parsed manifest, the job payload, the store's installer — uses the neutral
+names rather than either spelling:
+
+| Neutral name | What it is | Django | Node |
+|---|---|---|---|
+| **namespace** | what this Feature's migrations and state are recorded under | `app_label` | `namespace` |
+| **module** | what the store loads to get the code | `installed_app` | `module` |
+| **mount** | the exported symbol serving routes, and its path | `urls.include` + `urls.prefix` | `mount.export` + `mount.prefix` |
+
+Validation follows the runtime, because the spellings genuinely differ: an
+`app_label` must be a Python identifier because it ends up in a Django migration
+table, a node `module` must be a valid npm specifier because it ends up in an
+`import`, and a callable is a dotted path for Django and `module#export` for
+node. An author who writes the wrong one is told which shape was wanted.
+
+A runtime is only added to the list once a store of that runtime has actually
+taken delivery of a Feature — see
+[`../stores/node-reference-store`](../stores/node-reference-store).
 ## 6. Installation state machine
 
 ```
