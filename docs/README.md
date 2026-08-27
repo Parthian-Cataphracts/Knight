@@ -85,6 +85,7 @@ Read in this order:
 23. [`phase-15-verification.md`](phase-15-verification.md) — scheduled work, the first third-party credential, and a spend cap that refuses before it costs anything
 24. [`phase-16-verification.md`](phase-16-verification.md) — the operational Features, and the migration risk `multi-location` was held back for turning out never to have existed
 25. [`phase-17-verification.md`](phase-17-verification.md) — the last two Features, and a store that is not Django taking delivery of one
+26. [`phase-18-verification.md`](phase-18-verification.md) — the catalogue installed through the delivery path for the first time, and the eight defects that had made it impossible
 
 Project status and remaining work: [`../TODO.md`](../TODO.md).
 

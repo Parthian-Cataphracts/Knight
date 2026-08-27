@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-27** (revision 29 — phase 17 done: the catalogue is complete, and R26 is closed by building it rather than by deciding not to)
+Last updated: **2026-08-27** (revision 30 — phase 18 done: the catalogue installed through its own delivery path, which had never worked)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,9 +11,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 18 — the catalogue through its own delivery path. Sixteen Features exist and every one of them was installed by a command that bypasses the delivery engine; this phase installs them the way a customer would.** Phase 17 is complete. Phase 17 completed the catalogue: `subscriptions` and `external-marketplaces` are published, and R26 was answered *yes* and built, so a Feature may now be delivered to a store that is not Django ([`adr/0032`](docs/adr/0032-a-feature-declares-its-runtime.md), [`phase-17-verification.md`](docs/phase-17-verification.md))** |
+| **Current phase** | **None scheduled. Phase 18 is complete: thirteen Features installed into a real store by real jobs, one upgraded, one rolled back with its data intact, one disabled by withdrawing an entitlement — and eight defects fixed, six of which had made delivery impossible for six phases ([`phase-18-verification.md`](docs/phase-18-verification.md))** Phase 17 completed the catalogue: `subscriptions` and `external-marketplaces` are published, and R26 was answered *yes* and built, so a Feature may now be delivered to a store that is not Django ([`adr/0032`](docs/adr/0032-a-feature-declares-its-runtime.md), [`phase-17-verification.md`](docs/phase-17-verification.md))** |
 | **Next phase** | Nothing scheduled after 18. What remains is the standing work below and the items phases 16 and 17 carried forward, none of which is a phase: the external security review nobody inside the project can close, wiring real vendors to the four Features that honestly refuse without one, and teaching KNIGHT a store's runtime so a mismatched job is refused before it is queued |
-| **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **808 backend tests green** (640 unit, 13 architecture, 155 PostgreSQL-backed integration), plus **775 store tests with nothing skipped**, the same 775 passing with no Feature installed at all, 14 node-store tests, and 9 dashboard |
+| **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **818 backend tests green** (645 unit, 13 architecture, 160 PostgreSQL-backed integration), plus **775 store tests with nothing skipped**, the same 775 passing with no Feature installed at all, 14 node-store tests, and 9 dashboard |
 | **Blocking decisions** | **Are Features publishable for a store that is not Django?** Everything except the manifest is already stack-agnostic; `ManifestReader` is the one thing that is not (R26, decision 14 in [`docs/risks.md`](docs/risks.md)). Until it is answered, a non-Django store is entitled and observed but not delivered to. Separately, the **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -42,7 +42,7 @@ Phase 14   Commercial foundations         ██████████ 100%
 Phase 15   Automation                     ██████████ 100%
 Phase 16   Operational expansion          ██████████ 100%
 Phase 17   Recurring revenue & integrations ██████████ 100%
-Phase 18   The catalogue through delivery  ░░░░░░░░░░   0%
+Phase 18   The catalogue through delivery  ██████████ 100%
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -1415,6 +1415,22 @@ complete. **Met** — see
       have registered a node Feature into a Django store's INSTALLED_APPS and the
       store would have failed to start
 
+Carried out of phase 18:
+
+- [ ] **Automate the phase-18 run.** Eight defects have tests now; what would
+      catch a ninth is the run itself — publish, onboard, install, upgrade, roll
+      back, withdraw — against a real API and a real store, on a schedule. Its
+      failures are invisible to every other kind of testing this project does,
+      which is the whole lesson of the phase
+- [ ] **A rollback across two genuinely different schemas.** The drill used a
+      version bump with identical migrations, which proves the tables survive and
+      the versions move, and does not prove a real down-migration works
+- [ ] **The health poller does not capture the runtime block**, only the
+      heartbeat does. A store KNIGHT polls but which never heartbeats stays
+      uncertifiable for delivery
+- [ ] **Domain verification was never exercised**, and nothing in the delivery
+      path gates on it: a store can be installed into while still `Pending`
+
 Carried out of phase 17, none of it blocking:
 
 - [ ] **KNIGHT does not know a store's runtime**, so a job delivering a Django
@@ -1460,7 +1476,7 @@ Carried out of phase 16, none of it blocking:
 
 ---
 
-## Phase 18 — The catalogue through its own delivery path
+## Phase 18 — The catalogue through its own delivery path ✅
 
 **Exit criteria:** a store goes from empty to **fully entitled and installed
 through KNIGHT's own delivery path** — signed artifacts, real jobs, real
@@ -1480,23 +1496,30 @@ is checked — and had to be added to `knight_install_local` separately, because
 they are two code paths that had silently drifted. Nobody found that by reading;
 CI found it. Whatever else has drifted is in the half nobody exercises.
 
-- [ ] **Publish the whole catalogue** as signed artifacts against a running
-      KNIGHT: build, sign, upload, register, publish, for all sixteen sellable
-      Features plus the node conformance one
-- [ ] **Set a customer up the way an operator would** — customer, store,
-      credentials, plan, subscription, entitlements — through the API and the
-      dashboard rather than by writing rows
-- [ ] **Let the store install everything it is entitled to** by claiming jobs.
-      Every step real: download over a signed URL, digest, signature, install,
-      migrate, configure, enable, health check
-- [ ] **Upgrade one Feature across the fleet** — publish a new version and let
-      the rollout move a store onto it
-- [ ] **Roll one back** and prove the store returns to the previous version with
-      its data intact, which is the Class A claim `adr/0016` makes
-- [ ] **Withdraw an entitlement** and prove the Feature is disabled rather than
-      deleted, and that its data survives
-- [ ] Fix everything this finds, and write down what the two paths disagreed
-      about
+- [x] **Published the whole catalogue** — 15 packages built, signed with a real
+      key, uploaded, registered and published. `node-conformance` is refused,
+      correctly: it has no catalogue identity, which is what "not for sale" means
+- [x] **Set a customer up through the API** — customer, store, credentials, plan,
+      subscription, entitlements. Two refusals along the way were the API being
+      right rather than gaps
+- [x] **Installed 13 Features by claiming jobs.** The other two were refused
+      precisely: `advanced-promotions` 2.0.0 wants a store version this store
+      does not have, and `ai-reports` needs dedicated infrastructure
+- [x] **Upgraded** `reviews-ratings` 1.0.0 → 1.0.1 → 1.0.2 with no version named,
+      which had been a silent no-op
+- [x] **Rolled it back** to 1.0.1 with a row in its table throughout, and the row
+      survived — which is what `adr/0016`'s Class A promise has always claimed
+      and nothing had ever checked
+- [x] **Withdrew an entitlement** and watched a Disable job appear unasked: the
+      Feature stopped serving, kept its data, and no other Feature moved
+- [x] **Eight defects found and fixed.** Six made delivery impossible: no store
+      could report its runtime or its database, a delivered package was never
+      importable, a Feature was registered too late to be migrated, rollback
+      restored from a deleted backup and migrated to zero — destroying the
+      merchant's data while reporting success — and KNIGHT could never record a
+      rollback at all. Two were about what an operator is told: a Feature that
+      could not be installed was reported as one that does not exist, and the
+      first fix for that answered 500
 
 ---
 
