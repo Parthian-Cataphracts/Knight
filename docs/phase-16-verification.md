@@ -89,7 +89,7 @@ breaks whenever the timing is unlucky and looks fine the rest of the time.
 
 ## 4. What verifying it found
 
-Three real defects. Two of them were in the same place — the YAML readers that
+Four real defects. Two of them were in the same place — the YAML readers that
 parse a manifest where PyYAML is not installed — and neither could have been
 found by running anything on a developer's machine.
 
@@ -147,6 +147,23 @@ One iteration of that fix broke the notification centre, and it is worth
 recording: appending `pageSize` to a path that already had one does not override
 it. The query arrives as `pageSize=50&pageSize=100`, model binding reads the
 single value `"50,100"`, and the endpoint answers 500.
+
+### The ticket number rolled over into a unique column
+
+Not found by the browser or by CI but by reading the two statements next to each
+other, which is worth recording because they were both deliberate and they
+contradicted. The kitchen ticket number rolls over at four digits — the entire
+reason it exists beside the order number is that it is short enough to shout —
+and the column was also unique across all history. A restaurant open all year
+would eventually be handed a number some ticket already had, and get an
+`IntegrityError` in the middle of service.
+
+Uniqueness now says what was meant: a partial unique index over the non-terminal
+states. Ticket 41 this Tuesday and ticket 41 next month are different tickets and
+both are correct; two tickets on the board at once may not share a number,
+because that is a number somebody shouts and two people answer to. The counter
+skips a number a live ticket holds rather than letting the constraint refuse it,
+so the refusal never reaches a member of staff as a database error.
 
 ---
 
