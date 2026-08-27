@@ -1,0 +1,127 @@
+# The contract between this Feature and everything that handles it: KNIGHT
+# validates it at publish, the resolver reads its dependencies, and the store's
+# installer reads its install and migration declarations
+# (docs/feature-delivery.md section 5).
+#
+# The first Feature in the catalogue whose worst failure is not losing data. It
+# is taking money from somebody who did not owe it, and every default below is
+# chosen against that: the provider charges nobody until a merchant configures
+# one, retries are capped, and the ledger is kept for as long as a chargeback
+# can arrive.
+apiVersion: knight.dev/v1
+slug: subscriptions
+version: 1.0.0
+name: Subscriptions and Recurring Orders
+description: >-
+  Recurring orders with a state machine that can be paused and resumed, billing
+  periods that are opened before they are charged, and an append-only ledger of
+  every attempt. A period is billed once because the database says so rather
+  than because the code remembered to check, and pausing moves the clock forward
+  rather than accruing - a shopper who pauses for three months and comes back is
+  charged once.
+
+# The runtime this Feature is built for, and the block below is named for it
+# (docs/adr/0032-a-feature-declares-its-runtime.md).
+runtime: django
+
+django:
+  app_label: knight_subscriptions
+  installed_app: knight_feature_subscriptions
+  urls:
+    include: knight_feature_subscriptions.urls
+    prefix: subscriptions/
+
+compatibility:
+  # Open at the top end: this Feature touches no store internals. It is handed
+  # references, SKUs and amounts and never reads an order or a catalogue table,
+  # so a store major version can change without this needing a release.
+  storeVersion: ">=1.0.0"
+  python: ">=3.12"
+  django: ">=5.0,<6.0"
+
+  # Required, and for the one constraint this Feature is arranged around.
+  # `bill()` serialises concurrent billing with `select_for_update`, which SQLite
+  # cannot express at row granularity - and a Feature that takes money must not
+  # be installable onto a database where its central guarantee is a comment.
+  database: postgresql
+
+migrations:
+  required: true
+  # Class A: six CreateModels, indexes, unique and check constraints. Nothing is
+  # dropped and no data is transformed, so the reverse genuinely exists.
+  #
+  # What will not stay Class A: anything touching BillingPeriod or
+  # BillingAttempt. Those rows are what a shopper was charged and when, they are
+  # the answer to a chargeback that arrives months later, and a reverse migration
+  # that dropped or rewrote them would leave a merchant unable to explain a
+  # payment to the person who made it - the same argument gift-cards makes about
+  # money and advanced-inventory about stock
+  # (docs/adr/0016-feature-migration-and-removal-policy.md).
+  reversible: true
+  estimatedDurationSeconds: 10
+  requiresMaintenanceWindow: false
+
+  # Deliberately none. Nothing here is matched fuzzily: a subscription is found
+  # by a reference somebody has in an email
+  # (docs/adr/0031-database-extensions-are-declared-not-migrated.md).
+  extensions: []
+
+configuration:
+  defaults:
+    # Who takes the money. `manual` deliberately: it keeps the schedule, the
+    # periods and the ledger while moving no money at all, so a store that
+    # installs this and configures nothing has a working subscription book rather
+    # than a Feature quietly charging people.
+    provider: manual
+    currency: IRR
+    # How many times a failed period is retried before the subscription is marked
+    # unpaid. Three: enough for an expired card to be replaced over a week, few
+    # enough that a merchant is not paying a failed-payment fee every day.
+    max_attempts: 3
+    # How long to wait before each retry, in days. Widening, because a card that
+    # failed an hour ago fails again in an hour and a shopper needs time to
+    # notice the email.
+    retry_days: [1, 3, 7]
+    # How far ahead of a period's start the store may generate its order.
+    generate_ahead_hours: 0
+
+  secrets:
+    # A name only. The value is delivered over the install channel, never lives
+    # in the package, and is never returned by the configuration endpoint or put
+    # in an error message.
+    #
+    # This is the most dangerous secret in the catalogue: it can take money from
+    # a shopper's payment method. It is also the only one - there is no field in
+    # this Feature a card number would fit in, deliberately, so that a store
+    # installing it is not pulled into a compliance regime it did not choose.
+    - payment_api_key
+
+workers:
+  # Hourly, because a subscription due at nine in the morning should not wait
+  # until midnight. It is the one worker in the catalogue that is *not* merely
+  # tidying: a period nobody bills is money a merchant does not have, and unlike
+  # a stock hold or a pickup slot there is no derived reading that makes it right
+  # in the meantime. What protects the store from the worker running twice is the
+  # unique constraint on the period rather than the schedule.
+  - name: bill-due-periods
+    entrypoint: knight_feature_subscriptions.services.run_billing
+    schedule: hourly
+
+  # Daily, because a retry is measured in days by design - a card that failed an
+  # hour ago fails again in an hour.
+  - name: retry-failed-payments
+    entrypoint: knight_feature_subscriptions.services.run_retries
+    schedule: daily
+
+install:
+  strategy: package-install
+  requiresRestart: true
+  healthCheck: knight_feature_subscriptions.checks.health
+
+uninstall:
+  # What a shopper was charged and when. A chargeback can arrive months later and
+  # a tax inspection years later, and in both cases the merchant is the one asked
+  # to explain a payment. Seven years, the same as the two Features that hold
+  # money and the one that holds stock.
+  strategy: disable-then-remove
+  dataRetentionDays: 2555

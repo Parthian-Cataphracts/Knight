@@ -82,6 +82,7 @@ in code.
 | `advanced-inventory` | Advanced Inventory | Operations | 59 | `features/knight-feature-advanced-inventory` |
 | `restaurant-operations` | Restaurant Operations | Operations | 79 | `features/knight-feature-restaurant-operations` |
 | `multi-location` | Multi-Location | Operations | 99 | `features/knight-feature-multi-location` |
+| `subscriptions` | Subscriptions and Recurring Orders | Revenue | 69 | `features/knight-feature-subscriptions` |
 | `log-shipping` | Log shipping | Insight | 19 | — none; see below |
 
 `log-shipping` is the one capability with no package. It is enforced by
@@ -103,7 +104,6 @@ that publishes its package.
 
 | Slug | Name | Category | Price | Depends on |
 |---|---|---|---|---|
-| `subscriptions` | Subscriptions and Recurring Orders | Revenue | 69 | base only |
 | `external-marketplaces` | Marketplace and Delivery Integrations | Integrations | 99 | `advanced-inventory` (optional) |
 
 `advanced-search` is the Feature that **requires a particular database** most
@@ -202,6 +202,15 @@ hold has already stopped counting against what may be sold, because `available()
 excludes it by time rather than by state. A store whose cron never runs still
 sells the right things; it just accumulates dead reservation rows. Arithmetic
 that depended on a job having run would be arithmetic at the mercy of a crontab.
+
+`subscriptions` is the one Feature whose worker is **not** merely tidying, and
+it is worth reading against the others. A stock hold that has expired has already
+stopped counting; a pickup slot that has passed is already unbookable; but a
+period nobody billed is money a merchant does not have, and no derived reading
+makes it right in the meantime. What protects a shopper from the worker running
+twice is therefore not the schedule but a unique index on the period — which is
+the general lesson: when a worker has to be correct rather than tidy, the
+correctness belongs in a constraint.
 
 `multi-location` declares **no workers at all**, and says so with an empty list
 rather than by omitting the key. Nothing it does happens on a clock: a branch is

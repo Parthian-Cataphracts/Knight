@@ -288,7 +288,7 @@
       "category": "Revenue",
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
-      "publish": false,
+      "publish": true,
       "prices": [
         { "amount": 69.00, "billingPeriod": "Monthly" }
       ]
@@ -366,7 +366,8 @@
         { "slug": "marketing-automation", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "advanced-inventory", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "restaurant-operations", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "multi-location", "isIncluded": false, "isCustomerToggleable": true }
+        { "slug": "multi-location", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "subscriptions", "isIncluded": false, "isCustomerToggleable": true }
       ]
     },
     {
@@ -422,6 +423,15 @@
             "starts feeling like somebody else's product."
           ],
           "slug": "multi-location", "isIncluded": false, "isCustomerToggleable": true },
+
+        { "$comment": [
+            "Toggleable, and this one for a reason the two above do not share:",
+            "it can take money from a merchant's customers. A capability that",
+            "bills people should be switched on by somebody who meant to, not",
+            "arrive with a plan - and the same argument applies to the",
+            "payment credential it needs, which nobody can supply by accident."
+          ],
+          "slug": "subscriptions", "isIncluded": false, "isCustomerToggleable": true },
 
         { "$comment": [
             "Toggleable rather than included: it is the one capability with a",

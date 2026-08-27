@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "knight-feature-subscriptions"
+version = "1.0.0"
+description = "Recurring orders, a subscription state machine, and billing that cannot charge a period twice."
+requires-python = ">=3.12"
+dependencies = ["Django>=5.0,<6.0"]
+
+[tool.setuptools]
+packages = ["knight_feature_subscriptions", "knight_feature_subscriptions.migrations"]
