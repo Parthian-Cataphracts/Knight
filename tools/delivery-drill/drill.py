@@ -713,7 +713,11 @@ def store_environment(credential: dict, store: dict, work: Path, database: str) 
         "KNIGHT_STORE_ID": store["id"],
         "STORE_VERSION": "1.0.0",
         "KNIGHT_FEATURE_ROOT": str(work / "features"),
-        "KNIGHT_SIGNING_KEYS": json.dumps({"dev": public_key}),
+        # Keyed by the id the packaging tool signed under, not by a literal:
+        # a store that trusts the right key under the wrong name rejects every
+        # artifact, and the message it gives is about the signature rather than
+        # about the name, which is a bad half-hour.
+        "KNIGHT_SIGNING_KEYS": json.dumps({os.environ.get("KNIGHT_SIGNING_KEY_ID", "dev"): public_key}),
         "STORE_DB_NAME": database,
         **{f"STORE_DB_{key.upper()}": str(value) for key, value in _store_database_settings().items()},
         "DJANGO_SECRET_KEY": "delivery-drill-only",

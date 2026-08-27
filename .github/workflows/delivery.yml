@@ -98,12 +98,16 @@ jobs:
           ASPNETCORE_ENVIRONMENT: Development
           ASPNETCORE_URLS: http://localhost:5008
           ConnectionStrings__ControlPlane: Host=localhost;Port=5433;Database=knight;Username=knight;Password=knight
-          FeatureArtifacts__ActiveKeyId: ci
+          # `dev` because that is the id the packaging tool signs under unless
+          # KNIGHT_SIGNING_KEY_ID says otherwise. The public half below replaces
+          # the one checked into appsettings, so the pair generated for this run
+          # is the only one KNIGHT trusts.
+          FeatureArtifacts__ActiveKeyId: dev
           FeatureArtifacts__ArtifactRoot: /tmp/knight-artifacts
           FeatureArtifacts__PublicBaseUrl: http://localhost:5008/artifacts
         run: |
           set -euo pipefail
-          export FeatureArtifacts__Keys__ci__PublicKey="$KNIGHT_PUBLIC_KEY"
+          export FeatureArtifacts__Keys__dev__PublicKey="$KNIGHT_PUBLIC_KEY"
           dotnet run --project backend/src/Knight.Api --configuration Release --no-build > /tmp/api.log 2>&1 &
           for _ in $(seq 1 60); do
             # /health/live, not /health — there is no /health, and polling it
