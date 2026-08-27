@@ -276,7 +276,7 @@
       "category": "Operations",
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
-      "publish": false,
+      "publish": true,
       "prices": [
         { "amount": 99.00, "billingPeriod": "Monthly" }
       ]
@@ -365,7 +365,8 @@
         { "slug": "gift-cards", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "marketing-automation", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "advanced-inventory", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "restaurant-operations", "isIncluded": false, "isCustomerToggleable": true }
+        { "slug": "restaurant-operations", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "multi-location", "isIncluded": false, "isCustomerToggleable": true }
       ]
     },
     {
@@ -412,6 +413,15 @@
             "Every other Professional Feature is something any shop can use."
           ],
           "slug": "restaurant-operations", "isIncluded": false, "isCustomerToggleable": true },
+
+        { "$comment": [
+            "Toggleable for the same reason as the line above, and a stronger",
+            "one: a merchant with a single shop has nothing for it to do. It",
+            "costs them nothing to switch on and it would put a branch picker in",
+            "front of somebody who has one branch, which is how a dashboard",
+            "starts feeling like somebody else's product."
+          ],
+          "slug": "multi-location", "isIncluded": false, "isCustomerToggleable": true },
 
         { "$comment": [
             "Toggleable rather than included: it is the one capability with a",

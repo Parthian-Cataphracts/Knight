@@ -1,0 +1,112 @@
+# The contract between this Feature and everything that handles it: KNIGHT
+# validates it at publish, the resolver reads its dependencies, and the store's
+# installer reads its install and migration declarations
+# (docs/feature-delivery.md section 5).
+#
+# The last Feature of phase 16, and deliberately last since phase 9 on the
+# grounds that it "reshapes data other Features already own". It does not, and
+# the reason is in the package's models.py: `advanced-inventory` and
+# `restaurant-operations` have both carried a `location` column since their 1.0,
+# each documented at the time as the column this Feature would name. Installing
+# this names codes that already exist. It migrates nobody's rows, because it
+# cannot - a Feature owns only its own tables - and that constraint is what made
+# the risk go away rather than what created it.
+apiVersion: knight.dev/v1
+slug: multi-location
+version: 1.0.0
+name: Multi-Location
+description: >-
+  One merchant, several branches: locations with their own addresses, timezones
+  and opening hours, staff rotas, per-branch menu exceptions, and order routing
+  that is decided once and written down. The location code is the join, and it
+  is the same string the inventory ledger and the kitchen tickets have been
+  stamping on their own rows all along.
+
+django:
+  app_label: knight_locations
+  installed_app: knight_feature_multi_location
+  urls:
+    include: knight_feature_multi_location.urls
+    prefix: locations/
+
+compatibility:
+  # Open at the top end: this Feature touches no store internals. It is handed
+  # order numbers, postcodes and SKUs and never reads an order or a catalogue
+  # table, so a store major version can change without this needing a release.
+  storeVersion: ">=1.0.0"
+  python: ">=3.12"
+  django: ">=5.0,<6.0"
+
+  # Required, and for one thing a merchant would notice on the day they got it
+  # wrong: "exactly one default location" is a partial unique index. Without it,
+  # two defaults is a routing table with a coin toss in it.
+  database: postgresql
+
+# None, and that is the headline. The Feature everybody expected to depend on the
+# two it appears to extend depends on neither: the join is a string, not an
+# import, so a store may install this with no inventory and no kitchen, or with
+# both, or uninstall either afterwards without this needing to know
+# (docs/adr/0017-feature-compatibility-and-dependencies.md).
+dependencies:
+  features: []
+
+migrations:
+  required: true
+  # Class A: eight CreateModels, indexes, unique and check constraints. Nothing
+  # is dropped, nothing is transformed, and - the point worth making twice -
+  # nothing outside this app is touched at all. The reverse genuinely exists, and
+  # running it leaves every stock movement and every kitchen ticket exactly as it
+  # was, holding exactly the location code it always held.
+  #
+  # What will not stay Class A: anything touching OrderRouting. Where an order
+  # was handled is a fact about that order, and a reverse migration that dropped
+  # those rows would leave a merchant unable to say which branch cooked what
+  # (docs/adr/0016-feature-migration-and-removal-policy.md).
+  reversible: true
+  estimatedDurationSeconds: 10
+  requiresMaintenanceWindow: false
+
+  # Deliberately none. Nothing here is matched fuzzily: a branch is chosen from a
+  # list of a merchant's own branches, and there are rarely more than a dozen
+  # (docs/adr/0031-database-extensions-are-declared-not-migrated.md).
+  extensions: []
+
+configuration:
+  defaults:
+    # Whether a location with no opening hours at all counts as open. On, which
+    # is the opposite of this catalogue's usual conservative default and
+    # deliberate: nobody has entered any hours at the moment of the install, and
+    # a merchant whose every branch silently stopped taking orders would rightly
+    # call that a broken release.
+    open_without_hours: true
+    # Whether an order that matched no rule and has no default may go to the only
+    # branch that is open. On: a merchant with one open branch has not made a
+    # routing decision worth asking them about, and refusing would break the
+    # single-site case this Feature is supposed to leave alone.
+    route_to_the_only_open_location: true
+
+# None, and stated rather than omitted. Nothing here happens on a clock: a
+# location is described when a merchant describes it, a rota changes when
+# somebody changes it, and an order is routed at the moment it is placed. A
+# worker declared for tidiness would be a cron entry doing nothing on every store
+# that installs this.
+workers: []
+
+install:
+  strategy: package-install
+  requiresRestart: true
+  healthCheck: knight_feature_multi_location.checks.health
+
+uninstall:
+  # The routing decisions are the part that matters: which branch handled which
+  # order is what a merchant reconciles takings against, and it is the one thing
+  # here that cannot be reconstructed from anywhere else. Seven years, the same
+  # as the Features that hold money and stock, because that reconciliation is
+  # what a tax inspection asks about.
+  #
+  # Everything else - branches, hours, rotas, menu exceptions - is current-state
+  # description that a merchant could re-enter in an afternoon. It is kept for
+  # the same period only because splitting a retention period per table would be
+  # a promise this Feature could not keep.
+  strategy: disable-then-remove
+  dataRetentionDays: 2555

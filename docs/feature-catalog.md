@@ -81,6 +81,7 @@ in code.
 | `ai-reports` | AI Reports | Insight | 149 | `features/knight-feature-ai-reports` |
 | `advanced-inventory` | Advanced Inventory | Operations | 59 | `features/knight-feature-advanced-inventory` |
 | `restaurant-operations` | Restaurant Operations | Operations | 79 | `features/knight-feature-restaurant-operations` |
+| `multi-location` | Multi-Location | Operations | 99 | `features/knight-feature-multi-location` |
 | `log-shipping` | Log shipping | Insight | 19 | — none; see below |
 
 `log-shipping` is the one capability with no package. It is enforced by
@@ -102,7 +103,6 @@ that publishes its package.
 
 | Slug | Name | Category | Price | Depends on |
 |---|---|---|---|---|
-| `multi-location` | Multi-Location | Operations | 99 | base only |
 | `subscriptions` | Subscriptions and Recurring Orders | Revenue | 69 | base only |
 | `external-marketplaces` | Marketplace and Delivery Integrations | Integrations | 99 | `advanced-inventory` (optional) |
 
@@ -202,6 +202,12 @@ hold has already stopped counting against what may be sold, because `available()
 excludes it by time rather than by state. A store whose cron never runs still
 sells the right things; it just accumulates dead reservation rows. Arithmetic
 that depended on a job having run would be arithmetic at the mercy of a crontab.
+
+`multi-location` declares **no workers at all**, and says so with an empty list
+rather than by omitting the key. Nothing it does happens on a clock: a branch is
+described when a merchant describes it, a rota changes when somebody changes it,
+and an order is routed at the moment it is placed. A worker declared for tidiness
+would be a cron entry doing nothing on every store that installs it.
 
 `restaurant-operations` follows the same rule twice over, which is what makes it
 a rule rather than a habit. Its slot arithmetic excludes an expired hold by time,
@@ -382,8 +388,19 @@ anything and with [`adr/0030`](adr/0030-what-store-data-may-reach-a-model-provid
 settling what may leave a store at all
 ([`phase-15-verification.md`](phase-15-verification.md)).
 
-The remaining work is the catalogue itself: five Features that are Draft
-identities with no package behind them. The order is in
-[`../TODO.md`](../TODO.md), phases 16 and 17, and it runs low-risk first —
-`multi-location` is deliberately late because it reshapes data other Features
-already own.
+Phase 16 finished the operational half of the catalogue: `advanced-inventory`,
+then `restaurant-operations`, then `multi-location` — held back since phase 9 on
+the grounds that it reshapes data other Features already own. It does not, and
+the reason is worth keeping: `advanced-inventory` and `restaurant-operations`
+each carried a `location` column from their own 1.0, documented at the time as
+the column `multi-location` would name. A Feature owns only its own tables, so
+this one *could not* have added those columns later — and that constraint is what
+removed the risk rather than what created it. Installing it migrates nobody's
+rows, uninstalling it loses no operational data, and a merchant can name one
+branch this week and another next month
+([`phase-16-verification.md`](phase-16-verification.md)).
+
+The remaining work is two Features that are Draft identities with no package
+behind them: `subscriptions` and `external-marketplaces`, in
+[`../TODO.md`](../TODO.md) phase 17, in that order — the financially sensitive
+one before the one with the most third-party surface.
