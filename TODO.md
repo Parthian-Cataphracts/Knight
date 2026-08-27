@@ -11,8 +11,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Nothing scheduled. Phase 19 is complete: the whole delivery journey — publish, onboard, connect, install, upgrade, roll back, withdraw — now runs as one command in CI on every push, and it found three more defects doing it — one of them a rollback that reversed the code and left the schema alone** ([`phase-19-verification.md`](docs/phase-19-verification.md), [`tools/delivery-drill`](tools/delivery-drill/README.md)). Phase 18 installed thirteen Features into a real store by real jobs and fixed eight defects, six of which had made delivery impossible for six phases ([`phase-18-verification.md`](docs/phase-18-verification.md)) |
-| **Next phase** | Nothing scheduled after 19. What remains is the standing work below and the items earlier phases carried forward, none of which is a phase: the external security review nobody inside the project can close, wiring real vendors to the four Features that honestly refuse without one, driving a **node** store through the job path the way the drill drives the Django one, and a drill for the paths where delivery is supposed to **refuse** — a bad signature, an incompatible runtime — which currently rest on unit tests alone |
+| **Current phase** | **Phase 20 — the second runtime, through the real path, and the refusals.** A node store has never asked KNIGHT for work, and KNIGHT cannot plan against one: compatibility is still decided on Python and Django versions a node store has no way to report. The drill, meanwhile, has twenty-four assertions and every one checks that something *worked* |
+| **Next phase** | Nothing scheduled after 20. What remains is the standing work below: the external security review nobody inside the project can close, and wiring real vendors to the four Features that honestly refuse without one |
 | **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **819 backend tests green** (646 unit, 13 architecture, 160 PostgreSQL-backed integration), plus **775 store tests with nothing skipped**, the same 775 passing with no Feature installed at all, 14 node-store tests, and 9 dashboard — and, since phase 19, **the delivery drill itself**, which is the only thing here that runs the path a customer travels |
 | **Blocking decisions** | **Are Features publishable for a store that is not Django?** Everything except the manifest is already stack-agnostic; `ManifestReader` is the one thing that is not (R26, decision 14 in [`docs/risks.md`](docs/risks.md)). Until it is answered, a non-Django store is entitled and observed but not delivered to. Separately, the **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
 
@@ -44,6 +44,7 @@ Phase 16   Operational expansion          ██████████ 100%
 Phase 17   Recurring revenue & integrations ██████████ 100%
 Phase 18   The catalogue through delivery  ██████████ 100%
 Phase 19   The delivery drill runs itself  ██████████ 100%
+Phase 20   Second runtime, and the refusals ░░░░░░░░░░   0%
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -1557,6 +1558,52 @@ something to reverse and the data has something to survive.
       checkout, and the workflow signed artifacts under a key id KNIGHT was not
       configured to trust
       ([`phase-19-verification.md`](docs/phase-19-verification.md))
+
+---
+
+## Phase 20 — The second runtime, through the real path, and the refusals
+
+**Exit criteria:** a store that is **not** Django is entitled, planned against,
+and takes delivery of a Feature **through KNIGHT's own job path** — handshake,
+heartbeat, claim, report — and the drill asserts what delivery is supposed to
+**refuse** as carefully as it already asserts what it is supposed to do.
+
+Two halves, and they are one phase because neither is finished without the other.
+
+**The runtime is still half a promise.** `adr/0032` settled that a Feature
+declares its runtime, and the node store proves a node package can be unpacked,
+mounted and health-checked. What has never happened is a node store *asking
+KNIGHT for work*. Its `apply-job` reads the payload from a file, which was the
+right boundary to draw in phase 17 and is the wrong one to leave: KNIGHT cannot
+plan against a node store at all today, because compatibility is decided on the
+Python and Django versions a node store has no way to report. Every Feature would
+be refused as `IncompatibleStore`, which is the same defect phase 18 found for
+Django stores, still live for the other runtime.
+
+So KNIGHT has to learn what a runtime *is*: check the store's runtime **first**,
+refuse a Feature built for another one by name, and apply only the version checks
+that belong to the runtime in hand. That closes the item phase 17 carried and
+phase 18 and 19 both left open.
+
+**And the drill only knows how to succeed.** Twenty-four assertions and every one
+of them checks that something worked. A delivery engine is judged at least as
+much on what it refuses — a tampered artifact, a Feature for the wrong runtime,
+something the customer is not entitled to — and those paths currently rest on
+unit tests, which is exactly the position the whole delivery path was in before
+phase 18.
+
+- [ ] **KNIGHT knows a store's runtime**, reported on the heartbeat and checked
+      before anything else, with a failure of its own that names both sides
+- [ ] **Only the checks that belong to the runtime**: a node store is not asked
+      for a Django version, and a Django store is not asked for a node one
+- [ ] **The node store claims jobs over HTTP** — handshake, heartbeat, claim,
+      report steps, report the outcome — against a real KNIGHT
+- [ ] **A node store takes delivery of a Feature end to end**, in the drill and
+      in CI
+- [ ] **The drill asserts refusals**: a bad signature stops at `verify` and is
+      reported as a failure rather than a silent success, a Feature for the wrong
+      runtime never becomes a job, and an unentitled Feature is refused
+- [ ] Fix everything it finds
 
 ---
 
