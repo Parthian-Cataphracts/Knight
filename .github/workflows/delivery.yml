@@ -106,7 +106,9 @@ jobs:
           export FeatureArtifacts__Keys__ci__PublicKey="$KNIGHT_PUBLIC_KEY"
           dotnet run --project backend/src/Knight.Api --configuration Release --no-build > /tmp/api.log 2>&1 &
           for _ in $(seq 1 60); do
-            if curl -sf http://localhost:5008/health > /dev/null; then
+            # /health/live, not /health — there is no /health, and polling it
+            # waits out the whole timeout on a 404 while the API is up and fine.
+            if curl -sf http://localhost:5008/health/live > /dev/null; then
               echo "the API is up"
               exit 0
             fi
