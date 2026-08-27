@@ -47,6 +47,10 @@ def health(request: HttpRequest) -> HttpResponse:
             "version": config.store_version,
             "environment": config.environment,
             "dependencies": dependencies,
+            # The same block the heartbeat carries. Reported here too so a store
+            # KNIGHT polls but which has not heartbeated recently is still
+            # certifiable for delivery.
+            "runtime": checks.runtime(),
             "features": list(installed_features()),
         }
     )

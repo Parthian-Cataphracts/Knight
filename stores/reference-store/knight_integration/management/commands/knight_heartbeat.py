@@ -36,6 +36,7 @@ class Command(BaseCommand):
             receipt = KnightClient().heartbeat(
                 status=status,
                 dependencies=dependencies,
+                runtime=checks.runtime(),
                 features=list(installed_features()),
             )
         except (KnightRejected, KnightUnavailable) as exc:

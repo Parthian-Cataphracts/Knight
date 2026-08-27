@@ -129,7 +129,26 @@ internal sealed class StoreDeliveryReader : IStoreDeliveryReader
     /// answer is null — and the resolver treats null as "cannot certify" rather
     /// than "no objection", which is the whole reason this returns null instead of
     /// a guess.
+    ///
+    /// It reads the <c>runtime</c> block the heartbeat carries since phase 18,
+    /// and falls back to the top level for anything recorded before that. The
+    /// fallback is not politeness: this method used to look *only* at the top
+    /// level, for keys the documented heartbeat shape has never contained, so
+    /// every store on earth was uncertifiable and every install was refused.
     /// </summary>
+    /// <summary>
+    /// One version out of a health document, only when it is a string.
+    ///
+    /// Guarded because the same document holds the dependency checks, whose
+    /// values are objects. A store that happened to call a dependency "python"
+    /// would otherwise make this throw on every plan.
+    /// </summary>
+    private static string? ReadVersion(System.Text.Json.JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value)
+        && value.ValueKind is System.Text.Json.JsonValueKind.String
+            ? value.GetString()
+            : null;
+
     private async Task<(string? Python, string? Django)> ReadRuntimeAsync(Guid storeId, CancellationToken cancellationToken)
     {
         var latest = await _context.StoreHealthChecks
@@ -149,9 +168,12 @@ internal sealed class StoreDeliveryReader : IStoreDeliveryReader
             using var document = System.Text.Json.JsonDocument.Parse(latest);
             var root = document.RootElement;
 
-            return (
-                root.TryGetProperty("python", out var python) ? python.GetString() : null,
-                root.TryGetProperty("django", out var django) ? django.GetString() : null);
+            var runtime = root.TryGetProperty("runtime", out var block)
+                && block.ValueKind is System.Text.Json.JsonValueKind.Object
+                ? block
+                : root;
+
+            return (ReadVersion(runtime, "python"), ReadVersion(runtime, "django"));
         }
         catch (System.Text.Json.JsonException)
         {

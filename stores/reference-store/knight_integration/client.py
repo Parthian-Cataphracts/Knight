@@ -85,12 +85,17 @@ class KnightClient:
         dependencies: dict[str, Any] | None = None,
         features: list[str] | None = None,
         detail: str | None = None,
+        runtime: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         payload = {
             "environment": self._config.environment,
             "status": status,
             "storeVersion": self._config.store_version,
             "dependencies": dependencies or {},
+            # What this store runs. KNIGHT cannot install anything into a store
+            # whose versions it does not know, so this is a requirement rather
+            # than diagnostics (docs/store-integration.md section 5).
+            "runtime": runtime or {},
             "features": features or [],
             "detail": detail,
         }

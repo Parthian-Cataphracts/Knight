@@ -75,6 +75,22 @@ public sealed record StoreHeartbeatRequest
     /// <summary>The store's dependency block, recorded as sent.</summary>
     public Dictionary<string, object>? Dependencies { get; init; }
 
+    /// <summary>
+    /// What the store runs, as `{"python": "3.12.10", "django": "5.1.15"}`.
+    ///
+    /// Added in phase 18, and it is not decoration: the compatibility resolver
+    /// refuses to install a Feature into a store whose versions it does not
+    /// know, and until this field existed there was nowhere for a store to say.
+    /// Every install of every Feature was therefore refused as
+    /// `IncompatibleStore`, permanently, on every store.
+    ///
+    /// A plain string map rather than named fields, because the names are the
+    /// runtime's: a Django store reports python and django, a node store
+    /// reports node, and KNIGHT compares whatever the manifest asked about
+    /// against whatever the store reported (<c>adr/0032</c>).
+    /// </summary>
+    public Dictionary<string, string>? Runtime { get; init; }
+
     /// <summary>Feature slugs the store has installed, so entitlement and installation can be compared.</summary>
     public string[]? Features { get; init; }
 

@@ -128,9 +128,22 @@ Rules:
     "database": { "status": "healthy", "latencyMs": 3 },
     "redis":    { "status": "healthy", "latencyMs": 1 },
     "worker":   { "status": "degraded", "detail": "queue backlog 1200" }
-  }
+  },
+  "runtime": { "python": "3.12.10", "django": "5.1.15" }
 }
 ```
+
+`runtime` is **required for delivery** and is not diagnostics. KNIGHT refuses to
+install a Feature into a store whose versions it does not know — a manifest
+saying `python: ">=3.12"` cannot be checked against a store that has never
+said — so a store that omits this is a store nothing can be delivered to. Phase
+18 found exactly that: the field did not exist, and every install of every
+Feature on every store was refused as `IncompatibleStore`, permanently.
+
+The names belong to the runtime rather than to this contract. A Django store
+reports `python` and `django`; a node store reports `node`; KNIGHT compares
+whatever a manifest asked about against whatever the store reported
+([`adr/0032`](adr/0032-a-feature-declares-its-runtime.md)).
 
 The endpoint is authenticated and it must not touch business tables. KNIGHT
 signs the request — `X-Knight-Signature`, an HMAC over method, path, timestamp

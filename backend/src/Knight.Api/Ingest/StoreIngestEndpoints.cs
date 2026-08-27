@@ -121,7 +121,7 @@ public static class StoreIngestEndpoints
                     store.StoreId,
                     status,
                     request.StoreVersion,
-                    Serialise(request.Dependencies),
+                    SerialiseHealthDocument(request.Dependencies, request.Runtime),
                     Serialise(request.Features),
                     request.Detail),
                 cancellationToken);
@@ -423,6 +423,37 @@ public static class StoreIngestEndpoints
         body.TraceId,
         body.Exception,
         Serialise(body.Attributes));
+
+    /// <summary>
+    /// The document a health check keeps: what the store depends on, and what it
+    /// runs.
+    ///
+    /// The two are stored together because they arrive together and are read
+    /// together, but they are kept under separate keys - a runtime is not a
+    /// dependency, and the delivery resolver reads only the second half. Before
+    /// phase 18 there was no second half at all, so the resolver could never
+    /// certify any store and every install was refused.
+    /// </summary>
+    private static string? SerialiseHealthDocument(
+        Dictionary<string, object>? dependencies,
+        Dictionary<string, string>? runtime)
+    {
+        if (dependencies is null && runtime is null)
+        {
+            return null;
+        }
+
+        var document = dependencies is null
+            ? []
+            : new Dictionary<string, object>(dependencies, StringComparer.Ordinal);
+
+        if (runtime is { Count: > 0 })
+        {
+            document["runtime"] = runtime;
+        }
+
+        return Serialise(document);
+    }
 
     private static string? Serialise(object? value) =>
         value is null ? null : JsonSerializer.Serialize(value, PayloadOptions);

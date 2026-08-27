@@ -36,6 +36,32 @@ def run_all() -> tuple[str, dict[str, Any]]:
     return overall, dependencies
 
 
+def runtime() -> dict[str, str]:
+    """
+    What this store runs, for KNIGHT's compatibility checks.
+
+    Not diagnostics. KNIGHT refuses to install a Feature into a store whose
+    versions it does not know — a manifest saying `python: ">=3.12"` cannot be
+    checked against a store that has never said — so a store that does not report
+    this is a store nothing can be delivered to. Phase 18 found exactly that:
+    every install of every Feature was refused as `IncompatibleStore`, on every
+    store, because there was nowhere in the heartbeat for this to go.
+
+    Reported as a plain map so the names belong to the runtime rather than to
+    this contract: a node store reports `node`, and KNIGHT compares whatever the
+    manifest asked about against whatever the store said
+    (docs/adr/0032-a-feature-declares-its-runtime.md).
+    """
+    import platform
+
+    import django
+
+    return {
+        "python": platform.python_version(),
+        "django": django.get_version(),
+    }
+
+
 def check_database() -> dict[str, Any]:
     from django.db import connection
 
