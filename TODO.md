@@ -44,7 +44,8 @@ Phase 16   Operational expansion          ██████████ 100%
 Phase 17   Recurring revenue & integrations ██████████ 100%
 Phase 18   The catalogue through delivery  ██████████ 100%
 Phase 19   The delivery drill runs itself  ██████████ 100%
-Phase 20   Second runtime, and the refusals ░░░░░░░░░░   0%
+Phase 20   Second runtime, and the refusals ██████████ 100%
+Phase 21   A third runtime, and two real stores ███████░░░  70%
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -1429,11 +1430,12 @@ Carried out of phase 18:
 
 Carried out of phase 17, none of it blocking:
 
-- [ ] **KNIGHT does not know a store's runtime**, so a job delivering a Django
-      package to a node store is queued and then refused by the store in
-      `preflight` rather than refused before it is queued. The outcome is a
-      failed job and an untouched store, which is safe but noisy. A `runtime`
-      on the store record and a check in the resolver would close it
+- [x] **KNIGHT does not know a store's runtime** — closed in phase 20. The
+      heartbeat carries `runtime.name`, the resolver checks it before every
+      other compatibility fact, and a mismatch is refused with its own code
+      before a job exists. It turned out to be worse than noisy: a node store
+      could not be planned against *at all*, because compatibility was decided
+      on Python and Django versions it has no way to report
 - [ ] **No vendor is wired to any of the four Features that honestly refuse
       without one**: `marketing-automation`, `ai-reports`, `subscriptions` and
       `external-marketplaces`. Each reads its credential, validates it and
@@ -1592,18 +1594,51 @@ something the customer is not entitled to — and those paths currently rest on
 unit tests, which is exactly the position the whole delivery path was in before
 phase 18.
 
-- [ ] **KNIGHT knows a store's runtime**, reported on the heartbeat and checked
+- [x] **KNIGHT knows a store's runtime**, reported on the heartbeat and checked
       before anything else, with a failure of its own that names both sides
-- [ ] **Only the checks that belong to the runtime**: a node store is not asked
+- [x] **Only the checks that belong to the runtime**: a node store is not asked
       for a Django version, and a Django store is not asked for a node one
-- [ ] **The node store claims jobs over HTTP** — handshake, heartbeat, claim,
+- [x] **The node store claims jobs over HTTP** — handshake, heartbeat, claim,
       report steps, report the outcome — against a real KNIGHT
-- [ ] **A node store takes delivery of a Feature end to end**, in the drill and
+- [x] **A node store takes delivery of a Feature end to end**, in the drill and
       in CI
-- [ ] **The drill asserts refusals**: a bad signature stops at `verify` and is
+- [x] **The drill asserts refusals**: a bad signature stops at `verify` and is
       reported as a failure rather than a silent success, a Feature for the wrong
       runtime never becomes a job, and an unentitled Feature is refused
-- [ ] Fix everything it finds
+- [x] Fix everything it finds
+
+---
+
+## Phase 21 — A third runtime, and two real stores
+
+**Exit criteria:** the two customer stores that exist are connected to KNIGHT
+and can take delivery of a Feature.
+
+Both turned out to be **ASP.NET Core**, which was neither of the runtimes that
+existed. That is the useful kind of surprise: `adr/0032` claimed the delivery
+path was never Django's, and this is the first time anybody tested the claim
+against a runtime nobody had planned for.
+
+It cost the enum one line, the manifest reader one method and the resolver one
+case. The store side is a library — `Knight.StoreAgent` — shared by every .NET
+store rather than an integration written per project, which is the answer to
+"do I write an agent for each shop": one per stack, not one per project.
+
+- [x] **`dotnet` is a runtime KNIGHT can deliver to**, with the three neutral
+      names spelled namespace, assembly and mount type
+- [x] **A .NET store agent**, written once: handshake, heartbeat, claim, the
+      fifteen verbs, report. Nineteen tests, most of them refusals
+- [x] **BojanStore wired**, building and green on its own 944 tests
+- [x] **Phonix wired**, building
+- [ ] **Phonix merged** — the branch exists and there is no write access to
+      that repository from here; the patch is on the desktop and the change is
+      three files plus a vendored directory
+- [ ] **Neither store has been driven end to end against a running KNIGHT.**
+      Both compile with the agent in and the agent's own suite covers the whole
+      pipeline, but no artifact has been delivered to either. Nothing is
+      finished until one has been, which is what phases 18 to 20 were about
+- [ ] **A .NET Feature to deliver to them.** The catalogue is Django packages;
+      a `dotnet` Feature exists only as a manifest shape and a test fixture
 
 ---
 
