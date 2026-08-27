@@ -187,14 +187,15 @@ surface, and the word travels so the store can decide what it means for its own
 timezone. The store runs `manage.py knight_run_workers` on its own cron; that
 command decides what is actually due.
 
-Five Features use it today: `loyalty-rewards` expires points daily,
+Seven Features use it today: `loyalty-rewards` expires points daily,
 `ai-reports` writes yesterday's report daily, `marketing-automation` runs
 campaigns hourly — hourly because abandoned cart is the one trigger whose delay
-is measured in hours — `advanced-inventory` declares two, an hourly one that
-ends expired stock holds and a daily one that sweeps for low stock, and
-`restaurant-operations` declares two more, an hourly one that ends expired slot
-holds and releases pre-orders whose time has come, and a daily one that closes
-table sessions nobody cleared.
+is measured in hours — and four declare two each. `advanced-inventory` ends
+expired stock holds hourly and sweeps for low stock daily;
+`restaurant-operations` ends expired slot holds and releases pre-orders hourly
+and closes abandoned table sessions daily; `subscriptions` bills what is due
+hourly and retries failed payments daily; `external-marketplaces` flushes its
+outbound queue hourly and reconciles daily.
 
 `advanced-inventory` is the one to read for what a worker should and should not
 be responsible for. Its hourly expiry is **tidying, not correctness**: an expired
@@ -211,6 +212,14 @@ makes it right in the meantime. What protects a shopper from the worker running
 twice is therefore not the schedule but a unique index on the period — which is
 the general lesson: when a worker has to be correct rather than tidy, the
 correctness belongs in a constraint.
+
+`node-conformance` declares one too, and it is the only worker in the repository
+that is not a Django callable: a node entrypoint is `module#exportedName` rather
+than a dotted path. It is not in the commercial catalogue — it exists so the
+`node` runtime is demonstrated rather than declared
+([`adr/0032`](adr/0032-a-feature-declares-its-runtime.md) §4) — but the worker
+declaration is real, and it is what proves the schedule contract is not Django's
+either.
 
 `multi-location` declares **no workers at all**, and says so with an empty list
 rather than by omitting the key. Nothing it does happens on a clock: a branch is
