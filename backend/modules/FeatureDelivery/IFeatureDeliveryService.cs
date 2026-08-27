@@ -35,7 +35,18 @@ public sealed record JobPage(
 public sealed record InstallationRequestResult(
     FeaturePlan Plan,
     IReadOnlyList<FeatureInstallationJob> QueuedJobs,
-    FeatureInstallation Installation)
+
+    /// <summary>
+    /// The store's row for this Feature, or null when planning failed before one
+    /// could exist.
+    ///
+    /// Nullable since phase 18. A failed plan carries no steps and therefore no
+    /// feature id, so a store being asked for a Feature it has never had cannot
+    /// be given a row - and the previous code threw a 404 saying the Feature was
+    /// not registered, which was false and sent operators looking for a
+    /// publishing problem instead of at the reasons in the plan.
+    /// </summary>
+    FeatureInstallation? Installation)
 {
     public bool WasQueued => QueuedJobs.Count > 0;
 }

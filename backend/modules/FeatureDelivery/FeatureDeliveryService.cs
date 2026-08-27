@@ -87,6 +87,44 @@ internal sealed class FeatureDeliveryService : IFeatureDeliveryService
         var plan = await _resolver.ResolveAsync(input.Slug, input.VersionRange, context, cancellationToken);
 
         var root = plan.Steps.FirstOrDefault(step => step.IsRoot);
+
+        // A failed plan has no steps at all, so there is no root step to take a
+        // feature id from. That is not the same as the slug being unknown, and
+        // conflating the two told an operator "no feature is registered with
+        // slug 'analytics-core'" about a Feature sitting in the catalogue -
+        // sending them to look for a publishing problem that did not exist,
+        // while the real reasons (the store had never reported its versions)
+        // went unrecorded. The resolver already names the unknown-slug case.
+        if (root is null && !plan.IsSuccessful)
+        {
+            if (plan.Failures.Any(failure =>
+                    string.Equals(failure.Code, UnknownFeatureCode, StringComparison.Ordinal)))
+            {
+                throw new NotFoundException($"No feature is registered with slug '{input.Slug}'.");
+            }
+
+            // The Feature exists and cannot be planned for this store. Record the
+            // reason where the store already has a row for it, and report the
+            // refusal either way - never as a missing thing.
+            var blocked = await FindBySlugAsync(input.StoreId, input.Slug, cancellationToken);
+
+            if (blocked is not null)
+            {
+                blocked.RecordBlockingReason(plan.DescribeFailures(), now);
+                await _installations.SaveChangesAsync(cancellationToken);
+            }
+
+            await _audit.RecordAsync(
+                "feature.installation.blocked",
+                "FeatureInstallation",
+                blocked?.Id.ToString() ?? input.Slug,
+                customerId,
+                cancellationToken,
+                newValue: new { input.Slug, Failures = plan.Failures });
+
+            return new InstallationRequestResult(plan, [], blocked);
+        }
+
         var installation = await EnsureInstallationAsync(
             input.StoreId,
             customerId,
@@ -524,6 +562,33 @@ internal sealed class FeatureDeliveryService : IFeatureDeliveryService
                 $"'{installation.FeatureSlug}' cannot be uninstalled because {string.Join(", ", dependents)} depends on it. " +
                 "Uninstall the dependent features first.");
         }
+    }
+
+    /// <summary>
+    /// The resolver's name for "that slug is not in the catalogue".
+    ///
+    /// Compared as a string rather than shared as an enum because the code
+    /// crosses a module boundary as text, which is the same reason the failures
+    /// carry codes at all.
+    /// </summary>
+    private const string UnknownFeatureCode = "UnknownFeature";
+
+    /// <summary>
+    /// An existing installation row for a slug, without needing a feature id.
+    ///
+    /// Only used on the path where planning failed and there is therefore no
+    /// feature id to look one up by. It reads the store's rows and matches on the
+    /// slug they already recorded.
+    /// </summary>
+    private async Task<FeatureInstallation?> FindBySlugAsync(
+        Guid storeId,
+        string slug,
+        CancellationToken cancellationToken)
+    {
+        var installations = await _installations.ListForStoreAsync(storeId, cancellationToken);
+
+        return installations.FirstOrDefault(installation =>
+            string.Equals(installation.FeatureSlug, slug, StringComparison.OrdinalIgnoreCase));
     }
 
     private async Task<FeatureInstallation> EnsureInstallationAsync(
