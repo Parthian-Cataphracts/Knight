@@ -469,7 +469,26 @@ internal sealed class FeatureDeliveryService : IFeatureDeliveryService
                 continue;
             }
 
-            if (installation.State is InstallationState.Installed)
+            // `Installed` is not the only state with code on a store serving
+            // requests. An installation whose last job failed is very often a
+            // store still running the version it had before — an upgrade that
+            // failed at `verify` never touched the working install — and it
+            // stays in `Failed` until somebody looks at it.
+            //
+            // Only checking for `Installed` meant a customer who stopped paying
+            // kept the Feature, silently and for ever, on exactly the stores
+            // whose last delivery went wrong. Found by the delivery drill in
+            // phase 20, on the first run that revoked an entitlement after a
+            // deliberately corrupted artifact.
+            //
+            // `InstalledVersion` is the test rather than the state, because it
+            // is the question actually being asked: is there a version of this
+            // on the store. A first install that failed has none, and there is
+            // nothing there to disable.
+            var serving = installation.State is InstallationState.Installed
+                || (installation.State is InstallationState.Failed && installation.InstalledVersion is not null);
+
+            if (serving)
             {
                 await QueueSimpleJobAsync(installation, JobType.Disable, reason, cancellationToken);
             }

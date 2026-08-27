@@ -560,4 +560,48 @@ public sealed class FeatureInstallationTests
 
         Assert.Equal(FeatureHealth.Unknown, installation.Health);
     }
+
+    // --- Disabling something whose last job failed -------------------------
+
+    [Fact]
+    public void AnInstallationWhoseUpgradeFailed_CanStillBeDisabled()
+    {
+        var (installation, _) = Installed("1.0.0");
+
+        var upgrade = Guid.CreateVersion7();
+        installation.QueueJob(upgrade, VersionId, "1.1.0", Now);
+        installation.BeginWork(upgrade, Now);
+        installation.MarkFailed(upgrade, "digest.mismatch", "The artifact did not match.", RollbackOutcome.NotAttempted, Now);
+
+        Assert.Equal(InstallationState.Failed, installation.State);
+        Assert.Equal("1.0.0", installation.InstalledVersion);
+
+        installation.Disable(Now);
+
+        // The store is running 1.0.0 and always was — an upgrade that failed at
+        // `verify` never touched it. Refusing to disable it meant the store ran
+        // the Disable job, reported it, and had the report rejected, so the job
+        // sat in `Running` for ever while the Feature went on serving for a
+        // customer who had stopped paying.
+        Assert.Equal(InstallationState.Disabled, installation.State);
+    }
+
+    [Fact]
+    public void AFirstInstallThatFailed_HasNothingToDisable()
+    {
+        var installation = New();
+        var jobId = Guid.CreateVersion7();
+
+        installation.QueueJob(jobId, VersionId, "1.0.0", Now);
+        installation.BeginWork(jobId, Now);
+        installation.MarkFailed(jobId, "fetch.failed", "The artifact could not be downloaded.", RollbackOutcome.NotAttempted, Now);
+
+        Assert.Null(installation.InstalledVersion);
+
+        // Failed and never installed. There is no version of this on the store,
+        // so "disable it" is an instruction about nothing, and saying so is
+        // better than sending an agent to switch off something that was never
+        // there.
+        Assert.Throws<DomainException>(() => installation.Disable(Now));
+    }
 }

@@ -286,7 +286,20 @@ public sealed class FeatureInstallation : AuditableEntity, ICustomerOwned
             return;
         }
 
-        if (State is not InstallationState.Installed)
+        // `Failed` with a version on the store is a Feature that is running:
+        // an upgrade that failed at `verify` never touched the working install,
+        // and the row stays Failed until somebody looks at it. Refusing to
+        // disable it meant the store ran the Disable job, reported it, and had
+        // the report rejected — so the job sat in `Running` for ever and the
+        // Feature went on serving for a customer who had stopped paying.
+        //
+        // The same shape as the rollback defect phase 18 found, on the path a
+        // subscription takes when it ends at midnight. Found by the delivery
+        // drill in phase 20.
+        var serving = State is InstallationState.Installed
+            || (State is InstallationState.Failed && InstalledVersion is not null);
+
+        if (!serving)
         {
             throw DomainException.Conflict($"An installation in state '{State}' cannot be disabled.");
         }
