@@ -45,12 +45,14 @@ is a deployment step
 
 ```bash
 export CONTROL_PLANE_DB_CONNECTION_STRING="Host=127.0.0.1;Port=5433;Database=knight;Username=knight;Password=knight"
-export ConnectionStrings__Platform="$CONTROL_PLANE_DB_CONNECTION_STRING"
 export ConnectionStrings__ControlPlane="$CONTROL_PLANE_DB_CONNECTION_STRING"
 
-dotnet ef database update --project src/Knight.Infrastructure --startup-project src/Knight.Api --context PlatformDbContext
 dotnet ef database update --project src/Knight.Infrastructure --startup-project src/Knight.Api --context ControlPlaneDbContext
 ```
+
+One context, not two. `PlatformDbContext` was the pre-pivot product's and is
+gone; the line that migrated it here answered "No DbContext named
+'PlatformDbContext' was found" for anybody following these steps.
 
 Create the first administrator. The password is typed in, never passed as an
 argument or read from configuration:

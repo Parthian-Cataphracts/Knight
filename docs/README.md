@@ -83,6 +83,7 @@ Read in this order:
 21. [`phase-13-verification.md`](phase-13-verification.md) — three Features through the delivery engine, and the runtime wiring it turned out never to send
 22. [`phase-14-verification.md`](phase-14-verification.md) — the two Features that keep a balance, and the two transaction bugs that only a real database shows
 23. [`phase-15-verification.md`](phase-15-verification.md) — scheduled work, the first third-party credential, and a spend cap that refuses before it costs anything
+24. [`phase-16-verification.md`](phase-16-verification.md) — the operational Features, and the migration risk `multi-location` was held back for turning out never to have existed
 
 Project status and remaining work: [`../TODO.md`](../TODO.md).
 

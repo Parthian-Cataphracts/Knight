@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-26** (revision 27 — phase 15 done: scheduled work, the first third-party credential, and a spend cap that refuses before it costs anything)
+Last updated: **2026-08-27** (revision 28 — phase 16 done: the operational half of the catalogue, and the migration risk `multi-location` was held back for turning out never to have existed)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,9 +11,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 16 — operational expansion. Phase 15 is complete: Features declare scheduled work in their manifests and KNIGHT delivers it, `marketing-automation` and `ai-reports` are published, per-use cost is capped before it is spent, and [`adr/0030`](docs/adr/0030-what-store-data-may-reach-a-model-provider.md) settles what may leave a store** |
-| **Next phase** | How a `CREATE EXTENSION` is classified, once and for both callers, then `advanced-inventory` and `restaurant-operations`. `multi-location` is deliberately last in the phase: it reshapes data other Features already own |
-| **Overall progress** | **Platform ~99%, catalogue ~75%.** Two numbers on purpose: the control plane and the delivery engine are finished, and the product they exist to deliver is 11 sellable Features out of 16, in 5 plans. **775 backend tests green** (609 unit, 13 architecture, 153 PostgreSQL-backed integration), plus **479 store tests with nothing skipped**, the same 479 passing with no Feature installed at all, and 9 dashboard |
+| **Current phase** | **Phase 17 — recurring revenue and external integrations. Phase 16 is complete: `advanced-inventory`, `restaurant-operations` and `multi-location` are published, [`adr/0031`](docs/adr/0031-database-extensions-are-declared-not-migrated.md) settles how a `CREATE EXTENSION` is classified, and [`phase-16-verification.md`](docs/phase-16-verification.md) records the two defects the browser pass found** |
+| **Next phase** | `subscriptions` first — a bug there bills a real customer — then `external-marketplaces`, which has the most third-party surface in the catalogue. R26 has to be revisited before either ships |
+| **Overall progress** | **Platform ~99%, catalogue ~88%.** Two numbers on purpose: the control plane and the delivery engine are finished, and the product they exist to deliver is 14 sellable Features out of 16, in 5 plans. **794 backend tests green** (626 unit, 13 architecture, 155 PostgreSQL-backed integration), plus **680 store tests with nothing skipped**, the same 680 passing with no Feature installed at all, and 9 dashboard |
 | **Blocking decisions** | **Are Features publishable for a store that is not Django?** Everything except the manifest is already stack-agnostic; `ManifestReader` is the one thing that is not (R26, decision 14 in [`docs/risks.md`](docs/risks.md)). Until it is answered, a non-Django store is entitled and observed but not delivered to. Separately, the **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -40,17 +40,19 @@ Phase 12   Catalogue alignment            ██████████ 100%
 Phase 13   Delivery validation on Features ██████████ 100%
 Phase 14   Commercial foundations         ██████████ 100%
 Phase 15   Automation                     ██████████ 100%
-Phase 16   Operational expansion          ░░░░░░░░░░   0%
+Phase 16   Operational expansion          ██████████ 100%
 Phase 17   Recurring revenue & integrations ░░░░░░░░░  0%
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
-the image; **11 sellable Features** (`analytics-core` 1.1.0, `analytics-reports`,
-`advanced-promotions` 2.0.0, `reviews-ratings`, `advanced-search`,
+the image; **14 sellable Features** (`analytics-core` 1.1.0, `analytics-reports`,
+`advanced-promotions` 2.0.0, `reviews-ratings`, `advanced-search` 1.1.0,
 `customer-segmentation`, `loyalty-rewards` 1.1.0, `gift-cards`,
-`marketing-automation`, `ai-reports`, `log-shipping`); 5 Draft identities waiting
-on a package; 5 plans, two of them bundles. Three Features now run scheduled
-work declared in their own manifests.
+`marketing-automation`, `ai-reports`, `advanced-inventory`,
+`restaurant-operations`, `multi-location`, `log-shipping`); 2 Draft identities
+waiting on a package, both in phase 17; 5 plans, two of them bundles. Five
+Features now run scheduled work declared in their own manifests, and
+`multi-location` deliberately declares none.
 [`docs/feature-catalog.md`](docs/feature-catalog.md) is the list.
 
 ---
@@ -1328,26 +1330,39 @@ per-customer cost bounded and auditable.
 
 ---
 
-## Phase 16 — Operational expansion
+## Phase 16 — Operational expansion ✅
 
 **Exit criteria:** KNIGHT is credible for a merchant with real operations
-behind the shop.
+behind the shop. **Met** — see
+[`docs/phase-16-verification.md`](docs/phase-16-verification.md).
 
-- [ ] **How a `CREATE EXTENSION` is classified**, once and for both callers.
-      `advanced-search` wants `pg_trgm` for fuzzy matching and this phase's
-      inventory work wants extensions of its own; neither is Class A, because a
-      rollback cannot know whether another Feature has started using the
-      extension in the meantime. An ADR amendment, then both Features can use it
-- [ ] **`advanced-inventory`** — stock movements, reservations, low-stock
-      alerts, purchase orders, suppliers. Inventory ledger and reservation
-      locking; significant indexing
-- [ ] **`restaurant-operations`** — tables, kitchen states and display
-      workflow, preparation times, throttling, pickup scheduling. Needs
-      real-time order updates and additional order states
-- [ ] **`multi-location`** — location-scoped inventory, menus, staff and order
-      routing. **High migration risk and deliberately late**: it changes the
-      shape of data other Features already own, which is the argument for it
-      not being an early delivery-engine test
+- [x] **How a `CREATE EXTENSION` is classified**, once and for both callers.
+      [`adr/0031`](docs/adr/0031-database-extensions-are-declared-not-migrated.md):
+      declared in the manifest, created before migrations, never dropped —
+      because a rollback cannot know whether another Feature has started using
+      the extension in the meantime. `advanced-search` 1.1.0 and
+      `advanced-inventory` both declare `pg_trgm`, which is the case that made
+      the rule necessary
+- [x] **`advanced-inventory`** — stock as an append-only ledger. No quantity
+      column anywhere: what a shop has is the sum of what arrived minus what
+      left. Available is on hand minus what is held, holds end by time rather
+      than by state, and `reserve()` is demonstrated under concurrency rather
+      than argued
+- [x] **`restaurant-operations`** — tables and sessions, kitchen tickets with
+      states finer than an order's, preparation times per dish and per station,
+      and pickup slots that are booked under a row lock rather than displayed. A
+      promise is the longest dish plus the queue, never the sum
+- [x] **`multi-location`** — branches with their own timezones and opening
+      hours, staff rotas, per-branch menu exceptions, and routing decided once
+      and written down. **The migration risk was never there**: a Feature owns
+      only its own tables, so this one could not have added a `location` column
+      to anybody else's — which is why both of the Features above carried theirs
+      from their own 1.0. Installing it migrates nobody's rows
+- [x] Two defects found by the browser pass and fixed: the store's fallback
+      manifest reader read `extensions: []` as the truthy string `"[]"`, and
+      every dashboard list screen was rendering page one as though it were the
+      whole collection — which this phase made visible by pushing the catalogue
+      past twenty-five Features
 
 ---
 
@@ -1366,6 +1381,26 @@ complete.
 - [ ] Revisit R26 before this ships. If a non-Django store must receive
       Features, the manifest's `django:` block needs a `runtime:` discriminator,
       and that decision is cheaper before fourteen manifests exist than after
+
+Carried out of phase 16, none of it blocking:
+
+- [ ] **Real-time order updates for the kitchen board.** `restaurant-operations`
+      ships polling endpoints and no push channel. A board that refreshes every
+      two seconds is genuinely fine, and a channel between a store and its own
+      staff is the store's to build rather than a Feature's to impose — but the
+      phase-16 scope named it, so it is written down rather than quietly dropped
+- [ ] **Routing has no geography.** A `Location` carries latitude and longitude
+      and no rule kind uses them, so "nearest branch" cannot be expressed. The
+      closed list of four rule kinds was deliberate; adding a fifth is additive
+- [ ] **Nothing joins a branch's menu to its stock.** `multi-location` can say
+      Soho does not sell the burger and `advanced-inventory` can say Camden has
+      none left, and no party puts the two together. That join belongs to a
+      store's checkout — the only party that knows what it is about to sell —
+      and doing it inside either Feature would break the rule the catalogue
+      rests on
+- [ ] **Concurrency is proven for booking and for stock and argued elsewhere.**
+      Ticket transitions and the routing decision rely on locks and constraints
+      that have idempotency tests but no thread racing them
 
 ---
 
