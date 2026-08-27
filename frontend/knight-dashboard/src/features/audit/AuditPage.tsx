@@ -10,11 +10,18 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { Button } from "@/components/ui/Button";
 import { formatDateTime } from "@/lib/utils/format";
 
+/** How many of the most recent entries a screen over a growing log asks for. */
+const RECENT = 200;
+
 type Filter = "all" | "Success" | "Failure";
 
 export function AuditPage() {
   const { t } = useTranslation();
-  const query = useCollection<AuditEntry>("/audit-logs");
+  // A page size of its own, which is how a screen says "the most recent this
+  // many" rather than "all of them". The audit log is append-only and only ever
+  // grows, so following its pages would mean pulling every sensitive operation
+  // this platform has ever recorded in order to render two hundred rows.
+  const query = useCollection<AuditEntry>(`/audit-logs?pageSize=${RECENT}`);
   const [filter, setFilter] = useState<Filter>("all");
 
   const all = query.data ?? [];

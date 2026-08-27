@@ -9,6 +9,9 @@ import { DataTable, type Column } from "@/components/data/DataTable";
 import { StatusChip, type Tone } from "@/components/ui/StatusChip";
 import { formatDateTime } from "@/lib/utils/format";
 
+/** How many of the most recent entries a screen over a growing log asks for. */
+const RECENT = 200;
+
 type Filter = "all" | "Error" | "Warning" | "Information";
 
 const levelTone: Record<LogEntry["level"], Tone> = {
@@ -28,7 +31,9 @@ const levelTone: Record<LogEntry["level"], Tone> = {
  */
 export function LogsPage() {
   const { t } = useTranslation();
-  const query = useCollection<LogEntry>("/logs");
+  // The most recent, not all of them: a log stream grows without bound and this
+  // screen renders what it is handed.
+  const query = useCollection<LogEntry>(`/logs?pageSize=${RECENT}`);
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
 

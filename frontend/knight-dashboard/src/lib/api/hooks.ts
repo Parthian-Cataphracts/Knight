@@ -8,8 +8,31 @@ import {
 import { apiRequest, type RequestOptions } from "./client";
 import type { Paged } from "./types";
 
+/** The API's ceiling (`PagedRequest.MaxPageSize`). Asking for more is clamped. */
+const MAX_PAGE_SIZE = 100;
+
 /**
- * Reads a paged collection endpoint. Keys are the path, so caches stay distinct.
+ * How many pages this will follow before it stops.
+ *
+ * A guard rather than a limit anybody should reach: at a hundred rows a page
+ * that is two thousand of something, and every screen using this renders the
+ * whole collection into a table. A list that genuinely grows past it needs
+ * server-side paging in the screen, not a bigger number here.
+ */
+const MAX_PAGES = 20;
+
+/**
+ * Reads a paged collection endpoint, **following the pages**.
+ *
+ * Every screen built on this filters, counts and renders the whole collection
+ * client-side, so a hook that returned only the first page did not return a
+ * short list — it returned a wrong one. Phase 16 is where that surfaced: the
+ * catalogue passed twenty-five features, the Features screen showed twenty-five
+ * of twenty-nine, and its "Draft: 1" tab was counting a page rather than a
+ * catalogue while a Draft feature sat invisible behind it. No test could see it,
+ * because a fixture returns everything on page one.
+ *
+ * Keys are the path, so caches stay distinct.
  *
  * `enabled` exists for the detail panels, whose path depends on a selection that
  * may not have been made yet. Without it they request a placeholder id on every
@@ -20,11 +43,56 @@ export function useCollection<T>(path: string, enabled = true): UseQueryResult<T
   return useQuery({
     queryKey: ["collection", path],
     queryFn: async () => {
-      const response = await apiRequest<Paged<T>>(path);
-      return response.items;
+      const first = await apiRequest<Paged<T>>(paged(path, 1));
+      const items = [...first.items];
+
+      // A caller that named its own page size has asked for that many — the
+      // notification centre wants the fifty most recent, not every notification
+      // this platform has ever sent — so it gets one page and no more.
+      //
+      // Otherwise: `totalPages` is what the server says, not what the client
+      // hoped. An endpoint that does not paginate answers with one page and this
+      // stops after the request it would have made anyway.
+      const pages = asked(path, "pageSize") ? 1 : Math.min(first.totalPages || 1, MAX_PAGES);
+
+      for (let page = 2; page <= pages; page += 1) {
+        const next = await apiRequest<Paged<T>>(paged(path, page));
+        items.push(...next.items);
+      }
+
+      return items;
     },
     enabled,
   });
+}
+
+/**
+ * Adds paging to a path that may already carry a query string of its own.
+ *
+ * A caller's own `pageSize` wins and is not duplicated. Appending a second one
+ * does not override the first: the query string arrives as `pageSize=50&
+ * pageSize=100`, which model binding reads as the single value "50,100" and
+ * fails on — a 500 from what is really a malformed request, and one this hook
+ * would have generated on every screen that asks for a page size of its own.
+ */
+function paged(path: string, page: number): string {
+  const [route, existing = ""] = path.split("?");
+  const parameters = new URLSearchParams(existing);
+
+  parameters.set("page", String(page));
+
+  if (!parameters.has("pageSize")) {
+    parameters.set("pageSize", String(MAX_PAGE_SIZE));
+  }
+
+  return `${route}?${parameters.toString()}`;
+}
+
+/** Whether the caller's own path already sets a parameter. */
+function asked(path: string, parameter: string): boolean {
+  const [, existing = ""] = path.split("?");
+
+  return new URLSearchParams(existing).has(parameter);
 }
 
 export function useResource<T>(path: string, enabled = true): UseQueryResult<T, Error> {
