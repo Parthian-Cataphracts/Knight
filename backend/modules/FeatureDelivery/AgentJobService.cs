@@ -399,7 +399,7 @@ internal sealed class AgentJobService : IAgentJobService
     {
         AgentArtifact? artifact = null;
         AgentMigrationPolicy? migrations = null;
-        AgentDjangoIntegration? django = null;
+        AgentRuntimeIntegration? runtime = null;
 
         if (job.TargetVersionId is { } versionId)
         {
@@ -427,11 +427,12 @@ internal sealed class AgentJobService : IAgentJobService
                     version.RequiresMaintenanceWindow,
                     version.Extensions);
 
-                django = new AgentDjangoIntegration(
-                    version.AppLabel,
-                    version.InstalledApp,
-                    version.UrlInclude,
-                    version.UrlPrefix,
+                runtime = new AgentRuntimeIntegration(
+                    version.Runtime,
+                    version.Namespace,
+                    version.Module,
+                    version.MountExport,
+                    version.MountPrefix,
                     version.Workers);
             }
         }
@@ -460,7 +461,7 @@ internal sealed class AgentJobService : IAgentJobService
             artifact,
             configuration,
             migrations,
-            django,
+            runtime,
             job.ClaimExpiresAt ?? _clock.UtcNow.Add(_options.JobClaimTimeout));
     }
 
@@ -521,11 +522,15 @@ public sealed record DeliverableVersion(
     /// Read straight out of the signed manifest, like the migration policy above
     /// and for the same reason: the manifest is what the author signed, and a
     /// column beside it could drift from it.
+    ///
+    /// Named for what each one is rather than for how Django spells it, because
+    /// a node store needs exactly the same three facts (adr/0032 §3).
     /// </summary>
-    string AppLabel,
-    string InstalledApp,
-    string? UrlInclude,
-    string? UrlPrefix,
+    string Runtime,
+    string Namespace,
+    string Module,
+    string? MountExport,
+    string? MountPrefix,
 
     /// <summary>
     /// The scheduled jobs the store must start running once this is installed.

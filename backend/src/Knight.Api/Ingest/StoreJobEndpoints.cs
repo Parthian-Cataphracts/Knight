@@ -122,14 +122,28 @@ public static class StoreJobEndpoints
                 assignment.Migrations.Reversible,
                 assignment.Migrations.RequiresMaintenanceWindow,
                 assignment.Migrations.Extensions),
-        assignment.Django is null
+        // Sent only for a Django Feature, and only until no supported store reads
+        // it. A node store has no use for a block whose field is called
+        // `appLabel`, and a Django store upgraded later still needs one
+        // (adr/0032 §5).
+        assignment.Runtime is null || assignment.Runtime.Runtime != "django"
             ? null
             : new AgentDjangoResponse(
-                assignment.Django.AppLabel,
-                assignment.Django.InstalledApp,
-                assignment.Django.UrlInclude,
-                assignment.Django.UrlPrefix,
-                [.. assignment.Django.Workers.Select(worker =>
+                assignment.Runtime.Namespace,
+                assignment.Runtime.Module,
+                assignment.Runtime.MountExport,
+                assignment.Runtime.MountPrefix,
+                [.. assignment.Runtime.Workers.Select(worker =>
+                    new AgentWorkerResponse(worker.Name, worker.Entrypoint, worker.Schedule))]),
+        assignment.Runtime is null
+            ? null
+            : new AgentRuntimeResponse(
+                assignment.Runtime.Runtime,
+                assignment.Runtime.Namespace,
+                assignment.Runtime.Module,
+                assignment.Runtime.MountExport,
+                assignment.Runtime.MountPrefix,
+                [.. assignment.Runtime.Workers.Select(worker =>
                     new AgentWorkerResponse(worker.Name, worker.Entrypoint, worker.Schedule))]),
         assignment.ClaimExpiresAt);
 

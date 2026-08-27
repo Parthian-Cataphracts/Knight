@@ -17,6 +17,12 @@ description: >-
   quantity column - what a shop has is the sum of what arrived minus what left,
   which is what makes "why is this 7" a question with an answer.
 
+# The runtime this Feature is built for, and the block below is named for it
+# (docs/adr/0032-a-feature-declares-its-runtime.md). Omitting it still means
+# django - every manifest written before phase 17 is a Django Feature - but a
+# contract that is stated is worth more than one that is inferred.
+runtime: django
+
 django:
   app_label: knight_inventory
   installed_app: knight_feature_advanced_inventory

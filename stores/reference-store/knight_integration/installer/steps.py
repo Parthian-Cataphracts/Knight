@@ -104,6 +104,11 @@ def preflight(context: JobContext) -> str:
     if context.job.get("type") not in {"Disable", "Enable", "Uninstall", "ApplyConfiguration"} and not artifact:
         raise StepFailed("preflight.no_artifact", "The job names no artifact to install.")
 
+    # Before the download, not after: a package built for another runtime fails
+    # as an ImportError halfway through an install otherwise, with the store's
+    # database already touched.
+    require_matching_runtime(context)
+
     size = int(artifact.get("sizeBytes") or 0)
     if size > context.config.max_artifact_bytes:
         raise StepFailed(
@@ -573,31 +578,72 @@ def reverse_migrate(context: JobContext) -> str:
 # --- Helpers ----------------------------------------------------------------
 
 
-def _django(context: JobContext) -> dict[str, Any]:
-    """
-    The runtime wiring KNIGHT sends with the job: which module to load, what
-    label its migrations are recorded under, and where to mount its URLs.
+#: What this store is. Checked against what a job says it is delivering, because
+#: a Django store handed a node package cannot install it and should say so
+#: rather than improvise (docs/adr/0032-a-feature-declares-its-runtime.md).
+RUNTIME = "django"
 
-    Read from the job rather than guessed. The fallbacks below are a last resort
-    for a job queued before KNIGHT carried this, and they are a guess: the slug
-    with its hyphens swapped is the module name only by coincidence, and for
-    every Feature in this repository it is wrong.
+
+def _runtime(context: JobContext) -> dict[str, Any]:
     """
-    return context.job.get("django") or {}
+    The runtime wiring KNIGHT sends with the job: what this Feature's migrations
+    are recorded under, what to load to get the code, and where to mount whatever
+    it serves.
+
+    Read from the job rather than guessed. Since adr/0032 the neutral `runtime`
+    block is the one to read and `django` is what KNIGHT still sends beside it
+    for stores that have not been upgraded - this store prefers the new one and
+    falls back, which is the same order every consumer of that transition should
+    use.
+    """
+    return context.job.get("runtime") or context.job.get("django") or {}
+
+
+def require_matching_runtime(context: JobContext) -> None:
+    """
+    Refuses a package built for something this store does not run.
+
+    Before anything is unpacked, because the failure otherwise arrives as an
+    ImportError halfway through an install with the store's database already
+    touched. A job with no runtime named is from a KNIGHT older than adr/0032 and
+    is django by definition - that is what the field defaulted to.
+    """
+    declared = _runtime(context).get("runtime") or RUNTIME
+
+    if declared != RUNTIME:
+        raise StepFailed(
+            "preflight.wrong_runtime",
+            f"This store runs {RUNTIME} and the job delivers a {declared} package. "
+            "Nothing was installed.",
+        )
 
 
 def _installed_app(context: JobContext) -> str:
-    """The importable module path."""
+    """
+    The importable module path.
+
+    `module` is the neutral name; `installedApp` is what the deprecated django
+    block calls it. The last fallback is a guess - the slug with its hyphens
+    swapped is the module name only by coincidence, and for every Feature in this
+    repository it is wrong - and it exists only so a job queued before any of
+    this can still describe itself.
+    """
+    wiring = _runtime(context)
+
     return (
-        _django(context).get("installedApp")
+        wiring.get("module")
+        or wiring.get("installedApp")
         or context.job.get("installedApp")
         or context.slug.replace("-", "_")
     )
 
 
 def _installed_app_label(context: JobContext) -> str:
+    wiring = _runtime(context)
+
     return (
-        _django(context).get("appLabel")
+        wiring.get("namespace")
+        or wiring.get("appLabel")
         or context.job.get("appLabel")
         or _installed_app(context).split(".")[-1]
     )
@@ -611,11 +657,15 @@ def _url_include(context: JobContext) -> str | None:
     whose pages 404 while every other part of the install reports success - which
     is precisely how this went unnoticed until phase 13 opened one in a browser.
     """
-    return _django(context).get("urlInclude")
+    wiring = _runtime(context)
+
+    return wiring.get("mountExport") or wiring.get("urlInclude")
 
 
 def _url_prefix(context: JobContext) -> str | None:
-    return _django(context).get("urlPrefix")
+    wiring = _runtime(context)
+
+    return wiring.get("mountPrefix") or wiring.get("urlPrefix")
 
 
 def _workers(context: JobContext) -> list[dict[str, Any]]:
@@ -626,7 +676,7 @@ def _workers(context: JobContext) -> list[dict[str, Any]]:
     entrypoint is dropped here, where the install can still report it, instead
     of failing every hour afterwards inside a timer nobody is watching.
     """
-    declared = _django(context).get("workers") or []
+    declared = _runtime(context).get("workers") or []
     kept: list[dict[str, Any]] = []
 
     for worker in declared:

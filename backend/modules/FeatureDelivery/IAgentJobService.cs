@@ -33,24 +33,31 @@ public sealed record AgentJobAssignment(
     /// How the store wires the package into its runtime. Null only when the job
     /// carries no target version, which is every job that installs nothing.
     /// </summary>
-    AgentDjangoIntegration? Django,
+    AgentRuntimeIntegration? Runtime,
     DateTimeOffset ClaimExpiresAt);
 
 /// <summary>
-/// The names a store needs to load a delivered package: which module to put in
-/// INSTALLED_APPS, what label its migrations are recorded under, and where to
-/// mount its URLs.
+/// The names a store needs to load a delivered package: what its migrations are
+/// recorded under, what to load to get the code, and where to mount whatever it
+/// serves.
 ///
 /// Sent rather than inferred. A store that guesses the module name from the slug
 /// is right only while the two happen to match, and after
 /// <c>adr/0029</c> shortened every slug they no longer do — so the guess
 /// silently registered an app that could not be imported.
+///
+/// Runtime-neutral since <c>adr/0032</c>: a Django store reads a namespace as an
+/// app label and a module as an entry for INSTALLED_APPS, and a node store reads
+/// the same two words as the ledger key and the specifier it imports. Only
+/// <see cref="Runtime"/> tells them apart, and the store already knows which one
+/// it is.
 /// </summary>
-public sealed record AgentDjangoIntegration(
-    string AppLabel,
-    string InstalledApp,
-    string? UrlInclude,
-    string? UrlPrefix,
+public sealed record AgentRuntimeIntegration(
+    string Runtime,
+    string Namespace,
+    string Module,
+    string? MountExport,
+    string? MountPrefix,
     IReadOnlyList<AgentWorker> Workers);
 
 /// <summary>

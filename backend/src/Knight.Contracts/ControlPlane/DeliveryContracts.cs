@@ -315,6 +315,26 @@ public sealed record AgentDjangoResponse(
     IReadOnlyList<AgentWorkerResponse> Workers);
 
 /// <summary>
+/// The same three facts, in the words every runtime shares: what this Feature's
+/// migrations are recorded under, what the store loads to get the code, and
+/// where whatever it serves is mounted (<c>adr/0032</c> §3).
+///
+/// A Django store reads <see cref="Namespace"/> as an app label and
+/// <see cref="Module"/> as an entry for INSTALLED_APPS; a node store reads the
+/// same two words as its ledger key and the specifier it imports. The store
+/// already knows which it is, so <see cref="Runtime"/> is there to be checked
+/// rather than to be branched on: a store handed a package for a runtime it does
+/// not run should refuse the job, not improvise.
+/// </summary>
+public sealed record AgentRuntimeResponse(
+    string Runtime,
+    string Namespace,
+    string Module,
+    string? MountExport,
+    string? MountPrefix,
+    IReadOnlyList<AgentWorkerResponse> Workers);
+
+/// <summary>
 /// A scheduled job the store must run once the Feature is installed.
 ///
 /// Sent with the install rather than configured per store, so that installing a
@@ -341,7 +361,22 @@ public sealed record AgentJobResponse(
     AgentArtifactResponse? Artifact,
     AgentConfigurationResponse? Configuration,
     AgentMigrationResponse? Migrations,
+    /// <summary>
+    /// Django-shaped wiring, sent only when the runtime is django.
+    ///
+    /// **Deprecated since <c>adr/0032</c>** in favour of <see cref="Runtime"/>,
+    /// and still sent because a store is upgraded on its own schedule and a
+    /// staged rollout deliberately leaves some behind. Dropping it would break
+    /// the stores that had not caught up at the exact moment they were being
+    /// asked to install something. It comes out when no supported store reads it.
+    /// </summary>
     AgentDjangoResponse? Django,
+
+    /// <summary>
+    /// How the store wires the package in, whatever it runs. Null only when the
+    /// job carries no target version, which is every job that installs nothing.
+    /// </summary>
+    AgentRuntimeResponse? Runtime,
     DateTimeOffset ClaimExpiresAt);
 
 // --- Staged rollouts -------------------------------------------------------

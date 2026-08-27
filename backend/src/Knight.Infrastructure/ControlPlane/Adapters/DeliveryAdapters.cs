@@ -205,10 +205,14 @@ internal sealed class FeatureVersionReader : IFeatureVersionReader
         // only so a version stored before this was carried does not fail to
         // describe itself at all - the default is a guess, and it is wrong for
         // every Feature whose distribution name is longer than its slug.
-        var appLabel = slug.Replace("-", "_");
-        var installedApp = appLabel;
-        string? urlInclude = null;
-        string? urlPrefix = null;
+        //
+        // The default runtime is django for the same reason the manifest reader
+        // defaults it: every version stored before adr/0032 is a Django Feature.
+        var runtimeName = "django";
+        var ns = slug.Replace("-", "_");
+        var module = ns;
+        string? mountExport = null;
+        string? mountPrefix = null;
         IReadOnlyList<AgentWorker> workers = [];
 
         if (FeatureManifest.TryParse(version.ManifestJson, out var manifest, out _))
@@ -216,10 +220,11 @@ internal sealed class FeatureVersionReader : IFeatureVersionReader
             migrations = manifest.Migrations;
             retentionDays = manifest.Uninstall.DataRetentionDays;
 
-            appLabel = manifest.Django.AppLabel;
-            installedApp = manifest.Django.InstalledApp;
-            urlInclude = manifest.Django.UrlInclude;
-            urlPrefix = manifest.Django.UrlPrefix;
+            runtimeName = manifest.Runtime.Name;
+            ns = manifest.Runtime.Namespace;
+            module = manifest.Runtime.Module;
+            mountExport = manifest.Runtime.MountExport;
+            mountPrefix = manifest.Runtime.MountPrefix;
 
             workers = [.. manifest.Workers.Select(worker => new AgentWorker(
                 worker.Name,
@@ -240,10 +245,11 @@ internal sealed class FeatureVersionReader : IFeatureVersionReader
             migrations.Reversible,
             migrations.RequiresMaintenanceWindow,
             retentionDays,
-            appLabel,
-            installedApp,
-            urlInclude,
-            urlPrefix,
+            runtimeName,
+            ns,
+            module,
+            mountExport,
+            mountPrefix,
             workers,
             migrations.Extensions);
     }

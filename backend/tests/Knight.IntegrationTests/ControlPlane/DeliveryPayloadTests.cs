@@ -119,9 +119,9 @@ public sealed class DeliveryPayloadTests
         // The whole point: the slug is `reviews-ratings` and the module is not
         // `reviews_ratings`. A store deriving one from the other registers an
         // app it cannot import.
-        Assert.Equal("knight_feature_reviews_ratings", deliverable!.InstalledApp);
-        Assert.Equal("knight_reviews", deliverable.AppLabel);
-        Assert.NotEqual(deliverable.Slug.Replace("-", "_"), deliverable.InstalledApp);
+        Assert.Equal("knight_feature_reviews_ratings", deliverable!.Module);
+        Assert.Equal("knight_reviews", deliverable.Namespace);
+        Assert.NotEqual(deliverable.Slug.Replace("-", "_"), deliverable.Module);
     }
 
     [Fact]
@@ -132,8 +132,8 @@ public sealed class DeliveryPayloadTests
         var deliverable = await DescribeAsync("reviews-ratings", ManifestWithRoutes);
 
         Assert.NotNull(deliverable);
-        Assert.Equal("knight_feature_reviews_ratings.urls", deliverable!.UrlInclude);
-        Assert.Equal("reviews/", deliverable.UrlPrefix);
+        Assert.Equal("knight_feature_reviews_ratings.urls", deliverable!.MountExport);
+        Assert.Equal("reviews/", deliverable.MountPrefix);
     }
 
     [Fact]
@@ -147,9 +147,9 @@ public sealed class DeliveryPayloadTests
 
         // Null rather than a default prefix. The store mounts nothing for a
         // Feature with no urlconf, and inventing one would mount an import error.
-        Assert.Null(deliverable!.UrlInclude);
-        Assert.Null(deliverable.UrlPrefix);
-        Assert.Equal("knight_feature_analytics_core", deliverable.InstalledApp);
+        Assert.Null(deliverable!.MountExport);
+        Assert.Null(deliverable.MountPrefix);
+        Assert.Equal("knight_feature_analytics_core", deliverable.Module);
     }
 
     [Fact]
@@ -166,7 +166,7 @@ public sealed class DeliveryPayloadTests
         Assert.True(deliverable!.MigrationsRequired);
         Assert.True(deliverable.MigrationsReversible);
         Assert.Equal(365, deliverable.DataRetentionDays);
-        Assert.Equal("knight_reviews", deliverable.AppLabel);
+        Assert.Equal("knight_reviews", deliverable.Namespace);
     }
 
     private const string ManifestWithExtensions = """

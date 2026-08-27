@@ -26,7 +26,16 @@ public sealed record FeatureManifest(
     SemanticVersion Version,
     string Name,
     string? Description,
-    DjangoIntegration Django,
+
+    /// <summary>
+    /// How the Feature attaches itself to whatever the store runs.
+    ///
+    /// Named for the three things every runtime needs to be told rather than for
+    /// Django's spelling of them, so that the parsed form, the wire contract and
+    /// the store's installer all say the same words
+    /// (<c>adr/0032</c>).
+    /// </summary>
+    RuntimeIntegration Runtime,
     CompatibilityConstraints Compatibility,
     ManifestDependencies Dependencies,
     MigrationPolicy Migrations,
@@ -100,12 +109,50 @@ public sealed record ManifestError(string Path, string Message)
     public override string ToString() => $"{Path}: {Message}";
 }
 
-/// <summary>How the Feature attaches itself to the store's Django project.</summary>
-public sealed record DjangoIntegration(
-    string AppLabel,
-    string InstalledApp,
-    string? UrlInclude,
-    string? UrlPrefix);
+/// <summary>
+/// The runtimes a Feature may be published for.
+///
+/// A closed list, exactly like <c>schedule</c> and <c>strategy</c> and for the
+/// same reason: a free string is a parser, a support surface and eventually a
+/// runtime nobody has ever tested. A name is added here only when a store of
+/// that runtime has actually taken delivery of a Feature
+/// (<c>adr/0032</c> §4).
+/// </summary>
+public enum FeatureRuntime
+{
+    Django,
+    Node,
+}
+
+/// <summary>
+/// How the Feature attaches itself to the store, in the three names that are the
+/// same whatever the runtime is (<c>adr/0032</c> §3).
+///
+/// Django's four fields are these three wearing Python clothes: an
+/// <c>app_label</c> is a namespace, an <c>installed_app</c> is a module, and
+/// <c>urls.include</c> with <c>urls.prefix</c> is a mount. Only the reader knows
+/// the spelling, and only the reader knows what makes a given spelling valid -
+/// which is genuinely per-runtime, because an <c>app_label</c> ends up in a
+/// Django migration table and a node module ends up in an <c>import</c>.
+/// </summary>
+public sealed record RuntimeIntegration(
+    FeatureRuntime Runtime,
+
+    /// <summary>What this Feature's migrations and state are recorded under.</summary>
+    string Namespace,
+
+    /// <summary>What the store loads to get the code.</summary>
+    string Module,
+
+    /// <summary>The exported symbol serving routes, when the Feature serves any.</summary>
+    string? MountExport,
+
+    /// <summary>The path those routes mount at.</summary>
+    string? MountPrefix)
+{
+    /// <summary>The runtime as it is spelled in a manifest and on the wire.</summary>
+    public string Name => Runtime.ToString().ToLowerInvariant();
+}
 
 /// <summary>What the Feature requires of the environment it is installed into.</summary>
 public sealed record CompatibilityConstraints(

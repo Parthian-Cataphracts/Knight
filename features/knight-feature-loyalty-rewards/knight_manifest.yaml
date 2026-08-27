@@ -21,6 +21,12 @@ description: >-
   A customer is an opaque subject string, the same one the store passes when it
   records an order. This package cannot see the shopper table.
 
+# The runtime this Feature is built for, and the block below is named for it
+# (docs/adr/0032-a-feature-declares-its-runtime.md). Omitting it still means
+# django - every manifest written before phase 17 is a Django Feature - but a
+# contract that is stated is worth more than one that is inferred.
+runtime: django
+
 django:
   app_label: knight_loyalty
   installed_app: knight_feature_loyalty_rewards

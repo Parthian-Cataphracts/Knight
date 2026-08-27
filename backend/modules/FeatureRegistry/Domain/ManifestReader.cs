@@ -51,14 +51,20 @@ internal sealed class ManifestReader
         var name = RequireString(root, "name");
         var description = OptionalString(root, "description");
 
-        var django = ReadDjango(root);
+        // First, because three of the readers below validate a string differently
+        // depending on it: what counts as a callable is a Python dotted path in a
+        // Django Feature and a module-and-export in a node one, and validating
+        // the wrong one at publish is how an author is told their correct
+        // manifest is wrong (adr/0032).
+        var runtime = ReadRuntimeName(root);
+        var integration = ReadRuntimeIntegration(root, runtime);
         var compatibility = ReadCompatibility(root);
         var dependencies = ReadDependencies(root);
         var migrations = ReadMigrations(root, compatibility);
         var configuration = ReadConfiguration(root);
-        var install = ReadInstall(root);
+        var install = ReadInstall(root, runtime);
         var uninstall = ReadUninstall(root);
-        var workers = ReadWorkers(root);
+        var workers = ReadWorkers(root, runtime);
 
         if (_errors.Count > 0)
         {
@@ -71,7 +77,7 @@ internal sealed class ManifestReader
             version!,
             name!,
             description,
-            django!,
+            integration!,
             compatibility,
             dependencies,
             migrations,
@@ -81,7 +87,64 @@ internal sealed class ManifestReader
             workers);
     }
 
-    private DjangoIntegration? ReadDjango(JsonElement root)
+    /// <summary>
+    /// Which runtime this Feature is built for.
+    ///
+    /// Absent means Django. Thirteen manifests were written before this field
+    /// existed and every one of them is a Django Feature; refusing them would be
+    /// breaking a published contract in order to add a field whose value they all
+    /// imply (adr/0032 §1).
+    /// </summary>
+    private FeatureRuntime ReadRuntimeName(JsonElement root)
+    {
+        var declared = OptionalString(root, "runtime");
+
+        if (declared is null)
+        {
+            return FeatureRuntime.Django;
+        }
+
+        if (!Enum.TryParse<FeatureRuntime>(declared, ignoreCase: true, out var runtime))
+        {
+            Fail(
+                "$.runtime",
+                $"'{declared}' is not a runtime KNIGHT can deliver to. Use one of: {string.Join(", ", Enum.GetNames<FeatureRuntime>()).ToLowerInvariant()}.");
+
+            return FeatureRuntime.Django;
+        }
+
+        return runtime;
+    }
+
+    /// <summary>
+    /// The block named by the runtime, read into the three names that are the
+    /// same whatever the runtime is: namespace, module and mount (adr/0032 §3).
+    /// </summary>
+    private RuntimeIntegration? ReadRuntimeIntegration(JsonElement root, FeatureRuntime runtime)
+    {
+        var name = runtime.ToString().ToLowerInvariant();
+
+        // Wiring for a runtime this Feature is not built for is an author who has
+        // copied a manifest, and it is cheaper to say so at publish than to
+        // deliver a package the store cannot load.
+        foreach (var other in Enum.GetNames<FeatureRuntime>())
+        {
+            var key = other.ToLowerInvariant();
+
+            if (key != name && root.TryGetProperty(key, out _))
+            {
+                Fail($"$.{key}", $"This Feature declares runtime '{name}', so it must not also carry a '{key}' block.");
+            }
+        }
+
+        return runtime switch
+        {
+            FeatureRuntime.Node => ReadNode(root),
+            _ => ReadDjango(root),
+        };
+    }
+
+    private RuntimeIntegration? ReadDjango(JsonElement root)
     {
         if (!TryGetObject(root, "django", out var django))
         {
@@ -119,7 +182,52 @@ internal sealed class ManifestReader
             }
         }
 
-        return _errors.Count > 0 ? null : new DjangoIntegration(appLabel!, installedApp!, include, prefix);
+        return _errors.Count > 0
+            ? null
+            : new RuntimeIntegration(FeatureRuntime.Django, appLabel!, installedApp!, include, prefix);
+    }
+
+    private RuntimeIntegration? ReadNode(JsonElement root)
+    {
+        if (!TryGetObject(root, "node", out var node))
+        {
+            Fail("$.node", "A Feature must say how it attaches to the store's node application.");
+            return null;
+        }
+
+        var ns = RequireString(node, "namespace", "$.node.namespace");
+        var module = RequireString(node, "module", "$.node.module");
+
+        // The namespace ends up in the store's migration ledger under this exact
+        // string, so it is held to the same shape as a Django app label: a name a
+        // store can key a table on and a person can read in a log line.
+        if (ns is not null && !IsPythonIdentifier(ns))
+        {
+            Fail("$.node.namespace", $"'{ns}' is not a valid namespace. Use letters, digits and underscores.");
+        }
+
+        if (module is not null && !IsNodeSpecifier(module))
+        {
+            Fail("$.node.module", $"'{module}' is not a valid node module specifier.");
+        }
+
+        string? export = null;
+        string? prefix = null;
+
+        if (TryGetObject(node, "mount", out var mount))
+        {
+            export = RequireString(mount, "export", "$.node.mount.export");
+            prefix = OptionalString(mount, "prefix");
+
+            if (export is not null && !IsJavaScriptIdentifier(export))
+            {
+                Fail("$.node.mount.export", $"'{export}' is not a valid exported name.");
+            }
+        }
+
+        return _errors.Count > 0
+            ? null
+            : new RuntimeIntegration(FeatureRuntime.Node, ns!, module!, export, prefix);
     }
 
     /// <summary>
@@ -136,7 +244,7 @@ internal sealed class ManifestReader
     /// hour for as long as the Feature is installed, so it is refused at publish
     /// where the author is present to fix it.
     /// </summary>
-    private IReadOnlyList<WorkerDeclaration> ReadWorkers(JsonElement root)
+    private IReadOnlyList<WorkerDeclaration> ReadWorkers(JsonElement root, FeatureRuntime runtime)
     {
         if (!root.TryGetProperty("workers", out var workers) || workers.ValueKind != JsonValueKind.Array)
         {
@@ -169,9 +277,9 @@ internal sealed class ManifestReader
                 Fail($"{path}.name", $"'{name}' is declared more than once.");
             }
 
-            if (entrypoint is not null && !IsDottedPythonPath(entrypoint))
+            if (entrypoint is not null && !IsCallable(entrypoint, runtime))
             {
-                Fail($"{path}.entrypoint", $"'{entrypoint}' is not a valid Python callable path.");
+                Fail($"{path}.entrypoint", CallableFailure(entrypoint, runtime));
             }
 
             if (!Enum.TryParse<WorkerSchedule>(schedule, ignoreCase: true, out var parsed))
@@ -448,7 +556,7 @@ internal sealed class ManifestReader
         return new ConfigurationContract(schemaPath, defaults, secrets);
     }
 
-    private InstallPolicy? ReadInstall(JsonElement root)
+    private InstallPolicy? ReadInstall(JsonElement root, FeatureRuntime runtime)
     {
         if (!TryGetObject(root, "install", out var install))
         {
@@ -476,9 +584,9 @@ internal sealed class ManifestReader
         var requiresRestart = OptionalBool(install, "requiresRestart", "$.install.requiresRestart") ?? false;
         var healthCheck = OptionalString(install, "healthCheck");
 
-        if (healthCheck is not null && !IsDottedPythonPath(healthCheck))
+        if (healthCheck is not null && !IsCallable(healthCheck, runtime))
         {
-            Fail("$.install.healthCheck", $"'{healthCheck}' is not a valid Python callable path.");
+            Fail("$.install.healthCheck", CallableFailure(healthCheck, runtime));
         }
 
         return strategy is null ? null : new InstallPolicy(strategy.Value, requiresRestart, healthCheck);
@@ -696,6 +804,138 @@ internal sealed class ManifestReader
         foreach (var character in value)
         {
             if (!char.IsAsciiLetterOrDigit(character) && character != '_')
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Whether a string names something the store can call, in the spelling this
+    /// runtime uses.
+    ///
+    /// A Django Feature writes a dotted import path; a node one writes a module
+    /// and an exported name separated by a hash, which is the shape a store can
+    /// pass straight to a dynamic import. Validating the wrong spelling would
+    /// tell an author with a correct manifest that it is wrong, which is the
+    /// worst kind of validation error (adr/0032 §3).
+    /// </summary>
+    private static bool IsCallable(string value, FeatureRuntime runtime)
+    {
+        if (runtime is not FeatureRuntime.Node)
+        {
+            return IsDottedPythonPath(value);
+        }
+
+        var hash = value.IndexOf('#');
+
+        if (hash <= 0 || hash == value.Length - 1)
+        {
+            return false;
+        }
+
+        return IsNodeSpecifier(value[..hash]) && IsJavaScriptIdentifier(value[(hash + 1)..]);
+    }
+
+    private static string CallableFailure(string value, FeatureRuntime runtime) => runtime is FeatureRuntime.Node
+        ? $"'{value}' is not a valid node callable. Write it as 'module#exportedName'."
+        : $"'{value}' is not a valid Python callable path.";
+
+    /// <summary>
+    /// A node module specifier: a package name, optionally scoped, optionally
+    /// with a subpath.
+    ///
+    /// Validated because it ends up in an <c>import</c> on a store's server. The
+    /// rules are npm's own, narrowed: lower case, no leading dot or underscore,
+    /// and no path traversal - a specifier that climbed out of the package
+    /// directory would be a delivered artifact reaching into the store.
+    /// </summary>
+    private static bool IsNodeSpecifier(string value)
+    {
+        if (value.Length is 0 or > 214 || value != value.ToLowerInvariant())
+        {
+            return false;
+        }
+
+        if (value.Contains("..", StringComparison.Ordinal) || value.StartsWith('.') || value.StartsWith('_'))
+        {
+            return false;
+        }
+
+        var name = value;
+
+        if (name.StartsWith('@'))
+        {
+            var slash = name.IndexOf('/');
+
+            if (slash <= 1 || slash == name.Length - 1)
+            {
+                return false;
+            }
+
+            // The scope, then everything after it, are each held to the same
+            // rules as an unscoped name.
+            return IsNodeNameSegment(name[1..slash]) && IsNodeSubpath(name[(slash + 1)..]);
+        }
+
+        return IsNodeSubpath(name);
+    }
+
+    private static bool IsNodeSubpath(string value)
+    {
+        if (value.Length == 0)
+        {
+            return false;
+        }
+
+        foreach (var segment in value.Split('/'))
+        {
+            if (!IsNodeNameSegment(segment))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsNodeNameSegment(string value)
+    {
+        if (value.Length == 0 || !char.IsAsciiLetterOrDigit(value[0]))
+        {
+            return false;
+        }
+
+        foreach (var character in value)
+        {
+            if (!char.IsAsciiLetterOrDigit(character) && character is not ('-' or '_' or '.'))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// An exported name a store can address: a plain JavaScript identifier.
+    ///
+    /// Narrower than the language allows - no unicode, no <c>default</c> - because
+    /// this is a name written in a manifest by a person and read out of a module
+    /// by a store, and the exotic cases buy nothing but ways to be wrong.
+    /// </summary>
+    private static bool IsJavaScriptIdentifier(string value)
+    {
+        if (value.Length == 0 || (!char.IsAsciiLetter(value[0]) && value[0] is not ('_' or '$')))
+        {
+            return false;
+        }
+
+        foreach (var character in value)
+        {
+            if (!char.IsAsciiLetterOrDigit(character) && character is not ('_' or '$'))
             {
                 return false;
             }

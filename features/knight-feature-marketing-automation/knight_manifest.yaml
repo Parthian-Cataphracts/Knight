@@ -20,6 +20,12 @@ description: >-
   mode. A marketing package that began mailing the moment it was installed would
   be the worst default in this catalogue.
 
+# The runtime this Feature is built for, and the block below is named for it
+# (docs/adr/0032-a-feature-declares-its-runtime.md). Omitting it still means
+# django - every manifest written before phase 17 is a Django Feature - but a
+# contract that is stated is worth more than one that is inferred.
+runtime: django
+
 django:
   app_label: knight_marketing
   installed_app: knight_feature_marketing_automation
