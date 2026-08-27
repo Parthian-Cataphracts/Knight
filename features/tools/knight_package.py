@@ -101,7 +101,7 @@ def _read_simple_yaml(text: str) -> dict:
         if raw.lstrip().startswith("#"):
             continue
 
-        stripped = raw.split("#", 1)[0].rstrip() if not _in_quotes(raw) else raw.rstrip()
+        stripped = _strip_comment(raw)
         if not stripped.strip():
             continue
 
@@ -195,8 +195,46 @@ def _next_meaningful(lines: list[str], start: int) -> str:
     return ""
 
 
-def _in_quotes(line: str) -> bool:
-    return line.count('"') % 2 == 1
+def _strip_comment(line: str) -> str:
+    """
+    Removes a trailing comment, leaving a `#` that is inside a quoted value.
+
+    The previous version counted double quotes on the line and split on the
+    first `#` when the count was even. That is wrong for the single most common
+    place a `#` appears in these manifests:
+
+        healthCheck: "@knight/feature-node-conformance#health"
+
+    Two quotes, an even count, so the line was split at the `#` and the value
+    became `"@knight/feature-node-conformance` — a leading quote, no closing
+    one, and the exported name gone. KNIGHT refused it at publish, correctly and
+    unhelpfully, because the error is about a callable nobody wrote.
+
+    Every node callable is written `module#export` and every .NET one is
+    `Type#Method`, so **no Feature for either runtime could be published** from a
+    machine without PyYAML — which is every clean checkout, since nothing here
+    depends on it. Found by the delivery drill in CI, which is the only place
+    this reader ever runs.
+
+    Tracked rather than counted, and single quotes count too.
+    """
+    quote: str | None = None
+
+    for index, character in enumerate(line):
+        if quote is not None:
+            if character == quote:
+                quote = None
+
+            continue
+
+        if character in "\"'":
+            quote = character
+            continue
+
+        if character == "#":
+            return line[:index].rstrip()
+
+    return line.rstrip()
 
 
 def _split_outside_quotes(text: str) -> list[str]:

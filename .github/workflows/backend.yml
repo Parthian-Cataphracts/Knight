@@ -156,8 +156,20 @@ jobs:
       # twice - both times only on a runner, because PyYAML is installed on
       # every developer's machine and never on this one. The failure it produces
       # is a job that stops at the first manifest with a prose comment in it.
+      # PyYAML is installed *for this check only*, and that is the whole point.
+      # The selftest always parses with the fallback reader; PyYAML is the
+      # reference it gets compared against. Without it the check degrades to
+      # "did it raise", and a reader that silently misreads a value does not
+      # raise — which is how the same reader was wrong a third time, truncating
+      # every `module#export` callable at the `#`.
+      #
+      # Nothing else here depends on PyYAML and nothing should: the fallback is
+      # the code that runs in a clean checkout, which is why it is the code
+      # under test rather than the code being replaced.
       - name: Check this tool can read every manifest
-        run: python features/tools/knight_package.py selftest
+        run: |
+          pip install pyyaml
+          python features/tools/knight_package.py selftest
 
       - name: Build and validate every Feature package
         run: |
