@@ -255,11 +255,14 @@ def pause(reference: str, *, actor: str = "", reason: str = "", now=None) -> Sum
 @transaction.atomic
 def resume(reference: str, *, actor: str = "", now=None) -> Summary:
     """
-    Starts billing again, from now.
+    Starts billing again, from now — or from the end of what they have already
+    paid for, whichever is later.
 
-    From **now**, and never from where the clock stopped. Resuming into the past
-    would open every period the pause skipped and charge for all of them, which
-    is the behaviour a shopper reads as being robbed for going on holiday.
+    Never from where the clock stopped. Resuming into the past would open every
+    period the pause skipped and charge for all of them, which is the behaviour a
+    shopper reads as being robbed for going on holiday. And never *before* the
+    period they are already inside has run out, which would charge them twice for
+    one month — see `_resume_at`.
     """
     now = now or timezone.now()
     subscription = _locked(reference)
@@ -267,10 +270,38 @@ def resume(reference: str, *, actor: str = "", now=None) -> Summary:
     _transition(subscription, SubscriptionState.ACTIVE, actor=actor, reason="resumed", now=now)
 
     subscription.paused_at = None
-    subscription.next_run_at = now
+    subscription.next_run_at = _resume_at(subscription, now)
     subscription.save(update_fields=["paused_at", "next_run_at", "updated_at"])
 
     return summarise(subscription)
+
+
+def _resume_at(subscription: Subscription, now):
+    """
+    When a resumed subscription becomes due again.
+
+    Now, **or the day after the period already paid for ends** — whichever is
+    later. A shopper who pauses five minutes after being billed has paid for the
+    month they are in, and making them due immediately on resume would charge
+    them again for time they already own.
+
+    That is the mirror of the rule `resume` is famous for. Resuming into the past
+    charges for a pause nobody used; resuming into an already-paid period charges
+    twice for one month. The first is the bug everybody writes about and the
+    second is the one that is easy to write while fixing it.
+    """
+    paid = (
+        subscription.periods.filter(state=PeriodState.PAID).order_by("-ends_on").first()
+    )
+
+    if paid is None:
+        return now
+
+    next_start = timezone.make_aware(
+        datetime.combine(paid.ends_on + timedelta(days=1), datetime.min.time())
+    )
+
+    return max(now, next_start)
 
 
 @transaction.atomic

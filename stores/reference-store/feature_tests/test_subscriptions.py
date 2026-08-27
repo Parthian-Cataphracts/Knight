@@ -154,6 +154,33 @@ class PauseAndResumeTests(TestCase):
         self.assertEqual(1, counts["billed"])
         self.assertEqual(_d(20), services.summarise("sub-1").paid_to_date)
 
+    def test_resuming_inside_a_paid_period_does_not_charge_for_it_twice(self):
+        # Found in a browser during the phase-17 verification pass. Pausing five
+        # minutes after being billed and resuming immediately made the
+        # subscription due at once, so the next period was charged a month early
+        # - the shopper paying twice for one month they already owned.
+        services.pause("sub-1")
+        services.resume("sub-1")
+
+        summary = services.summarise("sub-1")
+        period = services.periods("sub-1")[0]
+
+        # Due the day after what they have already paid for, not now.
+        self.assertEqual(timezone.localdate(summary.next_run_at), period.ends_on + timedelta(days=1))
+        self.assertEqual(0, services.bill_due()["billed"])
+        self.assertEqual(_d(10), summary.paid_to_date)
+
+    def test_resuming_a_subscription_that_never_billed_is_due_at_once(self):
+        # The other side of the same rule: there is nothing already paid for, so
+        # nothing to wait for.
+        services.create("sub-2", amount="10.00", provider=providers.MANUAL)
+        services.activate("sub-2")
+        services.pause("sub-2")
+
+        services.resume("sub-2")
+
+        self.assertEqual(1, services.bill_due()["billed"])
+
     def test_a_cancelled_subscription_keeps_what_it_was_paid(self):
         # A cancellation is the end of the future, not a rewriting of the past.
         services.cancel("sub-1", reason="changed their mind")
