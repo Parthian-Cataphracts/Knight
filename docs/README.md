@@ -86,6 +86,7 @@ Read in this order:
 24. [`phase-16-verification.md`](phase-16-verification.md) — the operational Features, and the migration risk `multi-location` was held back for turning out never to have existed
 25. [`phase-17-verification.md`](phase-17-verification.md) — the last two Features, and a store that is not Django taking delivery of one
 26. [`phase-18-verification.md`](phase-18-verification.md) — the catalogue installed through the delivery path for the first time, and the eight defects that had made it impossible
+27. [`phase-19-verification.md`](phase-19-verification.md) — that journey turned into one command CI runs on every push, and the ninth defect it found: a rollback that reversed the code and not the schema
 
 Project status and remaining work: [`../TODO.md`](../TODO.md).
 

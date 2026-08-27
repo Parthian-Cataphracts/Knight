@@ -11,9 +11,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 19 — the delivery drill runs itself. Phase 18 walked the whole delivery journey by hand and found eight defects; this phase makes that walk a command CI runs on every push.** Phase 18 is complete: thirteen Features installed into a real store by real jobs, one upgraded, one rolled back with its data intact, one disabled by withdrawing an entitlement — and eight defects fixed, six of which had made delivery impossible for six phases ([`phase-18-verification.md`](docs/phase-18-verification.md))** Phase 17 completed the catalogue: `subscriptions` and `external-marketplaces` are published, and R26 was answered *yes* and built, so a Feature may now be delivered to a store that is not Django ([`adr/0032`](docs/adr/0032-a-feature-declares-its-runtime.md), [`phase-17-verification.md`](docs/phase-17-verification.md))** |
-| **Next phase** | Nothing scheduled after 18. What remains is the standing work below and the items phases 16 and 17 carried forward, none of which is a phase: the external security review nobody inside the project can close, wiring real vendors to the four Features that honestly refuse without one, and teaching KNIGHT a store's runtime so a mismatched job is refused before it is queued |
-| **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **818 backend tests green** (645 unit, 13 architecture, 160 PostgreSQL-backed integration), plus **775 store tests with nothing skipped**, the same 775 passing with no Feature installed at all, 14 node-store tests, and 9 dashboard |
+| **Current phase** | **Nothing scheduled. Phase 19 is complete: the whole delivery journey — publish, onboard, connect, install, upgrade, roll back, withdraw — now runs as one command in CI on every push, and it found a ninth delivery defect on its first complete run** ([`phase-19-verification.md`](docs/phase-19-verification.md), [`tools/delivery-drill`](tools/delivery-drill/README.md)). Phase 18 installed thirteen Features into a real store by real jobs and fixed eight defects, six of which had made delivery impossible for six phases ([`phase-18-verification.md`](docs/phase-18-verification.md)) |
+| **Next phase** | Nothing scheduled after 19. What remains is the standing work below and the items earlier phases carried forward, none of which is a phase: the external security review nobody inside the project can close, wiring real vendors to the four Features that honestly refuse without one, driving a **node** store through the job path the way the drill drives the Django one, and a drill for the paths where delivery is supposed to **refuse** — a bad signature, an incompatible runtime — which currently rest on unit tests alone |
+| **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **819 backend tests green** (646 unit, 13 architecture, 160 PostgreSQL-backed integration), plus **775 store tests with nothing skipped**, the same 775 passing with no Feature installed at all, 14 node-store tests, and 9 dashboard — and, since phase 19, **the delivery drill itself**, which is the only thing here that runs the path a customer travels |
 | **Blocking decisions** | **Are Features publishable for a store that is not Django?** Everything except the manifest is already stack-agnostic; `ManifestReader` is the one thing that is not (R26, decision 14 in [`docs/risks.md`](docs/risks.md)). Until it is answered, a non-Django store is entitled and observed but not delivered to. Separately, the **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -43,7 +43,7 @@ Phase 15   Automation                     ██████████ 100%
 Phase 16   Operational expansion          ██████████ 100%
 Phase 17   Recurring revenue & integrations ██████████ 100%
 Phase 18   The catalogue through delivery  ██████████ 100%
-Phase 19   The delivery drill runs itself  ░░░░░░░░░░   0%
+Phase 19   The delivery drill runs itself  ██████████ 100%
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -1537,17 +1537,21 @@ and said nothing about whether a real down-migration works. The drill built here
 carries its own Feature with two genuinely different schemas, so the rollback has
 something to reverse and the data has something to survive.
 
-- [ ] **A drill that runs the whole journey** against a real API and a real
+- [x] **A drill that runs the whole journey** against a real API and a real
       store, asserting at every step and exiting non-zero on the first thing that
       is not true
-- [ ] **Its own two-version Feature**, whose 1.1.0 adds a column its 1.0.0 does
+- [x] **Its own two-version Feature**, whose 1.1.0 adds a column its 1.0.0 does
       not have, so upgrade and rollback are real schema changes rather than
       version-number changes. Created through the API at drill time rather than
       seeded, so the sellable catalogue stays free of test fixtures
-- [ ] **Real catalogue Features installed too**, so the drill proves the actual
+- [x] **Real catalogue Features installed too**, so the drill proves the actual
       packages still install and not only that the machinery moves
-- [ ] **In CI**, with its own job: Postgres, the API, the store, and the drill
-- [ ] Fix everything it finds
+- [x] **In CI**, with its own job: Postgres, the API, the store, and the drill
+- [x] Fix everything it finds — it found a ninth defect on its first complete
+      run: a rollback restored the previous package **before** reversing its
+      migrations, and Django can only unapply a migration whose file it can still
+      see, so the code rolled back and the database did not
+      ([`phase-19-verification.md`](docs/phase-19-verification.md))
 
 ---
 
