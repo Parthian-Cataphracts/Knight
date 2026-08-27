@@ -61,10 +61,17 @@ public sealed record StoreCompatibilityContext(
     string? Runtime = null,
 
     /// <summary>
-    /// The node version a node store reports. The counterpart of
-    /// <see cref="PythonVersion"/>, and null for a store that is not node.
+    /// The version of the runtime the store named — node's node version, .NET's
+    /// framework version. One field rather than one per runtime: a store runs
+    /// exactly one runtime and reports exactly one version of it, and a field
+    /// per runtime would be a column of nulls that grows every time a runtime is
+    /// added.
+    ///
+    /// Django is the exception and keeps <see cref="PythonVersion"/> and
+    /// <see cref="DjangoVersion"/>, because it genuinely has two versions a
+    /// Feature can care about independently.
     /// </summary>
-    string? NodeVersion = null)
+    string? RuntimeVersion = null)
 {
     public static StoreCompatibilityContext Empty { get; } =
         new(null, null, null, false, new Dictionary<string, SemanticVersion>(StringComparer.Ordinal));

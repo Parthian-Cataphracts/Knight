@@ -140,6 +140,7 @@ internal sealed class ManifestReader
         return runtime switch
         {
             FeatureRuntime.Node => ReadNode(root),
+            FeatureRuntime.Dotnet => ReadDotnet(root),
             _ => ReadDjango(root),
         };
     }
@@ -229,6 +230,76 @@ internal sealed class ManifestReader
             ? null
             : new RuntimeIntegration(FeatureRuntime.Node, ns!, module!, export, prefix);
     }
+
+    /// <summary>
+    /// An ASP.NET Core Feature: the same three names, wearing .NET clothes.
+    ///
+    /// A <c>namespace</c> is what the schema is recorded under, exactly as it is
+    /// for the other two. A <c>assembly</c> is what the store loads — the file
+    /// name of the delivered assembly, without its extension, because the store
+    /// loads it from the directory it was delivered into rather than resolving
+    /// it from NuGet. A <c>mount</c> is the type that registers the Feature's
+    /// endpoints and the prefix they serve at.
+    /// </summary>
+    private RuntimeIntegration? ReadDotnet(JsonElement root)
+    {
+        if (!TryGetObject(root, "dotnet", out var dotnet))
+        {
+            Fail("$.dotnet", "A Feature must say how it attaches to the store's ASP.NET Core application.");
+            return null;
+        }
+
+        var ns = RequireString(dotnet, "namespace", "$.dotnet.namespace");
+        var assembly = RequireString(dotnet, "assembly", "$.dotnet.assembly");
+
+        // Held to the same shape as the other two namespaces: it ends up in the
+        // store's migration ledger under this exact string.
+        if (ns is not null && !IsPythonIdentifier(ns))
+        {
+            Fail("$.dotnet.namespace", $"'{ns}' is not a valid namespace. Use letters, digits and underscores.");
+        }
+
+        if (assembly is not null && !IsDotnetAssemblyName(assembly))
+        {
+            Fail("$.dotnet.assembly", $"'{assembly}' is not a valid assembly name.");
+        }
+
+        string? entryPoint = null;
+        string? prefix = null;
+
+        if (TryGetObject(dotnet, "mount", out var mount))
+        {
+            entryPoint = RequireString(mount, "type", "$.dotnet.mount.type");
+            prefix = OptionalString(mount, "prefix");
+
+            if (entryPoint is not null && !IsDotnetTypeName(entryPoint))
+            {
+                Fail("$.dotnet.mount.type", $"'{entryPoint}' is not a valid .NET type name.");
+            }
+        }
+
+        return _errors.Count > 0
+            ? null
+            : new RuntimeIntegration(FeatureRuntime.Dotnet, ns!, assembly!, entryPoint, prefix);
+    }
+
+    /// <summary>
+    /// An assembly name: dot-separated segments, each starting with a letter.
+    ///
+    /// Validated because it becomes a file name the store opens inside the
+    /// directory the artifact was unpacked into. A segment containing a
+    /// separator or a dot-dot would be a delivered artifact reaching out of it.
+    /// </summary>
+    private static bool IsDotnetAssemblyName(string value) =>
+        value.Length is > 0 and <= 256
+        && value.Split('.').All(segment =>
+            segment.Length > 0
+            && char.IsAsciiLetter(segment[0])
+            && segment.All(character => char.IsAsciiLetterOrDigit(character) || character is '_'));
+
+    /// <summary>A fully qualified type name: an assembly-name shape with at least two segments.</summary>
+    private static bool IsDotnetTypeName(string value) =>
+        IsDotnetAssemblyName(value) && value.Contains('.');
 
     /// <summary>
     /// Database engines a Feature may require, spelled the way a store reports
@@ -328,7 +399,8 @@ internal sealed class ManifestReader
             OptionalRange(compatibility, "python", "$.compatibility.python"),
             OptionalRange(compatibility, "django", "$.compatibility.django"),
             database,
-            OptionalRange(compatibility, "node", "$.compatibility.node"));
+            OptionalRange(compatibility, "node", "$.compatibility.node"),
+            OptionalRange(compatibility, "dotnet", "$.compatibility.dotnet"));
     }
 
     private ManifestDependencies ReadDependencies(JsonElement root)
@@ -825,6 +897,18 @@ internal sealed class ManifestReader
     /// </summary>
     private static bool IsCallable(string value, FeatureRuntime runtime)
     {
+        // A .NET callable is a type and a method on it, which is the same shape
+        // as node's `module#export` and reads the same way in a log line.
+        if (runtime is FeatureRuntime.Dotnet)
+        {
+            var separator = value.IndexOf('#');
+
+            return separator > 0
+                && separator != value.Length - 1
+                && IsDotnetTypeName(value[..separator])
+                && IsDotnetAssemblyName(value[(separator + 1)..]);
+        }
+
         if (runtime is not FeatureRuntime.Node)
         {
             return IsDottedPythonPath(value);
@@ -840,9 +924,12 @@ internal sealed class ManifestReader
         return IsNodeSpecifier(value[..hash]) && IsJavaScriptIdentifier(value[(hash + 1)..]);
     }
 
-    private static string CallableFailure(string value, FeatureRuntime runtime) => runtime is FeatureRuntime.Node
-        ? $"'{value}' is not a valid node callable. Write it as 'module#exportedName'."
-        : $"'{value}' is not a valid Python callable path.";
+    private static string CallableFailure(string value, FeatureRuntime runtime) => runtime switch
+    {
+        FeatureRuntime.Node => $"'{value}' is not a valid node callable. Write it as 'module#exportedName'.",
+        FeatureRuntime.Dotnet => $"'{value}' is not a valid .NET callable. Write it as 'Namespace.Type#Method'.",
+        _ => $"'{value}' is not a valid Python callable path.",
+    };
 
     /// <summary>
     /// A node module specifier: a package name, optionally scoped, optionally

@@ -110,7 +110,7 @@ internal sealed class StoreDeliveryReader : IStoreDeliveryReader
                 StringComparer.Ordinal),
             runtime.Database,
             runtime.Name,
-            runtime.Node);
+            runtime.Version);
     }
 
     public async Task<Guid?> GetOwningCustomerAsync(Guid storeId, CancellationToken cancellationToken)
@@ -153,7 +153,7 @@ internal sealed class StoreDeliveryReader : IStoreDeliveryReader
             ? value.GetString()
             : null;
 
-    private async Task<(string? Python, string? Django, string? Database, string? Name, string? Node)> ReadRuntimeAsync(Guid storeId, CancellationToken cancellationToken)
+    private async Task<(string? Python, string? Django, string? Database, string? Name, string? Version)> ReadRuntimeAsync(Guid storeId, CancellationToken cancellationToken)
     {
         var latest = await _context.StoreHealthChecks
             .AsNoTracking()
@@ -185,12 +185,17 @@ internal sealed class StoreDeliveryReader : IStoreDeliveryReader
             var name = ReadVersion(runtime, "name")
                 ?? (ReadVersion(runtime, "django") is not null ? "django" : null);
 
+            // The runtime's own version, read from the key the runtime names
+            // itself by: a node store reports `node`, a .NET store `dotnet`.
+            // Django reports `python` and `django` separately and is read above.
+            var version = name is null ? null : ReadVersion(runtime, name);
+
             return (
                 ReadVersion(runtime, "python"),
                 ReadVersion(runtime, "django"),
                 ReadVersion(runtime, "database"),
                 name?.ToLowerInvariant(),
-                ReadVersion(runtime, "node"));
+                version);
         }
         catch (System.Text.Json.JsonException)
         {

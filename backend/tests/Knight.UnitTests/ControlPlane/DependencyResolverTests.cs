@@ -26,7 +26,8 @@ public sealed class DependencyResolverTests
         string? django = null,
         string? database = null,
         string runtime = "django",
-        string? node = null)
+        string? node = null,
+        string? dotnet = null)
     {
         var compatibility = new Dictionary<string, object?>
         {
@@ -35,6 +36,7 @@ public sealed class DependencyResolverTests
             ["django"] = django ?? "*",
             ["database"] = database,
             ["node"] = node,
+            ["dotnet"] = dotnet,
         };
 
         var json = new Dictionary<string, object?>
@@ -64,6 +66,15 @@ public sealed class DependencyResolverTests
                 mount = new { export = "router", prefix = $"{slug}/" },
             };
         }
+        else if (runtime is "dotnet")
+        {
+            json["dotnet"] = new
+            {
+                @namespace = slug.Replace('-', '_'),
+                assembly = $"Knight.Feature.{slug.Replace("-", string.Empty)}",
+                mount = new { type = $"Knight.Feature.{slug.Replace("-", string.Empty)}.Endpoints", prefix = $"{slug}/" },
+            };
+        }
         else
         {
             json["django"] = new { app_label = slug.Replace('-', '_'), installed_app = slug.Replace('-', '_') };
@@ -86,7 +97,8 @@ public sealed class DependencyResolverTests
         string? django = null,
         string? database = null,
         string runtime = "django",
-        string? node = null) =>
+        string? node = null,
+        string? dotnet = null) =>
         new(
             Guid.CreateVersion7(),
             slug,
@@ -96,7 +108,7 @@ public sealed class DependencyResolverTests
             [.. versions.Select(version => new RegistryVersion(
                 Guid.CreateVersion7(),
                 SemanticVersion.Parse(version.Version),
-                Manifest(slug, version.Version, version.Dependencies, storeVersion, python, django, database, runtime, node),
+                Manifest(slug, version.Version, version.Dependencies, storeVersion, python, django, database, runtime, node, dotnet),
                 version.Installable))]);
 
     private static RegistryFeature Simple(string slug, params string[] versions) =>
@@ -115,7 +127,7 @@ public sealed class DependencyResolverTests
         bool dedicated = false,
         string? database = "postgresql",
         string? runtime = "django",
-        string? node = null,
+        string? runtimeVersion = null,
         params (string Slug, string Version)[] installed) =>
         new(
             storeVersion,
@@ -125,7 +137,7 @@ public sealed class DependencyResolverTests
             installed.ToDictionary(entry => entry.Slug, entry => SemanticVersion.Parse(entry.Version), StringComparer.Ordinal),
             database,
             runtime,
-            node);
+            runtimeVersion);
 
     // --- The straightforward cases ----------------------------------------
 
@@ -547,7 +559,7 @@ public sealed class DependencyResolverTests
     {
         var resolver = new DependencyResolver([Simple("analytics", "1.0.0")]);
 
-        var result = resolver.Resolve("analytics", VersionRange.Any, Store(runtime: "node", node: "20.11.0"));
+        var result = resolver.Resolve("analytics", VersionRange.Any, Store(runtime: "node", runtimeVersion: "20.11.0"));
 
         var failure = Assert.Single(result.Failures);
         Assert.Equal(ResolutionFailureCode.RuntimeMismatch, failure.Code);
@@ -578,7 +590,7 @@ public sealed class DependencyResolverTests
         var result = resolver.Resolve(
             "conformance",
             VersionRange.Any,
-            Store(python: null, django: null, runtime: "node", node: "20.11.0"));
+            Store(python: null, django: null, runtime: "node", runtimeVersion: "20.11.0"));
 
         // The whole point: a store with no Python and no Django is a store a
         // Feature can be installed into, as long as it is the right one.
@@ -595,7 +607,7 @@ public sealed class DependencyResolverTests
         var result = resolver.Resolve(
             "conformance",
             VersionRange.Any,
-            Store(python: null, django: null, runtime: "node", node: "20.11.0"));
+            Store(python: null, django: null, runtime: "node", runtimeVersion: "20.11.0"));
 
         // A node Feature that names Django ranges is a manifest mistake, not a
         // reason to refuse the install: the ranges belong to a runtime this
@@ -614,7 +626,7 @@ public sealed class DependencyResolverTests
         var result = resolver.Resolve(
             "conformance",
             VersionRange.Any,
-            Store(python: null, django: null, runtime: "node", node: "18.19.0"));
+            Store(python: null, django: null, runtime: "node", runtimeVersion: "18.19.0"));
 
         // The node range is checked, and it is the counterpart of the Django
         // one rather than a decoration: `node-conformance` has declared
@@ -650,12 +662,63 @@ public sealed class DependencyResolverTests
         var result = resolver.Resolve(
             "analytics",
             VersionRange.Any,
-            Store(python: null, django: null, runtime: "node", node: "20.11.0"));
+            Store(python: null, django: null, runtime: "node", runtimeVersion: "20.11.0"));
 
         // One failure, about the runtime. Not three, two of which are about
         // Python and Django versions a node store will never have and which
         // nobody can act on.
         Assert.Equal(ResolutionFailureCode.RuntimeMismatch, Assert.Single(result.Failures).Code);
+    }
+
+    [Fact]
+    public void AThirdRuntime_NeededNoNewMachinery()
+    {
+        var resolver = new DependencyResolver([
+            Feature("storefront-reports", [("1.0.0", true, null)], runtime: "dotnet", dotnet: ">=8.0"),
+        ]);
+
+        var result = resolver.Resolve(
+            "storefront-reports",
+            VersionRange.Any,
+            Store(python: null, django: null, runtime: "dotnet", runtimeVersion: "10.0.0"));
+
+        // adr/0032 claimed the delivery path was never Django's. Adding .NET
+        // cost the enum one line and the reader one method, and this is the
+        // test that says so: nothing in the resolver was taught about .NET
+        // beyond which range to compare.
+        Assert.True(result.IsSuccessful, string.Join("; ", result.Failures));
+    }
+
+    [Fact]
+    public void ADotnetFeature_IsRefusedForANodeStore()
+    {
+        var resolver = new DependencyResolver([
+            Feature("storefront-reports", [("1.0.0", true, null)], runtime: "dotnet"),
+        ]);
+
+        var result = resolver.Resolve(
+            "storefront-reports",
+            VersionRange.Any,
+            Store(python: null, django: null, runtime: "node", runtimeVersion: "22.0.0"));
+
+        Assert.Equal(ResolutionFailureCode.RuntimeMismatch, Assert.Single(result.Failures).Code);
+    }
+
+    [Fact]
+    public void ADotnetStoreTooOldForTheFeature_IsRefused()
+    {
+        var resolver = new DependencyResolver([
+            Feature("storefront-reports", [("1.0.0", true, null)], runtime: "dotnet", dotnet: ">=10.0"),
+        ]);
+
+        var result = resolver.Resolve(
+            "storefront-reports",
+            VersionRange.Any,
+            Store(python: null, django: null, runtime: "dotnet", runtimeVersion: "8.0.11"));
+
+        var failure = Assert.Single(result.Failures);
+        Assert.Equal(ResolutionFailureCode.IncompatibleStore, failure.Code);
+        Assert.Contains(".NET version", failure.Message);
     }
 
     [Fact]

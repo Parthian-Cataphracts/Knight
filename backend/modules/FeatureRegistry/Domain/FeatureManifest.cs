@@ -122,6 +122,16 @@ public enum FeatureRuntime
 {
     Django,
     Node,
+
+    /// <summary>
+    /// An ASP.NET Core store. Added in phase 21, when the first two real
+    /// customer stores turned out to be neither Django nor node.
+    ///
+    /// It cost the enum one line and the reader one method, which is the
+    /// evidence for adr/0032's claim: the delivery path was never Django's, and
+    /// adding a runtime does not require it to learn anything.
+    /// </summary>
+    Dotnet,
 }
 
 /// <summary>
@@ -194,7 +204,10 @@ public sealed record CompatibilityConstraints(
     /// is a real and common thing to be, and the resolver already treats an
     /// unbounded range as the author asserting it.
     /// </summary>
-    VersionRange? Node = null);
+    VersionRange? Node = null,
+
+    /// <summary>The .NET version range, for a Feature whose runtime is <c>dotnet</c>.</summary>
+    VersionRange? Dotnet = null);
 
 /// <summary>A dependency on another Feature, by slug and permitted version range.</summary>
 public sealed record FeatureDependencyDeclaration(string Slug, VersionRange Version);

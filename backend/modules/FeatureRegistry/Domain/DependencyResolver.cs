@@ -334,7 +334,11 @@ public sealed class DependencyResolver
                 break;
 
             case FeatureRuntime.Node:
-                CheckRange(feature.Slug, "node version", store.NodeVersion, compatibility.Node ?? VersionRange.Any, version, failures);
+                CheckRange(feature.Slug, "node version", store.RuntimeVersion, compatibility.Node ?? VersionRange.Any, version, failures);
+                break;
+
+            case FeatureRuntime.Dotnet:
+                CheckRange(feature.Slug, ".NET version", store.RuntimeVersion, compatibility.Dotnet ?? VersionRange.Any, version, failures);
                 break;
         }
     }

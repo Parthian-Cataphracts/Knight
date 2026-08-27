@@ -91,7 +91,9 @@ public sealed record FeaturePlanContext(
     /// so a store that is not Django failed every compatibility check there is.
     /// </summary>
     string? Runtime = null,
-    string? NodeVersion = null);
+
+    /// <summary>The version of whatever runtime the store named. See StoreCompatibilityContext.</summary>
+    string? RuntimeVersion = null);
 
 /// <summary>
 /// Resolves what would have to happen for a store to end up running a Feature.
