@@ -10,7 +10,8 @@ now has a test, and not one of those tests would find the *next* one: they check
 the code each defect happened to be in, and what the eight had in common was the
 path.
 
-The drill found a ninth on its first complete run.
+The drill found a ninth on its first complete run, and two more once it ran
+somewhere that was not a developer's machine.
 
 ---
 
@@ -66,6 +67,41 @@ limitation down in its own §6. This is what writing it down was for.
 
 The ordering is now pinned by a test, because nothing else in the suite would
 notice it moving: every rollback test passes with the steps in either order.
+
+### A manifest this repository ships could not be published from a clean checkout
+
+The packaging tool prefers PyYAML and falls back to a small reader for the
+manifest subset when it is absent — which is every clean checkout, since nothing
+here depends on PyYAML. That reader had no branch for an inline list, so
+`extensions: []` came back as the *string* `"[]"` and `extensions: [pg_trgm]` as
+`"[pg_trgm]"`.
+
+Publishing then failed with `'extensions' must be an array of strings` — a
+refusal from KNIGHT's own validator, about a manifest that is perfectly valid.
+Every developer who had PyYAML installed saw it work.
+
+Two things about this are worth keeping. The first is that **it was caught in the
+right place**: the reader's own docstring says a manifest misread here becomes a
+signed artifact with the wrong contract, and what actually happened is that the
+control plane refused to register it. The system was right twice.
+
+The second is why nothing found it earlier. The reader has a differential
+selftest — parse every manifest with both readers, require the same document — and
+it runs in CI. It globbed `features/knight-feature-*/`, and the drill's Feature
+is deliberately not in the catalogue and does not live there. It was also the
+only manifest in the repository using an inline list. The selftest now covers it.
+
+### The workflow signed under a key id KNIGHT was not configured to trust
+
+The first CI runs generated a pair, registered its public half under the id `ci`,
+and left the packaging tool signing under `dev`, which is its default. Every
+publish was refused with *"the signature over the artifact digest is not valid
+for signing key 'dev'"* — true, and about the signature rather than about the
+name, which is the wrong half of the problem to be told about.
+
+The drill now builds the store's trusted key map from `KNIGHT_SIGNING_KEY_ID`
+rather than from the literal `dev`, so the id the artifact is signed under and
+the id the store trusts cannot drift apart again.
 
 ### Two things the drill found about itself, worth keeping
 
@@ -153,11 +189,14 @@ and before this phase neither did.
 | Store, all Features installed, `REQUIRE_FEATURE_TESTS=1` | 775 passed, 0 skipped |
 | Node reference store | 14 passed |
 | Dashboard | 9 passed, `tsc --noEmit` clean |
-| **Delivery drill** | **passed** — 9 steps, ~20 assertions, against a running API and store |
+| **Delivery drill** | **passed** — 9 steps, 24 assertions, against a running API and store |
+| **Delivery drill, in CI** | **passed** — the same 24, on a runner from an empty database |
 
-The drill was run twice against a live stack: once with an administrator that
-already had a second factor, and once against a freshly bootstrapped one with
-none, which is the path CI takes.
+The drill was run three times against a live stack: once with an administrator
+that already had a second factor, once against a freshly bootstrapped one with
+none, and once against an entirely empty control plane with a newly generated
+signing pair — which is the shape CI runs, reproduced locally after CI failed
+twice with logs that were not readable from here. Then in CI itself, green.
 
 ---
 

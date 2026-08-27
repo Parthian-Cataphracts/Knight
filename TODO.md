@@ -11,7 +11,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Nothing scheduled. Phase 19 is complete: the whole delivery journey — publish, onboard, connect, install, upgrade, roll back, withdraw — now runs as one command in CI on every push, and it found a ninth delivery defect on its first complete run** ([`phase-19-verification.md`](docs/phase-19-verification.md), [`tools/delivery-drill`](tools/delivery-drill/README.md)). Phase 18 installed thirteen Features into a real store by real jobs and fixed eight defects, six of which had made delivery impossible for six phases ([`phase-18-verification.md`](docs/phase-18-verification.md)) |
+| **Current phase** | **Nothing scheduled. Phase 19 is complete: the whole delivery journey — publish, onboard, connect, install, upgrade, roll back, withdraw — now runs as one command in CI on every push, and it found three more defects doing it — one of them a rollback that reversed the code and left the schema alone** ([`phase-19-verification.md`](docs/phase-19-verification.md), [`tools/delivery-drill`](tools/delivery-drill/README.md)). Phase 18 installed thirteen Features into a real store by real jobs and fixed eight defects, six of which had made delivery impossible for six phases ([`phase-18-verification.md`](docs/phase-18-verification.md)) |
 | **Next phase** | Nothing scheduled after 19. What remains is the standing work below and the items earlier phases carried forward, none of which is a phase: the external security review nobody inside the project can close, wiring real vendors to the four Features that honestly refuse without one, driving a **node** store through the job path the way the drill drives the Django one, and a drill for the paths where delivery is supposed to **refuse** — a bad signature, an incompatible runtime — which currently rest on unit tests alone |
 | **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **819 backend tests green** (646 unit, 13 architecture, 160 PostgreSQL-backed integration), plus **775 store tests with nothing skipped**, the same 775 passing with no Feature installed at all, 14 node-store tests, and 9 dashboard — and, since phase 19, **the delivery drill itself**, which is the only thing here that runs the path a customer travels |
 | **Blocking decisions** | **Are Features publishable for a store that is not Django?** Everything except the manifest is already stack-agnostic; `ManifestReader` is the one thing that is not (R26, decision 14 in [`docs/risks.md`](docs/risks.md)). Until it is answered, a non-Django store is entitled and observed but not delivered to. Separately, the **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
@@ -1550,7 +1550,12 @@ something to reverse and the data has something to survive.
 - [x] Fix everything it finds — it found a ninth defect on its first complete
       run: a rollback restored the previous package **before** reversing its
       migrations, and Django can only unapply a migration whose file it can still
-      see, so the code rolled back and the database did not
+      see, so the code rolled back and the database did not. Two more turned up
+      once it ran somewhere that was not a developer's machine: the packaging
+      tool's fallback manifest reader could not read an inline list, so a
+      manifest this repository ships could not be published from a clean
+      checkout, and the workflow signed artifacts under a key id KNIGHT was not
+      configured to trust
       ([`phase-19-verification.md`](docs/phase-19-verification.md))
 
 ---
