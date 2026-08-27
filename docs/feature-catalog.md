@@ -83,6 +83,7 @@ in code.
 | `restaurant-operations` | Restaurant Operations | Operations | 79 | `features/knight-feature-restaurant-operations` |
 | `multi-location` | Multi-Location | Operations | 99 | `features/knight-feature-multi-location` |
 | `subscriptions` | Subscriptions and Recurring Orders | Revenue | 69 | `features/knight-feature-subscriptions` |
+| `external-marketplaces` | Marketplace and Delivery Integrations | Integrations | 99 | `features/knight-feature-external-marketplaces` |
 | `log-shipping` | Log shipping | Insight | 19 | — none; see below |
 
 `log-shipping` is the one capability with no package. It is enforced by
@@ -98,13 +99,12 @@ identity.
 
 ### On the roadmap
 
-Seeded as Draft: they exist in the catalogue and cannot be sold, because a
-Draft Feature fails `Feature.CanBeEntitled`. Each joins its plans in the release
-that publishes its package.
-
-| Slug | Name | Category | Price | Depends on |
-|---|---|---|---|---|
-| `external-marketplaces` | Marketplace and Delivery Integrations | Integrations | 99 | `advanced-inventory` (optional) |
+**Nothing.** Phase 17 published the last two, so every Feature in this catalogue
+has a package behind it and the table above is the whole of it. The section is
+kept rather than deleted because the next Feature anybody adds goes here first:
+a Draft identity exists in the catalogue and cannot be sold, because a Draft
+Feature fails `Feature.CanBeEntitled`, and it joins its plans in the release that
+publishes its package.
 
 `advanced-search` is the Feature that **requires a particular database** most
 visibly. Its index is a `tsvector` column and a GIN index, so it declares
@@ -239,16 +239,21 @@ base store (catalog, orders, accounts, payments, shipping, promotions)
 │
 ├── reviews-ratings          advanced-search        loyalty-rewards
 ├── gift-cards               advanced-inventory     restaurant-operations
-├── multi-location           subscriptions
+├── multi-location           subscriptions          external-marketplaces
 │
 └── analytics-core ──┬── analytics-reports        (>=1.0.0,<2.0.0)
                      ├── ai-reports
                      └── customer-segmentation    (>=1.1.0,<2.0.0)
                                 │
                                 └── marketing-automation    (>=1.0.0,<2.0.0)
-
-advanced-inventory ── external-marketplaces
 ```
+
+`external-marketplaces` was expected to depend on `advanced-inventory` and does
+not, which is worth recording because the expectation was reasonable. It can tell
+a POS what stock a shop has, and that is much more useful with the inventory
+Feature installed — but an integration that refused to install without it could
+not send orders to an accounting system, which needs no stock at all. The
+resolver is not asked to enforce something the code does not require.
 
 Two things this graph is careful about:
 
@@ -397,6 +402,23 @@ anything and with [`adr/0030`](adr/0030-what-store-data-may-reach-a-model-provid
 settling what may leave a store at all
 ([`phase-15-verification.md`](phase-15-verification.md)).
 
+Phase 17 finished it. `subscriptions` is the first Feature whose worst failure is
+charging somebody who did not owe it, and it is arranged entirely around one
+unique index — a period is opened before it is charged and numbered per
+subscription, so a cron that fires twice, a webhook delivered twice and an
+operator running the worker by hand all end at the same constraint.
+`external-marketplaces` is the one with the most third-party surface, and its
+whole design is that everything crossing the boundary is a row: written before it
+is attempted, keyed on the *partner's* event id so a redelivery costs nothing,
+retried with widening gaps and then abandoned in a state a person can act on.
+
+The phase also answered R26, which had been the oldest open question in
+[`risks.md`](risks.md): a Feature may now be published for a store that is not
+Django ([`adr/0032`](adr/0032-a-feature-declares-its-runtime.md)), and
+[`../stores/node-reference-store`](../stores/node-reference-store) proves it by
+taking delivery of a signed artifact in CI
+([`phase-17-verification.md`](phase-17-verification.md)).
+
 Phase 16 finished the operational half of the catalogue: `advanced-inventory`,
 then `restaurant-operations`, then `multi-location` — held back since phase 9 on
 the grounds that it reshapes data other Features already own. It does not, and
@@ -409,7 +431,5 @@ rows, uninstalling it loses no operational data, and a merchant can name one
 branch this week and another next month
 ([`phase-16-verification.md`](phase-16-verification.md)).
 
-The remaining work is two Features that are Draft identities with no package
-behind them: `subscriptions` and `external-marketplaces`, in
-[`../TODO.md`](../TODO.md) phase 17, in that order — the financially sensitive
-one before the one with the most third-party surface.
+There is no remaining catalogue work. Sixteen sellable Features, all with a
+package behind them, in five plans.

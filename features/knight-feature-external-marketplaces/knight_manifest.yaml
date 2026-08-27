@@ -1,0 +1,127 @@
+# The contract between this Feature and everything that handles it: KNIGHT
+# validates it at publish, the resolver reads its dependencies, and the store's
+# installer reads its install and migration declarations
+# (docs/feature-delivery.md section 5).
+#
+# The last Feature in the catalogue and the one with the most third-party
+# surface, which is why it was scheduled last since phase 9. Everything it does
+# happens at a boundary the store does not control: a marketplace that changes
+# its payload shape, a POS that goes down for an afternoon, an accounting system
+# that delivers the same webhook four times because its retry logic could not see
+# our 200.
+#
+# So the design is one sentence, and the manifest inherits it: everything that
+# crosses the boundary is a row.
+apiVersion: knight.dev/v1
+slug: external-marketplaces
+version: 1.0.0
+name: Marketplace and Delivery Integrations
+description: >-
+  Connections to delivery marketplaces, POS and accounting systems, with a queue
+  that records before it sends, idempotency on the partner's own event id so a
+  redelivery costs nothing, retries that widen and then stop, and reconciliation
+  that compares and reports without ever quietly fixing either side.
+
+# The runtime this Feature is built for, and the block below is named for it
+# (docs/adr/0032-a-feature-declares-its-runtime.md).
+runtime: django
+
+django:
+  app_label: knight_marketplaces
+  installed_app: knight_feature_external_marketplaces
+  urls:
+    include: knight_feature_external_marketplaces.urls
+    prefix: marketplaces/
+
+compatibility:
+  storeVersion: ">=1.0.0"
+  python: ">=3.12"
+  django: ">=5.0,<6.0"
+
+  # Required, for the constraint the whole idempotency guarantee rests on:
+  # "unique on the partner's event id, among the messages that have one" is a
+  # partial unique index. Without it a blank outbound key would collide with
+  # every other blank one, and the alternative - a nullable column - makes the
+  # de-duplication query a special case in three places.
+  database: postgresql
+
+# Optional rather than required, and it is worth saying why. This Feature can
+# tell a POS what stock a shop has, which is much more useful when the shop has
+# `advanced-inventory` - but a marketplace integration that refused to install
+# without it would be a Feature that could not send orders to an accounting
+# system, which needs no stock at all. The resolver is not asked to enforce
+# something the code does not require.
+dependencies:
+  features: []
+
+migrations:
+  required: true
+  # Class A: six CreateModels, indexes, unique and check constraints. Nothing is
+  # dropped and no data is transformed, so the reverse genuinely exists.
+  #
+  # What will not stay Class A: anything touching Message. Those rows are the
+  # answer to "did that order reach the POS" and to "why did they charge us
+  # twice", and they are the only record of what was actually sent to somebody
+  # else - a reverse migration that dropped them would leave a merchant arguing
+  # with a partner using the partner's evidence only
+  # (docs/adr/0016-feature-migration-and-removal-policy.md).
+  reversible: true
+  estimatedDurationSeconds: 10
+  requiresMaintenanceWindow: false
+
+  extensions: []
+
+configuration:
+  defaults:
+    # How many times an outbound message is tried before it is abandoned and
+    # waits for a person. Five: enough to ride out a partner's deploy, few enough
+    # that a genuinely broken message is in front of somebody the same day.
+    max_attempts: 5
+    # The gap before each retry, in seconds: a minute, five, half an hour, two
+    # hours, six. Widening steeply, because the failure this is built for is a
+    # partner being down for a while rather than a packet being lost.
+    backoff_seconds: [60, 300, 1800, 7200, 21600]
+    # How many messages one flush handles. A ceiling rather than a target.
+    flush_limit: 200
+
+  # None, and unusually for the Feature with the most third-party surface. The
+  # credentials it uses are per-connection OAuth tokens - one per marketplace
+  # account, refreshed while the store runs - which a static configuration
+  # channel cannot express. They live on the connection row, are never logged,
+  # never returned by any endpoint, and are cleared when a connection is switched
+  # off. The store's own database is their trust boundary, exactly as it is for
+  # everything else a store holds.
+  secrets: []
+
+workers:
+  # Hourly. It is tidying in the sense the phase-16 workers are - a message that
+  # is due is due by time and nothing depends on the job having run - but the
+  # consequence of it not running is a partner that never hears from this store,
+  # so hourly rather than daily.
+  - name: flush-queue
+    entrypoint: knight_feature_external_marketplaces.services.run_flush
+    schedule: hourly
+
+  # Daily, because a reconciliation is a morning report rather than an alarm, and
+  # because asking a partner for a full snapshot hourly is how a store discovers
+  # a rate limit.
+  - name: reconcile
+    entrypoint: knight_feature_external_marketplaces.services.run_reconciliation
+    schedule: daily
+
+install:
+  strategy: package-install
+  requiresRestart: true
+  healthCheck: knight_feature_external_marketplaces.checks.health
+
+uninstall:
+  # What was actually sent to somebody else, and what they actually sent us. It
+  # is the evidence in every argument with a partner, and those arrive months
+  # later. Seven years, the same as the Features that hold money and stock.
+  #
+  # One thing a store should do *before* uninstalling this, and it is not
+  # something a retention period can express: revoke the OAuth tokens at each
+  # partner. Removing the package removes this store's copy of a credential that
+  # still works on the other end.
+  strategy: disable-then-remove
+  dataRetentionDays: 2555

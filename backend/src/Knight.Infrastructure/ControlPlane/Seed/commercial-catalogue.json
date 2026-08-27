@@ -300,7 +300,7 @@
       "category": "Integrations",
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
-      "publish": false,
+      "publish": true,
       "prices": [
         { "amount": 99.00, "billingPeriod": "Monthly" }
       ]
@@ -367,7 +367,8 @@
         { "slug": "advanced-inventory", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "restaurant-operations", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "multi-location", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "subscriptions", "isIncluded": false, "isCustomerToggleable": true }
+        { "slug": "subscriptions", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "external-marketplaces", "isIncluded": false, "isCustomerToggleable": true }
       ]
     },
     {
@@ -432,6 +433,14 @@
             "payment credential it needs, which nobody can supply by accident."
           ],
           "slug": "subscriptions", "isIncluded": false, "isCustomerToggleable": true },
+
+        { "$comment": [
+            "Toggleable, and the last Feature in the catalogue. A merchant",
+            "switches it on when they have an account somewhere to connect it",
+            "to - which is a thing they either have or do not, and not",
+            "something a plan can decide for them."
+          ],
+          "slug": "external-marketplaces", "isIncluded": false, "isCustomerToggleable": true },
 
         { "$comment": [
             "Toggleable rather than included: it is the one capability with a",
