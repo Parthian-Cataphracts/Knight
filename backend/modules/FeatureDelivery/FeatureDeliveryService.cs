@@ -573,6 +573,23 @@ internal sealed class FeatureDeliveryService : IFeatureDeliveryService
             context with { InstalledFeatures = new Dictionary<string, string>(StringComparer.Ordinal) },
             cancellationToken);
 
+        // A failed plan carries no steps, and no steps used to read as "nothing
+        // depends on this" - so a store KNIGHT could not resolve against was a
+        // store where the guard silently passed and a merchant could uninstall
+        // the Feature three others were built on.
+        //
+        // Fail closed instead, for the same reason an unreported version is
+        // "cannot certify" rather than "no objection": not knowing the answer is
+        // not the same as knowing it is no. Found in phase 20, when teaching the
+        // resolver about runtimes made an unreported runtime a resolution
+        // failure and this test went green by doing nothing.
+        if (!plan.IsSuccessful)
+        {
+            throw new ConflictException(
+                $"'{installation.FeatureSlug}' cannot be uninstalled because KNIGHT cannot work out what depends on it: " +
+                plan.DescribeFailures());
+        }
+
         var dependents = plan.Steps
             .Where(step => !step.IsRoot && string.Equals(step.Slug, installation.FeatureSlug, StringComparison.Ordinal))
             .Select(step => step.RequiredBy)

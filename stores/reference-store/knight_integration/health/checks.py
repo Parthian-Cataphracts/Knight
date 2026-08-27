@@ -58,6 +58,12 @@ def runtime() -> dict[str, str]:
     from django.db import connection
 
     return {
+        # Which runtime this is, before any version of anything. KNIGHT decides
+        # from this name which of the version checks even apply, and refuses a
+        # Feature built for another runtime by name rather than by failing every
+        # version comparison it cannot make (phase 20). A store that does not
+        # send this cannot be planned against at all.
+        "name": "django",
         "python": platform.python_version(),
         "django": django.get_version(),
         # The engine, not the driver. A manifest says `database: postgresql`,

@@ -45,7 +45,26 @@ public sealed record StoreCompatibilityContext(
     /// has never said, which is treated the same way an unreported runtime
     /// version is: not a pass.
     /// </summary>
-    string? Database = null)
+    string? Database = null,
+
+    /// <summary>
+    /// The runtime the store runs, lowercased — <c>django</c>, <c>node</c> —
+    /// as it reported it on its heartbeat. Null when it has never said.
+    ///
+    /// Checked before every other compatibility fact, because it decides which
+    /// of them even apply. Until phase 20 KNIGHT had no idea what a store ran
+    /// and asked every one of them for a Python and a Django version: a node
+    /// store, which has neither, failed every check there is and could not be
+    /// planned against at all. That is the same defect phase 18 found for Django
+    /// stores, and it was still live for the other runtime.
+    /// </summary>
+    string? Runtime = null,
+
+    /// <summary>
+    /// The node version a node store reports. The counterpart of
+    /// <see cref="PythonVersion"/>, and null for a store that is not node.
+    /// </summary>
+    string? NodeVersion = null)
 {
     public static StoreCompatibilityContext Empty { get; } =
         new(null, null, null, false, new Dictionary<string, SemanticVersion>(StringComparer.Ordinal));
@@ -127,6 +146,17 @@ public enum ResolutionFailureCode
 
     /// <summary>An already-installed version is newer than what the plan resolved to.</summary>
     DowngradeRefused = 7,
+
+    /// <summary>
+    /// The Feature is built for a different runtime than the store runs.
+    ///
+    /// Distinct from <see cref="IncompatibleStore"/> on purpose: every other
+    /// incompatibility is a version somebody can change, and this one is not.
+    /// A Django package will never install into a node store however the
+    /// versions move, so an operator reading this needs to be told to look for
+    /// a different Feature rather than to upgrade something.
+    /// </summary>
+    RuntimeMismatch = 8,
 }
 
 public sealed record ResolutionFailure(ResolutionFailureCode Code, string Slug, string Message)

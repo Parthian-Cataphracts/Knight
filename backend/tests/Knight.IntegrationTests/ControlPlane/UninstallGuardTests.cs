@@ -63,6 +63,11 @@ public sealed class UninstallGuardTests
         var customerId = await _fixture.SeedCustomerAsync();
         var storeId = await _fixture.SeedStoreAsync(customerId);
 
+        // A connected store: it has heartbeated, so KNIGHT knows what it runs
+        // and can resolve a plan against it. Without that the guard below cannot
+        // work out what depends on what, and refuses rather than guessing.
+        await _fixture.SeedHeartbeatAsync(storeId);
+
         // Unique per run: the catalogue is seeded once for the whole collection.
         var suffix = Guid.NewGuid().ToString("n")[..8];
         var coreSlug = $"core-{suffix}";
@@ -203,5 +208,33 @@ public sealed class UninstallGuardTests
             service => service.UninstallAsync(storeId, coreId, CancellationToken.None));
 
         Assert.Equal(JobType.Uninstall, job.Type);
+    }
+
+    [Fact]
+    public async Task AStoreKnightCannotResolveAgainst_CannotUninstallAnythingEither()
+    {
+        if (!_fixture.IsAvailable) return;
+
+        var (storeId, coreId, _) = await SeedInstalledPairAsync();
+
+        // Undo the heartbeat: a store that has gone quiet, or was never
+        // connected, or has redeployed onto a runtime it has not reported yet.
+        await _fixture.WithControlPlaneScopeAsync(async (context, _) =>
+        {
+            context.StoreHealthChecks.RemoveRange(
+                context.StoreHealthChecks.Where(check => check.StoreId == storeId));
+            await context.SaveChangesAsync();
+        });
+
+        var refused = await Assert.ThrowsAsync<ConflictException>(
+            () => ActAsync(service => service.UninstallAsync(storeId, coreId, CancellationToken.None)));
+
+        // The defect this replaced: the guard read "what depends on this" out of
+        // a resolved plan, and a *failed* plan carries no steps — so a store
+        // KNIGHT could not resolve against was a store where the guard passed
+        // silently and the dependency three others were built on came out.
+        //
+        // Not knowing the answer is not the same as knowing it is no.
+        Assert.Contains("cannot work out what depends on it", refused.Message);
     }
 }

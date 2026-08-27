@@ -67,7 +67,14 @@ public sealed class PlanConsequenceTests
             ]);
 
     private static StoreCompatibilityContext Store() =>
-        new("5.0.0", "3.12", "5.1", false, new Dictionary<string, SemanticVersion>(StringComparer.Ordinal));
+        new(
+            "5.0.0",
+            "3.12",
+            "5.1",
+            false,
+            new Dictionary<string, SemanticVersion>(StringComparer.Ordinal),
+            Database: null,
+            Runtime: "django");
 
     [Fact]
     public void APlanStepCarriesTheMigrationFactsItsManifestDeclares()

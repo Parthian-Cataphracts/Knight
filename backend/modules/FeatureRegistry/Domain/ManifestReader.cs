@@ -327,7 +327,8 @@ internal sealed class ManifestReader
             OptionalRange(compatibility, "storeVersion", "$.compatibility.storeVersion"),
             OptionalRange(compatibility, "python", "$.compatibility.python"),
             OptionalRange(compatibility, "django", "$.compatibility.django"),
-            database);
+            database,
+            OptionalRange(compatibility, "node", "$.compatibility.node"));
     }
 
     private ManifestDependencies ReadDependencies(JsonElement root)

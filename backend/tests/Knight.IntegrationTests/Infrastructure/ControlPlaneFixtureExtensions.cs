@@ -100,6 +100,62 @@ public static class ControlPlaneFixtureExtensions
     }
 
     /// <summary>
+    /// Records the heartbeat a connected store sends, so the store can be
+    /// planned against.
+    ///
+    /// A store with no health check has reported no runtime, and since phase 20
+    /// a store that has not said which runtime it runs cannot be planned against
+    /// at all — which is deliberate, and which makes this the difference between
+    /// a fixture that models a connected store and one that models a store
+    /// nobody has ever heard from.
+    /// </summary>
+    public static async Task SeedHeartbeatAsync(
+        this PostgresApiFixture fixture,
+        Guid storeId,
+        string runtime = "django",
+        string? python = "3.12.10",
+        string? django = "5.1.15",
+        string? node = null,
+        string database = "postgresql",
+        string storeVersion = "1.0.0")
+    {
+        var block = new Dictionary<string, string?>
+        {
+            ["name"] = runtime,
+            ["python"] = python,
+            ["django"] = django,
+            ["node"] = node,
+            ["database"] = database,
+        };
+
+        var dependencies = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            runtime = block.Where(entry => entry.Value is not null).ToDictionary(entry => entry.Key, entry => entry.Value),
+        });
+
+        await fixture.WithControlPlaneScopeAsync(async (context, _) =>
+        {
+            var customerId = await context.Stores
+                .Where(store => store.Id == storeId)
+                .Select(store => store.CustomerId)
+                .FirstAsync();
+
+            context.StoreHealthChecks.Add(StoreHealthCheck.Record(
+                Guid.NewGuid(),
+                storeId,
+                customerId,
+                DateTimeOffset.UtcNow,
+                StoreHealthStatus.Healthy,
+                HealthCheckSource.Heartbeat,
+                responseTimeMs: 5,
+                reportedVersion: storeVersion,
+                dependencies: dependencies));
+
+            await context.SaveChangesAsync();
+        });
+    }
+
+    /// <summary>
     /// Creates an active account holding one seeded system role. MFA is enrolled
     /// and confirmed up front when the role requires it, so tests that are not
     /// about MFA do not have to walk the enrolment flow.

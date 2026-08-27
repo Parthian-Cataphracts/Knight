@@ -108,7 +108,9 @@ internal sealed class StoreDeliveryReader : IStoreDeliveryReader
                 entry => entry.FeatureSlug,
                 entry => entry.InstalledVersion!,
                 StringComparer.Ordinal),
-            runtime.Database);
+            runtime.Database,
+            runtime.Name,
+            runtime.Node);
     }
 
     public async Task<Guid?> GetOwningCustomerAsync(Guid storeId, CancellationToken cancellationToken)
@@ -123,8 +125,8 @@ internal sealed class StoreDeliveryReader : IStoreDeliveryReader
     }
 
     /// <summary>
-    /// Digs the Python and Django versions, and the database engine, out of the
-    /// most recent health check.
+    /// Digs the runtime out of the most recent health check: which runtime the
+    /// store runs, its versions, and the database engine.
     ///
     /// A store reports its runtime as part of its health payload, so the newest
     /// check is the freshest answer available. When it has never reported one, the
@@ -151,7 +153,7 @@ internal sealed class StoreDeliveryReader : IStoreDeliveryReader
             ? value.GetString()
             : null;
 
-    private async Task<(string? Python, string? Django, string? Database)> ReadRuntimeAsync(Guid storeId, CancellationToken cancellationToken)
+    private async Task<(string? Python, string? Django, string? Database, string? Name, string? Node)> ReadRuntimeAsync(Guid storeId, CancellationToken cancellationToken)
     {
         var latest = await _context.StoreHealthChecks
             .AsNoTracking()
@@ -162,7 +164,7 @@ internal sealed class StoreDeliveryReader : IStoreDeliveryReader
 
         if (string.IsNullOrWhiteSpace(latest))
         {
-            return (null, null, null);
+            return (null, null, null, null, null);
         }
 
         try
@@ -175,14 +177,24 @@ internal sealed class StoreDeliveryReader : IStoreDeliveryReader
                 ? block
                 : root;
 
+            // `name` is what a store calls its runtime. A store that reports a
+            // Django version and no name is Django - that is not a guess, it is
+            // the only thing a Django version can mean - and saying so here
+            // keeps every store written before phase 20 certifiable without
+            // asking anybody to redeploy.
+            var name = ReadVersion(runtime, "name")
+                ?? (ReadVersion(runtime, "django") is not null ? "django" : null);
+
             return (
                 ReadVersion(runtime, "python"),
                 ReadVersion(runtime, "django"),
-                ReadVersion(runtime, "database"));
+                ReadVersion(runtime, "database"),
+                name?.ToLowerInvariant(),
+                ReadVersion(runtime, "node"));
         }
         catch (System.Text.Json.JsonException)
         {
-            return (null, null, null);
+            return (null, null, null, null, null);
         }
     }
 }

@@ -157,6 +157,14 @@ public sealed record RuntimeIntegration(
 /// <summary>What the Feature requires of the environment it is installed into.</summary>
 public sealed record CompatibilityConstraints(
     VersionRange StoreVersion,
+
+    /// <summary>
+    /// The Python and Django ranges. Meaningful only for a Feature whose runtime
+    /// is <c>django</c>, and not checked against a store running anything else —
+    /// see <c>DependencyResolver.CheckCompatibility</c>. Before phase 20 they
+    /// were checked against every store, which meant a node store, which has no
+    /// Python version to report, failed every compatibility check there is.
+    /// </summary>
     VersionRange Python,
     VersionRange Django,
 
@@ -174,7 +182,19 @@ public sealed record CompatibilityConstraints(
     /// and the version of it that matters is already covered by the store
     /// reporting what it runs.
     /// </summary>
-    string? Database = null);
+    string? Database = null,
+
+    /// <summary>
+    /// The node runtime this Feature requires, for a Feature whose runtime is
+    /// <c>node</c>. The counterpart of <see cref="Django"/>, and checked under
+    /// exactly the same rule: a store that has never reported its node version
+    /// cannot be certified against a Feature that names a range.
+    ///
+    /// Defaulted rather than required, because a Feature that runs on any node
+    /// is a real and common thing to be, and the resolver already treats an
+    /// unbounded range as the author asserting it.
+    /// </summary>
+    VersionRange? Node = null);
 
 /// <summary>A dependency on another Feature, by slug and permitted version range.</summary>
 public sealed record FeatureDependencyDeclaration(string Slug, VersionRange Version);

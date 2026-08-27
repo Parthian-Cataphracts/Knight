@@ -24,30 +24,50 @@ public sealed class DependencyResolverTests
         string? storeVersion = null,
         string? python = null,
         string? django = null,
-        string? database = null)
+        string? database = null,
+        string runtime = "django",
+        string? node = null)
     {
-        var json = new
+        var compatibility = new Dictionary<string, object?>
         {
-            apiVersion = FeatureManifest.SupportedApiVersion,
-            slug,
-            version,
-            name = slug,
-            django = new { app_label = slug.Replace('-', '_'), installed_app = slug.Replace('-', '_') },
-            compatibility = new
-            {
-                storeVersion = storeVersion ?? "*",
-                python = python ?? "*",
-                django = django ?? "*",
-                database,
-            },
-            dependencies = new
+            ["storeVersion"] = storeVersion ?? "*",
+            ["python"] = python ?? "*",
+            ["django"] = django ?? "*",
+            ["database"] = database,
+            ["node"] = node,
+        };
+
+        var json = new Dictionary<string, object?>
+        {
+            ["apiVersion"] = FeatureManifest.SupportedApiVersion,
+            ["slug"] = slug,
+            ["version"] = version,
+            ["name"] = slug,
+            ["runtime"] = runtime,
+            ["compatibility"] = compatibility,
+            ["dependencies"] = new
             {
                 features = (dependencies ?? [])
                     .Select(dependency => new { slug = dependency.Slug, version = dependency.Range })
                     .ToArray(),
             },
-            install = new { strategy = "package-install" },
+            ["install"] = new { strategy = "package-install" },
         };
+
+        // The integration block a runtime spells its own way (adr/0032 §3).
+        if (runtime is "node")
+        {
+            json["node"] = new
+            {
+                @namespace = slug.Replace('-', '_'),
+                module = $"@knight/{slug}",
+                mount = new { export = "router", prefix = $"{slug}/" },
+            };
+        }
+        else
+        {
+            json["django"] = new { app_label = slug.Replace('-', '_'), installed_app = slug.Replace('-', '_') };
+        }
 
         Assert.True(
             FeatureManifest.TryParse(JsonSerializer.Serialize(json), out var manifest, out var errors),
@@ -64,7 +84,9 @@ public sealed class DependencyResolverTests
         string? storeVersion = null,
         string? python = null,
         string? django = null,
-        string? database = null) =>
+        string? database = null,
+        string runtime = "django",
+        string? node = null) =>
         new(
             Guid.CreateVersion7(),
             slug,
@@ -74,18 +96,26 @@ public sealed class DependencyResolverTests
             [.. versions.Select(version => new RegistryVersion(
                 Guid.CreateVersion7(),
                 SemanticVersion.Parse(version.Version),
-                Manifest(slug, version.Version, version.Dependencies, storeVersion, python, django, database),
+                Manifest(slug, version.Version, version.Dependencies, storeVersion, python, django, database, runtime, node),
                 version.Installable))]);
 
     private static RegistryFeature Simple(string slug, params string[] versions) =>
         Feature(slug, [.. versions.Select(version => (version, true, ((string, string)[]?)null))]);
 
+    /// <summary>
+    /// A store that has said what it is. `runtime` defaults to django for the
+    /// same reason `python` and `django` do: these fixtures are about dependency
+    /// resolution, and a store that has reported nothing is refused before any
+    /// of that is reached — which is the subject of its own tests below.
+    /// </summary>
     private static StoreCompatibilityContext Store(
         string? storeVersion = "5.0.0",
         string? python = "3.12",
         string? django = "5.1",
         bool dedicated = false,
         string? database = "postgresql",
+        string? runtime = "django",
+        string? node = null,
         params (string Slug, string Version)[] installed) =>
         new(
             storeVersion,
@@ -93,7 +123,9 @@ public sealed class DependencyResolverTests
             django,
             dedicated,
             installed.ToDictionary(entry => entry.Slug, entry => SemanticVersion.Parse(entry.Version), StringComparer.Ordinal),
-            database);
+            database,
+            runtime,
+            node);
 
     // --- The straightforward cases ----------------------------------------
 
@@ -500,6 +532,130 @@ public sealed class DependencyResolverTests
             Store(storeVersion: null, python: null, django: null));
 
         Assert.True(result.IsSuccessful, string.Join("; ", result.Failures));
+    }
+
+    // --- Which runtime the store runs -------------------------------------
+    //
+    // Added in phase 20. Before it, compatibility was decided entirely on Python
+    // and Django versions, so a store that is not Django - and adr/0032 settled
+    // that there may be one - failed every check there is and could not be
+    // planned against at all. That is the defect phase 18 found for Django
+    // stores, and it was still live for the other runtime.
+
+    [Fact]
+    public void ADjangoFeature_IsRefusedForANodeStore()
+    {
+        var resolver = new DependencyResolver([Simple("analytics", "1.0.0")]);
+
+        var result = resolver.Resolve("analytics", VersionRange.Any, Store(runtime: "node", node: "20.11.0"));
+
+        var failure = Assert.Single(result.Failures);
+        Assert.Equal(ResolutionFailureCode.RuntimeMismatch, failure.Code);
+
+        // Both sides named. "Incompatible" alone sends an operator looking for a
+        // version to bump, and no version will ever fix this one.
+        Assert.Contains("django", failure.Message);
+        Assert.Contains("node", failure.Message);
+    }
+
+    [Fact]
+    public void ANodeFeature_IsRefusedForADjangoStore()
+    {
+        var resolver = new DependencyResolver([Feature("conformance", [("1.0.0", true, null)], runtime: "node")]);
+
+        var result = resolver.Resolve("conformance", VersionRange.Any, Store());
+
+        Assert.Equal(ResolutionFailureCode.RuntimeMismatch, Assert.Single(result.Failures).Code);
+    }
+
+    [Fact]
+    public void ANodeFeature_InstallsIntoANodeStore()
+    {
+        var resolver = new DependencyResolver([
+            Feature("conformance", [("1.0.0", true, null)], runtime: "node", node: ">=20"),
+        ]);
+
+        var result = resolver.Resolve(
+            "conformance",
+            VersionRange.Any,
+            Store(python: null, django: null, runtime: "node", node: "20.11.0"));
+
+        // The whole point: a store with no Python and no Django is a store a
+        // Feature can be installed into, as long as it is the right one.
+        Assert.True(result.IsSuccessful, string.Join("; ", result.Failures));
+    }
+
+    [Fact]
+    public void ANodeStoreIsNotAskedForADjangoVersion()
+    {
+        var resolver = new DependencyResolver([
+            Feature("conformance", [("1.0.0", true, null)], django: ">=5.0", python: ">=3.12", runtime: "node"),
+        ]);
+
+        var result = resolver.Resolve(
+            "conformance",
+            VersionRange.Any,
+            Store(python: null, django: null, runtime: "node", node: "20.11.0"));
+
+        // A node Feature that names Django ranges is a manifest mistake, not a
+        // reason to refuse the install: the ranges belong to a runtime this
+        // Feature does not run on, and checking them would produce two failures
+        // about versions the store will never have.
+        Assert.True(result.IsSuccessful, string.Join("; ", result.Failures));
+    }
+
+    [Fact]
+    public void ANodeStoreTooOldForTheFeature_IsRefused()
+    {
+        var resolver = new DependencyResolver([
+            Feature("conformance", [("1.0.0", true, null)], runtime: "node", node: ">=20"),
+        ]);
+
+        var result = resolver.Resolve(
+            "conformance",
+            VersionRange.Any,
+            Store(python: null, django: null, runtime: "node", node: "18.19.0"));
+
+        // The node range is checked, and it is the counterpart of the Django
+        // one rather than a decoration: `node-conformance` has declared
+        // `node: ">=20"` since phase 17 and nothing read it until now.
+        var failure = Assert.Single(result.Failures);
+        Assert.Equal(ResolutionFailureCode.IncompatibleStore, failure.Code);
+        Assert.Contains("node version", failure.Message);
+    }
+
+    [Fact]
+    public void AStoreThatHasNotSaidWhatItRuns_IsRefusedRatherThanAssumedToBeDjango()
+    {
+        var resolver = new DependencyResolver([Simple("analytics", "1.0.0")]);
+
+        var result = resolver.Resolve("analytics", VersionRange.Any, Store(runtime: null));
+
+        // The same rule as every other unreported fact: null is "cannot
+        // certify", never "no objection". Assuming Django would have been
+        // convenient exactly once - for the stores that existed the day this was
+        // written - and wrong every day after that.
+        var failure = Assert.Single(result.Failures);
+        Assert.Equal(ResolutionFailureCode.IncompatibleStore, failure.Code);
+        Assert.Contains("which runtime it runs", failure.Message);
+    }
+
+    [Fact]
+    public void ARuntimeMismatch_IsReportedOnceRatherThanAsEveryVersionItCannotCheck()
+    {
+        var resolver = new DependencyResolver([
+            Feature("analytics", [("1.0.0", true, null)], python: ">=3.12", django: ">=5.0", storeVersion: ">=1.0.0"),
+        ]);
+
+        var result = resolver.Resolve(
+            "analytics",
+            VersionRange.Any,
+            Store(python: null, django: null, runtime: "node", node: "20.11.0"));
+
+        // One failure, about the runtime. Not three, two of which are about
+        // Python and Django versions a node store will never have and which
+        // nobody can act on.
+        Assert.Equal(ResolutionFailureCode.RuntimeMismatch, Assert.Single(result.Failures).Code);
     }
 
     [Fact]

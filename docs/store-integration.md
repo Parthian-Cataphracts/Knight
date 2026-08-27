@@ -129,7 +129,7 @@ Rules:
     "redis":    { "status": "healthy", "latencyMs": 1 },
     "worker":   { "status": "degraded", "detail": "queue backlog 1200" }
   },
-  "runtime": { "python": "3.12.10", "django": "5.1.15" }
+  "runtime": { "name": "django", "python": "3.12.10", "django": "5.1.15", "database": "postgresql" }
 }
 ```
 
@@ -140,10 +140,22 @@ said — so a store that omits this is a store nothing can be delivered to. Phas
 18 found exactly that: the field did not exist, and every install of every
 Feature on every store was refused as `IncompatibleStore`, permanently.
 
-The names belong to the runtime rather than to this contract. A Django store
-reports `python` and `django`; a node store reports `node`; KNIGHT compares
+`runtime.name` says **which runtime this store is** — `django`, `node` — and it
+decides which of the other names mean anything. KNIGHT checks it before every
+other compatibility fact and refuses a Feature built for a different runtime by
+name, because no version anybody can bump will ever make a Django package
+install into a node store. A store that omits the name is refused rather than
+assumed to be Django.
+
+The remaining names belong to the runtime rather than to this contract. A Django
+store reports `python` and `django`; a node store reports `node`; KNIGHT compares
 whatever a manifest asked about against whatever the store reported
 ([`adr/0032`](adr/0032-a-feature-declares-its-runtime.md)).
+
+A store written before the name existed and reporting a `django` version is read
+as `django`, so nothing already deployed has to be redeployed to keep working.
+That is the only inference made here, and it is one a Django version can only
+mean.
 
 The endpoint is authenticated and it must not touch business tables. KNIGHT
 signs the request — `X-Knight-Signature`, an HMAC over method, path, timestamp

@@ -310,11 +310,74 @@ public sealed class DependencyResolver
         }
 
         var compatibility = version.Manifest.Compatibility;
+        var runtime = version.Manifest.Runtime.Runtime;
 
         CheckRange(feature.Slug, "store version", store.StoreVersion, compatibility.StoreVersion, version, failures);
-        CheckRange(feature.Slug, "Python version", store.PythonVersion, compatibility.Python, version, failures);
-        CheckRange(feature.Slug, "Django version", store.DjangoVersion, compatibility.Django, version, failures);
         CheckDatabase(feature.Slug, store.Database, compatibility.Database, version, failures);
+
+        if (!CheckRuntime(feature.Slug, runtime, store.Runtime, version, failures))
+        {
+            // The runtime decides which of the remaining checks mean anything.
+            // Asking a node store for its Django version produces three failures
+            // about versions when the real answer is one failure about the
+            // runtime, and an operator reading "the store has not reported its
+            // Python version" about a store that will never have one is being
+            // sent to fix something that is not broken.
+            return;
+        }
+
+        switch (runtime)
+        {
+            case FeatureRuntime.Django:
+                CheckRange(feature.Slug, "Python version", store.PythonVersion, compatibility.Python, version, failures);
+                CheckRange(feature.Slug, "Django version", store.DjangoVersion, compatibility.Django, version, failures);
+                break;
+
+            case FeatureRuntime.Node:
+                CheckRange(feature.Slug, "node version", store.NodeVersion, compatibility.Node ?? VersionRange.Any, version, failures);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Whether the Feature and the store are the same runtime at all.
+    ///
+    /// Returns false when they are not, and when the store has never said —
+    /// both are reasons the version checks below cannot be trusted, and neither
+    /// is a reason to install anyway.
+    ///
+    /// A store that has not reported a runtime is refused rather than assumed to
+    /// be Django. Assuming would have been convenient exactly once, for the
+    /// stores that existed when this was written, and wrong forever afterwards.
+    /// </summary>
+    private static bool CheckRuntime(
+        string slug,
+        FeatureRuntime required,
+        string? reported,
+        RegistryVersion version,
+        List<ResolutionFailure> failures)
+    {
+        var name = required.ToString().ToLowerInvariant();
+
+        if (string.IsNullOrWhiteSpace(reported))
+        {
+            failures.Add(new ResolutionFailure(
+                ResolutionFailureCode.IncompatibleStore,
+                slug,
+                $"{slug} {version.Version} runs on the {name} runtime, and the store has not reported which runtime it runs."));
+            return false;
+        }
+
+        if (!string.Equals(reported, name, StringComparison.OrdinalIgnoreCase))
+        {
+            failures.Add(new ResolutionFailure(
+                ResolutionFailureCode.RuntimeMismatch,
+                slug,
+                $"{slug} {version.Version} is built for the {name} runtime and this store runs {reported.ToLowerInvariant()}."));
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>

@@ -78,7 +78,20 @@ public sealed record FeaturePlanContext(
     /// reported which database it runs", for ever, on every store: six of the
     /// sixteen in the catalogue.
     /// </summary>
-    string? Database = null);
+    string? Database = null,
+
+    /// <summary>
+    /// Which runtime the store runs — <c>django</c>, <c>node</c> — and, when it
+    /// is node, the node version.
+    ///
+    /// Added in phase 20, and the same shape of gap as <see cref="Database"/>
+    /// before it: the delivery path had settled that a Feature declares its
+    /// runtime, and nothing on this side could say what a store's was. The
+    /// resolver therefore asked every store for a Python and a Django version,
+    /// so a store that is not Django failed every compatibility check there is.
+    /// </summary>
+    string? Runtime = null,
+    string? NodeVersion = null);
 
 /// <summary>
 /// Resolves what would have to happen for a store to end up running a Feature.

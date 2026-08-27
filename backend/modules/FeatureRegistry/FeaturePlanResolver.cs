@@ -103,7 +103,9 @@ internal sealed class FeaturePlanResolver : IFeaturePlanResolver
                 context.DjangoVersion,
                 context.HasDedicatedInfrastructure,
                 installed,
-                context.Database),
+                context.Database,
+                context.Runtime,
+                context.NodeVersion),
             moveForward);
 
         return new FeaturePlan(
