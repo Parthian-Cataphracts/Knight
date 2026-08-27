@@ -435,7 +435,7 @@ def open_ticket(
     scheduled = start_after is not None and start_after > now
 
     ticket = KitchenTicket.objects.create(
-        number=TicketNumberSequence.take(),
+        number=_next_number(),
         source_order_number=order_number,
         service=service,
         state=TicketState.SCHEDULED if scheduled else TicketState.QUEUED,
@@ -955,9 +955,54 @@ def _table(code: str) -> Table:
     return table
 
 
+def _next_number() -> int:
+    """
+    The next ticket number nobody live is using.
+
+    The counter rolls over at four digits so the number stays something staff can
+    shout, which means it comes round again - and a busy restaurant that has been
+    open all year will eventually be handed one that a ticket still on the board
+    is using. Taking the next free one is the whole fix. The constraint would
+    refuse the collision anyway; this is what stops that refusal reaching a
+    member of staff as a database error in the middle of service.
+    """
+    live = set(
+        KitchenTicket.objects.exclude(
+            state__in=[TicketState.SERVED, TicketState.CANCELLED]
+        ).values_list("number", flat=True)
+    )
+
+    for _ in range(TicketNumberSequence.WRAP_AT):
+        candidate = TicketNumberSequence.take()
+
+        if candidate not in live:
+            return candidate
+
+    # Every number in the range is held by a ticket nobody has finished. That is
+    # not a numbering problem, it is a kitchen with ten thousand open tickets,
+    # and saying so is more use than handing out a number that will be refused.
+    raise RestaurantError(
+        "Every ticket number is in use by a ticket that has not been served or "
+        "cancelled. Clear the board before opening more."
+    )
+
+
 def _ticket(number: int, *, lock: bool = False) -> KitchenTicket:
+    """
+    One ticket by its number, preferring the one that is still live.
+
+    Numbers come round again, so a number can be held by one open ticket and any
+    number of finished ones. A member of staff typing it means the one on the
+    board; the newest finished one is the fallback, so a screen looking up a
+    ticket that was served an hour ago still finds it.
+    """
     query = KitchenTicket.objects.select_for_update() if lock else KitchenTicket.objects
-    found = query.filter(number=_number(number)).first()
+    matching = query.filter(number=_number(number))
+
+    found = (
+        matching.exclude(state__in=[TicketState.SERVED, TicketState.CANCELLED]).first()
+        or matching.order_by("-created_at", "-id").first()
+    )
 
     if found is None:
         raise UnknownTicket(f"No ticket has the number {number}.")

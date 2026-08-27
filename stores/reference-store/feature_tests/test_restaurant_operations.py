@@ -722,3 +722,55 @@ class TheStoreHandsTheMenuAndItsOrdersOverTests(TestCase):
 
         self.assertEqual(18, line.prep_minutes)
         self.assertEqual(10, line.load_units)
+
+
+@skipUnless(INSTALLED, "The restaurant-operations Feature is not installed.")
+class TicketNumberTests(TestCase):
+    """A number short enough to shout comes round again, and that has to be safe."""
+
+    def setUp(self):
+        services.define_prep("SALAD", name="Salad", prep_minutes=4, load_units=1)
+
+    def _wind_to(self, value):
+        """Puts the counter one short of a number, so the next ticket takes it."""
+        from knight_feature_restaurant_operations.models import TicketNumberSequence
+
+        TicketNumberSequence.objects.update_or_create(id=1, defaults={"last_value": value - 1})
+
+    def test_two_finished_tickets_may_share_a_number(self):
+        # The counter rolls over at four digits. Ticket 41 this Tuesday and
+        # ticket 41 next month are different tickets and both are correct.
+        first = services.open_ticket([_line("SALAD")])
+        services.advance(first.number, TicketState.CANCELLED)
+
+        self._wind_to(first.number)
+        second = services.open_ticket([_line("SALAD")])
+
+        self.assertEqual(first.number, second.number)
+        self.assertEqual(2, KitchenTicket.objects.filter(number=first.number).count())
+
+    def test_a_number_a_live_ticket_holds_is_skipped(self):
+        # Two live tickets sharing a number is a number somebody shouts and two
+        # people answer to. The constraint would refuse it; this is what stops
+        # the refusal reaching a member of staff mid-service.
+        held = services.open_ticket([_line("SALAD")])
+
+        self._wind_to(held.number)
+        next_up = services.open_ticket([_line("SALAD")])
+
+        self.assertNotEqual(held.number, next_up.number)
+
+    def test_a_number_finds_the_ticket_that_is_still_live(self):
+        first = services.open_ticket([_line("SALAD")])
+        services.advance(first.number, TicketState.CANCELLED)
+
+        self._wind_to(first.number)
+        second = services.open_ticket([_line("SALAD")])
+
+        self.assertEqual(second.pk, services.ticket(second.number).pk)
+
+    def test_a_finished_ticket_is_still_findable_when_nothing_live_holds_its_number(self):
+        finished = services.open_ticket([_line("SALAD")])
+        services.advance(finished.number, TicketState.CANCELLED)
+
+        self.assertEqual(finished.pk, services.ticket(finished.number).pk)

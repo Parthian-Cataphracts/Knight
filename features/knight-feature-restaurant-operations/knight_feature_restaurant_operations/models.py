@@ -309,6 +309,10 @@ class TicketNumberSequence(models.Model):
     for; uniqueness across all of history is `source_order_number`'s job.
     """
 
+    #: Four digits, because that is the largest number somebody shouts across a
+    #: kitchen without repeating themselves.
+    WRAP_AT = 9999
+
     id = models.PositiveSmallIntegerField(primary_key=True, default=1)
     last_value = models.BigIntegerField(default=0)
 
@@ -316,7 +320,7 @@ class TicketNumberSequence(models.Model):
         db_table = "knight_restaurant_ticket_sequence"
 
     @classmethod
-    def take(cls, *, wrap_at: int = 9999) -> int:
+    def take(cls, *, wrap_at: int | None = None) -> int:
         """
         Reserves the next number.
 
@@ -326,6 +330,7 @@ class TicketNumberSequence(models.Model):
         on that, because a number handed out and rolled back is a gap staff will
         ask about.
         """
+        wrap_at = wrap_at or cls.WRAP_AT
         counter = cls.objects.select_for_update().get_or_create(id=1)[0]
         counter.last_value = (counter.last_value % wrap_at) + 1
         counter.save(update_fields=["last_value"])
@@ -349,7 +354,14 @@ class KitchenTicket(models.Model):
     #: What the kitchen calls this ticket. Short, sequential within a service and
     #: assigned by this Feature, because an order number seven digits long is not
     #: something anybody shouts across a kitchen.
-    number = models.PositiveIntegerField(unique=True, editable=False)
+    #:
+    #: Not unique across all history, and that is the point of it being short: the
+    #: counter rolls over at four digits, so ticket 41 this Tuesday and ticket 41
+    #: next month are different tickets and both are correct. What must never
+    #: happen is two *live* tickets sharing a number, because that is a number
+    #: somebody shouts and two people answer to - which is the partial unique
+    #: index below. Uniqueness across history is `source_order_number`'s job.
+    number = models.PositiveIntegerField(editable=False)
 
     service = models.CharField(max_length=20, choices=ServiceStyle, default=ServiceStyle.DINE_IN)
     state = models.CharField(max_length=20, choices=TicketState, default=TicketState.QUEUED)
@@ -396,6 +408,13 @@ class KitchenTicket(models.Model):
             models.Index(fields=["location", "state", "created_at"], name="knight_rest_ticket_board"),
             models.Index(fields=["state", "promised_at"], name="knight_rest_ticket_due"),
             models.Index(fields=["-number"], name="knight_rest_ticket_number"),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["number"],
+                condition=~models.Q(state__in=["served", "cancelled"]),
+                name="knight_rest_one_live_ticket_per_number",
+            ),
         ]
 
     @property

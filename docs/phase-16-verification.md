@@ -352,14 +352,14 @@ cd backend && REQUIRE_POSTGRES_TESTS=1 dotnet test
 
 | Suite | Result |
 |---|---|
-| Store, all 13 Features installed, `REQUIRE_FEATURE_TESTS=1` | **680 passed**, 0 skipped (479 before) |
-| Store, no Features installed at all | **680 passed**, 463 skipped |
+| Store, all 13 Features installed, `REQUIRE_FEATURE_TESTS=1` | **684 passed**, 0 skipped (479 before) |
+| Store, no Features installed at all | **684 passed**, 467 skipped |
 | Backend unit | 626 passed |
 | Backend architecture | 13 passed |
 | Backend integration, `REQUIRE_POSTGRES_TESTS=1` | 155 passed |
 | Dashboard | 9 passed, `tsc --noEmit` clean |
 
-The 201 new store tests are the three Features of this phase and the regression
+The 205 new store tests are the three Features of this phase and the regression
 for the inline-sequence bug in §4. **No backend tests were added**: nothing in
 this phase changed KNIGHT's own code, only the catalogue data it seeds. The
 backend figures differ from the ones phase 15 reported because that report went
