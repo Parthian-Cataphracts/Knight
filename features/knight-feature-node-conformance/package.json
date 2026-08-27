@@ -1,0 +1,8 @@
+{
+  "name": "@knight/feature-node-conformance",
+  "version": "1.0.0",
+  "description": "The Feature a node store takes delivery of, so that the node runtime is demonstrated rather than declared.",
+  "type": "module",
+  "main": "knight_node_conformance/index.js",
+  "license": "UNLICENSED"
+}

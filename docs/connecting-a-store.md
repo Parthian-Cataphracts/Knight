@@ -245,14 +245,28 @@ list of names - `Install`, `Upgrade`, `ApplyConfiguration`, `Enable`, `Disable`,
 `install`, `migrate`, `configure`, `enable`, `disable`, `reload`, `healthcheck` -
 and a store may carry each of them out however its own runtime does.
 
-The manifest is tied to Django, though.
-[`ManifestReader`](../backend/modules/FeatureRegistry/Domain/ManifestReader.cs)
-refuses a version whose manifest has no `django:` block, and validates
-`app_label` and `installed_app` as Python identifiers. So today a Feature cannot
-be *published* for a non-Django store, never mind installed into one. Making the
-manifest runtime-neutral is an open decision rather than an oversight, and it is
-recorded in [`risks.md`](risks.md).
+The manifest was tied to Django until phase 17, and is not any more.
 
-Until that decision is taken, a non-Django store is entitled by KNIGHT and
-enforces those entitlements itself, and its code is deployed the way that team
-already deploys code.
+A manifest declares `runtime:` and carries a block named for it, and the three
+things a store is told - what its migrations are recorded under, what to load,
+and where to mount what it serves - are named the same way whatever the runtime
+is ([`adr/0032`](adr/0032-a-feature-declares-its-runtime.md)). So a Feature can
+be published, delivered and installed into a store that is not Django.
+
+What that costs a team writing the store is one implementation of the eight verbs
+above. [`stores/node-reference-store`](../stores/node-reference-store) is the
+worked example, dependency-free and deliberately small, and it is held to the
+same conformance the Django one is.
+
+What it does **not** mean is that every Feature in the catalogue is available to
+every runtime. A Feature is code, and the code in
+`features/knight-feature-*` today is Python. A capability sold to a node store
+has to have been built for node.
+
+KNIGHT does not yet know which runtime a store is, so it will queue that job
+rather than refuse it up front. The **store** refuses it, in `preflight`, before
+anything is downloaded - so the outcome is a job that failed with
+`preflight.wrong_runtime` and a store that was never touched, rather than a
+half-installed Feature. Teaching KNIGHT the store's runtime so it can refuse
+before queuing is worth doing and is written down in
+[`../TODO.md`](../TODO.md).

@@ -278,23 +278,85 @@ def _scalar(value: str):
 # --- Build ------------------------------------------------------------------
 
 
+#: Where each runtime keeps the code that gets packaged, and what the manifest
+#: field naming it is called.
+#:
+#: The layout differs and nothing else does. The archive is a deterministic zip
+#: either way, the digest is over the same bytes, and the signature and the whole
+#: delivery path are unchanged - which is why adding a runtime did not require
+#: the delivery path to learn anything
+#: (docs/adr/0032-a-feature-declares-its-runtime.md).
+LAYOUTS = {
+    # A Python distribution: the importable package directory, named by the
+    # module the store puts in INSTALLED_APPS.
+    "django": ("installed_app", None),
+    # A node package: its built output plus the package.json that describes it.
+    # The directory is named for the Feature rather than for the module, because
+    # an npm specifier is scoped - `@knight/feature-subscriptions` is not a
+    # directory name - and the store reads the real name out of package.json.
+    "node": ("namespace", ["package.json"]),
+}
+
+
+def _sources(feature_dir: Path, manifest: dict) -> tuple[str, Path, list[Path]]:
+    """
+    What goes in the archive, decided by the runtime the manifest declares.
+
+    Absent runtime means django, exactly as the registry's reader defaults it: a
+    manifest written before phase 17 is a Django Feature.
+    """
+    runtime = str(manifest.get("runtime") or "django")
+
+    if runtime not in LAYOUTS:
+        raise SystemExit(
+            f"'{runtime}' is not a runtime this tool can package. Known: {', '.join(sorted(LAYOUTS))}."
+        )
+
+    block = manifest.get(runtime)
+
+    if not isinstance(block, dict):
+        raise SystemExit(f"The manifest declares runtime '{runtime}' and carries no '{runtime}:' block.")
+
+    key, extras = LAYOUTS[runtime]
+    directory = block.get(key)
+
+    if not directory:
+        raise SystemExit(f"The manifest's '{runtime}' block has no '{key}'.")
+
+    source = feature_dir / str(directory)
+
+    if not source.is_dir():
+        raise SystemExit(f"The manifest names '{directory}', which is not a directory in {feature_dir}.")
+
+    files = []
+
+    for name in extras or []:
+        candidate = feature_dir / name
+
+        if not candidate.is_file():
+            raise SystemExit(f"A {runtime} Feature needs a {name} beside its source, and {feature_dir} has none.")
+
+        files.append(candidate)
+
+    return runtime, source, files
+
+
 def build(feature_dir: Path, dist: Path) -> Path:
     """
-    Packs the feature's Python package into a deterministic zip.
+    Packs the feature's source into a deterministic zip.
 
     Deterministic on purpose: entries are sorted and timestamps are fixed, so
     building the same source twice produces the same bytes and therefore the same
     digest. Without that, "is the artifact in the registry the one built from
     this commit" is a question nobody can answer.
+
+    What is packed depends on the runtime the manifest declares and nothing else
+    does - see LAYOUTS.
     """
     manifest = load_manifest(feature_dir)
     slug = manifest["slug"]
     version = str(manifest["version"])
-    package_name = manifest["django"]["installed_app"]
-
-    source = feature_dir / package_name
-    if not source.is_dir():
-        raise SystemExit(f"The manifest names package '{package_name}', which is not a directory in {feature_dir}.")
+    runtime, source, extras = _sources(feature_dir, manifest)
 
     dist.mkdir(parents=True, exist_ok=True)
     artifact = dist / f"{slug}-{version}.zip"
@@ -309,6 +371,11 @@ def build(feature_dir: Path, dist: Path) -> Path:
             continue
 
         members.append((str(path.relative_to(feature_dir)).replace(os.sep, "/"), path))
+
+    for path in extras:
+        members.append((str(path.relative_to(feature_dir)).replace(os.sep, "/"), path))
+
+    members.sort()
 
     if not members:
         raise SystemExit(f"Nothing to package in {source}.")

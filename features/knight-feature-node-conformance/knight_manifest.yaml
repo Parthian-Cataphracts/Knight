@@ -1,0 +1,89 @@
+# The contract between this Feature and everything that handles it: KNIGHT
+# validates it at publish, the resolver reads its dependencies, and the store's
+# installer reads its install and migration declarations
+# (docs/feature-delivery.md section 5).
+#
+# The first Feature that is not a Django Feature, and the reason it exists.
+# adr/0032 §4 says a runtime is not real until a store has received a Feature
+# over it, because a name in a list with nothing behind it is a promise. This is
+# the thing behind the name `node`.
+#
+# It is deliberately NOT in the commercial catalogue and is not for sale. Nothing
+# here is a capability a merchant would buy; it is the smallest package that can
+# demonstrate that the delivery path is runtime-neutral, and it is built and
+# installed by CI for exactly that reason.
+apiVersion: knight.dev/v1
+slug: node-conformance
+version: 1.0.0
+name: Node Conformance
+description: >-
+  The Feature a node store takes delivery of. It loads, serves one route at the
+  prefix its manifest declares, reads the configuration the installer wrote, and
+  answers a health check - the four things a delivered Feature has to be able to
+  do, and nothing else.
+
+# The whole point of this Feature.
+runtime: node
+
+node:
+  # What this Feature's schema is recorded under. Held to the same shape as a
+  # Django app label, because it is the same idea: a name a store can key a
+  # ledger on and a person can read in a log line.
+  namespace: knight_node_conformance
+
+  # What the store loads. An npm specifier rather than a path: the package is
+  # delivered rather than fetched from a registry, and the store checks this
+  # against the name in the delivered package.json before importing anything.
+  module: "@knight/feature-node-conformance"
+
+  mount:
+    # The exported symbol that serves requests, and the path it serves at. The
+    # same two facts a Django Feature spells as `urls.include` and `urls.prefix`
+    # (adr/0032 section 3).
+    export: router
+    prefix: conformance/
+
+compatibility:
+  storeVersion: ">=1.0.0"
+
+  # Deliberately absent: `python:` and `django:` are Django's compatibility
+  # questions and this Feature has no opinion on either. The reader treats an
+  # absent range as "runs anywhere", which is the honest claim here.
+  node: ">=20"
+
+migrations:
+  # True, and it is the interesting half of this Feature. A node store has no
+  # `manage.py migrate`, so what KNIGHT's contract actually requires of it is to
+  # know what state this Feature's schema is in under the declared namespace -
+  # and that is what the store records. A real node store runs knex or umzug
+  # here, keyed on the same namespace.
+  required: true
+  reversible: true
+  estimatedDurationSeconds: 1
+  requiresMaintenanceWindow: false
+  extensions: []
+
+configuration:
+  defaults:
+    # Read back through the Feature's own route, which is how the conformance run
+    # proves the configure step wrote the file where the Feature looks for it.
+    greeting: installed
+
+workers:
+  # One, so that the worker declaration has something behind it on this runtime
+  # too. A node callable is a module and an exported name rather than a dotted
+  # path - the same fact spelled the way this runtime spells it.
+  - name: sweep
+    entrypoint: "@knight/feature-node-conformance#sweep"
+    schedule: daily
+
+install:
+  strategy: package-install
+  requiresRestart: true
+  healthCheck: "@knight/feature-node-conformance#health"
+
+uninstall:
+  # Nothing here is a merchant's data, because nothing here is a merchant's
+  # Feature. The shortest retention in the catalogue, and the only honest one.
+  strategy: disable-then-remove
+  dataRetentionDays: 1

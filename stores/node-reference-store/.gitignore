@@ -1,0 +1,6 @@
+node_modules/
+# The registry a running store writes. Committed on the Django store because it
+# is that store's development fixture; here it is only ever produced by a test
+# or by an install, so it stays out.
+knight-features/*.json
+workspace/

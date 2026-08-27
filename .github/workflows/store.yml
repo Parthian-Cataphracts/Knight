@@ -94,6 +94,31 @@ jobs:
           REQUIRE_FEATURE_TESTS: '1'
         run: python manage.py test
 
+  node-store:
+    name: Node reference store
+    runs-on: ubuntu-latest
+
+    # The store that makes `node` a runtime rather than a name in a validator
+    # (docs/adr/0032-a-feature-declares-its-runtime.md section 4). Its suite
+    # builds the real artifact with the real packaging tool and installs it, so a
+    # change that breaks runtime-neutral delivery fails here rather than being
+    # discovered by whoever tries it first.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The suite shells out to the packaging tool, which needs nothing else.
+      - name: Take delivery of a Feature
+        working-directory: stores/node-reference-store
+        run: npm test
+
   contract:
     name: Contract conformance
     runs-on: ubuntu-latest

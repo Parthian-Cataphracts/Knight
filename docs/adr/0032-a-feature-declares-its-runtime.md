@@ -101,9 +101,18 @@ that is wrong should fail in a pipeline, not halfway through somebody's database
 
 A name in the list with nothing behind it is a promise, and this repository does
 not ship promises as features. `node` is in the list because
-[`stores/node-reference-store`](../../stores/node-reference-store) exists, claims
-a job, verifies a signature, installs a package, records a migration and answers
-a health check — the same conformance the Django store is held to.
+[`stores/node-reference-store`](../../stores/node-reference-store) exists and
+takes delivery: it verifies a real signature over a real artifact, unpacks it,
+records the migration under the declared namespace, writes the configuration
+where the Feature looks for it, mounts the route the manifest declared, and
+answers the health check. `features/knight-feature-node-conformance` is what it
+receives, and CI runs the whole thing on every push.
+
+One boundary, stated rather than glossed: that store reads its job payload from a
+file instead of exchanging a token and claiming work over HTTP. The transport is
+identical to the Django store's and duplicating it would have demonstrated
+nothing about runtime neutrality, which is the only thing that store exists to
+demonstrate. Everything downstream of the payload arriving is real.
 
 Adding a third runtime means the same bar: a reader case, a spelling table row,
 and a store that has actually taken delivery.
@@ -128,8 +137,8 @@ along.
 
 **The delivery path got wider, and that is the highest-risk surface in the
 system** (R16). Nothing about signing, verification or job authorisation
-changed — a node package is fetched, verified against the same Ed25519 signature
-and installed under the same job vocabulary — but there is now a second
+changed — a node package is fetched, verified against the same ECDSA P-256
+signature and installed under the same job vocabulary — but there is now a second
 installer path, and the external review scoped in
 [`../security/external-review-scope.md`](../security/external-review-scope.md)
 has a second store runtime in it.

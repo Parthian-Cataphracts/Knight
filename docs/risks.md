@@ -41,7 +41,7 @@ Status: **living document**. Update whenever a risk is resolved or discovered.
 | R23 | Feature packages could drift toward becoming microservices | Operational explosion the spec forbids | Explicit rule in [`adr/0014`](adr/0014-features-as-deployable-packages.md); a network service requires its own ADR |
 | R24 | Delivery scope may dominate the roadmap | Core control plane slips | Phase 3.5 is scoped to a single reference feature end to end before breadth |
 | R25 | File-backed signing keys are accepted for the first release | A compromise of the API host becomes arbitrary code on every store it manages — the highest-value key in the system | **Accepted 2026-08-20** by the product owner, deliberately and with the consequence understood. Conditions: the private key lives outside the repository, the host is hardened, and the position is revisited before the first customer who is not the company itself. The `ISigner` abstraction and the indexed `signingKeyId` mean moving to a KMS is a hosting change rather than a code change, and revoking a compromised key yanks everything it signed in one query |
-| R26 | The Feature manifest is bound to Django while a store may be any stack | A capability sold as a tier cannot be delivered to a non-Django store, and the gap is invisible until somebody tries | The wire contract, the job vocabulary and the step names are all runtime-neutral already, so the binding is one file: `ManifestReader` refuses a manifest with no `django:` block and validates `app_label` and `installed_app` as Python identifiers. Until the decision in section 3 is taken, a non-Django store is entitled by KNIGHT and enforces those entitlements itself, which is a supported arrangement rather than a workaround ([`connecting-a-store.md`](connecting-a-store.md) section 8) |
+| R26 | ~~The Feature manifest is bound to Django while a store may be any stack~~ **Resolved in phase 17** | A capability sold as a tier cannot be delivered to a non-Django store, and the gap is invisible until somebody tries | The wire contract, the job vocabulary and the step names are all runtime-neutral already, so the binding is one file: `ManifestReader` refuses a manifest with no `django:` block and validates `app_label` and `installed_app` as Python identifiers. The product owner answered **yes** in phase 17. A manifest now declares `runtime:` and carries a block named for it, and the three facts a store needs - namespace, module, mount - are named the same way whatever the runtime is, so the wire and the installer never learnt a second vocabulary ([`adr/0032`](adr/0032-a-feature-declares-its-runtime.md)). `node` is real rather than declared: [`stores/node-reference-store`](../stores/node-reference-store) takes delivery of a signed artifact in CI on every push |
 
 ## 3. Decisions still needed from the product owner
 
@@ -96,7 +96,17 @@ Status: **living document**. Update whenever a risk is resolved or discovered.
     the provider integration exists, so launching with stores registered by hand
     remains the assumption unless somebody says otherwise.
 
-14. **Runtime-neutral Feature manifests** — should a Feature be publishable for
+14. ~~**Runtime-neutral Feature manifests**~~ **Resolved 2026-08-27: yes.** The
+    product owner chose to build it, and
+    [`adr/0032`](adr/0032-a-feature-declares-its-runtime.md) records the shape:
+    a `runtime:` discriminator, a block named for it, and three neutral names -
+    namespace, module, mount - that Django's four fields turned out to be
+    wearing Python clothes. The delivery path did not have to learn anything,
+    which is what made the change affordable. The original question is kept
+    below because the reasoning on both sides is still the reasoning anybody
+    adding a third runtime should read.
+
+    Should a Feature be publishable for
     a store that is not a Django application? Everything except the manifest is
     already stack-agnostic: the ingestion contract is plain HTTP, and the job
     vocabulary is a closed list of names a store carries out however its runtime

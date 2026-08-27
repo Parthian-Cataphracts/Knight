@@ -1,0 +1,13 @@
+{
+  "name": "knight-node-reference-store",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The smallest store that is not Django and can still take delivery of a KNIGHT Feature.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/server.js",
+    "apply-job": "node src/knight/apply-job.js",
+    "test": "node --test test/"
+  }
+}
