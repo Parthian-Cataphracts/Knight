@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.Http.Json;
+using AccessControl.Domain;
 using FeatureDelivery;
 using FeatureRegistry.Domain;
 using Knight.Application.Abstractions.ControlPlane;
@@ -157,6 +160,35 @@ public sealed class BlockedInstallTests
         Assert.Equal(
             preview.Failures.Select(failure => failure.Code).OrderBy(code => code),
             result.Plan.Failures.Select(failure => failure.Code).OrderBy(code => code));
+    }
+
+    [Fact]
+    public async Task TheEndpointAnswersARefusalRatherThanAnError()
+    {
+        if (!_fixture.IsAvailable) return;
+
+        var (storeId, slug) = await SeedPublishedFeatureAndSilentStoreAsync();
+
+        var email = $"user-{Guid.NewGuid():n}@knight.test";
+        const string password = "correct horse battery staple";
+        await _fixture.SeedUserAsync(email, password, SystemRoles.Admin);
+        var client = _fixture.CreateClient(await _fixture.SignInAsync(email, password));
+
+        var response = await client.PostAsJsonAsync(
+            "/api/v1/installations/install",
+            new { storeId, slug, versionRange = (string?)null });
+
+        // Through the endpoint rather than the service, because the first fix
+        // for this defect made the service correct and left the response mapper
+        // dereferencing an installation that is now legitimately null - so the
+        // careful refusal came back as "an unexpected error occurred", which is
+        // worse than the false 404 it replaced. Only a request finds that.
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+
+        Assert.False(body.GetProperty("plan").GetProperty("isSuccessful").GetBoolean());
+        Assert.NotEmpty(body.GetProperty("plan").GetProperty("failures").EnumerateArray().ToList());
     }
 
     [Fact]

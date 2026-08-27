@@ -184,7 +184,17 @@ public sealed record FeaturePlanResponse(
 public sealed record InstallationRequestResponse(
     FeaturePlanResponse Plan,
     IReadOnlyList<FeatureJobResponse> Jobs,
-    FeatureInstallationResponse Installation);
+
+    /// <summary>
+    /// The store's row for this Feature, or null when planning failed before one
+    /// could exist.
+    ///
+    /// Null is the honest answer for a store being refused a Feature it has never
+    /// had: there is nothing installed and nothing to describe. The plan above
+    /// carries the reasons, which is what a caller should be reading in that
+    /// case anyway.
+    /// </summary>
+    FeatureInstallationResponse? Installation);
 
 public sealed record FeatureJobResponse
 {

@@ -138,7 +138,12 @@ internal static class DeliveryMapping
     public static InstallationRequestResponse ToResponse(this InstallationRequestResult result) => new(
         result.Plan.ToResponse(),
         [.. result.QueuedJobs.Select(job => job.ToResponse())],
-        result.Installation.ToResponse());
+
+        // Null when planning failed before a row could exist. Dereferencing it
+        // turned a careful refusal into a 500 - the same request that had just
+        // been given three precise reasons answered "an unexpected error
+        // occurred", which is worse than the false 404 it replaced.
+        result.Installation?.ToResponse());
 
     public static RolloutResponse ToResponse(this FeatureRollout rollout) => new()
     {
