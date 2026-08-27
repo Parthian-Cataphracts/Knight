@@ -32,6 +32,7 @@ import { after, before, describe, it } from 'node:test';
 import { JobRunner } from '../src/knight/runner.js';
 import { getSettings } from '../src/knight/settings.js';
 import { readArchive } from '../src/knight/unzip.js';
+import { digestOf } from '../src/knight/verify.js';
 
 const REPO = path.resolve(import.meta.dirname, '..', '..', '..');
 const FEATURE = path.join(REPO, 'features', 'knight-feature-node-conformance');
@@ -62,7 +63,11 @@ before(() => {
 
   artifactPath = path.join(temporary, 'node-conformance-1.0.0.zip');
   artifact = readFileSync(artifactPath);
-  digest = `sha256:${createHash('sha256').update(artifact).digest('hex')}`;
+  // Bare lowercase hex, because that is what `knight_package.py` publishes and
+  // signs. This fixture used to write `sha256:<hex>` and sign that, and every
+  // test agreed with it — which is how a store that could not have verified a
+  // single real artifact passed its own suite for three phases.
+  digest = createHash('sha256').update(artifact).digest('hex');
 
   // A throwaway signing pair, used the way KNIGHT's is: ECDSA P-256 over the
   // ASCII digest string. The algorithm is the contract rather than this store's
@@ -90,7 +95,16 @@ function job(overrides = {}) {
     type: 'Install',
     featureSlug: 'node-conformance',
     targetVersion: '1.0.0',
-    steps: ['preflight', 'fetch', 'verify', 'install', 'migrate', 'configure', 'enable', 'healthcheck'],
+    // KNIGHT's install pipeline, verbatim. This fixture used to name eight
+    // verbs and the store knew exactly those eight, so `backup`,
+    // `create-extensions` and `reload` were missing from both and the suite was
+    // green. A real job named eleven and the store refused it as
+    // `step.unknown` — the vocabulary is KNIGHT's, and a fixture that writes
+    // its own is a fixture that tests nothing.
+    steps: [
+      'preflight', 'fetch', 'verify', 'backup', 'install',
+      'create-extensions', 'migrate', 'configure', 'enable', 'reload', 'healthcheck',
+    ],
     artifact: {
       packageReference: 'node-conformance-1.0.0.zip',
       digest,
@@ -121,7 +135,10 @@ describe('a node store taking delivery', () => {
     assert.equal(outcome.succeeded, true, JSON.stringify(outcome));
     assert.deepEqual(
       outcome.steps.map((step) => step.step),
-      ['preflight', 'fetch', 'verify', 'install', 'migrate', 'configure', 'enable', 'healthcheck'],
+      [
+        'preflight', 'fetch', 'verify', 'backup', 'install',
+        'create-extensions', 'migrate', 'configure', 'enable', 'reload', 'healthcheck',
+      ],
     );
   });
 
@@ -206,6 +223,14 @@ describe('what a node store refuses', () => {
     assert.equal(outcome.code, 'preflight.wrong_runtime');
   });
 
+  it('computes the digest in the shape KNIGHT publishes and signs', () => {
+    // Bare lowercase hex, 64 characters, no algorithm prefix. Asserted on the
+    // shape rather than on a value, because the value is what the fixture and
+    // the store both compute — and when both were wrong in the same way, every
+    // other test in this file still passed.
+    assert.match(digestOf(artifact), /^[0-9a-f]{64}$/);
+  });
+
   it('reports every step as it finishes, not only at the end', async () => {
     const reported = [];
 
@@ -220,7 +245,10 @@ describe('what a node store refuses', () => {
     // migration, and looks identical to one that died.
     assert.deepEqual(
       reported.map((event) => event.step),
-      ['preflight', 'fetch', 'verify', 'install', 'migrate', 'configure', 'enable', 'healthcheck'],
+      [
+        'preflight', 'fetch', 'verify', 'backup', 'install',
+        'create-extensions', 'migrate', 'configure', 'enable', 'reload', 'healthcheck',
+      ],
     );
     assert.ok(reported.every((event) => event.status === 'Succeeded'));
   });
@@ -228,7 +256,7 @@ describe('what a node store refuses', () => {
   it('reports the step that failed, with its own code', async () => {
     const reported = [];
 
-    await new JobRunner(settings).run(job({ artifact: { ...job().artifact, digest: 'sha256:0000' } }), {
+    await new JobRunner(settings).run(job({ artifact: { ...job().artifact, digest: '0000' } }), {
       onStep: (event) => reported.push(event),
     });
 
@@ -257,7 +285,7 @@ describe('what a node store refuses', () => {
 
   it('refuses a download that does not hash to what the job says', async () => {
     const outcome = await new JobRunner(settings).run(
-      job({ artifact: { ...job().artifact, digest: 'sha256:0000' } }),
+      job({ artifact: { ...job().artifact, digest: '0000' } }),
     );
 
     assert.equal(outcome.failedStep, 'verify');

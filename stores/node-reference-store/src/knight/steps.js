@@ -13,7 +13,7 @@
  * decides *whether* to migrate — the job says.
  */
 
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
@@ -297,12 +297,76 @@ export async function healthcheck(context) {
 }
 
 /** The step name KNIGHT uses, to the function that carries it out. */
+/**
+ * Keeps the currently installed tree aside, so a rollback has something to
+ * restore.
+ *
+ * A separate step from `install` even though `install` also moves the old tree
+ * out of the way: the job says `backup` before `fetch` has even produced bytes
+ * on some pipelines, and a store that only backed up as a side effect of
+ * installing would have nothing kept when the install never ran.
+ */
+export async function backup(context) {
+  const target = path.join(context.settings.featureRoot, context.slug);
+
+  if (!existsSync(target)) {
+    return 'nothing installed to back up';
+  }
+
+  const previous = `${target}.previous`;
+  await rm(previous, { recursive: true, force: true });
+  await cp(target, previous, { recursive: true });
+
+  return `kept the current install at ${previous}`;
+}
+
+/**
+ * Database extensions, which this store has no database to create.
+ *
+ * A no-op when the Feature declares none, and a refusal when it declares any:
+ * succeeding at "create the extensions" without a database would tell KNIGHT
+ * this store is ready for a Feature that will fail the moment it runs.
+ *
+ * The step exists here at all because the vocabulary is KNIGHT's, not the
+ * runtime's (adr/0032). A store that does not know a verb refuses the job, and
+ * this store did not know three of them until phase 20 — nobody noticed,
+ * because its own fixture only ever named the eight it did know.
+ */
+export async function createExtensions(context) {
+  const extensions = context.job.migrations?.extensions ?? [];
+
+  if (extensions.length === 0) {
+    return 'no extensions declared';
+  }
+
+  throw new StepFailed(
+    'extensions.unsupported',
+    `${context.slug} requires the database extension(s) ${extensions.join(', ')} and this store has no database.`,
+  );
+}
+
+/**
+ * Restarting, which this store cannot do to itself.
+ *
+ * Reported rather than performed, and reported truthfully: a module already
+ * imported into this process stays imported, so the Feature is on disk and
+ * registered but is not being served until somebody restarts the store. Saying
+ * "reloaded" here would be the store telling KNIGHT a lie that only shows up as
+ * a 404 a merchant reports.
+ */
+export async function reload(context) {
+  return `${context.slug} is installed; this store serves it after a restart`;
+}
+
 export const STEPS = {
   preflight,
   fetch: fetchArtifact,
   verify,
+  backup,
   install,
+  'create-extensions': createExtensions,
   migrate,
+  reload,
   configure,
   enable,
   disable,

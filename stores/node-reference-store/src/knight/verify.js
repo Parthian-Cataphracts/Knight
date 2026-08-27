@@ -25,22 +25,37 @@ export class ArtifactRejected extends Error {
   }
 }
 
-/** `sha256:...` over the bytes as they arrived. */
+/**
+ * Lowercase hex over the bytes as they arrived, with no algorithm prefix.
+ *
+ * The shape is the contract's, not this store's preference: `knight_package.py`
+ * publishes `hexdigest()` and **signs that exact ASCII string**, and the Django
+ * reference store compares the same. This store used to compute `sha256:<hex>`
+ * and verify the signature over that, so it could never have accepted a real
+ * KNIGHT artifact — every download would have failed the digest check against
+ * an identical-looking value, and had it got past that, the signature was over
+ * different bytes.
+ *
+ * Nothing noticed from phase 17 to phase 20 because this store only ever saw a
+ * job payload its own tests had built, from the same wrong assumption. It found
+ * out the first time it claimed a job from KNIGHT.
+ */
 export function digestOf(bytes) {
-  return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+  return createHash('sha256').update(bytes).digest('hex');
 }
 
 export function verifyDigest(bytes, expected) {
   const actual = digestOf(bytes);
+  const wanted = (expected ?? '').trim().toLowerCase();
 
-  if (!expected) {
+  if (!wanted) {
     throw new ArtifactRejected('digest.missing', 'The job names no digest to check the download against.');
   }
 
-  if (actual !== expected) {
+  if (actual !== wanted) {
     throw new ArtifactRejected(
       'digest.mismatch',
-      `The download hashes to ${actual} and the job says ${expected}.`,
+      `The download hashes to ${actual} and the job says ${wanted}.`,
     );
   }
 
