@@ -84,6 +84,7 @@ Read in this order:
 22. [`phase-14-verification.md`](phase-14-verification.md) — the two Features that keep a balance, and the two transaction bugs that only a real database shows
 23. [`phase-15-verification.md`](phase-15-verification.md) — scheduled work, the first third-party credential, and a spend cap that refuses before it costs anything
 24. [`phase-16-verification.md`](phase-16-verification.md) — the operational Features, and the migration risk `multi-location` was held back for turning out never to have existed
+25. [`phase-17-verification.md`](phase-17-verification.md) — the last two Features, and a store that is not Django taking delivery of one
 
 Project status and remaining work: [`../TODO.md`](../TODO.md).
 

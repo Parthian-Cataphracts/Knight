@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-27** (revision 28 — phase 16 done: the operational half of the catalogue, and the migration risk `multi-location` was held back for turning out never to have existed)
+Last updated: **2026-08-27** (revision 29 — phase 17 done: the catalogue is complete, and R26 is closed by building it rather than by deciding not to)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,9 +11,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 17 — recurring revenue and external integrations. Phase 16 is complete: `advanced-inventory`, `restaurant-operations` and `multi-location` are published, [`adr/0031`](docs/adr/0031-database-extensions-are-declared-not-migrated.md) settles how a `CREATE EXTENSION` is classified, and [`phase-16-verification.md`](docs/phase-16-verification.md) records the two defects the browser pass found** |
-| **Next phase** | `subscriptions` first — a bug there bills a real customer — then `external-marketplaces`, which has the most third-party surface in the catalogue. R26 has to be revisited before either ships |
-| **Overall progress** | **Platform ~99%, catalogue ~88%.** Two numbers on purpose: the control plane and the delivery engine are finished, and the product they exist to deliver is 14 sellable Features out of 16, in 5 plans. **794 backend tests green** (626 unit, 13 architecture, 155 PostgreSQL-backed integration), plus **684 store tests with nothing skipped**, the same 684 passing with no Feature installed at all, and 9 dashboard |
+| **Current phase** | **None — the planned phases are done. Phase 17 completed the catalogue: `subscriptions` and `external-marketplaces` are published, and R26 was answered *yes* and built, so a Feature may now be delivered to a store that is not Django ([`adr/0032`](docs/adr/0032-a-feature-declares-its-runtime.md), [`phase-17-verification.md`](docs/phase-17-verification.md))** |
+| **Next phase** | Nothing is scheduled. What remains is the standing work below and the items phases 16 and 17 carried forward, none of which is a phase: the external security review nobody inside the project can close, wiring real vendors to the four Features that honestly refuse without one, and teaching KNIGHT a store's runtime so a mismatched job is refused before it is queued |
+| **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **808 backend tests green** (640 unit, 13 architecture, 155 PostgreSQL-backed integration), plus **774 store tests with nothing skipped**, the same 774 passing with no Feature installed at all, 14 node-store tests, and 9 dashboard |
 | **Blocking decisions** | **Are Features publishable for a store that is not Django?** Everything except the manifest is already stack-agnostic; `ManifestReader` is the one thing that is not (R26, decision 14 in [`docs/risks.md`](docs/risks.md)). Until it is answered, a non-Django store is entitled and observed but not delivered to. Separately, the **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -41,18 +41,22 @@ Phase 13   Delivery validation on Features ██████████ 100%
 Phase 14   Commercial foundations         ██████████ 100%
 Phase 15   Automation                     ██████████ 100%
 Phase 16   Operational expansion          ██████████ 100%
-Phase 17   Recurring revenue & integrations ░░░░░░░░░  0%
+Phase 17   Recurring revenue & integrations ██████████ 100%
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
-the image; **14 sellable Features** (`analytics-core` 1.1.0, `analytics-reports`,
+the image; **16 sellable Features** (`analytics-core` 1.1.0, `analytics-reports`,
 `advanced-promotions` 2.0.0, `reviews-ratings`, `advanced-search` 1.1.0,
 `customer-segmentation`, `loyalty-rewards` 1.1.0, `gift-cards`,
 `marketing-automation`, `ai-reports`, `advanced-inventory`,
-`restaurant-operations`, `multi-location`, `log-shipping`); 2 Draft identities
-waiting on a package, both in phase 17; 5 plans, two of them bundles. Five
-Features now run scheduled work declared in their own manifests, and
-`multi-location` deliberately declares none.
+`restaurant-operations`, `multi-location`, `subscriptions`,
+`external-marketplaces`, `log-shipping`); **no Draft identities left**; 5 plans,
+two of them bundles. Seven Features run scheduled work declared in their own
+manifests, and `multi-location` deliberately declares none.
+
+There is one Feature outside the catalogue and it is not for sale:
+`node-conformance`, which exists so the `node` runtime is demonstrated rather
+than declared ([`adr/0032`](docs/adr/0032-a-feature-declares-its-runtime.md) §4).
 [`docs/feature-catalog.md`](docs/feature-catalog.md) is the list.
 
 ---
@@ -1371,21 +1375,61 @@ behind the shop. **Met** — see
 
 ---
 
-## Phase 17 — Recurring revenue and external integrations
+## Phase 17 — Recurring revenue and external integrations ✅
 
 **Exit criteria:** the last two Feature families ship, and the catalogue is
-complete.
+complete. **Met** — see
+[`docs/phase-17-verification.md`](docs/phase-17-verification.md).
 
-- [ ] **`subscriptions`** — recurring order generation, a subscription state
-      machine, payment-provider integration, retry and failed-payment handling,
-      pause and resume. Financially sensitive: a bug bills a real customer
-- [ ] **`external-marketplaces`** — delivery marketplaces, POS and accounting
-      synchronisation. Integration framework, OAuth credentials, webhooks,
-      retry queues, idempotency, per-provider adapters and reconciliation.
-      Deliberately last: highest complexity, most third-party surface
-- [ ] Revisit R26 before this ships. If a non-Django store must receive
-      Features, the manifest's `django:` block needs a `runtime:` discriminator,
-      and that decision is cheaper before fourteen manifests exist than after
+- [x] **R26 answered `yes` by the product owner, and built.** A manifest declares
+      `runtime:` and carries a block named for it, and the three facts a store
+      needs — namespace, module, mount — are named the same way whatever the
+      runtime is, so the wire and both installers never learnt a second
+      vocabulary ([`adr/0032`](docs/adr/0032-a-feature-declares-its-runtime.md)).
+      Done **first**, so the two new Features were authored in the new shape
+      rather than migrated into it. No database migration was needed: the wiring
+      was already read from the signed manifest rather than duplicated into
+      columns
+- [x] **`stores/node-reference-store`** — a store that is not Django, taking
+      delivery of a real signed artifact in CI on every push. `node` is a runtime
+      because a store has received a Feature over it, not because a validator
+      lists it. Dependency-free, including its zip reader, because "add this
+      package" shows nothing to a team writing their store in Go
+- [x] **`subscriptions`** — recurring orders, a state machine that pauses and
+      resumes, retries and failed-payment handling. Arranged around one unique
+      index: a period is opened before it is charged and numbered per
+      subscription, so a cron firing twice, a webhook delivered twice and an
+      operator running the worker by hand all end at the same constraint.
+      Removing the row lock does not break it, which is the point
+- [x] **`external-marketplaces`** — connections, a queue that records before it
+      sends, idempotency on the *partner's* event id, retries that widen and then
+      abandon, per-provider adapters and reconciliation that reports without ever
+      fixing. Deliberately last, and it earned it
+- [x] Four defects found by verifying rather than by writing: two clock bugs in
+      billing, a node Feature reading its configuration from the wrong directory,
+      and — found only in a browser — resuming inside a paid period charging for
+      that period twice
+
+Carried out of phase 17, none of it blocking:
+
+- [ ] **KNIGHT does not know a store's runtime**, so a job delivering a Django
+      package to a node store is queued and then refused by the store in
+      `preflight` rather than refused before it is queued. The outcome is a
+      failed job and an untouched store, which is safe but noisy. A `runtime`
+      on the store record and a check in the resolver would close it
+- [ ] **No vendor is wired to any of the four Features that honestly refuse
+      without one**: `marketing-automation`, `ai-reports`, `subscriptions` and
+      `external-marketplaces`. Each reads its credential, validates it and
+      refuses at the point the call would be made. Wiring one is an integration
+      against a real account under a real agreement, and it is a commercial
+      decision before it is an engineering one
+- [ ] **OAuth token refresh is not automated.** `external-marketplaces` stores an
+      expiry and marks a connection expired when an adapter reports a credential
+      failure, which stops a hundred retries against a revoked token. Refreshing
+      needs the vendor flow above
+- [ ] **Webhook authentication is the store's**, deliberately — every partner
+      signs differently — but no store in this repository demonstrates one. A
+      worked example in the reference store would be worth having
 
 Carried out of phase 16, none of it blocking:
 
@@ -1403,9 +1447,11 @@ Carried out of phase 16, none of it blocking:
       store's checkout — the only party that knows what it is about to sell —
       and doing it inside either Feature would break the rule the catalogue
       rests on
-- [ ] **Concurrency is proven for booking and for stock and argued elsewhere.**
-      Ticket transitions and the routing decision rely on locks and constraints
-      that have idempotency tests but no thread racing them
+- [ ] **Concurrency is proven for stock, slots and billing, and argued
+      elsewhere.** The three claims that can oversell or overcharge somebody have
+      two-connection races behind them. Ticket transitions, the routing decision
+      and the marketplace queue rely on locks and constraints that have
+      idempotency tests but no thread racing them
 
 ---
 
