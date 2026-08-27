@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    net8.0 rather than net10.0, deliberately.
+
+    This library is consumed by store applications KNIGHT does not control, and
+    the two it was written for are on different versions of .NET — one on 10 and
+    one on 8. A net10.0 library would have shut the second one out for no reason
+    it could act on. Targeting the lower of the two lets both reference the same
+    assembly, and nothing here needs anything newer.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    No dependencies beyond the framework's own hosting abstractions, which every
+    ASP.NET Core store already has. A store integration that drags a dependency
+    graph in is one a team has to fight with their own before they can use it.
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+</Project>

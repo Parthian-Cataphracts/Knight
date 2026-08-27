@@ -137,6 +137,23 @@ jobs:
         working-directory: stores/node-reference-store
         run: npm test
 
+  dotnet-store-agent:
+    name: .NET store agent
+    runs-on: ubuntu-latest
+
+    # The agent every ASP.NET Core store uses to connect to KNIGHT. One library
+    # rather than one integration per project, so it is tested once here rather
+    # than in each store that references it.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test
+        run: dotnet test stores/dotnet-store-agent --configuration Release
+
   contract:
     name: Contract conformance
     runs-on: ubuntu-latest
