@@ -1,0 +1,133 @@
+name: Delivery
+
+# The journey a customer's Feature takes, run on every push.
+#
+# Phase 18 walked it by hand and found eight defects, six of which made delivery
+# impossible and had been that way for six phases. Every one of them now has a
+# test, and not one of those tests would find the next one: they check the code
+# each defect happened to be in, and what the eight had in common was the path.
+#
+# Nothing else in this repository runs that path. The other workflows install
+# Features with `knight_install_local`, which is the right tool for authoring and
+# exists precisely to bypass the plan, the compatibility check, the artifact, the
+# job, the migrate subprocess and the rollback.
+#
+# So this job is the path: publish, onboard, connect, install, upgrade, roll
+# back, withdraw, against a real API, a real database and a real store.
+# tools/delivery-drill/README.md says what it asserts and why.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  delivery-drill:
+    name: Delivery drill
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: knight
+          POSTGRES_PASSWORD: knight
+          POSTGRES_DB: knight
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install the store's dependencies
+        run: |
+          pip install -r stores/reference-store/requirements.txt
+          pip install cryptography
+
+      # A pair generated here rather than carried in as a repository secret.
+      # Nothing about this run needs a key anybody else has ever seen, and a
+      # shared credential in a workflow whose whole point is that it starts from
+      # nothing would be the wrong trade twice over.
+      - name: Generate a signing pair for this run
+        run: |
+          set -euo pipefail
+          python features/tools/knight_package.py keygen > /tmp/keys.txt
+          {
+            echo "KNIGHT_SIGNING_KEY=$(grep '^KNIGHT_SIGNING_KEY=' /tmp/keys.txt | cut -d= -f2-)"
+            echo "KNIGHT_PUBLIC_KEY=$(tail -n 1 /tmp/keys.txt)"
+          } >> "$GITHUB_ENV"
+
+      - name: Build
+        run: dotnet build backend/Knight.slnx --configuration Release
+
+      # The API host deliberately does not migrate itself (docs/deployment.md
+      # section 7), and the drill needs an administrator to be. The account is
+      # created without a second factor and the drill enrols one on its first
+      # sign-in, which is the sequence a person walks too.
+      - name: Bring the control plane up
+        env:
+          CONTROL_PLANE_DB_CONNECTION_STRING: Host=localhost;Port=5433;Database=knight;Username=knight;Password=knight
+        run: |
+          set -euo pipefail
+
+          # Generated, not written down. The database is thrown away with the
+          # runner, so the value does not matter - but a literal password in a
+          # workflow file is a habit worth not having, and the secret scan in
+          # the backend workflow is right to dislike one.
+          password="$(python -c 'import secrets; print(secrets.token_urlsafe(24))')"
+          echo "::add-mask::$password"
+          echo "KNIGHT_ADMIN_PASSWORD=$password" >> "$GITHUB_ENV"
+
+          printf '%s\n%s\n' "$password" "$password" \
+            | dotnet run --project backend/tools/Knight.Bootstrap --configuration Release --no-build -- --email drill@knight.test
+
+      - name: Start the API
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+          ASPNETCORE_URLS: http://localhost:5008
+          ConnectionStrings__ControlPlane: Host=localhost;Port=5433;Database=knight;Username=knight;Password=knight
+          FeatureArtifacts__ActiveKeyId: ci
+          FeatureArtifacts__ArtifactRoot: /tmp/knight-artifacts
+          FeatureArtifacts__PublicBaseUrl: http://localhost:5008/artifacts
+        run: |
+          set -euo pipefail
+          export FeatureArtifacts__Keys__ci__PublicKey="$KNIGHT_PUBLIC_KEY"
+          dotnet run --project backend/src/Knight.Api --configuration Release --no-build > /tmp/api.log 2>&1 &
+          for _ in $(seq 1 60); do
+            if curl -sf http://localhost:5008/health > /dev/null; then
+              echo "the API is up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::The API never became healthy." >&2
+          cat /tmp/api.log
+          exit 1
+
+      - name: Run the drill
+        env:
+          KNIGHT_BASE_URL: http://localhost:5008
+          KNIGHT_ADMIN_EMAIL: drill@knight.test
+          KNIGHT_ARTIFACT_ROOT: /tmp/knight-artifacts
+          KNIGHT_DRILL_WORK: /tmp/knight-drill
+          STORE_DB_HOST: localhost
+          STORE_DB_PORT: '5433'
+        run: python tools/delivery-drill/drill.py
+
+      # The drill names the step it failed on; the API log says why the request
+      # behind it was refused. Without this the two are on different machines.
+      - name: The API's log, when the drill did not pass
+        if: failure()
+        run: tail -n 200 /tmp/api.log

@@ -364,6 +364,23 @@ public sealed class FeatureInstallationJobTests
     }
 
     [Fact]
+    public void ARollbackReversesTheMigrationsBeforeItPutsTheOldPackageBack()
+    {
+        var steps = JobPipeline.StepsFor(JobType.Rollback).ToList();
+
+        // Django can only unapply a migration whose file it can still see.
+        // Restoring the previous package first removes the newer migration from
+        // disk, so the reverse that follows finds nothing to undo and leaves the
+        // schema where the upgrade left it — the code rolled back and the
+        // database not.
+        //
+        // The delivery drill found this on the first rollback across two
+        // versions whose migrations actually differed. It is an ordering, so it
+        // is asserted as one: nothing else in the suite would notice it moving.
+        Assert.True(steps.IndexOf(JobPipeline.ReverseMigrate) < steps.IndexOf(JobPipeline.RestorePackage));
+    }
+
+    [Fact]
     public void AnUninstallDisablesBeforeItRemovesAnything()
     {
         var steps = JobPipeline.StepsFor(JobType.Uninstall).ToList();

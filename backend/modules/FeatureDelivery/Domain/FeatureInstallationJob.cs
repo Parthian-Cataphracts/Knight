@@ -502,7 +502,21 @@ public static class JobPipeline
 
     private static readonly string[] UninstallSteps = [Disable, Backup, RemovePackage, Reload];
 
-    private static readonly string[] RollbackSteps = [RestorePackage, ReverseMigrate, Configure, Reload, HealthCheck];
+    /// <summary>
+    /// Reverse the migrations **before** putting the old package back, not after.
+    ///
+    /// Django can only unapply a migration whose file it can still see. Restoring
+    /// the previous package first removes the newer migration from disk, so the
+    /// reverse that follows finds nothing to undo and silently leaves the schema
+    /// where the upgrade left it — a rollback that moved the code back and not
+    /// the database, which is the worst of both.
+    ///
+    /// Found by the delivery drill in phase 19, on the first rollback across two
+    /// versions whose migrations actually differed. Phase 18's rollback used
+    /// identical migrations and could not have seen it
+    /// (docs/phase-19-verification.md).
+    /// </summary>
+    private static readonly string[] RollbackSteps = [ReverseMigrate, RestorePackage, Configure, Reload, HealthCheck];
 
     public static IReadOnlyList<string> StepsFor(JobType type) => type switch
     {

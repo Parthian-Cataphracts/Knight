@@ -660,18 +660,23 @@ def reverse_migrate(context: JobContext) -> str:
 
 def _restored_migration(context: JobContext) -> str | None:
     """
-    The migration the restored package expects to be at.
+    The migration the version being restored expects to be at.
 
-    A **migration name**, read from the package that `restore-package` just put
-    back - not a release version. `manage.py migrate <app> <target>` takes the
-    name of a migration; it has never taken "1.0.1", and passing one was the
-    other half of the same bug.
+    A **migration name**, not a release version. `manage.py migrate <app>
+    <target>` takes the name of a migration; it has never taken "1.0.1", and
+    passing one was half of the phase-18 bug.
 
-    The newest migration in the restored tree is by definition the schema that
+    Read from the **kept copy** rather than from what is installed, because this
+    step now runs *before* `restore-package` - and it has to. Django can only
+    unapply a migration whose file it can still see, so the newer package must
+    still be on disk while its migrations are being reversed, and the target has
+    to come from the tree that is about to replace it.
+
+    The newest migration in the kept copy is by definition the schema that
     version shipped with, so migrating to it unapplies whatever the version being
-    rolled back from had added and nothing else.
+    rolled back from added and nothing else.
     """
-    migrations = context.target_dir / _installed_app(context).split(".")[-1] / "migrations"
+    migrations = _previous_dir(context) / _installed_app(context).split(".")[-1] / "migrations"
 
     if not migrations.is_dir():
         return None

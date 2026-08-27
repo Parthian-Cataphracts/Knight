@@ -1,0 +1,60 @@
+# The Feature the delivery drill installs, upgrades and rolls back.
+#
+# Not in the commercial catalogue and never for sale. The drill creates its
+# identity through the API at run time and works against that, so the sellable
+# catalogue stays free of test fixtures - the same separation
+# `node-conformance` keeps for the node runtime.
+#
+# 1.0.0 and 1.1.0 differ by one column, and that is the point: it gives the
+# drill's upgrade something to apply and its rollback something to reverse.
+# Phase 18 moved between two versions whose migrations were identical, which
+# proved the tables survived and proved nothing about a down-migration
+# (docs/phase-18-verification.md).
+apiVersion: knight.dev/v1
+slug: delivery-drill
+version: 1.0.0
+name: Delivery Drill
+description: >-
+  The Feature KNIGHT's own delivery drill moves up and down. It holds one table
+  with one row in it, and 1.1.0 adds a column 1.0.0 does not have, so an upgrade
+  that did nothing and a rollback that did nothing are both visible in the
+  schema rather than only in a version number.
+
+runtime: django
+
+django:
+  app_label: knight_drill
+  installed_app: knight_feature_drill
+  urls:
+    include: knight_feature_drill.urls
+    prefix: drill/
+
+compatibility:
+  storeVersion: ">=1.0.0"
+  python: ">=3.12"
+  django: ">=5.0,<6.0"
+
+migrations:
+  required: true
+  # Class A both ways, and this Feature exists to prove that claim rather than
+  # to assert it: 1.1.0 adds a column and its reverse drops one, with the rows
+  # untouched either way
+  # (docs/adr/0016-feature-migration-and-removal-policy.md).
+  reversible: true
+  estimatedDurationSeconds: 1
+  requiresMaintenanceWindow: false
+  extensions: []
+
+configuration:
+  defaults: {}
+
+install:
+  strategy: package-install
+  requiresRestart: true
+  healthCheck: knight_feature_drill.checks.health
+
+uninstall:
+  # Nothing here is a merchant's data, because nothing here is a merchant's
+  # Feature.
+  strategy: disable-then-remove
+  dataRetentionDays: 1
