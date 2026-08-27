@@ -60,13 +60,23 @@ public sealed class KnightOptions
     public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
-    /// Whether the background services run at all.
+    /// Whether the agent runs at all.
     ///
-    /// Off in tests and in one-shot commands. A store that polls for jobs from
-    /// inside its own test suite would install Features into whatever database
-    /// the suite happens to point at.
+    /// <b>Off by default, deliberately.</b> This library is added to a store
+    /// before that store has a credential — the reference goes in, the app is
+    /// deployed, and the operator issues the credential afterwards. Defaulting
+    /// to on would mean adding the package broke start-up until somebody
+    /// finished a task they had not started yet.
+    ///
+    /// It also keeps a test host and a developer's machine quiet: a store that
+    /// polled for jobs from inside its own test suite would install Features
+    /// into whatever database the suite happened to point at.
+    ///
+    /// Turn it on when the credential is in place. The validation on the other
+    /// settings only applies then, and it is strict, because a store that is on
+    /// and cannot verify what it downloads should not run.
     /// </summary>
-    public bool Enabled { get; set; } = true;
+    public bool Enabled { get; set; }
 
     /// <summary>Nothing here is on a request path, and a control plane that has gone away must never become one.</summary>
     public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(30);

@@ -77,9 +77,17 @@ builder.Services.AddKnightStoreAgent(builder.Configuration);
 
 ### 3. Configure it
 
+The agent is **off until you turn it on**. Adding the reference and the line
+above changes nothing about how the store runs; it starts talking to KNIGHT when
+`Knight:Enabled` is true and a credential is in place. That ordering is
+deliberate: the package goes in and is deployed before anybody issues a
+credential, and a library that broke start-up until an unfinished task was
+finished would be a library nobody adds early.
+
 ```json
 {
   "Knight": {
+    "Enabled": true,
     "BaseUrl": "https://knight.example.com",
     "Environment": "Production",
     "StoreVersion": "1.4.2",
