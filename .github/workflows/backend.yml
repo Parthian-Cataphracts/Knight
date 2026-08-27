@@ -151,6 +151,14 @@ jobs:
         with:
           python-version: '3.12'
 
+      # Before anything is built, because the reader that parses these manifests
+      # is the one thing here with no test of its own and it has been wrong
+      # twice - both times only on a runner, because PyYAML is installed on
+      # every developer's machine and never on this one. The failure it produces
+      # is a job that stops at the first manifest with a prose comment in it.
+      - name: Check this tool can read every manifest
+        run: python features/tools/knight_package.py selftest
+
       - name: Build and validate every Feature package
         run: |
           set -euo pipefail

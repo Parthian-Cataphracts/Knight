@@ -89,7 +89,9 @@ breaks whenever the timing is unlucky and looks fine the rest of the time.
 
 ## 4. What verifying it found
 
-Two real defects, neither of which any test could have found.
+Three real defects. Two of them were in the same place — the YAML readers that
+parse a manifest where PyYAML is not installed — and neither could have been
+found by running anything on a developer's machine.
 
 ### The fallback manifest reader was wrong for the fourth time
 
@@ -103,6 +105,25 @@ manifest in the repository both ways and requires the same document. That test
 has now caught three of the four bugs in that reader — the fourth being the
 phase-13 one it was written in response to — which is the argument for it. Fixed
 with the inline-sequence case it never had, and pinned.
+
+### The packaging tool could not read a manifest with prose in it
+
+Found by CI rather than locally, which is the point: `knight_package.py` uses
+PyYAML when it is installed and its own reader when it is not, and it is not on a
+runner. That reader strips a `#` comment unless the line contains an odd number
+of double quotes — a heuristic meant to protect a `#` inside a quoted value —
+so a comment ending in a quoted phrase was read as content and refused for having
+no colon in it. Every prose comment in this repository's manifests is one quoted
+phrase away from that, and `restaurant-operations` happened to be the first to
+land on it.
+
+A whole-line comment is now a comment before any heuristic is consulted.
+
+The deeper problem was that this reader had no test at all while its twin in the
+store had a good one. It now has `knight_package.py selftest`, which reads every
+manifest in the repository and compares against PyYAML where PyYAML exists — and
+CI runs it before it builds anything, so the next bug in it fails on a check that
+names the file rather than on a build that stops halfway through the catalogue.
 
 ### Every list screen in the dashboard showed one page and called it the whole thing
 

@@ -92,6 +92,15 @@ def _read_simple_yaml(text: str) -> dict:
         raw = lines[index]
         index += 1
 
+        # A whole-line comment is a comment, whatever it contains. Checked before
+        # the quote heuristic below, which counts double quotes to protect a `#`
+        # inside a quoted value - and which read a comment ending in an unpaired
+        # quote as content, then raised on the line for having no colon in it.
+        # Every prose comment in this repository's manifests is one apostrophe or
+        # one quoted phrase away from that.
+        if raw.lstrip().startswith("#"):
+            continue
+
         stripped = raw.split("#", 1)[0].rstrip() if not _in_quotes(raw) else raw.rstrip()
         if not stripped.strip():
             continue
@@ -458,6 +467,76 @@ def _post(url: str, payload: dict, token: str) -> dict:
         raise SystemExit(f"KNIGHT refused the request ({exc.code}): {detail}") from exc
 
 
+# --- Self-test ---------------------------------------------------------------
+
+
+def selftest() -> int:
+    """
+    Checks this file's own YAML reader against every manifest in the repository.
+
+    It exists because that reader has been wrong twice, both times in the same
+    shape and both times invisibly. In phase 15 it tore a version range in half
+    on a comma inside a quoted string; in phase 16 it read a whole-line comment
+    ending in an unpaired double quote as content and refused the manifest. Both
+    only appear where PyYAML is absent, which is CI and nowhere else — a
+    developer's machine has it and never runs this path.
+
+    The check is differential where it can be: parse each manifest with both
+    readers and require the same document. Where PyYAML is missing it still
+    parses everything, which is the case that actually breaks, and reports what
+    it could not read. The store's installer has the same test for its own copy
+    of this problem, and that test has caught three bugs.
+    """
+    root = Path(__file__).resolve().parents[1]
+    manifests = sorted(root.glob("knight-feature-*/knight_manifest.yaml"))
+
+    if not manifests:
+        print("No manifests found. This check would pass having read nothing.", file=sys.stderr)
+        return 1
+
+    try:
+        import yaml  # type: ignore
+
+        reference = yaml.safe_load
+    except ImportError:
+        reference = None
+        print("PyYAML is absent; parsing every manifest without comparing.")
+
+    failures = 0
+
+    for path in manifests:
+        text = path.read_text(encoding="utf-8")
+
+        try:
+            parsed = _read_simple_yaml(text)
+        except Exception as exc:  # noqa: BLE001 - report, do not stop at the first
+            failures += 1
+            print(f"  FAILED  {path.parent.name}: {exc}", file=sys.stderr)
+            continue
+
+        if reference is not None:
+            expected = reference(text)
+
+            # The one field this reader deliberately does not join: a folded
+            # scalar, needed by nobody here.
+            parsed.pop("description", None)
+            expected.pop("description", None)
+
+            if parsed != expected:
+                failures += 1
+                print(f"  DIFFERS {path.parent.name}: this reader disagrees with PyYAML.", file=sys.stderr)
+                continue
+
+        print(f"  ok      {path.parent.name}")
+
+    if failures:
+        print(f"{failures} manifest(s) this tool cannot read correctly.", file=sys.stderr)
+        return 1
+
+    print(f"{len(manifests)} manifest(s) read.")
+    return 0
+
+
 # --- Entry point ------------------------------------------------------------
 
 
@@ -473,6 +552,11 @@ def main(argv: list[str] | None = None) -> int:
     sign_parser.add_argument("artifact", type=Path)
 
     subparsers.add_parser("keygen", help="Generate a development signing pair.")
+
+    subparsers.add_parser(
+        "selftest",
+        help="Read every manifest in this repository with this tool's own YAML reader.",
+    )
 
     validate_parser = subparsers.add_parser("validate", help="Check a manifest against KNIGHT without publishing.")
     validate_parser.add_argument("feature", type=Path)
@@ -501,6 +585,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"signature={sign(digest)}")
     elif args.command == "keygen":
         keygen()
+    elif args.command == "selftest":
+        return selftest()
     elif args.command == "validate":
         manifest = load_manifest(args.feature)
         result = _post(

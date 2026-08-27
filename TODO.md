@@ -1358,11 +1358,14 @@ behind the shop. **Met** — see
       only its own tables, so this one could not have added a `location` column
       to anybody else's — which is why both of the Features above carried theirs
       from their own 1.0. Installing it migrates nobody's rows
-- [x] Two defects found by the browser pass and fixed: the store's fallback
-      manifest reader read `extensions: []` as the truthy string `"[]"`, and
-      every dashboard list screen was rendering page one as though it were the
-      whole collection — which this phase made visible by pushing the catalogue
-      past twenty-five Features
+- [x] Three defects found by verifying rather than by testing, and fixed: the
+      store's fallback manifest reader read `extensions: []` as the truthy
+      string `"[]"`; the packaging tool's own reader refused any manifest with a
+      prose comment ending in a quoted phrase, which only ever showed on a
+      runner; and every dashboard list screen was rendering page one as though
+      it were the whole collection — which this phase made visible by pushing
+      the catalogue past twenty-five Features. The packaging tool now has a
+      `selftest` that CI runs before it builds anything
 
 ---
 
