@@ -1,0 +1,120 @@
+# The contract between this Feature and everything that handles it: KNIGHT
+# validates it at publish, the resolver reads its dependencies, and the store's
+# installer reads its install and migration declarations
+# (docs/feature-delivery.md section 5).
+#
+# The second Feature of phase 16, and the first whose dangerous failure is a
+# promise. Stock that is wrong can be counted again; a pickup time that was never
+# available cannot be un-promised, because somebody has already left the house.
+apiVersion: knight.dev/v1
+slug: restaurant-operations
+version: 1.0.0
+name: Restaurant Operations
+description: >-
+  The kitchen's own clock: tables and sessions, kitchen tickets with states
+  finer than an order's, preparation times per dish and per station, and pickup
+  times that are booked rather than displayed. A promised time here is the
+  longest dish plus the queue in front of it, never the sum of the dishes, and a
+  slot is taken under a row lock because a time offered twice is a time somebody
+  is turned away from.
+
+django:
+  app_label: knight_restaurant
+  installed_app: knight_feature_restaurant_operations
+  urls:
+    include: knight_feature_restaurant_operations.urls
+    prefix: restaurant/
+
+compatibility:
+  # Open at the top end: this Feature touches no store internals. It is handed
+  # order numbers, SKUs and quantities and never reads a catalogue or an order
+  # table, so a store major version can change without this needing a release.
+  storeVersion: ">=1.0.0"
+  python: ">=3.12"
+  django: ">=5.0,<6.0"
+
+  # Required, and for two things a shop would notice. `book()` serialises
+  # concurrent bookings with `select_for_update`, which SQLite cannot express at
+  # row granularity; and "one open session per table" is a partial unique index,
+  # which is what stops two parties sharing one bill.
+  database: postgresql
+
+migrations:
+  required: true
+  # Class A: eleven CreateModels, indexes, unique and check constraints. Nothing
+  # is dropped and no data is transformed, so the reverse genuinely exists.
+  #
+  # What will not stay Class A: anything touching TicketEvent, and anything that
+  # rewrites a stored `promised_at`. The events are how a restaurant answers "why
+  # did that go out late" about a service that has already happened, and a
+  # promise is a statement somebody made at a moment - the same argument
+  # advanced-inventory makes about movements and gift-cards makes about money
+  # (docs/adr/0016-feature-migration-and-removal-policy.md).
+  reversible: true
+  estimatedDurationSeconds: 15
+  requiresMaintenanceWindow: false
+
+  # Deliberately none. Nothing here is matched fuzzily: a table is chosen from a
+  # floor plan and a ticket is found by a number somebody just read out, so the
+  # trigram machinery advanced-search and advanced-inventory share would be an
+  # extension declared for nothing (docs/adr/0031-database-extensions-are-declared-not-migrated.md).
+  extensions: []
+
+configuration:
+  defaults:
+    # How long a pickup window is. Fifteen minutes is what a shopper reads as a
+    # time rather than a range, and what a kitchen can actually distinguish.
+    slot_minutes: 15
+    # How much work the kitchen will accept in one window, in the same load units
+    # the prep profiles are measured in.
+    slot_capacity_units: 20
+    # How long a chosen time is held for a checkout that has not paid. Ten
+    # minutes: long enough to type card details, short enough that an abandoned
+    # basket gives the last slot back while people are still ordering.
+    hold_minutes: 10
+    # How far ahead times are offered. A restaurant taking orders for next month
+    # is a restaurant promising a kitchen it has not staffed yet.
+    booking_horizon_hours: 48
+    # What an unprofiled dish is assumed to take. Deliberately not zero: an
+    # unmeasured dish counted as instant would make the kitchen look empty
+    # exactly when it is handling something nobody has timed.
+    default_prep_minutes: 10
+    default_load_units: 1
+    # What the kitchen clears in an hour when no stations have been described.
+    throughput_units_per_hour: 60
+    # After this long, a table session nobody closed is treated as abandoned. Set
+    # past the longest plausible meal: closing a session under a party still
+    # eating would let somebody else be seated on top of them.
+    abandon_after_hours: 6
+
+workers:
+  # Hourly, and tidying rather than correctness. `remaining()` already excludes a
+  # hold whose time is up and `board()` already shows a scheduled ticket whose
+  # time has come, both by time rather than by state, so a restaurant whose cron
+  # never runs still quotes honest slots and cooks the right food. What this buys
+  # is that the stored state matches what the screens show, which is what every
+  # report afterwards reads.
+  - name: expire-slot-holds
+    entrypoint: knight_feature_restaurant_operations.services.run_slot_expiry
+    schedule: hourly
+
+  # Daily, because a table session nobody closed holds a table out of service -
+  # the partial unique index means nobody else can be seated there - and the
+  # restaurant that needs this is the one that was too busy to clear down.
+  - name: close-abandoned-sessions
+    entrypoint: knight_feature_restaurant_operations.services.run_service_sweep
+    schedule: daily
+
+install:
+  strategy: package-install
+  requiresRestart: true
+  healthCheck: knight_feature_restaurant_operations.checks.health
+
+uninstall:
+  # The tickets and their events are a restaurant's account of its own service:
+  # how long food took, what was sent back, which station was the bottleneck on
+  # the Saturday everybody complained about. Two years, rather than the seven the
+  # Features that hold money and stock keep - this is operational history, not a
+  # financial record, and nobody audits a service time.
+  strategy: disable-then-remove
+  dataRetentionDays: 730

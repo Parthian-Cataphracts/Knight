@@ -617,7 +617,12 @@ class FallbackManifestReaderTests(SimpleTestCase):
     Phase 13 found it flattening `django.urls.include`, so a Feature declaring
     routes was registered without them. Phase 16 found it returning an empty
     mapping for every `workers:` block in this repository, so a Feature declaring
-    scheduled jobs was registered with none — the same failure one field along.
+    scheduled jobs was registered with none — the same failure one field along —
+    and then found it again the moment `restaurant-operations` wrote
+    `extensions: []`, which came back as the truthy two-character string `"[]"`.
+
+    Three of the four were found by this comparison rather than by a store
+    breaking, which is the argument for it.
 
     So the tests here are differential: parse a real manifest both ways and
     require the same document. A reader that quietly disagrees with PyYAML is the
@@ -653,6 +658,19 @@ class FallbackManifestReaderTests(SimpleTestCase):
             with self.subTest(manifest=path.parent.name):
                 fallback, reference = self._both(path)
                 self.assertEqual(reference, fallback)
+
+    def test_an_inline_sequence_is_a_list_and_not_a_string(self):
+        # The fourth of these. `"[]"` is truthy and iterable, so a caller asking
+        # "does this Feature declare extensions" got yes, and one asking which
+        # ones got two characters.
+        from knight_integration.management.commands.knight_install_local import _read_simple_yaml
+
+        document = _read_simple_yaml(
+            "migrations:\n  extensions: []\n  others: [pg_trgm, postgis]\n"
+        )
+
+        self.assertEqual([], document["migrations"]["extensions"])
+        self.assertEqual(["pg_trgm", "postgis"], document["migrations"]["others"])
 
     def test_a_feature_that_declares_workers_gets_them(self):
         # Named separately from the comparison above because this is the

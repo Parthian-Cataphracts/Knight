@@ -264,7 +264,7 @@
       "category": "Operations",
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
-      "publish": false,
+      "publish": true,
       "prices": [
         { "amount": 79.00, "billingPeriod": "Monthly" }
       ]
@@ -364,7 +364,8 @@
         { "slug": "loyalty-rewards", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "gift-cards", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "marketing-automation", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "advanced-inventory", "isIncluded": false, "isCustomerToggleable": true }
+        { "slug": "advanced-inventory", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "restaurant-operations", "isIncluded": false, "isCustomerToggleable": true }
       ]
     },
     {
@@ -401,6 +402,16 @@
         { "slug": "gift-cards", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "marketing-automation", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "advanced-inventory", "isIncluded": true, "isCustomerToggleable": false },
+
+        { "$comment": [
+            "Toggleable rather than included, unlike everything above it, and the",
+            "reason is not price. It is the only Feature in the catalogue that",
+            "assumes a shape of business: a shop with no kitchen has no use for",
+            "tables, stations or pickup slots, and installing them anyway would",
+            "put screens in a dashboard that can never mean anything there.",
+            "Every other Professional Feature is something any shop can use."
+          ],
+          "slug": "restaurant-operations", "isIncluded": false, "isCustomerToggleable": true },
 
         { "$comment": [
             "Toggleable rather than included: it is the one capability with a",

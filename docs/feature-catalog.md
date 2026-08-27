@@ -80,6 +80,7 @@ in code.
 | `marketing-automation` | Marketing Automation | Growth | 79 | `features/knight-feature-marketing-automation` |
 | `ai-reports` | AI Reports | Insight | 149 | `features/knight-feature-ai-reports` |
 | `advanced-inventory` | Advanced Inventory | Operations | 59 | `features/knight-feature-advanced-inventory` |
+| `restaurant-operations` | Restaurant Operations | Operations | 79 | `features/knight-feature-restaurant-operations` |
 | `log-shipping` | Log shipping | Insight | 19 | — none; see below |
 
 `log-shipping` is the one capability with no package. It is enforced by
@@ -101,7 +102,6 @@ that publishes its package.
 
 | Slug | Name | Category | Price | Depends on |
 |---|---|---|---|---|
-| `restaurant-operations` | Restaurant Operations | Operations | 79 | base only |
 | `multi-location` | Multi-Location | Operations | 99 | base only |
 | `subscriptions` | Subscriptions and Recurring Orders | Revenue | 69 | base only |
 | `external-marketplaces` | Marketplace and Delivery Integrations | Integrations | 99 | `advanced-inventory` (optional) |
@@ -187,11 +187,14 @@ surface, and the word travels so the store can decide what it means for its own
 timezone. The store runs `manage.py knight_run_workers` on its own cron; that
 command decides what is actually due.
 
-Four Features use it today: `loyalty-rewards` expires points daily,
+Five Features use it today: `loyalty-rewards` expires points daily,
 `ai-reports` writes yesterday's report daily, `marketing-automation` runs
 campaigns hourly — hourly because abandoned cart is the one trigger whose delay
-is measured in hours — and `advanced-inventory` declares two, an hourly one that
-ends expired stock holds and a daily one that sweeps for low stock.
+is measured in hours — `advanced-inventory` declares two, an hourly one that
+ends expired stock holds and a daily one that sweeps for low stock, and
+`restaurant-operations` declares two more, an hourly one that ends expired slot
+holds and releases pre-orders whose time has come, and a daily one that closes
+table sessions nobody cleared.
 
 `advanced-inventory` is the one to read for what a worker should and should not
 be responsible for. Its hourly expiry is **tidying, not correctness**: an expired
@@ -199,6 +202,13 @@ hold has already stopped counting against what may be sold, because `available()
 excludes it by time rather than by state. A store whose cron never runs still
 sells the right things; it just accumulates dead reservation rows. Arithmetic
 that depended on a job having run would be arithmetic at the mercy of a crontab.
+
+`restaurant-operations` follows the same rule twice over, which is what makes it
+a rule rather than a habit. Its slot arithmetic excludes an expired hold by time,
+and its kitchen board shows a pre-order by time; a restaurant whose cron has
+never run therefore quotes honest pickup times and cooks the right food, and both
+workers exist only so that the *stored* state matches what the screens already
+show — which is what every report afterwards reads.
 
 ---
 

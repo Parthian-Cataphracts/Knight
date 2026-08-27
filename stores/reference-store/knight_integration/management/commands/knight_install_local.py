@@ -231,6 +231,11 @@ def _read_simple_yaml(text: str) -> dict:
     it stayed invisible because PyYAML is installed in development and in CI, so
     this code path only ever runs on a bare store.
 
+    Phase 16 found the fourth of these, in the same shape again: an inline
+    sequence — `extensions: []`, which is how a Feature says it needs no database
+    extension — came back as the two-character string `"[]"`. Truthy, iterable,
+    and one character from being a list of one extension called `[`.
+
     Still deliberately partial, and now loud about it. A shape it does not
     understand raises `ManifestUnreadable` rather than skipping the line: a
     reader that silently drops what it cannot parse is exactly how the last two
@@ -320,6 +325,10 @@ def _read_simple_yaml(text: str) -> dict:
             container[key] = _read_inline_map(value)
             continue
 
+        if value.startswith("[") and value.endswith("]"):
+            container[key] = _read_inline_list(value)
+            continue
+
         if value:
             container[key] = _unquote(value)
             continue
@@ -374,6 +383,23 @@ def _unquote(value: str):
         return float(value)
     except ValueError:
         return value
+
+
+def _read_inline_list(value: str) -> list:
+    """
+    A single-line `[a, b]` sequence, which the schema also allows.
+
+    Written for `extensions: []` — the way a Feature says it needs no database
+    extension — and correct for a populated one too. The empty case is the one
+    that matters and the one that was wrong: read as the string `"[]"` it is
+    truthy, so a caller asking "does this Feature declare extensions" got yes.
+    """
+    inner = value.strip()[1:-1].strip()
+
+    if not inner:
+        return []
+
+    return [_unquote(part) for part in _split_outside_quotes(inner) if part.strip()]
 
 
 def _read_inline_map(value: str) -> dict:
