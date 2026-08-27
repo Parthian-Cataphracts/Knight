@@ -11,7 +11,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **None scheduled. Phase 18 is complete: thirteen Features installed into a real store by real jobs, one upgraded, one rolled back with its data intact, one disabled by withdrawing an entitlement — and eight defects fixed, six of which had made delivery impossible for six phases ([`phase-18-verification.md`](docs/phase-18-verification.md))** Phase 17 completed the catalogue: `subscriptions` and `external-marketplaces` are published, and R26 was answered *yes* and built, so a Feature may now be delivered to a store that is not Django ([`adr/0032`](docs/adr/0032-a-feature-declares-its-runtime.md), [`phase-17-verification.md`](docs/phase-17-verification.md))** |
+| **Current phase** | **Phase 19 — the delivery drill runs itself. Phase 18 walked the whole delivery journey by hand and found eight defects; this phase makes that walk a command CI runs on every push.** Phase 18 is complete: thirteen Features installed into a real store by real jobs, one upgraded, one rolled back with its data intact, one disabled by withdrawing an entitlement — and eight defects fixed, six of which had made delivery impossible for six phases ([`phase-18-verification.md`](docs/phase-18-verification.md))** Phase 17 completed the catalogue: `subscriptions` and `external-marketplaces` are published, and R26 was answered *yes* and built, so a Feature may now be delivered to a store that is not Django ([`adr/0032`](docs/adr/0032-a-feature-declares-its-runtime.md), [`phase-17-verification.md`](docs/phase-17-verification.md))** |
 | **Next phase** | Nothing scheduled after 18. What remains is the standing work below and the items phases 16 and 17 carried forward, none of which is a phase: the external security review nobody inside the project can close, wiring real vendors to the four Features that honestly refuse without one, and teaching KNIGHT a store's runtime so a mismatched job is refused before it is queued |
 | **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **818 backend tests green** (645 unit, 13 architecture, 160 PostgreSQL-backed integration), plus **775 store tests with nothing skipped**, the same 775 passing with no Feature installed at all, 14 node-store tests, and 9 dashboard |
 | **Blocking decisions** | **Are Features publishable for a store that is not Django?** Everything except the manifest is already stack-agnostic; `ManifestReader` is the one thing that is not (R26, decision 14 in [`docs/risks.md`](docs/risks.md)). Until it is answered, a non-Django store is entitled and observed but not delivered to. Separately, the **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
@@ -43,6 +43,7 @@ Phase 15   Automation                     ██████████ 100%
 Phase 16   Operational expansion          ██████████ 100%
 Phase 17   Recurring revenue & integrations ██████████ 100%
 Phase 18   The catalogue through delivery  ██████████ 100%
+Phase 19   The delivery drill runs itself  ░░░░░░░░░░   0%
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -1417,14 +1418,8 @@ complete. **Met** — see
 
 Carried out of phase 18:
 
-- [ ] **Automate the phase-18 run.** Eight defects have tests now; what would
-      catch a ninth is the run itself — publish, onboard, install, upgrade, roll
-      back, withdraw — against a real API and a real store, on a schedule. Its
-      failures are invisible to every other kind of testing this project does,
-      which is the whole lesson of the phase
-- [ ] **A rollback across two genuinely different schemas.** The drill used a
-      version bump with identical migrations, which proves the tables survive and
-      the versions move, and does not prove a real down-migration works
+- [~] **Automate the phase-18 run** and **roll back across two genuinely
+      different schemas** — both are phase 19, above
 - [ ] **The health poller does not capture the runtime block**, only the
       heartbeat does. A store KNIGHT polls but which never heartbeats stays
       uncertifiable for delivery
@@ -1520,6 +1515,39 @@ CI found it. Whatever else has drifted is in the half nobody exercises.
       rollback at all. Two were about what an operator is told: a Feature that
       could not be installed was reported as one that does not exist, and the
       first fix for that answered 500
+
+---
+
+## Phase 19 — The delivery drill runs itself
+
+**Exit criteria:** the journey phase 18 walked by hand — publish, onboard,
+connect, install, upgrade, roll back, withdraw — runs as **one command, in CI, on
+every push**, and fails loudly when any step of it regresses.
+
+This phase is the one phase 18 nominated in its own write-up, and it is taken at
+its word. Eight defects lived in the delivery path for six phases. Every one of
+them now has a test, and not one of those tests would have found the *next* one,
+because what they check is the code each defect happened to be in rather than the
+path all eight shared. What finds a ninth is the journey, run.
+
+The rollback half deserves better than phase 18 gave it. That drill upgraded
+between two versions whose migrations were identical, so the reverse migration
+had nothing to undo: it proved the tables survive and the version numbers move,
+and said nothing about whether a real down-migration works. The drill built here
+carries its own Feature with two genuinely different schemas, so the rollback has
+something to reverse and the data has something to survive.
+
+- [ ] **A drill that runs the whole journey** against a real API and a real
+      store, asserting at every step and exiting non-zero on the first thing that
+      is not true
+- [ ] **Its own two-version Feature**, whose 1.1.0 adds a column its 1.0.0 does
+      not have, so upgrade and rollback are real schema changes rather than
+      version-number changes. Created through the API at drill time rather than
+      seeded, so the sellable catalogue stays free of test fixtures
+- [ ] **Real catalogue Features installed too**, so the drill proves the actual
+      packages still install and not only that the machinery moves
+- [ ] **In CI**, with its own job: Postgres, the API, the store, and the drill
+- [ ] Fix everything it finds
 
 ---
 
