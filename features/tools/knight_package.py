@@ -244,6 +244,20 @@ def _split_outside_quotes(text: str) -> list[str]:
 def _scalar(value: str):
     value = value.strip()
 
+    if value.startswith("[") and value.endswith("]"):
+        # An inline list. Without this branch `extensions: []` was read as the
+        # *string* "[]" and `extensions: [pg_trgm]` as "[pg_trgm]", so a manifest
+        # this repository publishes could not be published at all by anybody
+        # without PyYAML installed - which is every clean checkout, since nothing
+        # here depends on it.
+        #
+        # Found by the delivery drill in CI, where PyYAML is absent and the local
+        # machine's is not. The refusal came from KNIGHT's own validator rather
+        # than from here, which is the system being right twice: a misread
+        # manifest became a rejected publish rather than a signed artifact with
+        # the wrong contract.
+        return [_scalar(part) for part in _split_outside_quotes(value[1:-1]) if part.strip()]
+
     if value.startswith("{") and value.endswith("}"):
         result = {}
         for part in _split_outside_quotes(value[1:-1]):
@@ -557,6 +571,11 @@ def selftest() -> int:
     root = Path(__file__).resolve().parents[1]
     manifests = sorted(root.glob("knight-feature-*/knight_manifest.yaml"))
 
+    # The drill's own Feature too. It is not in the catalogue and lives outside
+    # `features/`, and that is exactly why it was the manifest this reader could
+    # not read: it is the only one using an inline list, and nothing checked it.
+    manifests += sorted((root.parent / "tools" / "delivery-drill" / "versions").glob("*/knight_manifest.yaml"))
+
     if not manifests:
         print("No manifests found. This check would pass having read nothing.", file=sys.stderr)
         return 1
@@ -572,13 +591,16 @@ def selftest() -> int:
     failures = 0
 
     for path in manifests:
+        # The directory alone is ambiguous now that the drill's versions are in
+        # the list: two of them are called `1.0.0`.
+        label = f"{path.parent.parent.name}/{path.parent.name}"
         text = path.read_text(encoding="utf-8")
 
         try:
             parsed = _read_simple_yaml(text)
         except Exception as exc:  # noqa: BLE001 - report, do not stop at the first
             failures += 1
-            print(f"  FAILED  {path.parent.name}: {exc}", file=sys.stderr)
+            print(f"  FAILED  {label}: {exc}", file=sys.stderr)
             continue
 
         if reference is not None:
@@ -591,10 +613,10 @@ def selftest() -> int:
 
             if parsed != expected:
                 failures += 1
-                print(f"  DIFFERS {path.parent.name}: this reader disagrees with PyYAML.", file=sys.stderr)
+                print(f"  DIFFERS {label}: this reader disagrees with PyYAML.", file=sys.stderr)
                 continue
 
-        print(f"  ok      {path.parent.name}")
+        print(f"  ok      {label}")
 
     if failures:
         print(f"{failures} manifest(s) this tool cannot read correctly.", file=sys.stderr)
