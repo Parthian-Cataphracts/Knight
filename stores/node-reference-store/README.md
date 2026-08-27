@@ -33,12 +33,40 @@ The job says, in the three neutral names `adr/0032` §3 settles: **namespace**,
 answers "did the Feature install, and can a request reach it", which is the only
 question it exists to answer.
 
-**It does not claim jobs over HTTP.** `apply-job` takes the job payload from a
-file rather than exchanging a token and polling KNIGHT for work. That boundary is
-deliberate: the transport is identical to the Django store's — same endpoints,
-same token, same reporting — and duplicating it here would prove nothing about
-runtime neutrality, which is the whole point of this store. What is real is
-everything downstream of the payload arriving.
+**It is not highly available.** `work` claims jobs one at a time until there are
+none and then exits. A real store runs it on a schedule; there is no daemon, no
+queue and no concurrency, because a command exits with a status and can be run by
+hand during an incident.
+
+## It does claim jobs over HTTP, since phase 20
+
+It did not until then, and the reasoning was that the transport is identical to
+the Django store's — same endpoints, same token, same reporting — so duplicating
+it here would prove nothing about runtime neutrality.
+
+That reasoning was sound and the conclusion was wrong. A store that never asks
+KNIGHT for work is a store nobody has ever proved KNIGHT can hand work to, and
+when phase 20 finally tried, KNIGHT could not plan against this store at all:
+compatibility was decided on Python and Django versions this store has no way to
+report, so every Feature was refused. Nothing noticed for three phases, because
+nothing had ever asked.
+
+```bash
+KNIGHT_CLIENT_ID=… KNIGHT_CLIENT_SECRET=… npm run connect
+```
+
+Handshake, then one heartbeat reporting `{"name": "node", "node": "…"}`. The name
+is the part that matters: KNIGHT decides from it which compatibility checks even
+apply, and a store that omits it is refused rather than assumed to be Django.
+
+```bash
+KNIGHT_CLIENT_ID=… KNIGHT_CLIENT_SECRET=… npm run work
+```
+
+Claim, run, report each step as it finishes, report the outcome. A step that
+fails is reported as a failure with its own code — `digest.mismatch` and
+`install.failed` need different people woken up — and a job that failed silently
+is a Feature a merchant has paid for and does not have.
 
 **It has no dependencies.** Not even for reading a zip. A reference
 implementation exists to show a team what they have to build, and "add this

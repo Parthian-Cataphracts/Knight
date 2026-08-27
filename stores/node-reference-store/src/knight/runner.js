@@ -75,8 +75,13 @@ export class JobRunner {
    *
    * Returns what happened rather than throwing, because the caller's job is to
    * report it to KNIGHT — including, and especially, the failures.
+   *
+   * `onStep` is called as each step finishes, succeeded or failed, so a caller
+   * driving this against a live KNIGHT can report progress while the job is
+   * still running. A job that reports only at the end is a job that looks hung
+   * for the whole of a long migration, and looks identical to one that died.
    */
-  async run(job) {
+  async run(job, { onStep = null } = {}) {
     await mkdir(this.settings.workspace, { recursive: true });
 
     const context = {
@@ -99,6 +104,8 @@ export class JobRunner {
         // An unknown step is refused rather than skipped. Skipping one would let
         // a KNIGHT that had learnt a new verb believe this store had performed
         // it.
+        await report(onStep, name, 'Failed', `This store does not know how to '${name}'.`, 'step.unknown', 0);
+
         return {
           succeeded: false,
           failedStep: name,
@@ -108,13 +115,22 @@ export class JobRunner {
         };
       }
 
+      const started = Date.now();
+
       try {
-        done.push({ step: name, detail: await step(context) });
+        const detail = await step(context);
+
+        done.push({ step: name, detail });
+        await report(onStep, name, 'Succeeded', detail, null, Date.now() - started);
       } catch (error) {
+        const code = error instanceof StepFailed ? error.code : (error.code ?? 'step.failed');
+
+        await report(onStep, name, 'Failed', error.message, code, Date.now() - started);
+
         return {
           succeeded: false,
           failedStep: name,
-          code: error instanceof StepFailed ? error.code : (error.code ?? 'step.failed'),
+          code,
           detail: error.message,
           steps: done,
         };
@@ -128,5 +144,25 @@ export class JobRunner {
       runtime: wiring(job).runtime ?? null,
       steps: done,
     };
+  }
+}
+
+/**
+ * Tells the caller about one step, and never lets that stop the job.
+ *
+ * A store that abandoned an install because the progress report did not go
+ * through would be a store where a flaky network uninstalls Features. The
+ * outcome is reported again at the end, so nothing is lost by a report that
+ * failed on the way.
+ */
+async function report(onStep, step, status, detail, code, durationMs) {
+  if (!onStep) {
+    return;
+  }
+
+  try {
+    await onStep({ step, status, detail, code, durationMs });
+  } catch {
+    // Deliberately swallowed. See above.
   }
 }

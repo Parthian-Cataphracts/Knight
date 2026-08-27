@@ -206,6 +206,55 @@ describe('what a node store refuses', () => {
     assert.equal(outcome.code, 'preflight.wrong_runtime');
   });
 
+  it('reports every step as it finishes, not only at the end', async () => {
+    const reported = [];
+
+    const outcome = await new JobRunner(settings).run(job(), {
+      onStep: (event) => reported.push(event),
+    });
+
+    assert.ok(outcome.succeeded, JSON.stringify(outcome));
+
+    // One report per step, in order, each with a status KNIGHT understands. A
+    // job that reports only at the end looks hung for the whole of a long
+    // migration, and looks identical to one that died.
+    assert.deepEqual(
+      reported.map((event) => event.step),
+      ['preflight', 'fetch', 'verify', 'install', 'migrate', 'configure', 'enable', 'healthcheck'],
+    );
+    assert.ok(reported.every((event) => event.status === 'Succeeded'));
+  });
+
+  it('reports the step that failed, with its own code', async () => {
+    const reported = [];
+
+    await new JobRunner(settings).run(job({ artifact: { ...job().artifact, digest: 'sha256:0000' } }), {
+      onStep: (event) => reported.push(event),
+    });
+
+    const last = reported.at(-1);
+
+    // The failure is reported like any other outcome. A job that stops
+    // reporting when it goes wrong is a job whose last known state is the step
+    // before the problem.
+    assert.equal(last.step, 'verify');
+    assert.equal(last.status, 'Failed');
+    assert.equal(last.code, 'digest.mismatch');
+  });
+
+  it('finishes the job even when reporting a step to KNIGHT throws', async () => {
+    const outcome = await new JobRunner(settings).run(job(), {
+      onStep: () => {
+        throw new Error('the control plane went away');
+      },
+    });
+
+    // A store that abandoned an install because a progress report did not go
+    // through would be a store where a flaky network uninstalls Features. The
+    // outcome is reported again at the end, so nothing is lost.
+    assert.ok(outcome.succeeded, JSON.stringify(outcome));
+  });
+
   it('refuses a download that does not hash to what the job says', async () => {
     const outcome = await new JobRunner(settings).run(
       job({ artifact: { ...job().artifact, digest: 'sha256:0000' } }),

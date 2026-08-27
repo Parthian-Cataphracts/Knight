@@ -8,6 +8,8 @@
   "scripts": {
     "start": "node src/server.js",
     "apply-job": "node src/knight/apply-job.js",
+    "connect": "node src/knight/connect.js",
+    "work": "node src/knight/work.js",
     "test": "node --test \"test/**/*.test.js\""
   }
 }
