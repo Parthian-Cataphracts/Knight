@@ -267,6 +267,17 @@ def install(context: JobContext) -> str:
     shutil.move(str(staging), str(target))
     context.applied.append("install")
 
+    # Recorded here, not at `enable`, and this ordering is the whole reason a
+    # delivered Feature can be migrated at all. `migrate <app_label>` runs in a
+    # subprocess against a fresh app registry, and that registry is built from
+    # this file - so a Feature that is on disk but not in it is a Feature Django
+    # has never heard of. It answered "No installed app with label
+    # 'knight_analytics_core'" for a package sitting two directories away.
+    #
+    # Recorded as **not serving**: the code is present and migratable, and
+    # nothing is mounted until `enable` says so.
+    _record(context, enabled=False)
+
     return f"unpacked into {target}"
 
 
@@ -407,6 +418,22 @@ def configure(context: JobContext) -> str:
 
 def enable(context: JobContext) -> str:
     """Records the feature as installed and serving."""
+    _record(context, enabled=True)
+    context.applied.append("enable")
+
+    return f"{context.slug} {context.version} enabled"
+
+
+def _record(context: JobContext, *, enabled: bool) -> None:
+    """
+    Writes this feature into the store's registry.
+
+    Called twice in an install - once by `install` so the migration subprocess
+    can import the package, and once by `enable` so it starts serving - and the
+    second call overwrites the first. Everything except `enabled` is the same
+    both times, so writing it twice costs a file write and buys an ordering that
+    works.
+    """
     artifact = context.artifact
     configuration = context.job.get("configuration") or {}
 
@@ -419,7 +446,7 @@ def enable(context: JobContext) -> str:
         installed_app=_installed_app(context),
         digest=artifact.get("digest", ""),
         installed_at=datetime.now(timezone.utc).isoformat(),
-        enabled=True,
+        enabled=enabled,
         config_version=int(configuration.get("version") or 0),
         url_include=_url_include(context),
         url_prefix=_url_prefix(context),
@@ -427,9 +454,6 @@ def enable(context: JobContext) -> str:
     )
 
     context.registry.record(feature)
-    context.applied.append("enable")
-
-    return f"{feature.slug} {feature.version} enabled"
 
 
 def disable(context: JobContext) -> str:

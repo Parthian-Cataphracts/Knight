@@ -100,7 +100,8 @@ internal sealed class FeaturePlanResolver : IFeaturePlanResolver
                 context.PythonVersion,
                 context.DjangoVersion,
                 context.HasDedicatedInfrastructure,
-                installed));
+                installed,
+                context.Database));
 
         return new FeaturePlan(
             [.. result.Steps.Select(Translate)],

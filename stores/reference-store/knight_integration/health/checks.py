@@ -55,10 +55,17 @@ def runtime() -> dict[str, str]:
     import platform
 
     import django
+    from django.db import connection
 
     return {
         "python": platform.python_version(),
         "django": django.get_version(),
+        # The engine, not the driver. A manifest says `database: postgresql`,
+        # and Django spells the same thing `django.db.backends.postgresql` -
+        # so the last segment is the word both sides already agree on. Six
+        # Features in the catalogue declare a database requirement and none of
+        # them could be installed while this was unreported.
+        "database": connection.vendor,
     }
 
 

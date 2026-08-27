@@ -65,7 +65,20 @@ public sealed record FeaturePlanContext(
     string? PythonVersion,
     string? DjangoVersion,
     bool HasDedicatedInfrastructure,
-    IReadOnlyDictionary<string, string> InstalledFeatures);
+    IReadOnlyDictionary<string, string> InstalledFeatures,
+
+    /// <summary>
+    /// The database engine the store reports running.
+    ///
+    /// Added in phase 18. <c>StoreCompatibilityContext</c> has had a
+    /// <c>Database</c> field since phase 14 and the resolver has always checked
+    /// it — but nothing ever filled it in, because this record had nowhere to
+    /// carry it from. So every Feature declaring
+    /// <c>compatibility.database</c> was refused with "the store has not
+    /// reported which database it runs", for ever, on every store: six of the
+    /// sixteen in the catalogue.
+    /// </summary>
+    string? Database = null);
 
 /// <summary>
 /// Resolves what would have to happen for a store to end up running a Feature.

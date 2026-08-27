@@ -29,14 +29,25 @@ logger = logging.getLogger(__name__)
 
 def feature_apps(feature_root: str | Path | None = None) -> list[str]:
     """
-    The Django app paths of every enabled feature, for ``INSTALLED_APPS``.
+    The Django app paths of every **installed** feature, for ``INSTALLED_APPS``.
+
+    Installed rather than enabled, and the difference matters in three places.
+    A feature is recorded before its migrations run, so an install that only
+    loaded enabled apps could never migrate the thing it was installing. A
+    disabled feature keeps its tables — that is what "disable, do not remove"
+    means — and Django can only keep tables for an app it knows about. And an
+    uninstall has to migrate those tables away, which needs the app loaded at the
+    moment it is being removed.
+
+    Enabled is about **serving**, and that is enforced where serving happens:
+    `feature_urlpatterns` mounts routes for enabled features only.
 
     Called from settings, so it must not import Django models, touch the
     database, or raise. A store whose settings module explodes gives an operator
     a stack trace and no store.
     """
     try:
-        features = _enabled(feature_root)
+        features = _installed(feature_root)
     except Exception:  # noqa: BLE001 - settings must never fail to import
         logger.exception("The feature registry could not be read; starting with base features only.")
         return []
@@ -58,17 +69,56 @@ def feature_apps(feature_root: str | Path | None = None) -> list[str]:
 
 def ensure_import_path(feature_root: str | Path | None = None) -> None:
     """
-    Puts the feature root on ``sys.path`` so installed packages are importable.
+    Puts every installed feature's package directory on ``sys.path``.
+
+    The feature root itself **and one directory per feature**, because that is
+    where the installer puts them: a delivered artifact is unpacked into
+    ``<root>/<slug>/`` so that the previous version can be kept beside it and a
+    rollback is a rename rather than a second download. The package inside is
+    therefore one level deeper than the root, and a root-only path made every
+    delivered Feature unimportable — `manage.py migrate` answered "No installed
+    app with label 'knight_analytics_core'" for a package sitting on disk two
+    directories away.
+
+    Nothing noticed for six phases because every Feature in development is
+    `pip install`ed into site-packages and registered with
+    `knight_install_local`, which is the path that bypasses delivery entirely.
+    Phase 18 installed the catalogue the way a customer does and found it at
+    once.
 
     Appended rather than prepended, deliberately. A feature package must never be
     able to shadow a module the store itself depends on: delivered code is
     trusted to be what KNIGHT published, not trusted to be careful about its
-    names.
+    names. For the same reason the per-feature directories go after the root.
     """
-    root = str(_root(feature_root))
+    root = _root(feature_root)
 
-    if root not in sys.path:
-        sys.path.append(root)
+    for candidate in [root, *_package_directories(root)]:
+        entry = str(candidate)
+
+        if entry not in sys.path:
+            sys.path.append(entry)
+
+
+def _package_directories(root: Path) -> list[Path]:
+    """
+    Each installed feature's own directory, for the features this store knows
+    about.
+
+    Read from the registry rather than by listing the directory, so a half-
+    unpacked tree or a leftover from a failed install never ends up on the import
+    path. A registry that cannot be read yields nothing: at this point in
+    start-up there is no logging configured and no store to serve, and an
+    exception here would stop the store rather than one feature.
+    """
+    try:
+        from ..installer.state import get_registry
+
+        installed = get_registry(root).load()
+    except Exception:  # noqa: BLE001 - see the docstring
+        return []
+
+    return [root / slug for slug in sorted(installed) if (root / slug).is_dir()]
 
 
 def feature_urlpatterns(feature_root: str | Path | None = None, existing=None):
@@ -186,9 +236,17 @@ def installed_feature_report(feature_root: str | Path | None = None) -> list[dic
 
 
 def _enabled(feature_root: str | Path | None):
+    """The features that may serve requests."""
     from ..installer.state import get_registry
 
     return get_registry(_root(feature_root)).enabled_features()
+
+
+def _installed(feature_root: str | Path | None):
+    """Every feature whose code is on disk, serving or not. See `feature_apps`."""
+    from ..installer.state import get_registry
+
+    return list(get_registry(_root(feature_root)).load().values())
 
 
 def _root(feature_root: str | Path | None) -> Path:

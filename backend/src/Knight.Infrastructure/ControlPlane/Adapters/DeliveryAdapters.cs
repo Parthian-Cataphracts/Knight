@@ -107,7 +107,8 @@ internal sealed class StoreDeliveryReader : IStoreDeliveryReader
             installed.ToDictionary(
                 entry => entry.FeatureSlug,
                 entry => entry.InstalledVersion!,
-                StringComparer.Ordinal));
+                StringComparer.Ordinal),
+            runtime.Database);
     }
 
     public async Task<Guid?> GetOwningCustomerAsync(Guid storeId, CancellationToken cancellationToken)
@@ -122,7 +123,8 @@ internal sealed class StoreDeliveryReader : IStoreDeliveryReader
     }
 
     /// <summary>
-    /// Digs the Python and Django versions out of the most recent health check.
+    /// Digs the Python and Django versions, and the database engine, out of the
+    /// most recent health check.
     ///
     /// A store reports its runtime as part of its health payload, so the newest
     /// check is the freshest answer available. When it has never reported one, the
@@ -149,7 +151,7 @@ internal sealed class StoreDeliveryReader : IStoreDeliveryReader
             ? value.GetString()
             : null;
 
-    private async Task<(string? Python, string? Django)> ReadRuntimeAsync(Guid storeId, CancellationToken cancellationToken)
+    private async Task<(string? Python, string? Django, string? Database)> ReadRuntimeAsync(Guid storeId, CancellationToken cancellationToken)
     {
         var latest = await _context.StoreHealthChecks
             .AsNoTracking()
@@ -160,7 +162,7 @@ internal sealed class StoreDeliveryReader : IStoreDeliveryReader
 
         if (string.IsNullOrWhiteSpace(latest))
         {
-            return (null, null);
+            return (null, null, null);
         }
 
         try
@@ -173,11 +175,14 @@ internal sealed class StoreDeliveryReader : IStoreDeliveryReader
                 ? block
                 : root;
 
-            return (ReadVersion(runtime, "python"), ReadVersion(runtime, "django"));
+            return (
+                ReadVersion(runtime, "python"),
+                ReadVersion(runtime, "django"),
+                ReadVersion(runtime, "database"));
         }
         catch (System.Text.Json.JsonException)
         {
-            return (null, null);
+            return (null, null, null);
         }
     }
 }
