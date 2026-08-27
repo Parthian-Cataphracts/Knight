@@ -12,10 +12,12 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import shutil
 import tempfile
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -603,6 +605,53 @@ class ExtensionStepTests(TestCase):
         from knight_integration.installer.runner import _ROLLBACK_FOR
 
         self.assertNotIn("create-extensions", _ROLLBACK_FOR)
+
+
+class LocalInstallRuntimeTests(SimpleTestCase):
+    """
+    `knight_install_local` and Features built for another runtime.
+
+    It matters here and not only in the job path: this command bypasses
+    `preflight`, which is where a delivered package gets its runtime checked. CI
+    globs every Feature in the repository into it, and since adr/0032 one of them
+    is a node package - so without a check a node Feature would land in a Django
+    store's INSTALLED_APPS and the store would fail to start.
+
+    Found by CI rather than by reading, on the commit that added the node
+    conformance Feature.
+    """
+
+    def test_a_feature_for_another_runtime_is_skipped_by_name(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        root = Path(__file__).resolve().parents[4] / "features"
+        node = root / "knight-feature-node-conformance"
+
+        if not node.is_dir():  # pragma: no cover - the Feature is in the repo
+            self.skipTest("The node conformance Feature is not present.")
+
+        with tempfile.TemporaryDirectory() as registry:
+            out = StringIO()
+
+            with mock.patch.dict(os.environ, {"KNIGHT_FEATURE_ROOT": registry}):
+                call_command("knight_install_local", str(node), stdout=out)
+
+            written = Path(registry) / "installed.json"
+            registered = (
+                json.loads(written.read_text(encoding="utf-8"))["features"]
+                if written.exists()
+                else {}
+            )
+
+        # Skipped rather than refused: the caller is usually a glob, and stopping
+        # on the first foreign Feature would mean installing none of the others.
+        self.assertIn("node Feature and this store runs django", out.getvalue())
+
+        # Nothing registered, and the registry is not even written - there was
+        # nothing to record.
+        self.assertEqual({}, registered)
 
 
 class FallbackManifestReaderTests(SimpleTestCase):

@@ -38,6 +38,10 @@ from ...installer.state import InstalledFeature, get_registry
 #: Deliberately not a hash of anything. See the module docstring.
 LOCAL_DIGEST = "sha256:local-development"
 
+#: What this store runs. A Feature declaring anything else is not this store's to
+#: register (docs/adr/0032-a-feature-declares-its-runtime.md).
+RUNTIME = "django"
+
 
 class Command(BaseCommand):
     help = "Registers a locally present feature package in this store's feature registry."
@@ -57,8 +61,34 @@ class Command(BaseCommand):
     def handle(self, *args, **options) -> None:
         registry = get_registry()
 
+        skipped = 0
+
         for raw_source in options["source"]:
             manifest = self._manifest(Path(raw_source))
+
+            # A Feature built for another runtime is not this store's to
+            # register. It matters here and not only in the job path: this
+            # command bypasses `preflight`, which is where a delivered package
+            # gets that check, so without this a glob over every Feature in the
+            # repository would put a node package into a Django store's
+            # INSTALLED_APPS and the store would fail to start
+            # (docs/adr/0032-a-feature-declares-its-runtime.md).
+            #
+            # Skipped rather than refused, because the caller is usually that
+            # glob and stopping on the first foreign Feature would mean
+            # installing none of the others.
+            runtime = str(manifest.get("runtime") or "django")
+
+            if runtime != RUNTIME:
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"  {manifest.get('slug', raw_source)} is a {runtime} Feature and this store "
+                        f"runs {RUNTIME}; skipped."
+                    )
+                )
+                skipped += 1
+                continue
+
             feature = self._feature(manifest, enabled=not options["disabled"])
 
             registry.record(feature)
@@ -72,6 +102,10 @@ class Command(BaseCommand):
             )
 
         self.stdout.write(f"Registry: {registry.path}")
+
+        if skipped:
+            self.stdout.write(f"{skipped} Feature(s) for another runtime were skipped.")
+
         self.stdout.write("Restart the store for the app registry to pick this up.")
 
     def _extensions(self, manifest: dict) -> None:

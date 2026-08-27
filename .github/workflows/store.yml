@@ -61,10 +61,24 @@ jobs:
       - name: Install every Feature package
         run: |
           set -euo pipefail
-          packages=(features/knight-feature-*/)
+
+          # Only the ones pip can install. Since adr/0032 a Feature may be built
+          # for another runtime - `node-conformance` is - and a directory with no
+          # pyproject.toml is not a Python distribution. Tested for rather than
+          # named, for the same reason the glob is a glob: an exception list goes
+          # stale the first time somebody adds a second node Feature.
+          packages=()
+
+          for feature in features/knight-feature-*/; do
+            if [ -f "$feature/pyproject.toml" ]; then
+              packages+=("$feature")
+            else
+              echo "  skipping $feature (not a Python distribution)"
+            fi
+          done
 
           if [ ${#packages[@]} -eq 0 ]; then
-            echo "::error::No Feature packages found. The glob matched nothing." >&2
+            echo "::error::No installable Feature packages found. The glob matched nothing." >&2
             exit 1
           fi
 

@@ -13,7 +13,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 |---|---|
 | **Current phase** | **None — the planned phases are done. Phase 17 completed the catalogue: `subscriptions` and `external-marketplaces` are published, and R26 was answered *yes* and built, so a Feature may now be delivered to a store that is not Django ([`adr/0032`](docs/adr/0032-a-feature-declares-its-runtime.md), [`phase-17-verification.md`](docs/phase-17-verification.md))** |
 | **Next phase** | Nothing is scheduled. What remains is the standing work below and the items phases 16 and 17 carried forward, none of which is a phase: the external security review nobody inside the project can close, wiring real vendors to the four Features that honestly refuse without one, and teaching KNIGHT a store's runtime so a mismatched job is refused before it is queued |
-| **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **808 backend tests green** (640 unit, 13 architecture, 155 PostgreSQL-backed integration), plus **774 store tests with nothing skipped**, the same 774 passing with no Feature installed at all, 14 node-store tests, and 9 dashboard |
+| **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **808 backend tests green** (640 unit, 13 architecture, 155 PostgreSQL-backed integration), plus **775 store tests with nothing skipped**, the same 775 passing with no Feature installed at all, 14 node-store tests, and 9 dashboard |
 | **Blocking decisions** | **Are Features publishable for a store that is not Django?** Everything except the manifest is already stack-agnostic; `ManifestReader` is the one thing that is not (R26, decision 14 in [`docs/risks.md`](docs/risks.md)). Until it is answered, a non-Django store is entitled and observed but not delivered to. Separately, the **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -1405,10 +1405,14 @@ complete. **Met** — see
       sends, idempotency on the *partner's* event id, retries that widen and then
       abandon, per-provider adapters and reconciliation that reports without ever
       fixing. Deliberately last, and it earned it
-- [x] Four defects found by verifying rather than by writing: two clock bugs in
+- [x] Five defects found by verifying rather than by writing: two clock bugs in
       billing, a node Feature reading its configuration from the wrong directory,
-      and — found only in a browser — resuming inside a paid period charging for
-      that period twice
+      resuming inside a paid period charging for that period twice — found only
+      in a browser — and, found only by CI, two Feature globs that assumed every
+      Feature is a Python distribution. The second of those would not have
+      stopped anything: `knight_install_local` bypasses `preflight`, so it would
+      have registered a node Feature into a Django store's INSTALLED_APPS and the
+      store would have failed to start
 
 Carried out of phase 17, none of it blocking:
 

@@ -137,7 +137,8 @@ them.
 
 ## 4. What verifying it found
 
-Four real defects. Three were found by tests and one only by a browser.
+Five real defects. Three were found by tests, one only by a browser, and one only
+by CI.
 
 ### The clock advanced past the period rather than to it
 
@@ -163,6 +164,26 @@ Worth recording *which* test caught it: the one that reads the configuration bac
 **through the Feature's own route**. The test that checked where the installer
 wrote the file passed. Asserting on the seam from both sides is what made the
 difference.
+
+### The Feature glob assumed every Feature is a Python distribution
+
+**Found by CI and by nothing else**, on the commit that added the node
+conformance Feature. Two steps in the store workflow glob every Feature in the
+repository: one `pip install`s them, and one registers them with the reference
+store. Both had been correct for sixteen Django Features and neither could
+survive the seventeenth not being one.
+
+`pip install` on a directory with no `pyproject.toml` fails, so the whole job
+stopped. That is now a test for the file rather than a named exception list — an
+exception list goes stale the first time somebody adds a second node Feature.
+
+The second one was the more interesting failure, because it would not have
+stopped anything: `knight_install_local` would have happily registered a node
+Feature into a Django store's `INSTALLED_APPS`, and the store would have failed
+to start afterwards with an import error naming a package that was never Python.
+That command **bypasses `preflight`**, which is where a delivered package gets
+its runtime checked — so the check had to be added there too. It skips rather
+than refuses, because the caller is usually that glob.
 
 ### Resuming inside a paid period charged for it twice
 
@@ -364,15 +385,15 @@ python features/tools/knight_package.py selftest
 
 | Suite | Result |
 |---|---|
-| Store, all 15 Features installed, `REQUIRE_FEATURE_TESTS=1` | **774 passed**, 0 skipped (684 before) |
-| Store, no Features installed at all | **774 passed**, 555 skipped |
+| Store, all 15 Features installed, `REQUIRE_FEATURE_TESTS=1` | **775 passed**, 0 skipped (684 before) |
+| Store, no Features installed at all | **775 passed**, 555 skipped |
 | Node reference store | **14 passed** |
 | Backend unit | **640 passed** (626 before) |
 | Backend architecture | 13 passed |
 | Backend integration, `REQUIRE_POSTGRES_TESTS=1` | 155 passed |
 | Dashboard | 9 passed, `tsc --noEmit` clean |
 
-The 90 new store tests are the two Features and their seams; the 14 new backend
+The 91 new store tests are the two Features, their seams, and the runtime check on the local installer; the 14 new backend
 tests are the runtime discriminator in `ManifestReader`.
 
 ---
