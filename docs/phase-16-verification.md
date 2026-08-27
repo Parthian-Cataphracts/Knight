@@ -51,6 +51,28 @@ with all three Features installed: stock is received at `CAMDEN` before anybody
 has described `CAMDEN`, the branch is then described, and every movement row is
 compared before and after — same rows, same locations, same quantities.
 
+### Proven against a real database, not only in a test
+
+Both new migrations were rolled back and re-applied on the development store,
+which is what `reversible: true` in a manifest promises and what nothing had yet
+checked for these two:
+
+```
+python manage.py migrate knight_locations zero
+python manage.py migrate knight_locations
+```
+
+With ten kilograms of coffee received at `CAMDEN` first, and `CAMDEN` described:
+
+| | |
+|---|---|
+| Before | `[(1, 'CAMDEN', '10.000')]` |
+| After rolling `multi-location` back | `[(1, 'CAMDEN', '10.000')]`, on hand at `CAMDEN` still `10.000` |
+| After re-applying it | the code reads as `None` again — anonymous, and still the code the stock is under |
+
+Uninstalling the Feature took its own tables and nothing else. The stock did not
+move, and the branch simply stopped having a name.
+
 The constraint that looked like the risk is what removed it.
 
 ---
