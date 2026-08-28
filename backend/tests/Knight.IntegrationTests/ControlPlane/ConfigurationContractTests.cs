@@ -1,11 +1,11 @@
 using AccessControl.Domain;
-using Knight.Application.Abstractions.ControlPlane;
 using FeatureDelivery;
 using FeatureDelivery.Domain;
 using FeatureRegistry.Domain;
+using Knight.Application.Abstractions.ControlPlane;
 using Knight.Application.Exceptions;
-using Knight.IntegrationTests.Infrastructure;
 using Knight.Infrastructure.ControlPlane;
+using Knight.IntegrationTests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Stores.Domain;
 using Xunit;
