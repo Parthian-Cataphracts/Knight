@@ -15,6 +15,8 @@ namespace Knight.StoreAgent;
 /// </summary>
 public sealed class KnightHeartbeatService(
     KnightClient client,
+    KnightConnection connection,
+    KnightAgentStatus status,
     IOptions<KnightOptions> options,
     ILogger<KnightHeartbeatService> logger)
     : BackgroundService
@@ -23,18 +25,34 @@ public sealed class KnightHeartbeatService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!_options.Enabled)
-        {
-            logger.LogInformation("The KNIGHT agent is disabled; no heartbeats will be sent.");
-            return;
-        }
-
         var registry = new FeatureRegistry(_options.FeatureRoot);
+        var announced = false;
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                var credential = await connection.CurrentAsync(stoppingToken);
+
+                // The loop runs whether or not there is a credential, because
+                // connecting a store is something an operator does in a panel
+                // while this process is running. It used to return here, which
+                // meant a store could only ever be connected by a redeploy.
+                if (!credential.Enabled || !credential.IsComplete)
+                {
+                    if (!announced)
+                    {
+                        logger.LogInformation(
+                            "This store is not connected to KNIGHT yet; nothing will be sent until it is.");
+                        announced = true;
+                    }
+
+                    await Task.Delay(_options.PollInterval, stoppingToken);
+                    continue;
+                }
+
+                announced = false;
+
                 var features = await registry.EnabledSlugsAsync(stoppingToken);
                 await client.HeartbeatAsync("Healthy", features, null, null, stoppingToken);
             }
@@ -46,8 +64,10 @@ public sealed class KnightHeartbeatService(
             {
                 // Logged and swallowed. A control plane that has gone away must
                 // never take the shop down with it, and the next tick will try
-                // again.
+                // again. Recorded as well: a merchant looking at a connection
+                // screen has to be told, and a log file is not a screen.
                 logger.LogWarning(exception, "Heartbeat to KNIGHT failed.");
+                status.RecordFailure(exception.Message);
             }
 
             try
@@ -73,6 +93,8 @@ public sealed class KnightHeartbeatService(
 public sealed class KnightAgentService(
     KnightClient client,
     JobRunner runner,
+    KnightConnection connection,
+    KnightAgentStatus status,
     IOptions<KnightOptions> options,
     ILogger<KnightAgentService> logger)
     : BackgroundService
@@ -81,16 +103,20 @@ public sealed class KnightAgentService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!_options.Enabled)
-        {
-            logger.LogInformation("The KNIGHT agent is disabled; no jobs will be claimed.");
-            return;
-        }
-
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                var credential = await connection.CurrentAsync(stoppingToken);
+
+                if (!credential.Enabled || !credential.IsComplete)
+                {
+                    // Not connected yet. The same reasoning as the heartbeat: a
+                    // credential arrives in a panel, not only in a deploy.
+                    await Task.Delay(_options.PollInterval, stoppingToken);
+                    continue;
+                }
+
                 while (await RunOneAsync(stoppingToken))
                 {
                     // Straight on to the next: a store that has just been
@@ -105,6 +131,7 @@ public sealed class KnightAgentService(
             catch (Exception exception)
             {
                 logger.LogWarning(exception, "Claiming work from KNIGHT failed.");
+                status.RecordFailure(exception.Message);
             }
 
             try
@@ -159,6 +186,7 @@ public sealed class KnightAgentService(
                 cancellationToken);
 
             logger.LogInformation("{Slug} {Version} installed.", job.FeatureSlug, outcome.InstalledVersion);
+            status.RecordJob($"{job.Type} {job.FeatureSlug} {outcome.InstalledVersion}: succeeded");
 
             return true;
         }
@@ -181,6 +209,8 @@ public sealed class KnightAgentService(
             outcome.FailedStep,
             outcome.Code,
             outcome.Detail);
+
+        status.RecordJob($"{job.Type} {job.FeatureSlug}: failed at {outcome.FailedStep} ({outcome.Code})");
 
         return true;
     }

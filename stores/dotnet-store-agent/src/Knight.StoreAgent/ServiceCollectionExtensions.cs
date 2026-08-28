@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace Knight.StoreAgent;
@@ -38,14 +39,37 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !options.Enabled || !string.IsNullOrWhiteSpace(options.ClientSecret),
                 "Knight:ClientSecret is required when the agent is enabled.")
+            // Not conditioned on `Enabled` any more. A store can now be
+            // connected from its own panel, so the keys it verifies downloads
+            // against have to be in place before that happens rather than
+            // checked at a start-up that has already gone by.
             .Validate(
-                options => !options.Enabled || options.SigningKeys.Count > 0,
+                options => options.SigningKeys.Count > 0,
                 "Knight:SigningKeys must name at least one trusted key, or this store can verify nothing it downloads.")
             .ValidateOnStart();
 
         services.AddHttpClient<KnightClient>();
+
+        // The client the proxy forwards with. Named, so a store can give it its
+        // own timeout and egress policy without touching this library.
+        services.AddHttpClient(KnightServiceProxyMiddleware.HttpClientName, client =>
+        {
+            // Short: this is on a shopper's request path, and a Feature's
+            // service being slow must not become the store being slow.
+            client.Timeout = TimeSpan.FromSeconds(10);
+        });
+
         services.AddSingleton<JobRunner>();
         services.AddSingleton<FeatureRegistryAccessor>();
+        services.AddSingleton<KnightAgentStatus>();
+        services.AddSingleton<KnightConnection>();
+        services.AddSingleton<KnightStatusReader>();
+
+        // TryAdd, so a store that keeps credentials in its own encrypted
+        // settings table, or names its staff roles differently, replaces one
+        // registration rather than forking the library.
+        services.TryAddSingleton<IKnightCredentialStore, FileKnightCredentialStore>();
+        services.TryAddSingleton<IKnightProxyIdentity, ClaimsProxyIdentity>();
 
         services.AddHostedService<KnightHeartbeatService>();
         services.AddHostedService<KnightAgentService>();

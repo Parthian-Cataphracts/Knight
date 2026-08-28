@@ -6,9 +6,35 @@ per-project integration.
 
 ```csharp
 builder.Services.AddKnightStoreAgent(builder.Configuration);
+
+app.UseAuthentication();
+app.UseKnightFeatureProxy();   // before the store's own routing
 ```
 
-That line, a credential, and a restart. There is no per-store code to write.
+Two lines and a credential. There is no per-store code to write.
+
+**The credential does not have to be a deploy.** A store can be connected from
+its own admin panel: `KnightConnection.ConnectAsync` records it, the background
+services pick it up on their next pass, and nothing restarts. That matters
+because the person who owns the shop is usually not the person who can set an
+environment variable, and "send me your client secret" is a worse answer than
+either.
+
+```csharp
+await connection.ConnectAsync(new KnightCredential
+{
+    BaseUrl = "https://knight.example.com",
+    ClientId = clientId,
+    ClientSecret = clientSecret,
+    Environment = "Production",
+});
+
+var status = await statusReader.ReadAsync();   // what a connection screen shows
+```
+
+`KnightConnectionStatus` carries no secret — only whether a credential is
+present, whether the last thing tried worked, when the last handshake and
+heartbeat were, what the last job did, and what has been delivered.
 
 ## Which agent does a store need?
 
@@ -55,6 +81,19 @@ the moment it runs.
 reports that the Feature is installed and served after a restart rather than
 claiming to have reloaded. Saying otherwise would be a lie that surfaces as a 404
 a merchant reports.
+
+**It serves what is delivered, without a restart.** `UseKnightFeatureProxy`
+forwards the prefixes an `external_service` Feature declared to that Feature's
+service, signed with the shared secret KNIGHT issued for this store. It is
+middleware rather than routes registered at start-up because a Feature arrives
+while the shop is running, and a route table built once would make every install
+need a redeploy before anything answered.
+
+The shopper's own credentials never leave the store: no cookie, no
+`Authorization` header, no CSRF token. The store asserts *who is asking* in a
+signed header and decides `anonymous` / `customer` / `staff` itself — supply an
+`IKnightProxyIdentity` if this store names its roles differently. A service may
+not set a cookie on the store's domain.
 
 **It does not decide what is installed.** `FeatureRegistryAccessor` is read-only
 from the store's side. What a store has is decided by delivery.

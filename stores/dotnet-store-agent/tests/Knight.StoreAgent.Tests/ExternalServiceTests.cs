@@ -49,7 +49,13 @@ public sealed class ExternalServiceTests : IDisposable
 
     private JobRunner Runner(KnightOptions options)
     {
-        var client = new KnightClient(new HttpClient(), Microsoft.Extensions.Options.Options.Create(options), NullLogger<KnightClient>.Instance);
+        var settings = Microsoft.Extensions.Options.Options.Create(options);
+        var client = new KnightClient(
+            new HttpClient(),
+            settings,
+            new KnightConnection(settings, new FileKnightCredentialStore(settings)),
+            new KnightAgentStatus(),
+            NullLogger<KnightClient>.Instance);
 
         return new JobRunner(client, Microsoft.Extensions.Options.Options.Create(options), NullLogger<JobRunner>.Instance);
     }

@@ -436,8 +436,22 @@ public sealed class JobRunner(
         // Beside the Feature, not inside it. Inside would be overwritten by the
         // next install, which is how a node Feature came to read a config file
         // that the upgrade had just deleted.
-        var path = Path.Combine(context.Options.FeatureRoot, $"{context.Slug}.config.json");
-        await File.WriteAllTextAsync(path, configuration.ValuesJson, cancellationToken);
+        //
+        // Values **and secrets**, in the shape every reference store writes.
+        // This used to write the values alone, so the shared secret KNIGHT
+        // issues per store and rotates arrived here and was thrown away: a .NET
+        // store could take delivery of a service Feature and then be refused by
+        // that service, with nothing on either side saying why
+        // (docs/adr/0034-a-shared-secret-has-a-lifetime.md).
+        await FeatureConfigurationFile.WriteAsync(
+            context.Options.FeatureRoot,
+            context.Slug,
+            configuration.Version,
+            configuration.ValuesJson,
+            configuration.Secrets,
+            cancellationToken);
+
+        var path = FeatureConfigurationFile.PathFor(context.Options.FeatureRoot, context.Slug);
 
         var existing = await context.Registry.FindAsync(context.Slug, cancellationToken);
 

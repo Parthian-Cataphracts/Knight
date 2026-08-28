@@ -49,17 +49,35 @@ public sealed class KnightClient
 
     private readonly HttpClient _http;
     private readonly KnightOptions _options;
+    private readonly KnightConnection _connection;
+    private readonly KnightAgentStatus _status;
     private readonly ILogger<KnightClient> _logger;
     private readonly SemaphoreSlim _handshakeLock = new(1, 1);
 
     private string? _token;
 
-    public KnightClient(HttpClient http, IOptions<KnightOptions> options, ILogger<KnightClient> logger)
+    /// <summary>
+    /// Which client id the current token was minted from.
+    ///
+    /// Kept so a credential entered in a panel takes effect without a restart:
+    /// the token from the previous one is dropped rather than sent to a control
+    /// plane that has never seen it, which would look to an operator like the
+    /// new credential being wrong.
+    /// </summary>
+    private string _tokenClientId = string.Empty;
+
+    public KnightClient(
+        HttpClient http,
+        IOptions<KnightOptions> options,
+        KnightConnection connection,
+        KnightAgentStatus status,
+        ILogger<KnightClient> logger)
     {
         _options = options.Value;
+        _connection = connection;
+        _status = status;
         _logger = logger;
         _http = http;
-        _http.BaseAddress = new Uri(_options.BaseUrl.TrimEnd('/') + "/");
         _http.Timeout = _options.Timeout;
     }
 
@@ -74,11 +92,13 @@ public sealed class KnightClient
     /// </summary>
     public async Task<StoreIdentity> HandshakeAsync(CancellationToken cancellationToken)
     {
+        var credential = await _connection.CurrentAsync(cancellationToken);
+
         var body = new
         {
-            clientId = _options.ClientId,
-            clientSecret = _options.ClientSecret,
-            environment = _options.Environment,
+            clientId = credential.ClientId,
+            clientSecret = credential.ClientSecret,
+            environment = credential.Environment,
             storeVersion = _options.StoreVersion,
             runtime = $".NET {System.Environment.Version}",
             nonce = Guid.NewGuid().ToString("n"),
@@ -93,7 +113,9 @@ public sealed class KnightClient
             ?? throw new KnightUnavailableException("The handshake succeeded and returned nothing.");
 
         _token = identity.AccessToken;
+        _tokenClientId = credential.ClientId;
         Store = identity;
+        _status.RecordHandshake(identity);
 
         _logger.LogInformation(
             "Connected to KNIGHT as {StoreName} ({Slug}), integration {Status}.",
@@ -118,16 +140,18 @@ public sealed class KnightClient
         ["dotnet"] = System.Environment.Version.ToString(),
     };
 
-    public Task HeartbeatAsync(
+    public async Task HeartbeatAsync(
         string status,
         IReadOnlyCollection<string> features,
         IReadOnlyDictionary<string, object>? dependencies,
         string? detail,
         CancellationToken cancellationToken)
     {
+        var credential = await _connection.CurrentAsync(cancellationToken);
+
         var body = new
         {
-            environment = _options.Environment,
+            environment = credential.Environment,
             status,
             storeVersion = _options.StoreVersion,
             dependencies = dependencies ?? new Dictionary<string, object>(),
@@ -136,7 +160,9 @@ public sealed class KnightClient
             detail,
         };
 
-        return SendAsync<object>(HttpMethod.Post, "api/v1/ingest/heartbeat", body, true, cancellationToken);
+        await SendAsync<object>(HttpMethod.Post, "api/v1/ingest/heartbeat", body, true, cancellationToken);
+
+        _status.RecordHeartbeat();
     }
 
     /// <summary>
@@ -259,7 +285,13 @@ public sealed class KnightClient
             await EnsureTokenAsync(cancellationToken);
         }
 
-        using var request = new HttpRequestMessage(method, path);
+        // Built per request rather than from a base address fixed at start-up:
+        // which control plane a store talks to is part of the credential, and a
+        // credential can be entered in a panel while this process is running.
+        var credential = await _connection.CurrentAsync(cancellationToken);
+        var target = new Uri(new Uri(credential.BaseUrl.TrimEnd('/') + "/"), path);
+
+        using var request = new HttpRequestMessage(method, target);
 
         if (body is not null)
         {
@@ -318,8 +350,15 @@ public sealed class KnightClient
             // Checked inside the lock: the heartbeat and the job poller can both
             // arrive here at once, and two handshakes would burn two nonces and
             // leave one of the two tokens orphaned.
-            if (_token is null)
+            var credential = await _connection.CurrentAsync(cancellationToken);
+
+            // A different credential than the one this token came from is a
+            // store that has just been reconnected, possibly to a different
+            // control plane. Reusing the token would send it somewhere that has
+            // never issued one.
+            if (_token is null || !string.Equals(_tokenClientId, credential.ClientId, StringComparison.Ordinal))
             {
+                _token = null;
                 await HandshakeAsync(cancellationToken);
             }
         }
