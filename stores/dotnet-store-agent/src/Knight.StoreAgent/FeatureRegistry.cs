@@ -34,6 +34,19 @@ public sealed record InstalledFeature
     public DateTimeOffset InstalledAt { get; init; }
 
     public int ConfigVersion { get; init; }
+
+    /// <summary>
+    /// What an external Feature declared, or null for an ordinary package.
+    ///
+    /// Kept on the registry entry rather than in a file of its own, so that
+    /// "what has this store got, and what is it allowed to do" is one read
+    /// during an incident.
+    /// </summary>
+    public ExternalContract? Contract { get; init; }
+
+    /// <summary>Whether this Feature is a service the store talks to.</summary>
+    public bool IsExternalService =>
+        string.Equals(Contract?.Architecture, "external_service", StringComparison.Ordinal);
 }
 
 /// <summary>
@@ -99,6 +112,46 @@ public sealed class FeatureRegistry(string root)
 
     public Task RemoveAsync(string slug, CancellationToken cancellationToken = default) =>
         MutateAsync(document => document.Features.Remove(slug), cancellationToken);
+
+    /// <summary>
+    /// Every external Feature this store is currently serving.
+    ///
+    /// Enabled only, because everything that acts on these — the event bus, the
+    /// proxy, the admin's menu — must respect an entitlement that has lapsed.
+    /// Installed and enabled are separate facts and the store enforces both.
+    /// </summary>
+    public async Task<IReadOnlyList<InstalledFeature>> ExternalFeaturesAsync(CancellationToken cancellationToken = default)
+    {
+        var document = await ReadAsync(cancellationToken);
+
+        return [.. document.Features.Values.Where(feature => feature.Enabled && feature.IsExternalService)];
+    }
+
+    /// <summary>
+    /// Which Features asked to hear about one event.
+    ///
+    /// Read every time rather than cached: a Feature disabled a second ago must
+    /// stop receiving events now, not at the next restart.
+    /// </summary>
+    public async Task<IReadOnlyList<(InstalledFeature Feature, WebhookSubscription Subscription)>> SubscribersForAsync(
+        string eventName,
+        CancellationToken cancellationToken = default)
+    {
+        var subscribers = new List<(InstalledFeature, WebhookSubscription)>();
+
+        foreach (var feature in await ExternalFeaturesAsync(cancellationToken))
+        {
+            foreach (var subscription in feature.Contract!.Webhooks)
+            {
+                if (string.Equals(subscription.Event, eventName, StringComparison.Ordinal))
+                {
+                    subscribers.Add((feature, subscription));
+                }
+            }
+        }
+
+        return subscribers;
+    }
 
     /// <summary>What state a Feature's schema is in, keyed on its declared namespace.</summary>
     public Task RecordMigrationAsync(string ns, string state, CancellationToken cancellationToken = default) =>

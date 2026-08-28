@@ -202,6 +202,16 @@ public sealed class JobRunner(
 
     private static Task<string> Preflight(JobContext context, CancellationToken cancellationToken)
     {
+        // An external Feature has no runtime to match: this store loads none of
+        // its code, so there is no package built for anything. What matters for
+        // it is whether this store publishes the events it wants, and that is
+        // checked at install against the signed document rather than here
+        // against the job (adr/0033).
+        if (context.Job.IsExternalService)
+        {
+            return Task.FromResult($"{context.Slug} is a service; this store will register it and run none of it");
+        }
+
         var runtime = context.Job.Runtime;
 
         if (runtime is null)
@@ -257,13 +267,38 @@ public sealed class JobRunner(
         return Task.FromResult($"verified {digest[..12]} signed by {artifact.SigningKeyId}");
     }
 
-    private static Task<string> Backup(JobContext context, CancellationToken cancellationToken)
+    private static async Task<string> Backup(JobContext context, CancellationToken cancellationToken)
+    {
+        if (context.Job.IsExternalService)
+        {
+            // The registration this job is about to replace, kept beside the
+            // feature root rather than in the job's workspace: a workspace is
+            // deleted when its job finishes and a rollback is a different job.
+            var current = await context.Registry.FindAsync(context.Slug, cancellationToken);
+
+            if (current is null)
+            {
+                return "nothing registered yet; no backup needed";
+            }
+
+            await File.WriteAllTextAsync(
+                ExternalBackupPath(context),
+                System.Text.Json.JsonSerializer.Serialize(current, ExternalJson),
+                cancellationToken);
+
+            return $"kept the registration of {current.Slug} {current.Version}";
+        }
+
+        return BackupPackage(context);
+    }
+
+    private static string BackupPackage(JobContext context)
     {
         var target = Path.Combine(context.Options.FeatureRoot, context.Slug);
 
         if (!Directory.Exists(target))
         {
-            return Task.FromResult("nothing installed to back up");
+            return "nothing installed to back up";
         }
 
         var previous = target + ".previous";
@@ -279,11 +314,16 @@ public sealed class JobRunner(
 
         CopyDirectory(target, previous);
 
-        return Task.FromResult($"kept the current install at {previous}");
+        return $"kept the current install at {previous}";
     }
 
     private static Task<string> Install(JobContext context, CancellationToken cancellationToken)
     {
+        if (context.Job.IsExternalService)
+        {
+            return InstallExternalAsync(context, cancellationToken);
+        }
+
         var bytes = context.Bytes
             ?? throw new StepFailedException("install.nothing_verified", "Nothing was fetched to install.");
 
@@ -347,6 +387,16 @@ public sealed class JobRunner(
 
     private static async Task<string> Migrate(JobContext context, CancellationToken cancellationToken)
     {
+        if (context.Job.IsExternalService)
+        {
+            // Nothing in this store's database ever heard of this Feature. It
+            // is not in the external install pipeline at all, and this branch
+            // exists so that a job which names it anyway says something true
+            // rather than recording a schema state for a schema that does not
+            // exist.
+            return $"{context.Slug} has no schema in this store; nothing to migrate";
+        }
+
         var runtime = context.Job.Runtime!;
         var version = context.Job.TargetVersion ?? "unknown";
 
@@ -373,8 +423,15 @@ public sealed class JobRunner(
             return "no configuration to write";
         }
 
-        var directory = Path.Combine(context.Options.FeatureRoot, context.Slug);
-        Directory.CreateDirectory(directory);
+        // No package directory for an external Feature: creating one would leave
+        // somewhere made for code that does not exist, which the next person to
+        // look would read as a half-finished install.
+        if (!context.Job.IsExternalService)
+        {
+            Directory.CreateDirectory(Path.Combine(context.Options.FeatureRoot, context.Slug));
+        }
+
+        Directory.CreateDirectory(context.Options.FeatureRoot);
 
         // Beside the Feature, not inside it. Inside would be overwritten by the
         // next install, which is how a node Feature came to read a config file
@@ -394,6 +451,17 @@ public sealed class JobRunner(
 
     private static async Task<string> Enable(JobContext context, CancellationToken cancellationToken)
     {
+        if (context.Job.IsExternalService)
+        {
+            // Everything but the flag was written by `install`. An external
+            // Feature's entry has no module and no mount, and writing plausible
+            // values into those would have the store try to load a package that
+            // was never delivered.
+            await context.Registry.SetEnabledAsync(context.Slug, true, cancellationToken);
+
+            return $"{context.Slug} enabled";
+        }
+
         await Record(context, enabled: true, cancellationToken);
 
         return $"{context.Slug} enabled";
@@ -423,6 +491,11 @@ public sealed class JobRunner(
             throw new StepFailedException("healthcheck.not_installed", $"{context.Slug} is not in this store's registry.");
         }
 
+        if (context.Job.IsExternalService)
+        {
+            return HealthCheckExternal(context, installed);
+        }
+
         var assembly = Path.Combine(context.Options.FeatureRoot, context.Slug, installed.Module + ".dll");
 
         if (!File.Exists(assembly))
@@ -437,6 +510,11 @@ public sealed class JobRunner(
 
     private static Task<string> RestorePackage(JobContext context, CancellationToken cancellationToken)
     {
+        if (context.Job.IsExternalService)
+        {
+            return RestoreExternalAsync(context, cancellationToken);
+        }
+
         var target = Path.Combine(context.Options.FeatureRoot, context.Slug);
         var previous = target + ".previous";
 
@@ -469,6 +547,18 @@ public sealed class JobRunner(
 
     private static async Task<string> RemovePackage(JobContext context, CancellationToken cancellationToken)
     {
+        if (context.Job.IsExternalService)
+        {
+            // There is no code to delete. What "remove" means here is the
+            // registration going away, which is what stops the store forwarding
+            // events and proxying routes to a Feature nobody is entitled to any
+            // more. The Feature's own service and its own data are the author's,
+            // and this store never had either.
+            await context.Registry.RemoveAsync(context.Slug, cancellationToken);
+
+            return $"unregistered {context.Slug}; its service keeps its own data";
+        }
+
         var target = Path.Combine(context.Options.FeatureRoot, context.Slug);
 
         if (Directory.Exists(target))
@@ -479,6 +569,137 @@ public sealed class JobRunner(
         await context.Registry.RemoveAsync(context.Slug, cancellationToken);
 
         return $"{context.Slug} removed";
+    }
+
+    private static readonly System.Text.Json.JsonSerializerOptions ExternalJson =
+        new(System.Text.Json.JsonSerializerDefaults.Web) { WriteIndented = true };
+
+    /// <summary>
+    /// Registers a Feature's events, routes and screens.
+    ///
+    /// No archive is unpacked, no directory is created and no database is
+    /// opened. What "install" means for this architecture is exactly this
+    /// registration, which is why it reuses the same verb rather than inventing
+    /// one: a store that met a new verb would refuse the whole job.
+    /// </summary>
+    private static async Task<string> InstallExternalAsync(JobContext context, CancellationToken cancellationToken)
+    {
+        var bytes = context.Bytes
+            ?? throw new StepFailedException("install.nothing_verified", "Nothing was fetched to install.");
+
+        var contract = ExternalContract.Read(bytes, context.Slug);
+
+        await context.Registry.RecordAsync(
+            new InstalledFeature
+            {
+                Slug = context.Slug,
+                Version = context.Job.TargetVersion ?? "unknown",
+                Namespace = context.Job.Runtime?.Namespace ?? context.Slug.Replace('-', '_'),
+                Module = string.Empty,
+                MountType = null,
+                MountPrefix = null,
+                HealthCheck = null,
+                Digest = context.Job.Artifact?.Digest,
+                Enabled = false,
+                InstalledAt = DateTimeOffset.UtcNow,
+                ConfigVersion = context.Job.Configuration?.Version ?? 0,
+                Contract = contract,
+            },
+            cancellationToken);
+
+        return $"registered {contract.Webhooks.Count} webhook(s), {contract.ApiProxies.Count} proxy route(s) " +
+               $"and {contract.UiMounts.Count} screen(s) for {context.Slug}";
+    }
+
+    /// <summary>
+    /// Confirms the registration is complete and this store can act on it.
+    ///
+    /// Deliberately does not call the service. A service that is up at install
+    /// time and down an hour later is the normal case, so gating the install on
+    /// it would fail deliveries for something delivery cannot fix — and "is this
+    /// Feature's service reachable" belongs in the store's own continuous health
+    /// check, because it has to be asked repeatedly rather than once.
+    /// </summary>
+    private static string HealthCheckExternal(JobContext context, InstalledFeature installed)
+    {
+        if (!installed.IsExternalService)
+        {
+            throw new StepFailedException(
+                "healthcheck.not_external",
+                $"{context.Slug} is registered, and not as an external service.");
+        }
+
+        var contract = installed.Contract!;
+
+        if (string.IsNullOrWhiteSpace(contract.Service?.BaseUrl))
+        {
+            throw new StepFailedException("healthcheck.no_service", $"{context.Slug} is registered with no service URL.");
+        }
+
+        var counts = (contract.Webhooks.Count, contract.ApiProxies.Count, contract.UiMounts.Count);
+
+        if (counts is (0, 0, 0))
+        {
+            throw new StepFailedException(
+                "healthcheck.registers_nothing",
+                $"{context.Slug} is registered and subscribes to nothing, proxies nothing and shows nothing.");
+        }
+
+        return $"{context.Slug} {installed.Version} registered: {counts.Item1} webhook(s), " +
+               $"{counts.Item2} route(s), {counts.Item3} screen(s)";
+    }
+
+    /// <summary>Where the kept registration lives. Beside the feature root, not in a workspace.</summary>
+    private static string ExternalBackupPath(JobContext context) =>
+        Path.Combine(context.Options.FeatureRoot, $"{context.Slug}.previous.json");
+
+    /// <summary>
+    /// Puts the kept registration back.
+    ///
+    /// From the local copy rather than by fetching the older version, for the
+    /// same reason the in-process rollback restores rather than re-downloads: a
+    /// rollback job names the version it is rolling *to* and carries the
+    /// artifact of the one it is rolling *from*, so a store that fetched here
+    /// would reinstall the version it was trying to leave.
+    /// </summary>
+    private static async Task<string> RestoreExternalAsync(JobContext context, CancellationToken cancellationToken)
+    {
+        var kept = ExternalBackupPath(context);
+
+        if (!File.Exists(kept))
+        {
+            throw new StepFailedException(
+                "rollback.no_backup",
+                $"There is no kept registration of a previous {context.Slug} to restore, so nothing was rolled back.");
+        }
+
+        InstalledFeature? entry;
+
+        try
+        {
+            entry = System.Text.Json.JsonSerializer.Deserialize<InstalledFeature>(
+                await File.ReadAllTextAsync(kept, cancellationToken),
+                ExternalJson);
+        }
+        catch (System.Text.Json.JsonException exception)
+        {
+            throw new StepFailedException(
+                "rollback.unreadable_backup",
+                $"The kept registration could not be read: {exception.Message}");
+        }
+
+        if (entry is null)
+        {
+            throw new StepFailedException("rollback.unreadable_backup", "The kept registration is empty.");
+        }
+
+        // Restored switched off; `enable` later in the pipeline turns it back
+        // on. A Feature that started serving the instant its registration came
+        // back would be serving before the configuration for that version had
+        // been written.
+        await context.Registry.RecordAsync(entry with { Enabled = false }, cancellationToken);
+
+        return $"restored the registration of {entry.Slug} {entry.Version}";
     }
 
     private static async Task Record(JobContext context, bool enabled, CancellationToken cancellationToken)

@@ -559,22 +559,30 @@ public static class JobPipeline
     /// restart would replace.
     /// </summary>
     private static readonly string[] ExternalInstallSteps =
-        [Preflight, Fetch, Verify, Configure, Install, Enable, HealthCheck];
+        [Preflight, Fetch, Verify, Backup, Configure, Install, Enable, HealthCheck];
 
     /// <summary>
-    /// Restoring the previous configuration and re-applying it.
+    /// Restoring the configuration the store kept, and making it current again.
     ///
-    /// The rollback that mattered for code - reverse the migrations before
-    /// putting the old package back - has no counterpart here, because there is
+    /// It restores from a local copy rather than fetching the older version,
+    /// for exactly the reason the in-process rollback does: a rollback job
+    /// names the version it is rolling *to* and carries the artifact of the one
+    /// it is rolling *from*, so a store that tried to fetch here would install
+    /// the version it was trying to leave. `backup` keeps the previous
+    /// configuration for this, beside the Feature, where a later job can find
+    /// it.
+    ///
+    /// The rollback that mattered for code — reverse the migrations before
+    /// putting the old package back — has no counterpart here, because there is
     /// nothing in the store's database to reverse. That is the single largest
     /// operational difference between the two architectures.
     /// </summary>
     private static readonly string[] ExternalRollbackSteps =
-        [RestorePackage, Configure, Install, Enable, HealthCheck];
+        [RestorePackage, Configure, Enable, HealthCheck];
 
-    private static readonly string[] ExternalUninstallSteps = [Disable, RemovePackage];
+    private static readonly string[] ExternalUninstallSteps = [Disable, Backup, RemovePackage];
 
-    private static readonly string[] ExternalConfigurationSteps = [Configure, Install, HealthCheck];
+    private static readonly string[] ExternalConfigurationSteps = [Configure, HealthCheck];
 
     private static readonly string[] ExternalEnableSteps = [Enable, HealthCheck];
 

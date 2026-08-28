@@ -22,7 +22,7 @@ import sys
 import tarfile
 import tempfile
 import zipfile
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +64,10 @@ class JobContext:
     #: walks this rather than the pipeline, so it never tries to undo a step that
     #: was skipped.
     applied: list[str] = field(default_factory=list)
+
+    #: What an external Feature declared, once `install` has read it out of the
+    #: verified configuration document. None for an ordinary package.
+    external_contract: dict[str, Any] | None = None
 
     @property
     def slug(self) -> str:
@@ -108,7 +112,17 @@ def preflight(context: JobContext) -> str:
     # Before the download, not after: a package built for another runtime fails
     # as an ImportError halfway through an install otherwise, with the store's
     # database already touched.
-    require_matching_runtime(context)
+    #
+    # An external Feature has no runtime to match — the store loads none of its
+    # code — so what is checked instead is that every event it subscribes to is
+    # one this store actually publishes, and every slot it hangs a screen in is
+    # one that exists. Both are the store's half of the contract: KNIGHT can
+    # validate the shape of an event name at publish and cannot know what any
+    # particular store emits (adr/0033).
+    if is_external(context):
+        _check_external_contract(context)
+    else:
+        require_matching_runtime(context)
 
     size = int(artifact.get("sizeBytes") or 0)
     if size > context.config.max_artifact_bytes:
@@ -223,6 +237,9 @@ def backup(context: JobContext) -> str:
     record what the restored version *was* and the running registry by then says
     what it is now.
     """
+    if is_external(context):
+        return _backup_external(context)
+
     if context.previous is None or not context.target_dir.exists():
         return "nothing installed yet; no backup needed"
 
@@ -261,6 +278,9 @@ def install(context: JobContext) -> str:
     even after its signature checks out, because a signature says who built it,
     not that they built it carefully.
     """
+    if is_external(context):
+        return _install_external(context)
+
     if context.artifact_path is None:
         raise StepFailed("install.no_artifact", "There is nothing to install.")
 
@@ -418,7 +438,16 @@ def configure(context: JobContext) -> str:
     if not configuration:
         return "no configuration to apply"
 
-    target = context.target_dir / "knight_config.json"
+    # Beside the feature root for an external Feature, inside the package
+    # directory for an ordinary one. There is no package directory in the first
+    # case, and creating one would leave a store with somewhere made for code
+    # that does not exist - which the next person to look would reasonably read
+    # as a half-finished install.
+    target = (
+        Path(context.config.feature_root) / f"{context.slug}.config.json"
+        if is_external(context)
+        else context.target_dir / "knight_config.json"
+    )
     target.parent.mkdir(parents=True, exist_ok=True)
 
     import json
@@ -462,6 +491,36 @@ def _record(context: JobContext, *, enabled: bool) -> None:
     configuration = context.job.get("configuration") or {}
 
     from datetime import datetime, timezone
+
+    if is_external(context):
+        existing = context.registry.get(context.slug)
+        contract = context.external_contract or (existing.extra if existing else {})
+
+        feature = InstalledFeature(
+            slug=context.slug,
+            version=context.version,
+            # A namespace and nothing else. There is no app to label, no module
+            # to import and no urlconf to include, and writing plausible values
+            # into those fields would have the store's own loader try to import
+            # a package that does not exist.
+            app_label=context.slug.replace("-", "_"),
+            installed_app="",
+            digest=artifact.get("digest", ""),
+            installed_at=datetime.now(timezone.utc).isoformat(),
+            enabled=enabled,
+            config_version=int(configuration.get("version") or 0),
+            url_include=None,
+            url_prefix=None,
+            workers=[],
+            # The whole contract, in the field the registry already had. This is
+            # why installing the first external Feature needed no change to the
+            # registry format: a store that had been running for a year picks it
+            # up on a redeploy without a migration.
+            extra=contract,
+        )
+
+        context.registry.record(feature)
+        return
 
     feature = InstalledFeature(
         slug=context.slug,
@@ -516,6 +575,17 @@ def remove_package(context: JobContext) -> str:
     holds the retention window and a separate purge removes the data when it
     expires (docs/feature-delivery.md §11).
     """
+    if is_external(context):
+        # There is no code to delete and no table to retain. What "remove" means
+        # here is the registration going away, which is what stops the store
+        # forwarding events and proxying routes to a Feature nobody is entitled
+        # to any more. The Feature's own service and its own data are the
+        # author's, and this store never had either.
+        context.registry.remove(context.slug)
+        context.applied.append("remove-package")
+
+        return f"unregistered {context.slug}; its service keeps its own data"
+
     target = context.target_dir
 
     if target.exists():
@@ -555,6 +625,9 @@ def healthcheck(context: JobContext) -> str:
     A feature that installs and then does not work is a failed install, not a
     successful one, and this is the step that tells the difference.
     """
+    if is_external(context):
+        return _healthcheck_external(context)
+
     feature = context.registry.get(context.slug)
     check_path = feature.health_check if feature else None
 
@@ -587,6 +660,9 @@ def restore_package(context: JobContext) -> str:
     the only useful thing it can do - an operator who is told a store is back on
     the old version stops looking.
     """
+    if is_external(context):
+        return _restore_external(context)
+
     backup_dir = _previous_dir(context)
 
     if not backup_dir.exists():
@@ -688,6 +764,263 @@ def _restored_migration(context: JobContext) -> str | None:
     )
 
     return names[-1] if names else None
+
+
+# --- External Features ------------------------------------------------------
+#
+# A Feature that is a service rather than a package. The store runs none of its
+# code: what `install` does is register the events it wants forwarded and the
+# routes it wants proxied, and what `healthcheck` confirms is that the
+# registration is complete (docs/adr/0033-api-driven-features.md).
+
+
+def is_external(context: JobContext) -> bool:
+    """
+    Whether this job delivers configuration rather than code.
+
+    Read from the job, which KNIGHT fills in from the signed manifest, rather
+    than sniffed from the artifact. The agent has to know before it fetches:
+    the two architectures want the same bytes handled completely differently.
+    """
+    return str(context.job.get("architecture") or "in_process") == "external_service"
+
+
+def _external_document(context: JobContext) -> dict[str, Any]:
+    """
+    The signed configuration document, parsed.
+
+    Read from the verified artifact on disk, so nothing here has been trusted
+    before its digest and its signature were checked. That ordering is the whole
+    reason the configuration is signed at all: without it a store would wire a
+    proxy route to whatever host answered the download URL.
+    """
+    if context.artifact_path is None:
+        raise StepFailed("install.no_artifact", "There is nothing to install.")
+
+    try:
+        document = json.loads(context.artifact_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise StepFailed(
+            "install.unreadable_config",
+            f"The configuration document could not be read: {exc}",
+        ) from exc
+
+    if not isinstance(document, dict):
+        raise StepFailed("install.unreadable_config", "The configuration document is not an object.")
+
+    return document
+
+
+def _check_external_contract(context: JobContext) -> None:
+    """
+    Refuses a contract this store cannot honour, before anything is registered.
+
+    Every check here is something KNIGHT cannot do for us, because it depends on
+    what this particular store publishes and offers. A Feature subscribing to an
+    event that does not exist would install cleanly, pass its health check, and
+    never hear anything — and the person who notices is the merchant, weeks
+    later.
+    """
+    from ..external.catalogue import KNOWN_EVENTS, UI_SLOTS, is_known_event, is_known_slot
+
+    document = context.job.get("external") or {}
+
+    # Before the artifact is fetched the job is all we have, and the job carries
+    # only what KNIGHT put on it. When that is empty there is nothing to check
+    # yet and the real check happens at install, against the signed document.
+    if not document:
+        return
+
+    for subscription in document.get("webhooks") or []:
+        event = str(subscription.get("event") or "")
+
+        if not is_known_event(event):
+            raise StepFailed(
+                "preflight.unknown_event",
+                f"{context.slug} subscribes to '{event}', which this store does not publish. "
+                f"Known events: {', '.join(sorted(KNOWN_EVENTS))}.",
+            )
+
+    for mount in document.get("ui_mounts") or []:
+        slot = str(mount.get("slot") or "")
+
+        if not is_known_slot(slot):
+            raise StepFailed(
+                "preflight.unknown_slot",
+                f"{context.slug} hangs a screen in '{slot}', which this store does not offer. "
+                f"Known slots: {', '.join(sorted(UI_SLOTS))}.",
+            )
+
+
+def _install_external(context: JobContext) -> str:
+    """
+    Registers the Feature's events, routes and screens.
+
+    No archive is unpacked, no directory is created and the store's database is
+    not opened. What "install" means for this architecture is exactly this
+    registration, which is why it reuses the same verb rather than inventing
+    one: a store that met a new verb would refuse the whole job.
+    """
+    from ..external.catalogue import KNOWN_EVENTS, UI_SLOTS, is_known_event, is_known_slot
+
+    document = _external_document(context)
+
+    if document.get("architecture") != "external_service":
+        raise StepFailed(
+            "install.wrong_architecture",
+            "The job says this Feature is an external service and the signed document does not agree.",
+        )
+
+    service = document.get("service") or {}
+
+    if not str(service.get("base_url") or ""):
+        raise StepFailed("install.no_service", "The configuration names no service to talk to.")
+
+    webhooks = list(document.get("webhooks") or [])
+    proxies = list(document.get("api_proxies") or [])
+    mounts = list(document.get("ui_mounts") or [])
+
+    # Checked again here, against the signed document rather than against the
+    # job. Preflight sees what KNIGHT chose to put on the job; this sees what
+    # the author actually signed, and it is the one that decides.
+    for subscription in webhooks:
+        event = str(subscription.get("event") or "")
+
+        if not is_known_event(event):
+            raise StepFailed(
+                "install.unknown_event",
+                f"{context.slug} subscribes to '{event}', which this store does not publish. "
+                f"Known events: {', '.join(sorted(KNOWN_EVENTS))}.",
+            )
+
+    for mount in mounts:
+        slot = str(mount.get("slot") or "")
+
+        if not is_known_slot(slot):
+            raise StepFailed(
+                "install.unknown_slot",
+                f"{context.slug} hangs a screen in '{slot}', which this store does not offer. "
+                f"Known slots: {', '.join(sorted(UI_SLOTS))}.",
+            )
+
+    context.external_contract = {
+        "architecture": "external_service",
+        "service": service,
+        "webhooks": webhooks,
+        "api_proxies": proxies,
+        "ui_mounts": mounts,
+    }
+
+    _record(context, enabled=False)
+    context.applied.append("install")
+
+    return (
+        f"registered {len(webhooks)} webhook(s), {len(proxies)} proxy route(s) "
+        f"and {len(mounts)} screen(s) for {context.slug}"
+    )
+
+
+def _backup_external(context: JobContext) -> str:
+    """
+    Keeps the registration this job is about to replace.
+
+    A file beside the feature root rather than in the job's workspace, for the
+    reason phase 18 found the hard way: a workspace is deleted when its job
+    finishes, a rollback is a *different* job, and a backup kept there is gone
+    before anything can restore it.
+
+    Read from the registry rather than from `context.previous`, because the
+    uninstall pipeline has no preflight to populate that — and an uninstall is
+    exactly when the last copy of a registration is worth keeping.
+    """
+    current = context.previous or context.registry.get(context.slug)
+
+    if current is None:
+        return "nothing registered yet; no backup needed"
+
+    record = _previous_record(context)
+    record.parent.mkdir(parents=True, exist_ok=True)
+    record.write_text(json.dumps(asdict(current), indent=2), encoding="utf-8")
+    context.applied.append("backup")
+
+    return f"kept the registration of {current.slug} {current.version}"
+
+
+def _restore_external(context: JobContext) -> str:
+    """
+    Puts the kept registration back.
+
+    Restores from the local copy rather than fetching the older version, for the
+    same reason the in-process rollback does: a rollback job names the version it
+    is rolling *to* and carries the artifact of the one it is rolling *from*, so
+    a store that fetched here would reinstall the version it was trying to leave.
+
+    Refuses rather than reporting success when there is nothing kept. A rollback
+    that finds no backup has not rolled anything back, and an operator who is
+    told the store is on the old version stops looking.
+    """
+    record = _previous_record(context)
+
+    if not record.exists():
+        raise StepFailed(
+            "rollback.no_backup",
+            f"There is no kept registration of a previous {context.slug} to restore, so nothing was rolled back.",
+        )
+
+    try:
+        kept = InstalledFeature.from_dict(json.loads(record.read_text(encoding="utf-8")))
+    except (OSError, ValueError, TypeError) as exc:
+        raise StepFailed("rollback.unreadable_backup", f"The kept registration could not be read: {exc}") from exc
+
+    # Restored disabled, and `enable` later in the pipeline turns it back on.
+    # A Feature that started serving the instant its registration was restored
+    # would be serving before the configuration for that version had been
+    # written.
+    context.registry.record(replace(kept, enabled=False))
+    context.applied.append("restore-package")
+
+    return f"restored the registration of {kept.slug} {kept.version}"
+
+
+def _healthcheck_external(context: JobContext) -> str:
+    """
+    Confirms the registration is complete and the store can act on it.
+
+    Deliberately does **not** call the service. A service that is up at install
+    time and down an hour later is the normal case, so gating the install on it
+    would fail deliveries for something delivery cannot fix — and the store's own
+    health check is where "is this Feature's service reachable" belongs, because
+    that question has to be asked continuously rather than once.
+    """
+    installed = context.registry.get(context.slug)
+
+    if installed is None:
+        raise StepFailed("healthcheck.not_installed", f"{context.slug} is not in this store's registry.")
+
+    contract = installed.extra or {}
+
+    if contract.get("architecture") != "external_service":
+        raise StepFailed(
+            "healthcheck.not_external",
+            f"{context.slug} is registered, and not as an external service.",
+        )
+
+    if not (contract.get("service") or {}).get("base_url"):
+        raise StepFailed("healthcheck.no_service", f"{context.slug} is registered with no service URL.")
+
+    counts = (
+        len(contract.get("webhooks") or []),
+        len(contract.get("api_proxies") or []),
+        len(contract.get("ui_mounts") or []),
+    )
+
+    if not any(counts):
+        raise StepFailed(
+            "healthcheck.registers_nothing",
+            f"{context.slug} is registered and subscribes to nothing, proxies nothing and shows nothing.",
+        )
+
+    return f"{context.slug} {context.version} registered: {counts[0]} webhook(s), {counts[1]} route(s), {counts[2]} screen(s)"
 
 
 # --- Helpers ----------------------------------------------------------------

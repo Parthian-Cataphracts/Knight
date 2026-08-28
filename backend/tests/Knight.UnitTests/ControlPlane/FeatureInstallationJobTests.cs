@@ -428,18 +428,36 @@ public sealed class FeatureInstallationJobTests
     // --- Delivering a service rather than a package -------------------------
 
     [Fact]
-    public void AnExternalServiceInstallNeitherMigratesNorBacksUpNorReloads()
+    public void AnExternalServiceInstallNeitherMigratesNorCreatesExtensionsNorReloads()
     {
         var steps = JobPipeline.StepsFor(JobType.Install, DeliveryArchitecture.ExternalService);
 
         // Each absence is a fact about the architecture rather than a shortcut:
-        // no package to back up, no database to add an extension to, no schema
-        // to migrate, and nothing loaded into the store's process that a restart
-        // would replace (adr/0033).
-        Assert.DoesNotContain(JobPipeline.Backup, steps);
+        // no database to add an extension to, no schema to migrate, and nothing
+        // loaded into the store's process that a restart would replace
+        // (adr/0033).
         Assert.DoesNotContain(JobPipeline.CreateExtensions, steps);
         Assert.DoesNotContain(JobPipeline.Migrate, steps);
         Assert.DoesNotContain(JobPipeline.Reload, steps);
+    }
+
+    [Fact]
+    public void AnExternalServiceInstallStillBacksUp()
+    {
+        var steps = JobPipeline.StepsFor(JobType.Install, DeliveryArchitecture.ExternalService);
+
+        // There is no package to keep, and there is still something to keep:
+        // the registration this install is about to replace. The rollback
+        // restores from that local copy rather than fetching, because a
+        // rollback job names the version it is rolling *to* and carries the
+        // artifact of the one it is rolling *from* — a store that fetched
+        // would reinstall the version it was trying to leave.
+        //
+        // This started out absent, on the reasoning that an external Feature
+        // has nothing to back up. It has: not code, but the answer to "what was
+        // registered before this".
+        Assert.Contains(JobPipeline.Backup, steps);
+        Assert.Contains(JobPipeline.RestorePackage, JobPipeline.StepsFor(JobType.Rollback, DeliveryArchitecture.ExternalService));
     }
 
     [Fact]

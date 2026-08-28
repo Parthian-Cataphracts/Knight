@@ -44,6 +44,20 @@ public sealed record AgentJob
 
     public string? CorrelationId { get; init; }
 
+    /// <summary>
+    /// <c>in_process</c> or <c>external_service</c>.
+    ///
+    /// It tells the agent what the artifact it is about to fetch *is*: an
+    /// archive of code to unpack, or a signed configuration document to read.
+    /// The agent has to know before it fetches, which is why this is on the job
+    /// rather than only inside the artifact (adr/0033).
+    /// </summary>
+    public string Architecture { get; init; } = "in_process";
+
+    /// <summary>Whether the store runs none of this Feature's code.</summary>
+    public bool IsExternalService =>
+        string.Equals(Architecture, "external_service", StringComparison.Ordinal);
+
     public IReadOnlyList<string> Steps { get; init; } = [];
 
     public AgentArtifact? Artifact { get; init; }
