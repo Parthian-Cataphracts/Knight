@@ -210,7 +210,11 @@ blocked and can go first.
 
 **Gate:** a deploy, and a restore from the offsite copy onto a clean machine.
 
-### Phase 28 — Migrating the catalogue
+### Phase 28 — Migrating the catalogue 🔸 **the table is written; the moves are not made**
+
+The decisions are in
+[`feature-architecture-decisions.md`](feature-architecture-decisions.md);
+[`phase-28-verification.md`](phase-28-verification.md) says what is left.
 
 **Exit:** every one of the sixteen Features has a recorded decision — service, or
 in-process, with the reason — and the ones that should move have moved.

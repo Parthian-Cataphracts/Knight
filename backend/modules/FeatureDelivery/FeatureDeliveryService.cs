@@ -27,6 +27,7 @@ internal sealed class FeatureDeliveryService : IFeatureDeliveryService
     private readonly IFeatureConfigurationRepository _configurations;
     private readonly IFeaturePlanResolver _resolver;
     private readonly IStoreDeliveryReader _stores;
+    private readonly IFeatureConfigurationContractReader _contracts;
     private readonly ISecretProtector _secrets;
     private readonly IAuditTrail _audit;
     private readonly IDateTimeProvider _clock;
@@ -38,6 +39,7 @@ internal sealed class FeatureDeliveryService : IFeatureDeliveryService
         IFeatureConfigurationRepository configurations,
         IFeaturePlanResolver resolver,
         IStoreDeliveryReader stores,
+        IFeatureConfigurationContractReader contracts,
         ISecretProtector secrets,
         IAuditTrail audit,
         IDateTimeProvider clock,
@@ -48,6 +50,7 @@ internal sealed class FeatureDeliveryService : IFeatureDeliveryService
         _configurations = configurations;
         _resolver = resolver;
         _stores = stores;
+        _contracts = contracts;
         _secrets = secrets;
         _audit = audit;
         _clock = clock;
@@ -318,6 +321,8 @@ internal sealed class FeatureDeliveryService : IFeatureDeliveryService
             });
         }
 
+        await EnsureDeclaredAsync(storeId, featureId, valuesJson, secrets, cancellationToken);
+
         // Secrets are sealed as one document rather than per value: the names are
         // needed in the clear so the dashboard can show what is set, and the
         // values are needed only as an opaque blob the install channel carries.
@@ -371,6 +376,99 @@ internal sealed class FeatureDeliveryService : IFeatureDeliveryService
             newValue: new { installation.FeatureSlug, configuration.Version, SecretNames = secretNames });
 
         return job;
+    }
+
+    /// <summary>
+    /// Refuses a configuration the Feature's own manifest does not declare.
+    ///
+    /// The failure this prevents is silent and common: an operator sets
+    /// `retry_attemps`, sees it saved, and waits for behaviour that never
+    /// changes because nothing reads that key. Same for a secret — an
+    /// unrecognised one is a credential encrypted, stored and never used, which
+    /// is a liability with no upside.
+    ///
+    /// Judged against the manifest of the version the store has, because that is
+    /// the document the author signed. A manifest that cannot be read judges
+    /// nothing: refusing an operator's change over a fault that is not theirs
+    /// would be worse than the typo.
+    /// </summary>
+    private async Task EnsureDeclaredAsync(
+        Guid storeId,
+        Guid featureId,
+        string valuesJson,
+        IReadOnlyDictionary<string, string> secrets,
+        CancellationToken cancellationToken)
+    {
+        var contract = await _contracts.ForInstallationAsync(storeId, featureId, cancellationToken);
+
+        if (!contract.Known)
+        {
+            return;
+        }
+
+        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+
+        using (var document = JsonDocument.Parse(valuesJson))
+        {
+            if (document.RootElement.ValueKind is JsonValueKind.Object)
+            {
+                foreach (var value in document.RootElement.EnumerateObject())
+                {
+                    if (!contract.ValueKeys.Contains(value.Name))
+                    {
+                        errors[$"values.{value.Name}"] =
+                        [
+                            contract.ValueKeys.Count == 0
+                                ? "This Feature declares no configuration, so nothing would read this."
+                                : $"This Feature declares no setting called '{value.Name}'. It declares: "
+                                  + string.Join(", ", contract.ValueKeys.Order(StringComparer.Ordinal)) + ".",
+                        ];
+
+                        continue;
+                    }
+
+                    // Null is allowed against any declared setting: it is how a
+                    // caller says "use the default", and refusing it would make
+                    // clearing a setting impossible.
+                    if (value.Value.ValueKind is JsonValueKind.Null)
+                    {
+                        continue;
+                    }
+
+                    var expected = contract.Types.GetValueOrDefault(value.Name);
+                    var actual = value.Value.ValueKind.ToString();
+
+                    // True and False are one type to anybody but System.Text.Json.
+                    var comparable = actual is "True" or "False" ? "Boolean" : actual;
+                    var wanted = expected is "True" or "False" ? "Boolean" : expected;
+
+                    if (wanted is not null && wanted != "Null" && wanted != comparable)
+                    {
+                        errors[$"values.{value.Name}"] =
+                            [$"'{value.Name}' is declared as {wanted.ToLowerInvariant()} and this is {comparable.ToLowerInvariant()}."];
+                    }
+                }
+            }
+        }
+
+        foreach (var name in secrets.Keys)
+        {
+            if (!contract.SecretNames.Contains(name))
+            {
+                errors[$"secrets.{name}"] =
+                [
+                    contract.SecretNames.Count == 0
+                        ? "This Feature declares no secrets, so nothing would read this."
+                        : $"This Feature declares no secret called '{name}'. It declares: "
+                          + string.Join(", ", contract.SecretNames.Order(StringComparer.Ordinal)) + ".",
+                ];
+            }
+        }
+
+        if (errors.Count > 0)
+        {
+            throw new ValidationException(errors);
+        }
     }
 
     public async Task<InstallationPage> ListInstallationsAsync(

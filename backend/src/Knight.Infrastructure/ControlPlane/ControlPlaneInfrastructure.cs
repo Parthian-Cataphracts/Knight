@@ -132,6 +132,7 @@ public static class ControlPlaneInfrastructure
         // took delivery of, and the call that tells that service who its stores
         // are (docs/adr/0034-a-shared-secret-has-a-lifetime.md).
         services.AddScoped<IServiceEndpointReader, ServiceEndpointReader>();
+        services.AddScoped<IFeatureConfigurationContractReader, FeatureConfigurationContractReader>();
         services.AddScoped<IServiceControlPlane, ServiceControlPlaneClient>();
 
         services.AddOptions<ServiceControlPlaneOptions>()
