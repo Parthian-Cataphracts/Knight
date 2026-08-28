@@ -570,7 +570,144 @@ def resolve(difference_id: int, *, resolution: str, now=None) -> Discrepancy:
     return difference
 
 
+# --- Credentials ------------------------------------------------------------
+
+#: How long before a token expires this Feature tries to renew it.
+#:
+#: An hour, against a sweep that runs hourly. The window has to be at least as
+#: long as the gap between sweeps or a token can expire between two of them,
+#: which is the failure this whole thing exists to prevent — and it is a failure
+#: nobody sees until a partner starts refusing a store's orders.
+RENEW_WITHIN = timedelta(hours=1)
+
+
+def refresh(slug: str, *, force: bool = False, now=None) -> dict:
+    """
+    Renews one connection's access token, if it is close enough to expiring.
+
+    A credential nobody rotates is the same problem as a shared secret nobody
+    rotates, shaped differently: this Feature has stored a refresh token since it
+    was written and used it for nothing, so a store connected in January stops
+    working in February and the reason is invisible from inside the shop.
+
+    Three outcomes, and they are deliberately not two:
+
+    - **renewed** — the new token is stored and the connection stays usable;
+    - **not yet** — the token has time left, or there is nothing to renew with.
+      Not a failure: a connection given a long-lived token and no refresh token
+      is a supported arrangement;
+    - **the credential is dead** — the other end rejected the refresh token, so
+      the connection is marked `expired` and stops being swept. A hundred
+      retries against a revoked token is how a store gets rate-limited by a
+      partner it can no longer talk to anyway.
+
+    Returns the connection described, plus what happened. Never the token.
+    """
+    now = now or timezone.now()
+    connection = _connection(slug)
+
+    if connection.state not in {ConnectionState.CONNECTED, ConnectionState.EXPIRED}:
+        return {**connection.describe(), "renewed": False, "detail": "This connection is switched off."}
+
+    if not force and not _renewable(connection, now):
+        return {**connection.describe(), "renewed": False, "detail": "The token is not close to expiring."}
+
+    outcome = adapters.refresh(connection)
+
+    if not outcome.renewed:
+        if outcome.credential_failed:
+            # Expired rather than disconnected: the account is still connected in
+            # every sense a merchant means, and what it needs is somebody to sign
+            # in again. Disconnecting would clear the tokens and lose the trail.
+            connection.state = ConnectionState.EXPIRED
+
+        connection.last_error = outcome.detail[:500]
+        connection.save(update_fields=["state", "last_error", "updated_at"])
+
+        return {**connection.describe(), "renewed": False, "detail": outcome.detail}
+
+    connection.access_token = outcome.access_token
+
+    # An empty refresh token means the provider did not rotate it, never that it
+    # has none. Overwriting it here would disconnect the account at the next
+    # renewal, which is a fortnight later and nowhere near the change that
+    # caused it.
+    if outcome.refresh_token:
+        connection.refresh_token = outcome.refresh_token
+
+    connection.token_expires_at = outcome.expires_at
+    connection.state = ConnectionState.CONNECTED
+    connection.last_error = ""
+    connection.save(
+        update_fields=[
+            "access_token",
+            "refresh_token",
+            "token_expires_at",
+            "state",
+            "last_error",
+            "updated_at",
+        ]
+    )
+
+    return {**connection.describe(), "renewed": True, "detail": ""}
+
+
+def refresh_due(*, limit: int = 200, now=None) -> dict[str, int]:
+    """
+    Renews every credential close enough to expiring, and says what happened.
+
+    Due-ness is time, never "has the sweep run". A store whose cron is broken
+    renews late; a store whose renewal depended on the sweep having run would
+    renew wrongly.
+    """
+    now = now or timezone.now()
+    counts = {"renewed": 0, "failed": 0, "expired": 0}
+
+    due = (
+        Connection.objects.filter(state=ConnectionState.CONNECTED)
+        .exclude(refresh_token="")
+        .filter(Q(token_expires_at__isnull=False) & Q(token_expires_at__lte=now + RENEW_WITHIN))
+        .order_by("token_expires_at")[:limit]
+    )
+
+    for connection in list(due):
+        outcome = refresh(connection.slug, force=True, now=now)
+
+        if outcome["renewed"]:
+            counts["renewed"] += 1
+        elif outcome["state"] == ConnectionState.EXPIRED:
+            counts["expired"] += 1
+        else:
+            counts["failed"] += 1
+
+    return counts
+
+
+def _renewable(connection, now) -> bool:
+    """
+    Whether this connection is close enough to expiring to be worth renewing.
+
+    A token with no expiry is left alone. The provider did not say when it ends,
+    and renewing one every hour on a guess is a request nobody asked for against
+    a rate limit somebody set.
+    """
+    if not connection.refresh_token or connection.token_expires_at is None:
+        return False
+
+    return connection.token_expires_at <= now + RENEW_WITHIN
+
+
 # --- Workers ----------------------------------------------------------------
+
+
+def run_token_refresh() -> dict[str, int]:
+    """
+    Entrypoint for the hourly worker the manifest declares.
+
+    Hourly, matched to `RENEW_WITHIN`: a window shorter than the gap between
+    sweeps lets a token expire between two of them.
+    """
+    return refresh_due()
 
 
 def run_flush() -> dict[str, int]:

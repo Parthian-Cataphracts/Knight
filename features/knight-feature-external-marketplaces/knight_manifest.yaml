@@ -14,7 +14,7 @@
 # crosses the boundary is a row.
 apiVersion: knight.dev/v1
 slug: external-marketplaces
-version: 1.0.0
+version: 1.1.0
 name: Marketplace and Delivery Integrations
 description: >-
   Connections to delivery marketplaces, POS and accounting systems, with a queue
@@ -100,6 +100,14 @@ workers:
   # so hourly rather than daily.
   - name: flush-queue
     entrypoint: knight_feature_external_marketplaces.services.run_flush
+    schedule: hourly
+
+  # Hourly, and matched to the Feature's own renewal window: a token that
+  # expires between two sweeps is a store that stops being able to talk to a
+  # partner for reasons nobody can see from inside the shop. This Feature has
+  # stored a refresh token since it was written and used it for nothing.
+  - name: refresh-tokens
+    entrypoint: knight_feature_external_marketplaces.services.run_token_refresh
     schedule: hourly
 
   # Daily, because a reconciliation is a morning report rather than an alarm, and

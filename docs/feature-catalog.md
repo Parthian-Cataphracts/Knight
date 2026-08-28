@@ -195,7 +195,8 @@ expired stock holds hourly and sweeps for low stock daily;
 `restaurant-operations` ends expired slot holds and releases pre-orders hourly
 and closes abandoned table sessions daily; `subscriptions` bills what is due
 hourly and retries failed payments daily; `external-marketplaces` flushes its
-outbound queue hourly and reconciles daily.
+outbound queue hourly, renews the OAuth tokens that are close to expiring
+hourly, and reconciles daily.
 
 `advanced-inventory` is the one to read for what a worker should and should not
 be responsible for. Its hourly expiry is **tidying, not correctness**: an expired

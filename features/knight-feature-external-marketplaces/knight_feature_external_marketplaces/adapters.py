@@ -58,6 +58,38 @@ class Delivery:
     credential_failed: bool = False
 
 
+@dataclass(frozen=True)
+class Refreshed:
+    """
+    What one attempt to renew a credential came back with.
+
+    Separate from `Delivery` because the two failures mean different things. A
+    message that did not go can be tried again in an hour; a refresh token the
+    other end has rejected will never work again, and retrying it is how a store
+    gets rate-limited by a partner it can no longer talk to anyway.
+    """
+
+    renewed: bool
+    access_token: str = ""
+
+    #: The new refresh token, where the provider rotates them. Empty means keep
+    #: the one we have: a provider that returns nothing here has not rotated it,
+    #: and overwriting it with an empty string would disconnect the account at
+    #: the next renewal.
+    refresh_token: str = ""
+
+    #: When the new access token stops working, or None when the provider did not
+    #: say. None is treated as "ask again on the next sweep" rather than as
+    #: "never expires", because the second guess is the one that fails silently.
+    expires_at: object = None
+
+    detail: str = ""
+
+    #: The other end has rejected the refresh token itself. The connection is
+    #: marked expired rather than retried.
+    credential_failed: bool = False
+
+
 @dataclass
 class Snapshot:
     """What the other end says it has, for one kind of thing."""
@@ -101,6 +133,37 @@ def deliver(connection, message) -> Delivery:
         logger.exception("The '%s' adapter raised while delivering.", connection.adapter)
 
         return Delivery(delivered=False, detail=f"The adapter raised: {type(exc).__name__}.")
+
+
+def refresh(connection) -> Refreshed:
+    """
+    Asks the other end for a new access token, using the refresh token.
+
+    Never raises, for the same reason `deliver` does not: the caller has to be
+    able to tell "renewed" from "not renewed" from "this credential is dead",
+    and an exception collapses the last two into the first kind of unknown that
+    ends with a store hammering a partner.
+    """
+    if not connection.refresh_token:
+        # Not a failure of the credential — there is no credential to fail. A
+        # connection given a long-lived token and no refresh token is a
+        # supported arrangement, and sweeping it must not disconnect it.
+        return Refreshed(renewed=False, detail="This connection has no refresh token.")
+
+    adapter = _REFRESHERS.get(connection.adapter)
+
+    if adapter is None:
+        return Refreshed(
+            renewed=False,
+            detail=f"'{connection.adapter}' is not an adapter this Feature ships.",
+        )
+
+    try:
+        return adapter(connection)
+    except Exception as failure:  # noqa: BLE001 - see the docstring
+        logger.exception("Refreshing '%s' raised.", connection.slug)
+
+        return Refreshed(renewed=False, detail=str(failure)[:500])
 
 
 def snapshot(connection, kind: str) -> Snapshot:
@@ -181,6 +244,57 @@ def _refuses(name: str):
     return adapter
 
 
+def _loopback_refresh(connection) -> Refreshed:
+    """
+    Mints a new token without leaving the process.
+
+    It exists so a store can prove the whole renewal path — the sweep, the
+    window, what happens to the old token, what a rejected refresh does to the
+    connection — before any of it is pointed at a partner. The token is
+    obviously fake and says so.
+    """
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    if connection.refresh_token.startswith("expired:"):
+        # The other end saying no. Provoked by the refresh token's own value so
+        # a test — or a store proving its wiring — can produce it for one
+        # connection without changing anything global, the same way `_loopback`
+        # is told to refuse a message.
+        return Refreshed(
+            renewed=False,
+            credential_failed=True,
+            detail="The loopback provider rejected this refresh token.",
+        )
+
+    now = timezone.now()
+
+    return Refreshed(
+        renewed=True,
+        access_token=f"loopback-access:{connection.slug}:{int(now.timestamp())}",
+        # Rotated, because a provider that rotates refresh tokens is the case
+        # that goes wrong: keeping the old one there would work until it did not.
+        refresh_token=f"loopback-refresh:{connection.slug}:{int(now.timestamp())}",
+        expires_at=now + timedelta(hours=1),
+    )
+
+
+def _refuses_refresh(name: str):
+    """The shape of a real renewal, refusing where the vendor call would be."""
+
+    def adapter(connection) -> Refreshed:
+        return Refreshed(
+            renewed=False,
+            detail=(
+                f"The '{name}' adapter is not wired to a vendor, so this token was "
+                "not renewed. Nothing was sent to anybody."
+            ),
+        )
+
+    return adapter
+
+
 def _loopback_snapshot(connection, kind: str) -> Snapshot:
     """
     What loopback claims to hold: exactly what this store has linked to it.
@@ -205,6 +319,18 @@ ADAPTERS = {
     MARKETPLACE: _refuses(MARKETPLACE),
     POS: _refuses(POS),
     ACCOUNTING: _refuses(ACCOUNTING),
+}
+
+
+#: Who can renew a credential. Deliberately a second registry rather than a
+#: method on the first: an adapter that can deliver messages does not
+#: necessarily have an OAuth flow behind it, and a missing entry should read as
+#: "this one does not renew" rather than crash a sweep.
+_REFRESHERS = {
+    LOOPBACK: _loopback_refresh,
+    MARKETPLACE: _refuses_refresh(MARKETPLACE),
+    POS: _refuses_refresh(POS),
+    ACCOUNTING: _refuses_refresh(ACCOUNTING),
 }
 
 

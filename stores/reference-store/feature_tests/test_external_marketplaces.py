@@ -537,3 +537,135 @@ class TheStorePushesItsOwnOrdersTests(TestCase):
 
         self.assertIn("from knight_feature_external_marketplaces import services", source)
         self.assertNotIn("knight_feature_external_marketplaces.models", source)
+
+
+@skipUnless(INSTALLED, "The external-marketplaces Feature is not installed.")
+class TokenRenewalTests(TestCase):
+    """
+    Renewing a credential before it expires.
+
+    A refresh token had been stored since this Feature was written and used for
+    nothing, so a store connected in January stopped working in February and the
+    reason was invisible from inside the shop. It is the same problem as a shared
+    secret nobody rotates, shaped differently.
+
+    The three outcomes are deliberately not two: renewed, not yet, and dead.
+    Collapsing the last two is what makes a store retry a revoked token until a
+    partner rate-limits it.
+    """
+
+    def connect(self, **overrides):
+        settings = {
+            "slug": "loop",
+            "adapter": adapters.LOOPBACK,
+            "access_token": "the-first-access-token",
+            "refresh_token": "the-first-refresh-token",
+            "expires_at": timezone.now() + timedelta(minutes=5),
+        }
+        settings.update(overrides)
+
+        return services.connect(**settings)
+
+    def test_a_token_close_to_expiring_is_renewed(self):
+        self.connect()
+
+        outcome = services.refresh("loop")
+        connection = Connection.objects.get(slug="loop")
+
+        self.assertTrue(outcome["renewed"])
+        self.assertNotEqual("the-first-access-token", connection.access_token)
+        self.assertEqual(ConnectionState.CONNECTED, connection.state)
+
+    def test_a_rotated_refresh_token_replaces_the_old_one(self):
+        self.connect()
+
+        services.refresh("loop")
+
+        # A provider that rotates refresh tokens is the case that goes wrong:
+        # keeping the old one works until it does not.
+        self.assertNotEqual(
+            "the-first-refresh-token", Connection.objects.get(slug="loop").refresh_token
+        )
+
+    def test_a_token_with_time_left_is_left_alone(self):
+        self.connect(expires_at=timezone.now() + timedelta(days=2))
+
+        outcome = services.refresh("loop")
+
+        # Renewing every hour on a guess is a request nobody asked for against a
+        # rate limit somebody set.
+        self.assertFalse(outcome["renewed"])
+        self.assertEqual("the-first-access-token", Connection.objects.get(slug="loop").access_token)
+
+    def test_a_connection_with_no_refresh_token_is_not_a_failure(self):
+        self.connect(refresh_token="")
+
+        outcome = services.refresh("loop")
+        connection = Connection.objects.get(slug="loop")
+
+        # A long-lived token and no refresh token is a supported arrangement. A
+        # sweep that disconnected it would break a working store.
+        self.assertFalse(outcome["renewed"])
+        self.assertEqual(ConnectionState.CONNECTED, connection.state)
+
+    def test_a_rejected_refresh_token_marks_the_connection_expired(self):
+        self.connect(refresh_token="expired:the-other-end-said-no")
+
+        outcome = services.refresh("loop")
+        connection = Connection.objects.get(slug="loop")
+
+        self.assertFalse(outcome["renewed"])
+        self.assertEqual(ConnectionState.EXPIRED, connection.state)
+        # Expired rather than disconnected: the account is still connected in
+        # every sense a merchant means, and what it needs is somebody to sign in
+        # again. The tokens stay so the trail does.
+        self.assertTrue(connection.refresh_token)
+
+    def test_an_expired_connection_is_not_swept_again(self):
+        self.connect(refresh_token="expired:the-other-end-said-no")
+        services.refresh("loop")
+
+        counts = services.refresh_due()
+
+        # A hundred retries against a revoked token is how a store gets
+        # rate-limited by a partner it can no longer talk to anyway.
+        self.assertEqual({"renewed": 0, "failed": 0, "expired": 0}, counts)
+
+    def test_the_sweep_renews_what_is_due_and_nothing_else(self):
+        self.connect()
+        self.connect(slug="patient", expires_at=timezone.now() + timedelta(days=2))
+
+        counts = services.refresh_due()
+
+        self.assertEqual(1, counts["renewed"])
+        self.assertEqual("the-first-access-token", Connection.objects.get(slug="patient").access_token)
+
+    def test_a_credential_is_never_returned_by_the_renewal(self):
+        self.connect()
+
+        outcome = services.refresh("loop")
+
+        # Presence, never value. A token echoed by anything is a token in a log
+        # aggregator, and this one can place orders in a merchant's name.
+        self.assertTrue(outcome["hasAccessToken"])
+        self.assertNotIn("the-first-access-token", str(outcome))
+        self.assertNotIn(Connection.objects.get(slug="loop").access_token, str(outcome))
+
+    def test_an_adapter_with_no_vendor_behind_it_refuses_honestly(self):
+        self.connect(slug="market", adapter=adapters.MARKETPLACE)
+
+        outcome = services.refresh("market")
+
+        # Everything up to the vendor call is real; the call itself is a
+        # commercial decision nobody has made. An invented HTTP call to a
+        # partner nobody has an account with would be worse.
+        self.assertFalse(outcome["renewed"])
+        self.assertIn("not wired to a vendor", outcome["detail"])
+        self.assertEqual(ConnectionState.CONNECTED, Connection.objects.get(slug="market").state)
+
+    def test_the_worker_the_manifest_declares_is_the_sweep(self):
+        self.connect()
+
+        counts = services.run_token_refresh()
+
+        self.assertEqual(1, counts["renewed"])

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "knight-feature-external-marketplaces"
-version = "1.0.0"
+version = "1.1.0"
 description = "Connections, a queue with idempotency and retries, and reconciliation against delivery marketplaces, POS and accounting systems."
 requires-python = ">=3.12"
 dependencies = ["Django>=5.0,<6.0"]
