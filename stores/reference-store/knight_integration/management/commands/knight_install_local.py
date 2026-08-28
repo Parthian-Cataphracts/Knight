@@ -77,6 +77,27 @@ class Command(BaseCommand):
             # Skipped rather than refused, because the caller is usually that
             # glob and stopping on the first foreign Feature would mean
             # installing none of the others.
+            # A Feature that is a service has no package to install locally.
+            # This command exists to put an author's working tree into a store's
+            # INSTALLED_APPS, and there is no tree: what an external Feature
+            # needs is a signed configuration delivered through a job, which is
+            # the one thing this command deliberately bypasses
+            # (docs/adr/0033-api-driven-features.md).
+            #
+            # Skipped rather than refused, for the same reason a foreign runtime
+            # is: the caller is usually a glob over every Feature in the
+            # repository, and stopping on the first would install none of the
+            # others.
+            if str(manifest.get("architecture") or "in_process") == "external_service":
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"  {manifest.get('slug', raw_source)} is a service rather than a package; "
+                        "skipped. Deliver it through a job."
+                    )
+                )
+                skipped += 1
+                continue
+
             runtime = str(manifest.get("runtime") or "django")
 
             if runtime != RUNTIME:
@@ -104,7 +125,7 @@ class Command(BaseCommand):
         self.stdout.write(f"Registry: {registry.path}")
 
         if skipped:
-            self.stdout.write(f"{skipped} Feature(s) for another runtime were skipped.")
+            self.stdout.write(f"{skipped} Feature(s) this command cannot install locally were skipped.")
 
         self.stdout.write("Restart the store for the app registry to pick this up.")
 
