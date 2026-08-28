@@ -177,7 +177,10 @@ Feature and needs no .NET Feature to exist.
 **Gate:** a Feature installed on a store whose code is not in this repository,
 verified through a browser, not a test.
 
-### Phase 26 — Operating it
+### Phase 26 — Operating it 🔸 **gate passed; the carried items remain**
+
+Verified in [`phase-26-verification.md`](phase-26-verification.md); the alerts
+and their runbooks are in [`runbooks.md`](runbooks.md).
 
 **Exit:** a failed webhook delivery, a proxy 502 and a job stuck in `Running` are
 each visible on a screen and each raise an alert, without anybody reading a log.

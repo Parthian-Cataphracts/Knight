@@ -2,7 +2,10 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using AccessControl.Domain;
+using Knight.Application.Abstractions.ControlPlane;
 using Knight.IntegrationTests.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
+using Observability;
 using Stores.Domain;
 
 namespace Knight.IntegrationTests.ControlPlane;
@@ -562,6 +565,96 @@ public sealed class ObservabilityTests
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    // --- What a store reports about delivering to a service --------------------
+
+    [Fact]
+    public async Task A_dead_lettered_delivery_raises_an_alert_without_anybody_reading_a_log()
+    {
+        var store = await SeedRegisteredStoreAsync();
+        var storeClient = await StoreClientAsync(store);
+
+        // Two reports of the same thing: a service that has been refusing for an
+        // hour produces a stream of these, and the fact is one fact.
+        await IngestAsync(storeClient,
+        [
+            DeliveryFailure(StoreFailureKinds.DeadLettered, "order.placed"),
+            DeliveryFailure(StoreFailureKinds.DeadLettered, "order.paid"),
+        ]);
+
+        var result = await EvaluateRulesAsync();
+
+        Assert.Equal(1, result.DeadLetters);
+
+        var alerts = await ListAlertsAsync(store.StoreId);
+
+        var raised = Assert.Single(
+            alerts,
+            alert => alert.GetProperty("ruleKey").GetString() == ObservabilityRules.DeliveryDeadLettered
+                && alert.GetProperty("sourceId").GetGuid() == store.StoreId);
+
+        // Critical, because a dead letter is an event a Feature somebody pays
+        // for will never receive — as against a 502, which is a shopper
+        // retrying.
+        Assert.Equal("Critical", raised.GetProperty("severity").GetString());
+        Assert.Contains("subscriptions", raised.GetProperty("message").GetString()!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_service_that_did_not_answer_is_a_warning_rather_than_a_dead_letter()
+    {
+        var store = await SeedRegisteredStoreAsync();
+        var storeClient = await StoreClientAsync(store);
+
+        await IngestAsync(storeClient, [DeliveryFailure(StoreFailureKinds.Unreachable, "GET /subscribe/")]);
+
+        var result = await EvaluateRulesAsync();
+
+        Assert.Equal(0, result.DeadLetters);
+        Assert.Equal(1, result.UnreachableServices);
+
+        var alerts = await ListAlertsAsync(store.StoreId);
+
+        Assert.Contains(
+            alerts,
+            alert => alert.GetProperty("ruleKey").GetString() == ObservabilityRules.ServiceUnreachable
+                && alert.GetProperty("sourceId").GetGuid() == store.StoreId
+                && alert.GetProperty("severity").GetString() == "Warning");
+    }
+
+    [Fact]
+    public async Task A_stores_own_exception_is_never_mistaken_for_a_delivery_failure()
+    {
+        var store = await SeedRegisteredStoreAsync();
+        var storeClient = await StoreClientAsync(store);
+
+        // An ordinary bug in the shop. It belongs on the errors screen and
+        // nowhere near a platform alert about delivery.
+        await IngestAsync(storeClient, [Error()]);
+
+        var result = await EvaluateRulesAsync();
+
+        Assert.Equal(0, result.DeadLetters);
+        Assert.Equal(0, result.UnreachableServices);
+    }
+
+    [Fact]
+    public async Task Reporting_the_same_failure_twice_does_not_raise_a_second_alert()
+    {
+        var store = await SeedRegisteredStoreAsync();
+        var storeClient = await StoreClientAsync(store);
+
+        await IngestAsync(storeClient, [DeliveryFailure(StoreFailureKinds.DeadLettered, "order.placed")]);
+
+        var first = await EvaluateRulesAsync();
+        var second = await EvaluateRulesAsync();
+
+        // Every rule in this evaluator is written so that running it twice
+        // changes nothing the second time; a sweep on a timer would otherwise
+        // page somebody every pass for as long as the window holds the report.
+        Assert.Equal(1, first.DeadLetters);
+        Assert.Equal(0, second.DeadLetters);
+    }
+
     // --- Helpers -------------------------------------------------------------
 
     private sealed record RegisteredStore(Guid CustomerId, Guid StoreId, string ClientId, string ClientSecret);
@@ -584,6 +677,46 @@ public sealed class ObservabilityTests
             requestId = Guid.NewGuid().ToString("n")[..10],
             traceId = Guid.NewGuid().ToString("n")[..16],
         };
+
+    /// <summary>One failure a store reports about delivering to a Feature's service.</summary>
+    private static object DeliveryFailure(string kind, string about) => new
+    {
+        occurredAt = DateTimeOffset.UtcNow,
+        exceptionType = kind,
+        message = $"{kind} for {about}",
+        // No endpoint and no status: this did not happen on a request anybody
+        // made, and a plausible-looking one would put a route on the errors
+        // screen that never failed.
+        endpoint = (string?)null,
+        httpMethod = (string?)null,
+        statusCode = (int?)null,
+        stackTrace = (string?)null,
+        context = new { feature = "subscriptions" },
+    };
+
+    private async Task<RuleEvaluationResult> EvaluateRulesAsync() =>
+        await _fixture.WithControlPlaneScopeAsync(async (_, services) =>
+            await services.GetRequiredService<IObservabilityRuleEvaluator>()
+                .EvaluateAsync(CancellationToken.None));
+
+    /// <summary>
+    /// The alerts screen's own list.
+    ///
+    /// `/api/v1/monitoring/alerts` rather than `/api/v1/incidents`: an incident
+    /// is opened for a critical alert and a warning is not one, so asking the
+    /// incidents endpoint would have made "was an alert raised" depend on how
+    /// serious it was.
+    /// </summary>
+    private async Task<JsonElement[]> ListAlertsAsync(Guid storeId)
+    {
+        var client = await PlatformClientAsync();
+
+        var response = await client.GetAsync("/api/v1/monitoring/alerts?pageSize=100");
+        response.EnsureSuccessStatusCode();
+
+        return JsonDocument.Parse(await response.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("items").EnumerateArray().ToArray();
+    }
 
     private static async Task IngestAsync(HttpClient storeClient, object[] errors, string storeVersion = "4.2.0")
     {

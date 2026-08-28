@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-28** (revision 32 — phase 25 done: a store whose code is not in this repository took delivery of a Feature and serves it, connected from its own panel)
+Last updated: **2026-08-28** (revision 33 — phase 26's gate: break a service on purpose and be told, without reading a log)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,10 +11,11 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 25 — the two real stores, end to end. Complete for BojanStore.** It was connected to KNIGHT from its own admin panel — no redeploy — took delivery of `subscriptions` 2.1.0, and serves it: `GET /api/features/subscribe/` on that shop answers with the service's own reply. Phonix is carried forward, since there is no write access to it from here. [`docs/phase-25-verification.md`](docs/phase-25-verification.md) |
+| **Current phase** | **Phase 26 — operating it. The gate is passed.** A delivery that gives up and a service that does not answer are now reported by the store, grouped, and raised as alerts on the screen operators already read — and every alert KNIGHT can raise has a runbook. Verified live: a delivery pointed at a dead port produced a critical alert naming the store and the Feature, with nobody reading a log. [`docs/phase-26-verification.md`](docs/phase-26-verification.md) |
+| **Previous phase** | **Phase 25 — the two real stores, end to end. Complete for BojanStore.** It was connected to KNIGHT from its own admin panel — no redeploy — took delivery of `subscriptions` 2.1.0, and serves it: `GET /api/features/subscribe/` on that shop answers with the service's own reply. Phonix is carried forward, since there is no write access to it from here. [`docs/phase-25-verification.md`](docs/phase-25-verification.md) |
 | **Previous phase** | **Phase 24 — secrets, identity and rotation. Complete.** A store's shared secret is a row with a lifetime, issued by KNIGHT and rotated with an overlap, and withdrawing an entitlement is refused by the **service** rather than only by the store. [`docs/phase-24-verification.md`](docs/phase-24-verification.md) says how it was checked |
-| **Next phase** | **Phase 26 — operating it.** A failed delivery, a proxy 502 and a job stuck in `Running` are each visible on a screen and each raise an alert, without anybody reading a log. The architecture has three new ways to fail silently and none of them is visible anywhere. See [`docs/roadmap.md`](docs/roadmap.md) |
-| **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **868 backend tests green** (691 unit, 13 architecture, 164 PostgreSQL-backed integration), plus **841 store tests with nothing skipped**, 14 node-store tests, **57 subscriptions-service tests**, and 9 dashboard — and, since phase 19, **the delivery drill itself**, which is the only thing here that runs the path a customer travels |
+| **Next phase** | **Phase 27 — deployment.** KNIGHT, the reference store and one service deploy from CI to a real host, with TLS, scheduled backups going offsite, and a rehearsed way back. Blocked on the hosting decision for the image half; the server half is not blocked. See [`docs/roadmap.md`](docs/roadmap.md) |
+| **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **872 backend tests green** (691 unit, 13 architecture, 168 PostgreSQL-backed integration), plus **848 store tests with nothing skipped**, 14 node-store tests, **57 subscriptions-service tests**, and 9 dashboard — and, since phase 19, **the delivery drill itself**, which is the only thing here that runs the path a customer travels |
 | **Blocking decisions** | R26 is **answered**: a Feature is publishable for any of three runtimes, and since phase 22 an `external_service` Feature needs no runtime at all. What is left is five decisions only the product owner can make, listed in [`docs/roadmap.md`](docs/roadmap.md) §7 — where the service code lives, the hosting platform, engaging the security reviewer (longest lead time, R16 stays open until it happens), Phonix access, and backup custody |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -51,7 +52,7 @@ Phase 22   Features as services              ██████████ 100%
 Phase 23   The live service layer          ██████████ 100%
 Phase 24   Secrets and rotation             ██████████ 100%
 Phase 25   The two real stores              ███████░░░  70%
-Phase 26   Operating it                     ░░░░░░░░░░   0%
+Phase 26   Operating it                     ██████░░░░  60%
 Phase 27   Deployment                       ░░░░░░░░░░   0%
 Phase 28   Migrating the catalogue          ░░░░░░░░░░   0%
 Phase 29   The production gate              ░░░░░░░░░░   0%
@@ -1904,8 +1905,21 @@ of them is visible anywhere. A dead letter is the record that a Feature a
 merchant pays for did not hear something, and at the moment the only way to find
 one is to run `knight_deliver --dead-letters` and know to.
 
-- [ ] **Delivery metrics**: attempted, delivered, retried, dead-lettered, by
-      feature and by store
+- [x] **A failed delivery and an unreachable service are alerts.** The store
+      reports what raises no exception — a delivery that used every attempt, a
+      service that did not answer, a Feature with no shared secret — on the
+      channel it already has, and KNIGHT raises `delivery.dead_lettered`
+      (critical) and `service.unreachable` (warning) from the sweep that already
+      runs. Grouped per store, Feature and kind, because a service down for an
+      hour is one fact
+- [x] **Alerting rules, and a runbook per alert** —
+      [`docs/runbooks.md`](docs/runbooks.md), one entry each, with what to look
+      at, what to do, and when it is safe to ignore. Writing them found two
+      things that were not true: the dead-letter listing had no ids, and there
+      was no way to replay one. Both exist now (`knight_deliver --replay`)
+- [ ] **Delivery metrics as counters**: attempted, delivered, retried,
+      dead-lettered, by feature and by store. The alerting path and the reports
+      under it exist; a metrics view does not
 - [ ] **A metrics scrape endpoint.** The meter is published and any collector
       could read it; there is nothing to read it from. Carried from phase 7
 - [ ] **Redis instrumentation**, carried from phase 7
@@ -1930,7 +1944,14 @@ one is to run `knight_deliver --dead-letters` and know to.
       incident. The locks and the constraints are the right ones; nothing has
       run two workers at the same row and watched
 
-**Gate:** break a service on purpose and be *told*, before looking.
+- [ ] **The .NET agent reports none of this.** BojanStore's proxy returns its
+      502 and says nothing to KNIGHT. The library has the same three moments to
+      report from and they are not wired
+
+**Gate: passed.** A delivery pointed at a dead port was given up on, reported,
+grouped and raised as a critical alert naming the store and the Feature — read
+off the alerts screen rather than out of a log.
+[`docs/phase-26-verification.md`](docs/phase-26-verification.md).
 
 ---
 

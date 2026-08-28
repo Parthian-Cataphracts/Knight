@@ -33,9 +33,13 @@ public sealed record RuleEvaluationResult(
     int EntitledNotInstalled,
     int Drifted,
     int StuckJobs,
-    int OverdueBackups)
+    int OverdueBackups,
+    int DeadLetters,
+    int UnreachableServices)
 {
-    public int Total => Spikes + FailedInstalls + EntitledNotInstalled + Drifted + StuckJobs + OverdueBackups;
+    public int Total =>
+        Spikes + FailedInstalls + EntitledNotInstalled + Drifted + StuckJobs + OverdueBackups
+        + DeadLetters + UnreachableServices;
 }
 
 internal sealed class ObservabilityRuleEvaluator : IObservabilityRuleEvaluator
@@ -79,8 +83,10 @@ internal sealed class ObservabilityRuleEvaluator : IObservabilityRuleEvaluator
         var drifted = await EvaluateDriftAsync(cancellationToken);
         var stuck = await EvaluateStuckJobsAsync(now, cancellationToken);
         var backups = await EvaluateOverdueBackupsAsync(now, cancellationToken);
+        var (deadLetters, unreachable) = await EvaluateReportedFailuresAsync(now, cancellationToken);
 
-        return new RuleEvaluationResult(spikes, failed, missing, drifted, stuck, backups);
+        return new RuleEvaluationResult(
+            spikes, failed, missing, drifted, stuck, backups, deadLetters, unreachable);
     }
 
     /// <summary>
@@ -198,6 +204,79 @@ internal sealed class ObservabilityRuleEvaluator : IObservabilityRuleEvaluator
             NotificationSeverity.Warning,
             discrepancy => $"{discrepancy.StoreName} reports {discrepancy.FeatureSlug} {discrepancy.Detail}",
             cancellationToken);
+    }
+
+    /// <summary>
+    /// What stores have told KNIGHT about delivering to a Feature's service.
+    ///
+    /// The two failures this architecture added and nothing could see: an event
+    /// that used every attempt and was dead-lettered, and a service that did not
+    /// answer a request a shopper was waiting on. Both are handled correctly and
+    /// locally by the store — the queue keeps the dead letter, the proxy returns
+    /// a 502 — and both are invisible to anybody not reading that store's log.
+    ///
+    /// Grouped by store, Feature and kind before anything is raised: a service
+    /// that has been down for an hour produced hundreds of reports, and one
+    /// alert per report would be a pager nobody would keep on
+    /// (<c>docs/runbooks.md</c>).
+    /// </summary>
+    private async Task<(int DeadLetters, int Unreachable)> EvaluateReportedFailuresAsync(
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var reported = await _delivery.ListStoreReportedFailuresAsync(
+            now - _options.ReportedFailureWindow,
+            [StoreFailureKinds.DeadLettered, StoreFailureKinds.Unreachable, StoreFailureKinds.Unconfigured],
+            cancellationToken);
+
+        var deadLetters = 0;
+        var unreachable = 0;
+
+        foreach (var failure in reported)
+        {
+            var isDeadLetter = string.Equals(failure.Kind, StoreFailureKinds.DeadLettered, StringComparison.Ordinal);
+
+            var rule = isDeadLetter ? ObservabilityRules.DeliveryDeadLettered : ObservabilityRules.ServiceUnreachable;
+
+            // A dead letter is critical and an unreachable service is a warning,
+            // and the difference is whether anything was lost. A 502 is a
+            // shopper retrying a minute later; a dead letter is an event that
+            // will never be delivered to a Feature somebody is paying for.
+            var severity = isDeadLetter ? NotificationSeverity.Critical : NotificationSeverity.Warning;
+
+            var times = failure.Count == 1 ? "once" : $"{failure.Count} times";
+
+            try
+            {
+                var (_, isNew) = await _alerts.RaiseAsync(
+                    rule,
+                    severity.ToString(),
+                    "Store",
+                    failure.StoreId,
+                    failure.CustomerId,
+                    $"'{failure.StoreName}' reported {rule} for {failure.FeatureSlug} {times}. {failure.Detail}",
+                    cancellationToken);
+
+                if (isNew && isDeadLetter)
+                {
+                    deadLetters++;
+                }
+                else if (isNew)
+                {
+                    unreachable++;
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _logger.LogWarning(
+                    exception,
+                    "Failed to raise {RuleKey} for store {StoreId}; the rest of the pass continues.",
+                    rule,
+                    failure.StoreId);
+            }
+        }
+
+        return (deadLetters, unreachable);
     }
 
     private async Task<int> EvaluateStuckJobsAsync(DateTimeOffset now, CancellationToken cancellationToken)

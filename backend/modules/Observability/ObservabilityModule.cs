@@ -36,6 +36,21 @@ public static class ObservabilityRules
     public const string JobStuck = "job.stuck";
 
     /// <summary>
+    /// A store gave up delivering an event to a Feature's service.
+    ///
+    /// The record that a Feature a merchant pays for did not hear something.
+    /// Reported by the store, because the queue is the store's and KNIGHT is not
+    /// on that path.
+    /// </summary>
+    public const string DeliveryDeadLettered = "delivery.dead_lettered";
+
+    /// <summary>
+    /// A Feature's service did not answer a store, or the store had no secret to
+    /// sign with. Either way a shopper got a page and nothing else said so.
+    /// </summary>
+    public const string ServiceUnreachable = "service.unreachable";
+
+    /// <summary>
     /// No successful backup has been reported for a store in longer than the
     /// configured window. The quiet failure: a backup job that stopped running
     /// says nothing at all, which is why only a timer can find it.
@@ -51,6 +66,8 @@ public static class ObservabilityRules
         FeatureEntitledNotInstalled,
         FeatureDrift,
         JobStuck,
+        DeliveryDeadLettered,
+        ServiceUnreachable,
         BackupOverdue,
     ];
 }
@@ -104,6 +121,15 @@ public sealed class ObservabilityOptions
     /// <summary>How long a claimed job may go unreported before it is presumed stuck.</summary>
     [Range(typeof(TimeSpan), "00:05:00", "24:00:00")]
     public TimeSpan StuckJobThreshold { get; init; } = TimeSpan.FromMinutes(30);
+
+    /// <summary>
+    /// How far back a pass looks at what stores have reported about deliveries.
+    ///
+    /// An hour, and wider than the sweep interval on purpose: a store batches
+    /// its reports and a control plane that only looked at the last five minutes
+    /// would miss a batch that arrived a minute late.
+    /// </summary>
+    public TimeSpan ReportedFailureWindow { get; init; } = TimeSpan.FromHours(1);
 
     /// <summary>
     /// How long a store may go without a successful backup before KNIGHT says

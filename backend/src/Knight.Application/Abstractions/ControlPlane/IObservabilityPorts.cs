@@ -137,6 +137,24 @@ public interface IDeliveryHealthReader
         DateTimeOffset cutoff,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// What stores have reported about delivering to a Feature's service:
+    /// events that were dead-lettered, and services that did not answer.
+    ///
+    /// Reported by the store rather than observed here, and it has to be. A
+    /// delivery queue lives in the store, a proxied request is between the store
+    /// and somebody else's service, and KNIGHT is on neither path — so the only
+    /// alternative to being told is not knowing (docs/observability.md).
+    ///
+    /// One row per store, Feature and kind, with how many times it happened in
+    /// the window. Grouped rather than raw, because a service that has been down
+    /// for an hour produced hundreds of these and the fact is one fact.
+    /// </summary>
+    Task<IReadOnlyCollection<StoreReportedFailure>> ListStoreReportedFailuresAsync(
+        DateTimeOffset since,
+        IReadOnlyCollection<string> kinds,
+        CancellationToken cancellationToken);
+
     /// <summary>Installation jobs that ended in failure and have not yet been alerted on.</summary>
     Task<IReadOnlyCollection<DeliveryDiscrepancy>> ListFailedJobsAsync(
         DateTimeOffset since,
@@ -148,6 +166,22 @@ public interface IDeliveryHealthReader
 /// alert deduplication keys on, so it must identify the *condition* — a store
 /// and feature pair, a job — and not the observation.
 /// </summary>
+/// <summary>
+/// One kind of delivery failure, as one store reported it about one Feature.
+/// </summary>
+/// <param name="Kind">The reported type, e.g. <c>knight.delivery.dead_lettered</c>.</param>
+/// <param name="Count">How many times in the window. One alert, however many.</param>
+/// <param name="Detail">The most recent message, for the sentence on the alert.</param>
+public sealed record StoreReportedFailure(
+    string Kind,
+    Guid StoreId,
+    Guid CustomerId,
+    string StoreName,
+    string FeatureSlug,
+    int Count,
+    DateTimeOffset LastSeenAt,
+    string Detail);
+
 public sealed record DeliveryDiscrepancy(
     Guid SubjectId,
     Guid StoreId,
@@ -205,4 +239,24 @@ public interface IBackupHealthReader
     Task<IReadOnlyCollection<StoreWithoutBackup>> ListStoresWithoutRecentBackupAsync(
         DateTimeOffset olderThan,
         CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// The failure kinds a store reports about delivering to a Feature's service.
+///
+/// The same strings the reference stores send as the exception type, so the two
+/// ends agree by name rather than by convention. They are prefixed
+/// <c>knight.</c> because they arrive on the same channel as a store's own
+/// exceptions and must not be mistakable for one of them.
+/// </summary>
+public static class StoreFailureKinds
+{
+    /// <summary>An event that used every attempt and will never be delivered.</summary>
+    public const string DeadLettered = "knight.delivery.dead_lettered";
+
+    /// <summary>A Feature's service that did not answer a proxied request.</summary>
+    public const string Unreachable = "knight.service.unreachable";
+
+    /// <summary>A Feature installed and serving, with no shared secret to sign with.</summary>
+    public const string Unconfigured = "knight.service.unconfigured";
 }

@@ -13,7 +13,7 @@ everything twice.
 
 from __future__ import annotations
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from knight_integration.external import delivery
 
@@ -33,8 +33,19 @@ class Command(BaseCommand):
             action="store_true",
             help="Show what has been given up on, and send nothing.",
         )
+        parser.add_argument(
+            "--replay",
+            type=int,
+            default=None,
+            metavar="ID",
+            help="Queue one dead-lettered delivery to be attempted again.",
+        )
 
     def handle(self, *args, **options) -> None:
+        if options["replay"] is not None:
+            self._replay(options["replay"])
+            return
+
         if options["dead_letters"]:
             self._dead_letters()
             return
@@ -64,9 +75,50 @@ class Command(BaseCommand):
             return
 
         for row in found.order_by("-created_at")[:100]:
+            # The id first, because the next thing somebody does with this list
+            # is replay one of them.
             self.stdout.write(
-                f"  {row.created_at:%Y-%m-%d %H:%M}  {row.event:<24} -> {row.feature_slug:<24} "
+                f"  #{row.pk:<6} {row.created_at:%Y-%m-%d %H:%M}  {row.event:<24} -> {row.feature_slug:<24} "
                 f"after {row.attempts} attempt(s): {row.last_error or row.last_status}"
             )
 
         self.stdout.write(f"\n{found.count()} dead-lettered delivery(ies).")
+        self.stdout.write("Replay one with --replay <id>, once the service is answering again.")
+
+    def _replay(self, delivery_id: int) -> None:
+        """
+        Puts one dead letter back in the queue.
+
+        One at a time and never automatically. Twelve hours of events arriving
+        at once, unannounced, is its own incident — whether the Feature can take
+        them is a judgement somebody makes, which is exactly the judgement a
+        `--replay-all` would take away.
+
+        The attempt counter goes back to zero: this is a fresh decision to
+        deliver, not a continuation of the run that gave up, and leaving it at
+        the maximum would mean the replay dying on its first failure.
+        """
+        from django.utils import timezone
+
+        row = delivery.WebhookDelivery.objects.filter(
+            pk=delivery_id, state=delivery.DeliveryState.DEAD
+        ).first()
+
+        if row is None:
+            raise CommandError(
+                f"No dead-lettered delivery has id {delivery_id}. "
+                "Run with --dead-letters to see what there is."
+            )
+
+        row.state = delivery.DeliveryState.PENDING
+        row.attempts = 0
+        row.last_error = ""
+        row.next_attempt_at = timezone.now()
+        row.save(update_fields=["state", "attempts", "last_error", "next_attempt_at"])
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"#{row.pk} ({row.event} -> {row.feature_slug}) is queued again. "
+                "The next pass will attempt it."
+            )
+        )

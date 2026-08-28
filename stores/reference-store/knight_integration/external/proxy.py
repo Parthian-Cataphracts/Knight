@@ -187,6 +187,16 @@ def forward(
         # An unsigned request is not a fallback. A service that accepted one
         # would accept anybody's.
         logger.error("%s", exc)
+
+        from ..errors import SERVICE_UNCONFIGURED, report_operational
+
+        report_operational(
+            SERVICE_UNCONFIGURED,
+            str(exc),
+            feature=contract.slug,
+            context={"path": upstream_path},
+        )
+
         return JsonResponse({"detail": f"{contract.slug} is not configured on this store."}, status=503)
 
     try:
@@ -203,6 +213,19 @@ def forward(
         # 502, not 500. The store is fine; the thing it forwarded to is not, and
         # the two need different people looking at them.
         logger.warning("Proxying to %s failed: %s", contract.slug, exc)
+
+        # Reported, because this one is invisible everywhere else: the shopper
+        # sees a page, the store carries on, and nothing anybody looks at says a
+        # Feature stopped answering.
+        from ..errors import SERVICE_UNREACHABLE, report_operational
+
+        report_operational(
+            SERVICE_UNREACHABLE,
+            f"{contract.slug} did not answer {request.method} {upstream_path}: {exc}",
+            feature=contract.slug,
+            context={"path": upstream_path, "method": request.method},
+        )
+
         return JsonResponse({"detail": f"{contract.slug} did not answer."}, status=502)
 
     response = HttpResponse(

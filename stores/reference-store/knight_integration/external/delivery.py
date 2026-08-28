@@ -192,6 +192,25 @@ def attempt(delivery: WebhookDelivery, now=None, sender=None) -> str:
                 fresh.last_error or fresh.last_status,
             )
 
+            # And told, rather than logged and left. A dead letter is the record
+            # that a Feature a merchant pays for did not hear something, and
+            # until this line the only way to find one was to run
+            # `knight_deliver --dead-letters` and know to.
+            from ..errors import DEAD_LETTERED, report_operational
+
+            report_operational(
+                DEAD_LETTERED,
+                f"Gave up delivering '{fresh.event}' to {fresh.feature_slug} after "
+                f"{fresh.attempts} attempt(s): {fresh.last_error or fresh.last_status}",
+                feature=fresh.feature_slug,
+                context={
+                    "event": fresh.event,
+                    "attempts": fresh.attempts,
+                    "lastStatus": fresh.last_status,
+                    "deliveryId": fresh.pk,
+                },
+            )
+
             return "dead"
 
         fresh.next_attempt_at = now + timedelta(seconds=BACKOFF_SECONDS[fresh.attempts])

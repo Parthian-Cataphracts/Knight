@@ -283,6 +283,105 @@ internal sealed class DeliveryHealthReader : IDeliveryHealthReader
             cancellationToken);
     }
 
+    /// <summary>
+    /// What stores have reported about delivering to a Feature's service.
+    ///
+    /// Read out of the error events stores already send, because that is the
+    /// channel they already have and a second one would be a second thing to be
+    /// down. The kinds are a closed list the two ends agree on by name
+    /// (<see cref="StoreFailureKinds"/>), never a prefix match — a store's own
+    /// exception whose type happened to start with `knight.` must not become a
+    /// platform alert.
+    ///
+    /// Grouped here rather than in the rule: a service that has been down for an
+    /// hour produced hundreds of rows, the fact is one fact, and carrying the
+    /// hundreds into memory to count them there would be the same query done
+    /// worse.
+    /// </summary>
+    public async Task<IReadOnlyCollection<StoreReportedFailure>> ListStoreReportedFailuresAsync(
+        DateTimeOffset since,
+        IReadOnlyCollection<string> kinds,
+        CancellationToken cancellationToken)
+    {
+        if (kinds.Count == 0)
+        {
+            return [];
+        }
+
+        var wanted = kinds.ToArray();
+
+        var rows = await _context.StoreErrorEvents
+            .AsNoTracking()
+            .Where(row => row.OccurredAt >= since && wanted.Contains(row.ExceptionType))
+            .Select(row => new
+            {
+                row.ExceptionType,
+                row.StoreId,
+                row.CustomerId,
+                row.OccurredAt,
+                row.Message,
+                row.Context,
+            })
+            .ToArrayAsync(cancellationToken);
+
+        if (rows.Length == 0)
+        {
+            return [];
+        }
+
+        var names = await StoreNamesAsync(
+            rows.Select(row => row.StoreId).Distinct().ToArray(),
+            cancellationToken);
+
+        return rows
+            .GroupBy(row => new { row.ExceptionType, row.StoreId, row.CustomerId, Feature = FeatureOf(row.Context) })
+            .Select(group =>
+            {
+                var newest = group.OrderByDescending(row => row.OccurredAt).First();
+
+                return new StoreReportedFailure(
+                    group.Key.ExceptionType,
+                    group.Key.StoreId,
+                    group.Key.CustomerId,
+                    names.GetValueOrDefault(group.Key.StoreId, group.Key.StoreId.ToString()),
+                    group.Key.Feature,
+                    group.Count(),
+                    newest.OccurredAt,
+                    newest.Message);
+            })
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Which Feature a report was about, out of the context the store sent.
+    ///
+    /// Unknown rather than a guess when it is absent or unreadable. A report
+    /// attributed to the wrong Feature is worse than one attributed to none:
+    /// somebody would go and look at it.
+    /// </summary>
+    private static string FeatureOf(string? context)
+    {
+        if (string.IsNullOrWhiteSpace(context))
+        {
+            return "unknown";
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(context);
+
+            return document.RootElement.TryGetProperty("feature", out var feature)
+                && feature.ValueKind is JsonValueKind.String
+                && feature.GetString() is { Length: > 0 } slug
+                    ? slug
+                    : "unknown";
+        }
+        catch (JsonException)
+        {
+            return "unknown";
+        }
+    }
+
     /// <summary>Attaches store names, which every message needs and no query above has.</summary>
     private async Task<IReadOnlyCollection<DeliveryDiscrepancy>> DescribeAsync(
         IEnumerable<(Guid Id, Guid StoreId, Guid CustomerId, string Slug, string Detail)> rows,
