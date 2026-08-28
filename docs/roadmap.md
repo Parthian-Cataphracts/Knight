@@ -233,7 +233,10 @@ Not "convert everything". The honest split is the deliverable:
 **Gate:** the decision table exists for all sixteen, and the ones marked
 "service" are delivered as services.
 
-### Phase 29 — The production gate
+### Phase 29 — The production gate 🔸 **the one code item is done; the rest is the release decision**
+
+[`phase-29-verification.md`](phase-29-verification.md) records what was built and
+what each remaining item waits on.
 
 **Exit:** conditions 1–6 in section 2 are all true.
 

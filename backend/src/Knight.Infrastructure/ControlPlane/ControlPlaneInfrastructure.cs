@@ -203,6 +203,7 @@ public static class ControlPlaneInfrastructure
         services.AddSingleton<IOutboundAddressPolicy, OutboundAddressPolicy>();
         services.AddSingleton<StoreEndpointResolver>();
         services.AddSingleton<IStoreHealthProbe, StoreHealthProbe>();
+        services.AddSingleton<IDnsTextResolver, SystemDnsTextResolver>();
         services.AddSingleton<IDomainOwnershipVerifier, DomainOwnershipVerifier>();
         services.AddStoreOutboundHttp();
 

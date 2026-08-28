@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-28** (revision 35 — phase 28: the decision table for all sixteen Features, and a configuration that is judged against the manifest)
+Last updated: **2026-08-28** (revision 36 — phase 29: domain verification has both halves; everything else on that list is the product owner's)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,13 +11,14 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 28 — migrating the catalogue. The table is written; the three moves are not made.** Every one of the sixteen Features now has a recorded decision and a reason — four should be services, one of them is, eight stay in-process on the transaction argument, three are arguable and held together by `analytics-core`. [`docs/feature-architecture-decisions.md`](docs/feature-architecture-decisions.md), [`docs/phase-28-verification.md`](docs/phase-28-verification.md) |
+| **Current phase** | **Phase 29 — the production gate. One item was buildable and is built; the rest is yours.** Domain verification has had two methods and one implementation since phase 3; the DNS TXT half now exists, so a store with no HTTP surface yet can prove it owns its domain. The other four items are the security review, eleven answers, a production database and a release call — none of them code. [`docs/phase-29-verification.md`](docs/phase-29-verification.md) |
+| **Previous phase** | **Phase 28 — migrating the catalogue. The table is written; the three moves are not made.** Every one of the sixteen Features now has a recorded decision and a reason — four should be services, one of them is, eight stay in-process on the transaction argument, three are arguable and held together by `analytics-core`. [`docs/feature-architecture-decisions.md`](docs/feature-architecture-decisions.md), [`docs/phase-28-verification.md`](docs/phase-28-verification.md) |
 | **Previous phase** | **Phase 27 — deployment. The unblocked half is done; the gate needs a host.** There are now three installers — control plane, agent, Django store — the store's unit reloads without dropping what is in flight, and the nightly dumps have a verified way off the machine. What is left needs the hosting, domain and backup-custody decisions, which are the product owner's. [`docs/phase-27-verification.md`](docs/phase-27-verification.md) |
 | **Previous phase** | **Phase 26 — operating it. The gate is passed.** A delivery that gives up and a service that does not answer are now reported by the store, grouped, and raised as alerts on the screen operators already read — and every alert KNIGHT can raise has a runbook. Verified live: a delivery pointed at a dead port produced a critical alert naming the store and the Feature, with nobody reading a log. [`docs/phase-26-verification.md`](docs/phase-26-verification.md) |
 | **Previous phase** | **Phase 25 — the two real stores, end to end. Complete for BojanStore.** It was connected to KNIGHT from its own admin panel — no redeploy — took delivery of `subscriptions` 2.1.0, and serves it: `GET /api/features/subscribe/` on that shop answers with the service's own reply. Phonix is carried forward, since there is no write access to it from here. [`docs/phase-25-verification.md`](docs/phase-25-verification.md) |
 | **Previous phase** | **Phase 24 — secrets, identity and rotation. Complete.** A store's shared secret is a row with a lifetime, issued by KNIGHT and rotated with an overlap, and withdrawing an entitlement is refused by the **service** rather than only by the store. [`docs/phase-24-verification.md`](docs/phase-24-verification.md) says how it was checked |
-| **Next phase** | **Phase 29 — the production gate**, once phases 27 and 28 have what they are waiting for: a host and a custody decision for 27, and three service conversions for 28, each a phase-22-sized piece of work. See [`docs/roadmap.md`](docs/roadmap.md) |
-| **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **878 backend tests green** (691 unit, 13 architecture, 174 PostgreSQL-backed integration), plus **848 store tests with nothing skipped**, 14 node-store tests, **57 subscriptions-service tests**, and 9 dashboard — and, since phase 19, **the delivery drill itself**, which is the only thing here that runs the path a customer travels |
+| **Next phase** | **None that this repository can start.** What is left across phases 25, 27, 28 and 29 is: Phonix write access, a host and a domain, a backup-custody decision, three service conversions, an engaged security reviewer, and the eleven answers in [`docs/risks.md`](docs/risks.md) §3. The decisions are listed in [`docs/roadmap.md`](docs/roadmap.md) §7 |
+| **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **891 backend tests green** (704 unit, 13 architecture, 174 PostgreSQL-backed integration), plus **848 store tests with nothing skipped**, 14 node-store tests, **57 subscriptions-service tests**, and 9 dashboard — and, since phase 19, **the delivery drill itself**, which is the only thing here that runs the path a customer travels |
 | **Blocking decisions** | R26 is **answered**: a Feature is publishable for any of three runtimes, and since phase 22 an `external_service` Feature needs no runtime at all. What is left is five decisions only the product owner can make, listed in [`docs/roadmap.md`](docs/roadmap.md) §7 — where the service code lives, the hosting platform, engaging the security reviewer (longest lead time, R16 stays open until it happens), Phonix access, and backup custody |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -57,7 +58,7 @@ Phase 25   The two real stores              ███████░░░  70%
 Phase 26   Operating it                     ██████░░░░  60%
 Phase 27   Deployment                       █████░░░░░  50%
 Phase 28   Migrating the catalogue          ████░░░░░░  40%
-Phase 29   The production gate              ░░░░░░░░░░   0%
+Phase 29   The production gate              ██░░░░░░░░  20%
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -2079,15 +2080,26 @@ are true. This is the release decision, and it is the product owner's.
       of them, in [`risks.md`](docs/risks.md) §3
 - [ ] **The restore drill against production-shaped data.** It runs in CI on
       every push against a seeded database; it has never run against a real one
-- [ ] **Domain verification exercised.** Modelled since phase 3, never used, and
-      nothing in the delivery path gates on it — a store can be installed into
-      while still `Pending`. DNS TXT verification is the half that was never
-      built
+- [x] **DNS TXT verification is built** — the half that never was. A TXT lookup
+      at `_knight-verification.<domain>`, in about a hundred lines of DNS and no
+      new dependency, tried after the HTTP method: HTTP is what an operator can
+      satisfy in a minute with a file, DNS is the only one available to a store
+      that has no server yet. The answer is compared and never fetched, a record
+      that merely contains the token does not verify, and a self-referential
+      compression pointer cannot hang the parser. Thirteen tests
+- [ ] **Nothing in the delivery path gates on it.** A store can still be
+      installed into while its domain is `Pending`.
+      `RequireDomainVerification` exists on the handshake and is off by default;
+      turning it on stops every store with an unverified domain from handshaking,
+      which is a release decision rather than a switch to flip quietly
 - [ ] **A decision on the in-process path**: deprecated with a date, or kept
       indefinitely as the transactional option. Phase 28's decision table is the
       input; this is the call
 
-**Gate:** yours.
+**Gate: yours.** One item on this list was code and is done; the other four are
+the security review, eleven answers, a production database and the call on the
+in-process path. [`docs/phase-29-verification.md`](docs/phase-29-verification.md)
+says what each is waiting for.
 
 ---
 
