@@ -192,7 +192,10 @@ each visible on a screen and each raise an alert, without anybody reading a log.
 
 **Gate:** break a service on purpose and be *told*, before looking.
 
-### Phase 27 — Deployment
+### Phase 27 — Deployment 🔸 **the unblocked half is done; the gate needs a host**
+
+Verified as far as it can be in
+[`phase-27-verification.md`](phase-27-verification.md).
 
 **Exit:** KNIGHT, the reference store and one service deploy from CI to a real
 host, with TLS, scheduled backups going offsite, and a rehearsed way back.

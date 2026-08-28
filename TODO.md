@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-28** (revision 33 — phase 26's gate: break a service on purpose and be told, without reading a log)
+Last updated: **2026-08-28** (revision 34 — phase 27's unblocked half: three installers, a reload that drops nothing, and backups that can leave the machine)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,10 +11,11 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 26 — operating it. The gate is passed.** A delivery that gives up and a service that does not answer are now reported by the store, grouped, and raised as alerts on the screen operators already read — and every alert KNIGHT can raise has a runbook. Verified live: a delivery pointed at a dead port produced a critical alert naming the store and the Feature, with nobody reading a log. [`docs/phase-26-verification.md`](docs/phase-26-verification.md) |
+| **Current phase** | **Phase 27 — deployment. The unblocked half is done; the gate needs a host.** There are now three installers — control plane, agent, Django store — the store's unit reloads without dropping what is in flight, and the nightly dumps have a verified way off the machine. What is left needs the hosting, domain and backup-custody decisions, which are the product owner's. [`docs/phase-27-verification.md`](docs/phase-27-verification.md) |
+| **Previous phase** | **Phase 26 — operating it. The gate is passed.** A delivery that gives up and a service that does not answer are now reported by the store, grouped, and raised as alerts on the screen operators already read — and every alert KNIGHT can raise has a runbook. Verified live: a delivery pointed at a dead port produced a critical alert naming the store and the Feature, with nobody reading a log. [`docs/phase-26-verification.md`](docs/phase-26-verification.md) |
 | **Previous phase** | **Phase 25 — the two real stores, end to end. Complete for BojanStore.** It was connected to KNIGHT from its own admin panel — no redeploy — took delivery of `subscriptions` 2.1.0, and serves it: `GET /api/features/subscribe/` on that shop answers with the service's own reply. Phonix is carried forward, since there is no write access to it from here. [`docs/phase-25-verification.md`](docs/phase-25-verification.md) |
 | **Previous phase** | **Phase 24 — secrets, identity and rotation. Complete.** A store's shared secret is a row with a lifetime, issued by KNIGHT and rotated with an overlap, and withdrawing an entitlement is refused by the **service** rather than only by the store. [`docs/phase-24-verification.md`](docs/phase-24-verification.md) says how it was checked |
-| **Next phase** | **Phase 27 — deployment.** KNIGHT, the reference store and one service deploy from CI to a real host, with TLS, scheduled backups going offsite, and a rehearsed way back. Blocked on the hosting decision for the image half; the server half is not blocked. See [`docs/roadmap.md`](docs/roadmap.md) |
+| **Next phase** | **Phase 28 — migrating the catalogue**, and then 29, the production gate. Phase 27 cannot finish until the hosting, domain and custody decisions are made; everything in it that does not need them is done. See [`docs/roadmap.md`](docs/roadmap.md) |
 | **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **872 backend tests green** (691 unit, 13 architecture, 168 PostgreSQL-backed integration), plus **848 store tests with nothing skipped**, 14 node-store tests, **57 subscriptions-service tests**, and 9 dashboard — and, since phase 19, **the delivery drill itself**, which is the only thing here that runs the path a customer travels |
 | **Blocking decisions** | R26 is **answered**: a Feature is publishable for any of three runtimes, and since phase 22 an `external_service` Feature needs no runtime at all. What is left is five decisions only the product owner can make, listed in [`docs/roadmap.md`](docs/roadmap.md) §7 — where the service code lives, the hosting platform, engaging the security reviewer (longest lead time, R16 stays open until it happens), Phonix access, and backup custody |
 
@@ -53,7 +54,7 @@ Phase 23   The live service layer          ██████████ 100%
 Phase 24   Secrets and rotation             ██████████ 100%
 Phase 25   The two real stores              ███████░░░  70%
 Phase 26   Operating it                     ██████░░░░  60%
-Phase 27   Deployment                       ░░░░░░░░░░   0%
+Phase 27   Deployment                       █████░░░░░  50%
 Phase 28   Migrating the catalogue          ░░░░░░░░░░   0%
 Phase 29   The production gate              ░░░░░░░░░░   0%
 ```
@@ -1965,26 +1966,39 @@ The server half is not blocked and can go first. The image half waits on the
 hosting decision, which is one of the five things only the product owner can
 settle ([`docs/roadmap.md`](docs/roadmap.md) §7).
 
-- [ ] **`install-agent.sh`** for the servers that host stores, and an installer
-      for a Django store. Carried from phase 11, where it was out of scope for a
-      phase about installing KNIGHT itself
+- [x] **`install-agent.sh`** for the servers that host stores, **and
+      `install-store.sh`** for a Django store on one. Both re-runnable, and both
+      keep what an upgrade must not lose: an agent's enrolment, a store's
+      environment file, its delivered Features and its database. Carried from
+      phase 11
 - [ ] **Docker images and the deploy stages** of
       [`deployment.md`](docs/deployment.md) §8 — *needs the hosting decision*
-- [ ] **An offsite copy of the nightly dumps** — *needs a custody decision*.
-      The timer writes them to the same machine and the installer says so
+- [~] **An offsite copy of the nightly dumps.** `knight-offsite.sh` ships the
+      newest dumps to rsync, S3 or a mount and verifies each one — against its
+      own manifest before sending, against the remote size after. The installer
+      writes the timer and **does not enable it** until somebody sets
+      `KNIGHT_OFFSITE_TARGET`, because where a database of customer records may
+      be copied to is a custody decision and not an installer's. *Still needs
+      that decision to actually run.*
 - [ ] **The installer against a real cloud VM with real DNS** — *needs a VM and
       a domain*. The container run exercised everything except certificate
       issuance
 - [ ] **Provisioning automation** — creating the machine, building the instance,
       wiring DNS and TLS. Carried from phase 9 and blocked on the same decision
       as the images
-- [ ] **A restart strategy that does not drop live traffic.** Carried from phase
-      3.5: the installer writes a unit and restarting it drops whatever was in
-      flight
+- [x] **A restart strategy that does not drop live traffic.** The store's unit
+      is socket-activated, so the socket outlives the service: `systemctl reload`
+      starts new workers, retires the old ones once they are idle, and never
+      closes the listening socket. Carried from phase 3.5
 - [ ] **Signed agent releases and a self-update path**, carried from phase 4.
       An agent that cannot update itself is a fleet somebody updates by hand
 
-**Gate:** a deploy, and a restore from the offsite copy onto a clean machine.
+**Gate: not run, and not runnable from here.** It needs a host, a domain and a
+place to put backups — three of the five decisions that are the product owner's
+([`docs/roadmap.md`](docs/roadmap.md) §7). Everything the roadmap calls the
+unblocked half is done and is listed above;
+[`docs/phase-27-verification.md`](docs/phase-27-verification.md) says what each
+remaining item is waiting for and on whom.
 
 ---
 

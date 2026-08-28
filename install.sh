@@ -1224,11 +1224,75 @@ RandomizedDelaySec=600
 WantedBy=timers.target
 EOF
 
+# The copy that leaves the machine.
+#
+# Written always and enabled only when a destination has been chosen, because
+# where a customer database is allowed to be copied to is a custody decision and
+# not an installer's to make. Until somebody sets KNIGHT_OFFSITE_TARGET this
+# unit exists, does nothing, and the warning below stays true — which is the
+# honest arrangement: the alternative is a timer that runs nightly and silently
+# copies nothing.
+cat > /etc/systemd/system/knight-offsite.service <<EOF
+[Unit]
+Description=Copy KNIGHT's backups somewhere that is not this machine
+After=knight-backup.service
+
+[Service]
+Type=oneshot
+User=${SERVICE_USER}
+Group=${SERVICE_USER}
+EnvironmentFile=-${INSTALL_DIR}/offsite.env
+Environment=KNIGHT_BACKUP_DIR=${BACKUP_DIR}
+ExecStart=${SRC_DIR}/infrastructure/scripts/knight-offsite.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=${BACKUP_DIR}
+EOF
+
+cat > /etc/systemd/system/knight-offsite.timer <<'EOF'
+[Unit]
+Description=Nightly offsite copy of KNIGHT's backups
+
+[Timer]
+# An hour after the dump, so it copies tonight's rather than last night's.
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target
+EOF
+
+if [[ ! -f "${INSTALL_DIR}/offsite.env" ]]; then
+  cat > "${INSTALL_DIR}/offsite.env" <<'EOF'
+# Where KNIGHT's nightly dumps are copied to. Until this is set, the offsite
+# timer is not enabled and every backup lives on one disk.
+#
+#   KNIGHT_OFFSITE_TARGET=rsync://knight@backup.example.com:/srv/knight
+#   KNIGHT_OFFSITE_TARGET=s3://knight-backups/control-plane
+#   KNIGHT_OFFSITE_TARGET=file:///mnt/offsite      # only if that is a mount
+#
+# Then:  systemctl enable --now knight-offsite.timer
+EOF
+  chown "${SERVICE_USER}:${SERVICE_USER}" "${INSTALL_DIR}/offsite.env"
+  chmod 640 "${INSTALL_DIR}/offsite.env"
+fi
+
 chmod +x "${SRC_DIR}/infrastructure/scripts/"*.sh 2>/dev/null
 systemctl daemon-reload
 systemctl enable --now knight-backup.timer >/dev/null 2>&1
 success "Nightly backup scheduled for 02:30 into ${BACKUP_DIR}"
-warn "A backup on the same machine is not a backup. Copy ${BACKUP_DIR} somewhere else."
+
+if grep -q '^KNIGHT_OFFSITE_TARGET=' "${INSTALL_DIR}/offsite.env" 2>/dev/null; then
+  systemctl enable --now knight-offsite.timer >/dev/null 2>&1
+  success "Offsite copy scheduled for 03:30"
+else
+  warn "A backup on the same machine is not a backup, and nothing here copies it off yet."
+  warn "Set KNIGHT_OFFSITE_TARGET in ${INSTALL_DIR}/offsite.env, then:"
+  echo "        systemctl enable --now knight-offsite.timer"
+fi
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Management tool

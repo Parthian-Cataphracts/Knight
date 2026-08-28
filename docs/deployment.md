@@ -187,6 +187,57 @@ reversibility in the manifest, a recorded restore point where possible,
 step-by-step progress reporting, and an explicit
 `ManualInterventionRequired` outcome instead of a guessed rollback.
 
+## 7a. The three installers
+
+A deployment has three kinds of machine in it, and each has a script that puts
+one there. All three are safe to re-run: an upgrade must never be the thing that
+loses a credential.
+
+| Script | Machine | What it leaves behind |
+|---|---|---|
+| [`install.sh`](../install.sh) | the control plane | PostgreSQL, Redis, the API unit, the nightly backup timer, the offsite timer, `knightctl` |
+| [`install-agent.sh`](../install-agent.sh) | a server that hosts stores | a system user, the agent in its own virtualenv, its enrolment, a hardened unit |
+| [`install-store.sh`](../install-store.sh) | a Django store on such a server | the store's directory, virtualenv, environment file, database migrations, and a socket-activated unit |
+
+**Why the store's unit is socket-activated.** The socket is systemd's and
+outlives the service, so `systemctl reload store-<name>` starts new gunicorn
+workers, retires the old ones once they are idle, and never closes the listening
+socket. A request already being handled is finished by the worker holding it; one
+that arrives mid-swap waits in the socket's backlog for a few milliseconds. A
+plain `restart` closes the socket and every connection on it goes with it — which
+is what "restarting it drops whatever was in flight" meant in phase 3.5.
+
+**Where Features land.** `KNIGHT_FEATURE_ROOT` is a directory beside the store,
+never inside its source tree. The installer copies code with `rsync --delete`,
+so a Feature unpacked into the tree would be deleted by the next deploy — and
+the store would report itself as having nothing installed.
+
+## 7b. Backups that leave the machine
+
+`knight-backup.sh` writes a nightly dump and a manifest with its SHA-256.
+[`knight-offsite.sh`](../infrastructure/scripts/knight-offsite.sh) copies the
+newest few somewhere else and verifies each one on the way:
+
+- the dump is checked against its own manifest **before** it is sent, because
+  copying a corrupt dump offsite turns one bad file into two;
+- the remote size is checked **after**, where the destination can be asked.
+
+Three destinations, covering the three ways this is done in practice:
+
+```
+KNIGHT_OFFSITE_TARGET=rsync://knight@backup.example.com:/srv/knight
+KNIGHT_OFFSITE_TARGET=s3://knight-backups/control-plane
+KNIGHT_OFFSITE_TARGET=file:///mnt/offsite
+```
+
+The last is offsite only if the mount is, and the script says so every run.
+
+**The installer writes the timer and does not enable it** until
+`KNIGHT_OFFSITE_TARGET` is set in `${INSTALL_DIR}/offsite.env`. Where a database
+holding every customer record may be copied to is a custody decision, and an
+installer that picked one would be making it on somebody's behalf. Until it is
+set, the installer says plainly that every backup lives on one disk.
+
 ## 8. CI/CD pipeline (target)
 
 ```
