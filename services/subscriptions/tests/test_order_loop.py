@@ -26,8 +26,8 @@ import uuid
 
 from django.test import Client, TestCase
 
-from knightlink.models import Store
 from knightlink.signing import canonical_string
+from tests.test_contract import registered
 from subscriptions import services
 from subscriptions.models import PeriodState, SubscriptionOrder
 
@@ -50,8 +50,8 @@ def signed_headers(secret: str, method: str, path: str, body: bytes = b"") -> di
 class OrderLoopTests(TestCase):
     def setUp(self) -> None:
         self.client = Client()
-        self.store = Store.objects.create(store_id=uuid.uuid4(), slug="camden-coffee", secret=SECRET)
-        self.other = Store.objects.create(store_id=uuid.uuid4(), slug="borough-books", secret=SECRET)
+        self.store = registered("camden-coffee", SECRET)
+        self.other = registered("borough-books", SECRET)
 
         services.create(
             self.store,
@@ -101,7 +101,7 @@ class OrderLoopTests(TestCase):
             HTTP_X_KNIGHT_STORE=str(store.store_id),
             HTTP_X_KNIGHT_IDENTITY=identity,
             HTTP_X_KNIGHT_SUBJECT=subject,
-            **signed_headers(store.secret, "GET", path, b""),
+            **signed_headers(SECRET, "GET", path, b""),
         )
 
     def post(self, path, payload, *, store=None, identity="staff", subject="system"):
@@ -115,7 +115,7 @@ class OrderLoopTests(TestCase):
             HTTP_X_KNIGHT_STORE=str(store.store_id),
             HTTP_X_KNIGHT_IDENTITY=identity,
             HTTP_X_KNIGHT_SUBJECT=subject,
-            **signed_headers(store.secret, "POST", path, body),
+            **signed_headers(SECRET, "POST", path, body),
         )
 
     # --- What the store is told it owes ------------------------------------

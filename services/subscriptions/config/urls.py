@@ -16,7 +16,7 @@ in would be a second thing to get wrong.
 
 from django.urls import path
 
-from knightlink import views as knight_views
+from knightlink import control, views as knight_views
 from subscriptions import views, webhooks
 
 urlpatterns = [
@@ -24,6 +24,15 @@ urlpatterns = [
     # run by the thing most likely to need it — a load balancer — and it reveals
     # nothing but whether the process is up.
     path("healthz", knight_views.healthz, name="healthz"),
+
+    # What KNIGHT may say, signed with the control plane's own secret rather
+    # than a store's. Kept under its own prefix so the two callers are visible
+    # in a route table: everything under `/knight/` is the control plane, and
+    # nothing else is.
+    path("knight/stores/register", control.register, name="control-register"),
+    path("knight/stores/rotate", control.rotate, name="control-rotate"),
+    path("knight/stores/revoke", control.revoke, name="control-revoke"),
+    path("knight/stores/describe", control.describe, name="control-describe"),
 
     path("hooks/order-placed", webhooks.order_placed, name="hook-order-placed"),
     path("hooks/order-paid", webhooks.order_paid, name="hook-order-paid"),

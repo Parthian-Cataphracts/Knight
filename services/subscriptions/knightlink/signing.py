@@ -100,13 +100,25 @@ def verify(request) -> Store:
             "timestamp.stale",
         )
 
-    expected = hmac.new(
-        store.secret.encode("utf-8"),
-        canonical_string(request.method, request.path, timestamp, nonce, request.body or b"").encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
+    message = canonical_string(
+        request.method, request.path, timestamp, nonce, request.body or b""
+    ).encode("utf-8")
 
-    if not hmac.compare_digest(expected, signature[len("sha256=") :]):
+    usable = store.usable_secrets()
+
+    if not usable:
+        # A store with no secret at all. It has been revoked, or its secrets
+        # aged out without a new one arriving; either way the answer is the same
+        # shape as a bad signature, because which of the two it is tells a
+        # caller something about a store they have not proved they are.
+        logger.warning("Store '%s' has no usable secret.", store.slug)
+        raise Unsigned("The signature does not verify.", "signature.invalid")
+
+    # Every currently valid secret, not only the newest. This is what makes a
+    # rotation something other than an outage: for the length of one window both
+    # the old and the new one verify, so a request signed a second before the
+    # change is still good a second after it.
+    if not any(_matches(candidate.secret, message, signature) for candidate in usable):
         logger.warning("A request for store '%s' did not verify.", store.slug)
         raise Unsigned("The signature does not verify.", "signature.invalid")
 
@@ -115,7 +127,67 @@ def verify(request) -> Store:
     return store
 
 
-def _claim_nonce(store: Store, nonce: str) -> None:
+def _matches(secret: str, message: bytes, signature: str) -> bool:
+    """One candidate secret, compared in fixed time."""
+    expected = hmac.new(secret.encode("utf-8"), message, hashlib.sha256).hexdigest()
+
+    return hmac.compare_digest(expected, signature[len("sha256=") :])
+
+
+def verify_control_plane(request) -> None:
+    """
+    Whether this request came from KNIGHT rather than from a store.
+
+    The second caller this service has, and it is a different kind of caller: a
+    store asks about its own subscriptions, and KNIGHT says who the stores *are*
+    and what they may sign with. Registering stores under the store contract
+    would have been circular — a store cannot prove it is a store before it has
+    a secret, which is the thing being issued.
+
+    So it is one secret, held by the control plane, checked the same way
+    everything else here is checked: same canonical string, same skew window,
+    same nonce table. What it is not is a store: it gets no `Store` row, and no
+    endpoint that serves a store's data will look at it.
+    """
+    secret = str(getattr(settings, "KNIGHT_CONTROL_SECRET", "") or "")
+
+    if not secret:
+        # Unconfigured is refused, never open. A control-plane surface that
+        # accepted anybody when nobody had set a secret would be the worst
+        # possible default for the one endpoint that can issue credentials.
+        logger.error("A control-plane request arrived and no control secret is configured.")
+        raise Unsigned("This service does not accept control-plane requests.", "control.unconfigured")
+
+    signature = request.headers.get("X-Knight-Signature", "")
+    timestamp = request.headers.get("X-Knight-Timestamp", "")
+    nonce = request.headers.get("X-Knight-Nonce", "")
+
+    if not (signature and timestamp and nonce):
+        raise Unsigned("The request is not signed.", "signature.missing")
+
+    if not signature.startswith("sha256="):
+        raise Unsigned("The signature is not in a form this service understands.", "signature.malformed")
+
+    try:
+        age = abs(int(time.time()) - int(timestamp))
+    except ValueError:
+        raise Unsigned("The timestamp is not a number.", "timestamp.malformed") from None
+
+    if age > settings.KNIGHT_MAX_SKEW_SECONDS:
+        raise Unsigned("The request is out of step with this service's clock.", "timestamp.stale")
+
+    message = canonical_string(
+        request.method, request.path, timestamp, nonce, request.body or b""
+    ).encode("utf-8")
+
+    if not _matches(secret, message, signature):
+        logger.warning("A control-plane request did not verify.")
+        raise Unsigned("The signature does not verify.", "signature.invalid")
+
+    _claim_nonce(None, nonce)
+
+
+def _claim_nonce(store: Store | None, nonce: str) -> None:
     """
     Records the nonce, and refuses if it was already there.
 
@@ -127,7 +199,10 @@ def _claim_nonce(store: Store, nonce: str) -> None:
         with transaction.atomic():
             SeenNonce.objects.create(store=store, nonce=nonce)
     except IntegrityError:
-        logger.warning("A replayed request for store '%s' was refused.", store.slug)
+        logger.warning(
+            "A replayed request for %s was refused.",
+            f"store '{store.slug}'" if store is not None else "the control plane",
+        )
         raise Unsigned("This request has already been received.", "nonce.replayed") from None
 
 

@@ -33,8 +33,11 @@ Every request but `/healthz` carries an HMAC-SHA256 signature over
 METHOD \n path \n timestamp \n nonce \n sha256(body)
 ```
 
-under the secret that store was issued. Four checks in this order, and the order
-matters:
+under a secret that store was issued. **Under any secret it currently holds** —
+a store has a set of them, not one, so a rotation overlaps rather than cutting
+off everything in flight ([`adr/0034`](../../docs/adr/0034-a-shared-secret-has-a-lifetime.md)).
+
+Four checks in this order, and the order matters:
 
 1. **the store is known and enabled** — refused before any cryptography, so
    timing cannot reveal which stores exist;
@@ -54,11 +57,19 @@ request naming a customer is an unauthenticated request naming a customer.
 | `POST /hooks/order-{placed,paid,cancelled,refunded}` | the four events the store forwards |
 | `GET/POST /api/v1/subscriptions/…` | what the store's `subscriptions/` prefix proxies to |
 | `GET /api/v1/admin/…` | what `admin/subscriptions/` proxies to, staff only |
+| `POST /knight/stores/{register,rotate,revoke,describe}` | what KNIGHT may say, signed with the control plane's own secret |
 | `GET /healthz` | liveness, unsigned |
 
 There is no admin site, no login and no session endpoint. Identity is decided in
 the store and asserted here; a second way in would be a second thing to get
 wrong.
+
+`/knight/…` is the one surface a store may not reach. It is signed with
+`SUBSCRIPTIONS_CONTROL_SECRET`, which belongs to KNIGHT and to nobody else: a
+store cannot prove it is a store before it has a secret, and issuing that secret
+is what those routes are for. With that variable unset the whole surface refuses
+everything — unconfigured is closed, never open. Nothing on it returns a secret;
+it reports how many are live, which is what a reconciliation needs.
 
 ## Running it
 
@@ -68,13 +79,20 @@ SUBSCRIPTIONS_DEBUG=true python manage.py migrate
 SUBSCRIPTIONS_DEBUG=true python manage.py runserver 8100
 ```
 
-Register a store — this is an operator action, not something a store can do for
-itself, because a service that registered whoever called it would have no notion
-of who is allowed to call it:
+Stores are registered by KNIGHT, over `/knight/stores/register`. The command
+below remains for an operator fixing something by hand, and it performs a
+**rotation** rather than an overwrite — so running it against a store that is
+already working does not cut off whatever that store has in flight:
 
 ```bash
 python manage.py knight_store add --slug camden-coffee --store-id <uuid> --secret <shared secret>
+python manage.py knight_store list          # slug, id, state, and how many secrets are live
+python manage.py knight_store disable --slug camden-coffee
 ```
+
+`list` shows a count and never a value. Two live secrets is a rotation in
+progress; zero is a store that cannot say anything, and is the one worth
+spotting.
 
 ## Testing
 
@@ -82,7 +100,9 @@ python manage.py knight_store add --slug camden-coffee --store-id <uuid> --secre
 python manage.py test
 ```
 
-Sixteen tests, and most of them are attacks: another store's secret, a body
+Fifty-three tests, and most of them are attacks: another store's secret, a body
 altered after signing, a stale timestamp, a replay, a failed signature trying to
 burn a nonce, a disabled store, a shopper reaching a staff route, and a shopper
-reading another shopper's subscription by guessing its reference.
+reading another shopper's subscription by guessing its reference — and, on the
+control plane, a store trying to rotate its own secret, a replayed registration,
+and a rotation trying to give an expiring secret more life.

@@ -29,6 +29,16 @@ class Command(BaseCommand):
         parser.add_argument("--secret")
         parser.add_argument("--base-url", default="")
         parser.add_argument(
+            "--overlap-seconds",
+            type=int,
+            default=0,
+            help=(
+                "How long the store's previous secret keeps working. Zero here "
+                "because an operator adding a store by hand is usually fixing "
+                "something; KNIGHT rotating one is the case that wants overlap."
+            ),
+        )
+        parser.add_argument(
             "--settings-json",
             default="",
             help="This store's configuration, e.g. '{\"provider\": \"manual\"}'.",
@@ -67,11 +77,20 @@ class Command(BaseCommand):
             store_id=options["store_id"],
             defaults={
                 "slug": slug,
-                "secret": options["secret"],
                 "base_url": options["base_url"],
                 "settings": configuration,
                 "enabled": True,
             },
+        )
+
+        # A secret is a row with a lifetime rather than a column, so adding a
+        # store twice with different secrets is a rotation and not an
+        # overwrite: whatever was signed with the old one on its way here still
+        # verifies for the length of the overlap window.
+        store.rotate_to(
+            options["secret"],
+            overlap_seconds=int(options["overlap_seconds"]),
+            issued_by="operator",
         )
 
         # The secret is never echoed back, here or anywhere. An operator who
@@ -89,4 +108,10 @@ class Command(BaseCommand):
 
         for store in found:
             state = "enabled" if store.enabled else "DISABLED"
-            self.stdout.write(f"  {store.slug:<28} {store.store_id}  {state}")
+            secrets = len(store.usable_secrets())
+            # The count, never a value. Two is a rotation in progress and is
+            # worth being able to see; one is the steady state; zero is a store
+            # that cannot say anything and is the thing worth spotting.
+            self.stdout.write(
+                f"  {store.slug:<28} {store.store_id}  {state}  {secrets} secret(s)"
+            )

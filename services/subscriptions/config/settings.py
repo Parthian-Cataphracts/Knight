@@ -108,6 +108,25 @@ KNIGHT_MAX_SKEW_SECONDS = int(os.environ.get("SUBSCRIPTIONS_MAX_SKEW_SECONDS", "
 #: request could be replayed after its nonce was forgotten and while its
 #: timestamp was still acceptable — which would leave the replay defence with a
 #: hole exactly as wide as the difference.
+#: The secret KNIGHT itself signs with, for the endpoints that say who the
+#: stores are and what they may sign with.
+#:
+#: One secret, and it is not any store's. A store cannot prove it is a store
+#: before it has a secret, and issuing that secret is exactly what these
+#: endpoints do — so the control plane needs a credential of its own or the
+#: registration path is circular. Unset means the control-plane surface refuses
+#: everything, which is the only safe default for the one caller that can issue
+#: a credential.
+KNIGHT_CONTROL_SECRET = os.environ.get("SUBSCRIPTIONS_CONTROL_SECRET", "")
+
+#: How long a store's previous secret keeps working after a rotation, when
+#: KNIGHT does not say. Long enough that a store which has not yet picked up its
+#: new configuration is not cut off, short enough that a leaked secret is not
+#: valid all afternoon.
+KNIGHT_DEFAULT_OVERLAP_SECONDS = int(
+    os.environ.get("SUBSCRIPTIONS_SECRET_OVERLAP_SECONDS", "3600")
+)
+
 KNIGHT_NONCE_TTL_SECONDS = max(
     KNIGHT_MAX_SKEW_SECONDS * 2,
     int(os.environ.get("SUBSCRIPTIONS_NONCE_TTL_SECONDS", "900")),

@@ -39,15 +39,33 @@ def sign(secret: str, method: str, path: str, body: bytes = b"", *, timestamp=No
     }
 
 
+#: What each store in these tests signs with, by slug.
+#:
+#: Kept here rather than read off the store, because a secret is a row with a
+#: lifetime and there is deliberately no column to read. A test that could ask a
+#: store for its secret would be testing something this service does not offer.
+SECRETS: dict[str, str] = {}
+
+
+def registered(slug: str, secret: str) -> Store:
+    """
+    A store this service will answer, with one secret it signs with.
+
+    A helper rather than two lines inline, because a secret is a row with a
+    lifetime since phase 24 and every test that needs a store needs one.
+    """
+    store = Store.objects.create(store_id=uuid.uuid4(), slug=slug, enabled=True)
+    store.rotate_to(secret, issued_by="a test")
+    SECRETS[slug] = secret
+
+    return store
+
+
 class ContractTests(TestCase):
     def setUp(self) -> None:
         self.client = Client()
-        self.store = Store.objects.create(
-            store_id=uuid.uuid4(), slug="camden-coffee", secret=SECRET, enabled=True
-        )
-        self.other = Store.objects.create(
-            store_id=uuid.uuid4(), slug="borough-books", secret="a-different-secret", enabled=True
-        )
+        self.store = registered("camden-coffee", SECRET)
+        self.other = registered("borough-books", "a-different-secret")
 
     def call(self, path="/hooks/order-placed", payload=None, *, store=None, secret=None, headers=None, method="POST"):
         store = store or self.store
@@ -57,7 +75,7 @@ class ContractTests(TestCase):
             "HTTP_X_KNIGHT_STORE": str(store.store_id),
             "HTTP_X_KNIGHT_IDENTITY": "customer",
             "HTTP_X_KNIGHT_SUBJECT": "1",
-            **sign(secret or store.secret, method, path, body),
+            **sign(secret or SECRETS[store.slug], method, path, body),
             **(headers or {}),
         }
 
@@ -72,7 +90,7 @@ class ContractTests(TestCase):
         self.assertEqual("signature.missing", response.json()["errorCode"])
 
     def test_a_signature_by_another_stores_secret_is_refused(self):
-        response = self.call(secret=self.other.secret)
+        response = self.call(secret="a-different-secret")
 
         # The most important test in this file. Every store's secret is its own,
         # so one store leaking theirs cannot become the ability to impersonate
@@ -217,8 +235,8 @@ class IsolationTests(TestCase):
 
     def setUp(self) -> None:
         self.client = Client()
-        self.first = Store.objects.create(store_id=uuid.uuid4(), slug="first", secret=SECRET)
-        self.second = Store.objects.create(store_id=uuid.uuid4(), slug="second", secret=SECRET)
+        self.first = registered("first", SECRET)
+        self.second = registered("second", SECRET)
 
         from subscriptions import services
 
@@ -236,7 +254,7 @@ class IsolationTests(TestCase):
             "HTTP_X_KNIGHT_STORE": str(store.store_id),
             "HTTP_X_KNIGHT_IDENTITY": identity,
             "HTTP_X_KNIGHT_SUBJECT": subject,
-            **sign(store.secret, "GET", path, b""),
+            **sign(SECRETS[store.slug], "GET", path, b""),
         }
         return self.client.get(path, **extra)
 
