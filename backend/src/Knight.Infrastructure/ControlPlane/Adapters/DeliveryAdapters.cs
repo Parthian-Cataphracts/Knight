@@ -257,18 +257,33 @@ internal sealed class FeatureVersionReader : IFeatureVersionReader
         var module = ns;
         string? mountExport = null;
         string? mountPrefix = null;
+        var architecture = "in_process";
         IReadOnlyList<AgentWorker> workers = [];
 
         if (FeatureManifest.TryParse(version.ManifestJson, out var manifest, out _))
         {
             migrations = manifest.Migrations;
             retentionDays = manifest.Uninstall.DataRetentionDays;
+            architecture = manifest.IsExternalService ? "external_service" : "in_process";
 
-            runtimeName = manifest.Runtime.Name;
-            ns = manifest.Runtime.Namespace;
-            module = manifest.Runtime.Module;
-            mountExport = manifest.Runtime.MountExport;
-            mountPrefix = manifest.Runtime.MountPrefix;
+            // An external service has no runtime block. The three names stay on
+            // the wire because the agents' job payload is one shape for both
+            // architectures — the namespace is still what the store keys this
+            // Feature's registry entry on, and it is the only one of the three
+            // that still means something.
+            if (manifest.Runtime is { } runtime)
+            {
+                runtimeName = runtime.Name;
+                ns = runtime.Namespace;
+                module = runtime.Module;
+                mountExport = runtime.MountExport;
+                mountPrefix = runtime.MountPrefix;
+            }
+            else
+            {
+                runtimeName = "external";
+                module = slug;
+            }
 
             workers = [.. manifest.Workers.Select(worker => new AgentWorker(
                 worker.Name,
@@ -294,6 +309,7 @@ internal sealed class FeatureVersionReader : IFeatureVersionReader
             module,
             mountExport,
             mountPrefix,
+            architecture,
             workers,
             migrations.Extensions);
     }

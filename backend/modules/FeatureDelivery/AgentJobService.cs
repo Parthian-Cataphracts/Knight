@@ -460,7 +460,7 @@ internal sealed class AgentJobService : IAgentJobService
             job.TargetVersion,
             job.CorrelationId,
             job.TraceParent,
-            JobPipeline.StepsFor(job.Type),
+            JobPipeline.StepsFor(job.Type, job.Architecture),
             job.NextStep(),
             artifact,
             configuration,
@@ -535,6 +535,16 @@ public sealed record DeliverableVersion(
     string Module,
     string? MountExport,
     string? MountPrefix,
+
+    /// <summary>
+    /// <c>in_process</c> or <c>external_service</c>.
+    ///
+    /// It tells the agent what the artifact it is about to fetch *is*: an
+    /// archive of code to unpack, or a signed configuration document to read.
+    /// The agent needs to know before it fetches, which is why this is on the
+    /// job rather than only inside the artifact (adr/0033).
+    /// </summary>
+    string Architecture,
 
     /// <summary>
     /// The scheduled jobs the store must start running once this is installed.

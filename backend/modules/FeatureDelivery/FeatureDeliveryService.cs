@@ -213,9 +213,12 @@ internal sealed class FeatureDeliveryService : IFeatureDeliveryService
                 CorrelationId(),
                 _currentUser.UserId ?? Guid.Empty,
                 input.Trigger,
+                architecture: step.IsExternalService
+                    ? DeliveryArchitecture.ExternalService
+                    : DeliveryArchitecture.InProcess,
                 traceParent: TraceParent());
 
-            stepInstallation.QueueJob(job.Id, step.VersionId, step.Version, now);
+            stepInstallation.QueueJob(job.Id, step.VersionId, step.Version, now, job.Architecture);
 
             await _jobs.AddAsync(job, cancellationToken);
             queued.Add(job);
@@ -532,7 +535,8 @@ internal sealed class FeatureDeliveryService : IFeatureDeliveryService
             CorrelationId(),
             _currentUser.UserId ?? Guid.Empty,
             JobTrigger.Manual,
-            traceParent: TraceParent());
+            traceParent: TraceParent(),
+            architecture: installation.Architecture);
 
         await _jobs.AddAsync(job, cancellationToken);
 

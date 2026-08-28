@@ -283,6 +283,15 @@ internal sealed class FileSystemArtifactStore : IFeatureArtifactStore
             ".whl" => ".whl",
             ".zip" => ".zip",
             ".gz" => ".tar.gz",
+
+            // An external Feature's artifact is its signed configuration
+            // document. There is no archive because there is no code, and
+            // storing a JSON document under a .zip name would make the
+            // directory lie about what is in it to the one person most likely
+            // to look - somebody working out why a delivery went wrong
+            // (adr/0033).
+            ".json" => ".json",
+
             _ => ".zip",
         };
 

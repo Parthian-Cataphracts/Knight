@@ -203,7 +203,8 @@ public sealed class DependencyResolver
                 version.Manifest.Migrations.Required,
                 version.Manifest.Migrations.Reversible,
                 version.Manifest.Migrations.EstimatedDurationSeconds,
-                version.Manifest.Install.RequiresRestart));
+                version.Manifest.Install.RequiresRestart,
+                version.Manifest.IsExternalService));
         }
 
         return failures.Count > 0
@@ -310,10 +311,26 @@ public sealed class DependencyResolver
         }
 
         var compatibility = version.Manifest.Compatibility;
-        var runtime = version.Manifest.Runtime.Runtime;
 
         CheckRange(feature.Slug, "store version", store.StoreVersion, compatibility.StoreVersion, version, failures);
+
+        // An external service runs nowhere near the store: no runtime to match,
+        // no database to require, no language version to compare. The store
+        // version is the only thing left that means anything, because it is the
+        // store's own machinery — the event bus and the proxy — that has to be
+        // new enough to wire the Feature up (adr/0033).
+        //
+        // This is where the architecture actually pays: sixteen Features had to
+        // agree with a store about four versions and an engine, and this one has
+        // to agree about one.
+        if (version.Manifest.IsExternalService)
+        {
+            return;
+        }
+
         CheckDatabase(feature.Slug, store.Database, compatibility.Database, version, failures);
+
+        var runtime = version.Manifest.RequireRuntime().Runtime;
 
         if (!CheckRuntime(feature.Slug, runtime, store.Runtime, version, failures))
         {

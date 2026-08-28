@@ -34,8 +34,13 @@ public sealed record FeatureManifest(
     /// Django's spelling of them, so that the parsed form, the wire contract and
     /// the store's installer all say the same words
     /// (<c>adr/0032</c>).
+    ///
+    /// <b>Null for an <c>external_service</c> Feature</b>, which has no runtime
+    /// because the store loads nothing. The reader guarantees the pairing: an
+    /// in-process Feature always has one and an external one never does, so
+    /// nothing downstream has to consider a third case (<c>adr/0033</c>).
     /// </summary>
-    RuntimeIntegration Runtime,
+    RuntimeIntegration? Runtime,
     CompatibilityConstraints Compatibility,
     ManifestDependencies Dependencies,
     MigrationPolicy Migrations,
@@ -51,8 +56,39 @@ public sealed record FeatureManifest(
     /// up by hand on every store is a Feature that silently does nothing on the
     /// stores where somebody forgot.
     /// </summary>
-    IReadOnlyList<WorkerDeclaration> Workers)
+    IReadOnlyList<WorkerDeclaration> Workers,
+
+    /// <summary>
+    /// Whether this Feature is code the store runs or a service it talks to.
+    ///
+    /// Defaulted, so every manifest written before this existed keeps parsing
+    /// and keeps meaning what it meant.
+    /// </summary>
+    FeatureArchitecture Architecture = FeatureArchitecture.InProcess,
+
+    /// <summary>
+    /// What an external Feature declares: where its service is, which events it
+    /// wants, which routes the store forwards, where its screens hang.
+    ///
+    /// Non-null exactly when <see cref="Architecture"/> is
+    /// <see cref="FeatureArchitecture.ExternalService"/>.
+    /// </summary>
+    ExternalServiceContract? External = null)
 {
+    /// <summary>Whether the store has to load any of this Feature's code.</summary>
+    public bool IsExternalService => Architecture is FeatureArchitecture.ExternalService;
+
+    /// <summary>
+    /// The runtime integration, for a Feature that has one.
+    ///
+    /// A property rather than a null check at every call site: everything on the
+    /// in-process path has always had one and still does, and the compiler
+    /// should not make all of it defensive because a second architecture exists.
+    /// </summary>
+    public RuntimeIntegration RequireRuntime() =>
+        Runtime ?? throw new InvalidOperationException(
+            $"'{Slug}' is an external service and has no runtime integration.");
+
     /// <summary>
     /// The only manifest API version this build understands. It is checked
     /// explicitly rather than ignored: a future manifest that this KNIGHT cannot
@@ -307,7 +343,17 @@ public enum UninstallStrategy
 public sealed record InstallPolicy(
     InstallStrategy Strategy,
     bool RequiresRestart,
-    string? HealthCheck);
+    string? HealthCheck)
+{
+    /// <summary>
+    /// What installing means when there is nothing to install.
+    ///
+    /// An external service is registered, not unpacked: no strategy to choose,
+    /// nothing to restart, and its health is the service's own health endpoint
+    /// rather than a callable in the store's process.
+    /// </summary>
+    public static InstallPolicy External { get; } = new(InstallStrategy.NoOp, false, null);
+}
 
 public sealed record UninstallPolicy(
     UninstallStrategy Strategy,

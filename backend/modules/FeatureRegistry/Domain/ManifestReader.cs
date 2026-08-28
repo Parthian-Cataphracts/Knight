@@ -51,20 +51,32 @@ internal sealed class ManifestReader
         var name = RequireString(root, "name");
         var description = OptionalString(root, "description");
 
-        // First, because three of the readers below validate a string differently
-        // depending on it: what counts as a callable is a Python dotted path in a
-        // Django Feature and a module-and-export in a node one, and validating
-        // the wrong one at publish is how an author is told their correct
-        // manifest is wrong (adr/0032).
-        var runtime = ReadRuntimeName(root);
-        var integration = ReadRuntimeIntegration(root, runtime);
+        // Before the runtime, because it decides whether there is one. An
+        // external service is code the store never loads, so it has no runtime
+        // and no migrations and no install strategy, and asking it for them
+        // would be asking about a package that does not exist (adr/0033).
+        var architecture = ReadArchitecture(root);
+        var external = architecture is FeatureArchitecture.ExternalService ? ReadExternalService(root) : null;
+
+        if (architecture is FeatureArchitecture.ExternalService)
+        {
+            RefuseInProcessBlocks(root);
+        }
+
+        // First among the in-process readers, because three of them validate a
+        // string differently depending on it: what counts as a callable is a
+        // Python dotted path in a Django Feature and a module-and-export in a
+        // node one, and validating the wrong one at publish is how an author is
+        // told their correct manifest is wrong (adr/0032).
+        var runtime = architecture is FeatureArchitecture.InProcess ? ReadRuntimeName(root) : FeatureRuntime.Django;
+        var integration = architecture is FeatureArchitecture.InProcess ? ReadRuntimeIntegration(root, runtime) : null;
         var compatibility = ReadCompatibility(root);
-        var dependencies = ReadDependencies(root);
-        var migrations = ReadMigrations(root, compatibility);
+        var dependencies = architecture is FeatureArchitecture.InProcess ? ReadDependencies(root) : ManifestDependencies.None;
+        var migrations = architecture is FeatureArchitecture.InProcess ? ReadMigrations(root, compatibility) : MigrationPolicy.None;
         var configuration = ReadConfiguration(root);
-        var install = ReadInstall(root, runtime);
+        var install = architecture is FeatureArchitecture.InProcess ? ReadInstall(root, runtime) : InstallPolicy.External;
         var uninstall = ReadUninstall(root);
-        var workers = ReadWorkers(root, runtime);
+        var workers = architecture is FeatureArchitecture.InProcess ? ReadWorkers(root, runtime) : [];
 
         if (_errors.Count > 0)
         {
@@ -84,7 +96,9 @@ internal sealed class ManifestReader
             configuration,
             install!,
             uninstall,
-            workers);
+            workers,
+            architecture,
+            external);
     }
 
     /// <summary>
@@ -95,6 +109,438 @@ internal sealed class ManifestReader
     /// breaking a published contract in order to add a field whose value they all
     /// imply (adr/0032 §1).
     /// </summary>
+    /// <summary>
+    /// Whether this Feature is code the store runs or a service it talks to.
+    ///
+    /// Absent means <c>in_process</c>, because every manifest written before
+    /// this field existed means that, and re-issuing sixteen of them to say so
+    /// would be churn that proves nothing.
+    /// </summary>
+    private FeatureArchitecture ReadArchitecture(JsonElement root)
+    {
+        var declared = OptionalString(root, "architecture");
+
+        if (declared is null)
+        {
+            return FeatureArchitecture.InProcess;
+        }
+
+        return declared switch
+        {
+            "in_process" => FeatureArchitecture.InProcess,
+            "external_service" => FeatureArchitecture.ExternalService,
+            _ => FailArchitecture(declared),
+        };
+    }
+
+    private FeatureArchitecture FailArchitecture(string declared)
+    {
+        Fail(
+            "$.architecture",
+            $"'{declared}' is not an architecture KNIGHT can deliver. Use one of: in_process, external_service.");
+
+        return FeatureArchitecture.InProcess;
+    }
+
+    /// <summary>
+    /// Refuses the blocks that only mean something for code the store runs.
+    ///
+    /// The same rule, and the same reason, as a Django Feature carrying a
+    /// <c>node:</c> block: it is an author who has copied a manifest, and it is
+    /// cheaper to say so at publish than to deliver something the store will
+    /// half-read. A <c>migrations:</c> block on a Feature with no database
+    /// access is the most dangerous of these, because it reads like a promise
+    /// that something will be migrated.
+    /// </summary>
+    private void RefuseInProcessBlocks(JsonElement root)
+    {
+        foreach (var name in new[] { "django", "node", "dotnet", "runtime", "migrations", "install", "dependencies", "workers" })
+        {
+            if (root.TryGetProperty(name, out _))
+            {
+                Fail(
+                    $"$.{name}",
+                    $"This Feature is an external service, so it must not carry a '{name}' block: the store runs none of its code.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// The service, its events, its routes and its screens.
+    ///
+    /// Validated as hard as the in-process blocks are, and for the same reason:
+    /// every one of these ends up as a route a shopper can reach or a request a
+    /// store makes on its own behalf. A prefix that collides with the store's
+    /// own API, a method list containing DELETE by accident, an http origin
+    /// carrying customer data - all of them are cheaper to refuse here than to
+    /// find in production.
+    /// </summary>
+    private ExternalServiceContract? ReadExternalService(JsonElement root)
+    {
+        if (!TryGetObject(root, "service", out var service))
+        {
+            Fail("$.service", "An external Feature must say where its service is.");
+            return null;
+        }
+
+        var endpoint = ReadServiceEndpoint(service);
+        var webhooks = ReadWebhooks(root);
+        var proxies = ReadApiProxies(root);
+        var mounts = ReadUiMounts(root);
+
+        if (webhooks.Count == 0 && proxies.Count == 0 && mounts.Count == 0)
+        {
+            // A Feature that subscribes to nothing, serves nothing and shows
+            // nothing is a Feature a store would install and never notice. It is
+            // almost certainly a manifest somebody has not finished.
+            Fail(
+                "$",
+                "An external Feature must declare at least one of 'webhooks', 'api_proxies' or 'ui_mounts'; " +
+                "otherwise installing it does nothing at all.");
+        }
+
+        return endpoint is null ? null : new ExternalServiceContract(endpoint, webhooks, proxies, mounts);
+    }
+
+    private ServiceEndpoint? ReadServiceEndpoint(JsonElement service)
+    {
+        var baseUrl = RequireString(service, "base_url", "$.service.base_url");
+        Uri? parsed = null;
+
+        if (baseUrl is not null && (!Uri.TryCreate(baseUrl, UriKind.Absolute, out parsed)
+            || parsed.Scheme is not ("http" or "https")))
+        {
+            Fail("$.service.base_url", $"'{baseUrl}' is not an absolute http or https URL.");
+            parsed = null;
+        }
+
+        var authentication = ServiceAuthentication.HmacSha256;
+        var declaredAuth = OptionalString(service, "auth");
+
+        if (declaredAuth is not null)
+        {
+            authentication = declaredAuth switch
+            {
+                "hmac-sha256" => ServiceAuthentication.HmacSha256,
+                "bearer-token" => ServiceAuthentication.BearerToken,
+                _ => FailAuthentication(declaredAuth),
+            };
+        }
+
+        var health = OptionalString(service, "health") ?? "/health";
+
+        if (!health.StartsWith('/'))
+        {
+            Fail("$.service.health", $"'{health}' must be a path beginning with '/'.");
+        }
+
+        // A name, never a value. This manifest is public, signed and kept in a
+        // catalogue; a secret in it is a secret in every copy of it for ever.
+        var secretName = OptionalString(service, "secret") ?? "KNIGHT_SERVICE_SECRET";
+
+        if (!IsPythonIdentifier(secretName.Replace("-", "_")))
+        {
+            Fail("$.service.secret", $"'{secretName}' is not a valid secret name.");
+        }
+
+        return parsed is null ? null : new ServiceEndpoint(parsed, authentication, health, secretName);
+    }
+
+    private ServiceAuthentication FailAuthentication(string declared)
+    {
+        Fail("$.service.auth", $"'{declared}' is not an authentication KNIGHT knows. Use one of: hmac-sha256, bearer-token.");
+        return ServiceAuthentication.HmacSha256;
+    }
+
+    private IReadOnlyList<WebhookSubscription> ReadWebhooks(JsonElement root)
+    {
+        if (!root.TryGetProperty("webhooks", out var list))
+        {
+            return [];
+        }
+
+        if (list.ValueKind is not JsonValueKind.Array)
+        {
+            Fail("$.webhooks", "'webhooks' must be a list.");
+            return [];
+        }
+
+        var subscriptions = new List<WebhookSubscription>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var index = 0;
+
+        foreach (var entry in list.EnumerateArray())
+        {
+            var path = $"$.webhooks[{index++}]";
+
+            if (entry.ValueKind is not JsonValueKind.Object)
+            {
+                Fail(path, "Each webhook must be an object.");
+                continue;
+            }
+
+            var name = RequireString(entry, "event", $"{path}.event");
+            var target = RequireString(entry, "path", $"{path}.path");
+
+            if (name is not null && !IsEventName(name))
+            {
+                Fail($"{path}.event", $"'{name}' is not a valid event name. Use dotted lower-case names such as 'order.placed'.");
+            }
+
+            // Two subscriptions to one event would have the store deliver it
+            // twice to the same service, which looks to the service exactly like
+            // a retry and is not one.
+            if (name is not null && !seen.Add(name))
+            {
+                Fail($"{path}.event", $"'{name}' is subscribed to twice.");
+            }
+
+            if (target is not null && !target.StartsWith('/'))
+            {
+                Fail($"{path}.path", $"'{target}' must be a path beginning with '/'.");
+            }
+
+            var delivery = WebhookDelivery.AtLeastOnce;
+            var declared = OptionalString(entry, "delivery");
+
+            if (declared is not null)
+            {
+                delivery = declared switch
+                {
+                    "at-least-once" => WebhookDelivery.AtLeastOnce,
+                    "at-most-once" => WebhookDelivery.AtMostOnce,
+                    _ => FailDelivery($"{path}.delivery", declared),
+                };
+            }
+
+            if (name is not null && target is not null)
+            {
+                subscriptions.Add(new WebhookSubscription(name, target, delivery));
+            }
+        }
+
+        return subscriptions;
+    }
+
+    private WebhookDelivery FailDelivery(string path, string declared)
+    {
+        Fail(path, $"'{declared}' is not a delivery KNIGHT knows. Use one of: at-least-once, at-most-once.");
+        return WebhookDelivery.AtLeastOnce;
+    }
+
+    /// <summary>Methods a store will forward. Closed, and deliberately not including TRACE or CONNECT.</summary>
+    private static readonly string[] ProxyableMethods = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
+
+    private IReadOnlyList<ApiProxyRoute> ReadApiProxies(JsonElement root)
+    {
+        if (!root.TryGetProperty("api_proxies", out var list))
+        {
+            return [];
+        }
+
+        if (list.ValueKind is not JsonValueKind.Array)
+        {
+            Fail("$.api_proxies", "'api_proxies' must be a list.");
+            return [];
+        }
+
+        var routes = new List<ApiProxyRoute>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var index = 0;
+
+        foreach (var entry in list.EnumerateArray())
+        {
+            var path = $"$.api_proxies[{index++}]";
+
+            if (entry.ValueKind is not JsonValueKind.Object)
+            {
+                Fail(path, "Each proxy route must be an object.");
+                continue;
+            }
+
+            var prefix = RequireString(entry, "prefix", $"{path}.prefix");
+            var upstream = OptionalString(entry, "upstream") ?? "/";
+
+            if (prefix is not null && !IsRoutePrefix(prefix))
+            {
+                Fail(
+                    $"{path}.prefix",
+                    $"'{prefix}' is not a valid route prefix. Use lower-case segments ending in '/', such as 'subscriptions/'.");
+            }
+
+            if (prefix is not null && !seen.Add(prefix))
+            {
+                Fail($"{path}.prefix", $"'{prefix}' is claimed twice.");
+            }
+
+            if (!upstream.StartsWith('/'))
+            {
+                Fail($"{path}.upstream", $"'{upstream}' must be a path beginning with '/'.");
+            }
+
+            var methods = ReadMethods(entry, path);
+            var identity = ProxyIdentity.Anonymous;
+            var declared = OptionalString(entry, "identity");
+
+            if (declared is not null)
+            {
+                identity = declared switch
+                {
+                    "anonymous" => ProxyIdentity.Anonymous,
+                    "customer" => ProxyIdentity.Customer,
+                    "staff" => ProxyIdentity.Staff,
+                    _ => FailIdentity($"{path}.identity", declared),
+                };
+            }
+
+            if (prefix is not null)
+            {
+                routes.Add(new ApiProxyRoute(prefix, upstream, methods, identity));
+            }
+        }
+
+        return routes;
+    }
+
+    private IReadOnlyList<string> ReadMethods(JsonElement entry, string path)
+    {
+        if (!entry.TryGetProperty("methods", out var list))
+        {
+            // Read-only by default. A route that acquires a DELETE because
+            // nobody wrote a list is the failure this default exists to avoid.
+            return ["GET"];
+        }
+
+        if (list.ValueKind is not JsonValueKind.Array)
+        {
+            Fail($"{path}.methods", "'methods' must be a list.");
+            return ["GET"];
+        }
+
+        var methods = new List<string>();
+
+        foreach (var value in list.EnumerateArray())
+        {
+            if (value.ValueKind is not JsonValueKind.String)
+            {
+                Fail($"{path}.methods", "Each method must be a string.");
+                continue;
+            }
+
+            var method = value.GetString()!.ToUpperInvariant();
+
+            if (!ProxyableMethods.Contains(method))
+            {
+                Fail($"{path}.methods", $"'{method}' is not a method a store will forward. Use one of: {string.Join(", ", ProxyableMethods)}.");
+                continue;
+            }
+
+            methods.Add(method);
+        }
+
+        return methods.Count == 0 ? ["GET"] : methods;
+    }
+
+    private ProxyIdentity FailIdentity(string path, string declared)
+    {
+        Fail(path, $"'{declared}' is not an identity KNIGHT knows. Use one of: anonymous, customer, staff.");
+        return ProxyIdentity.Anonymous;
+    }
+
+    private IReadOnlyList<UiMount> ReadUiMounts(JsonElement root)
+    {
+        if (!root.TryGetProperty("ui_mounts", out var list))
+        {
+            return [];
+        }
+
+        if (list.ValueKind is not JsonValueKind.Array)
+        {
+            Fail("$.ui_mounts", "'ui_mounts' must be a list.");
+            return [];
+        }
+
+        var mounts = new List<UiMount>();
+        var index = 0;
+
+        foreach (var entry in list.EnumerateArray())
+        {
+            var path = $"$.ui_mounts[{index++}]";
+
+            if (entry.ValueKind is not JsonValueKind.Object)
+            {
+                Fail(path, "Each UI mount must be an object.");
+                continue;
+            }
+
+            var slot = RequireString(entry, "slot", $"{path}.slot");
+            var label = RequireString(entry, "label", $"{path}.label");
+            var target = RequireString(entry, "path", $"{path}.path");
+
+            if (slot is not null && !IsEventName(slot))
+            {
+                Fail($"{path}.slot", $"'{slot}' is not a valid slot. Use dotted lower-case names such as 'admin.sidebar'.");
+            }
+
+            if (target is not null && !target.StartsWith('/'))
+            {
+                Fail($"{path}.path", $"'{target}' must be a path beginning with '/'.");
+            }
+
+            var kind = UiMountKind.Iframe;
+            var declared = OptionalString(entry, "kind");
+
+            if (declared is not null)
+            {
+                kind = declared switch
+                {
+                    "iframe" => UiMountKind.Iframe,
+                    "redirect" => UiMountKind.Redirect,
+                    _ => FailMountKind($"{path}.kind", declared),
+                };
+            }
+
+            if (slot is not null && label is not null && target is not null)
+            {
+                mounts.Add(new UiMount(slot, label, target, kind));
+            }
+        }
+
+        return mounts;
+    }
+
+    private UiMountKind FailMountKind(string path, string declared)
+    {
+        Fail(path, $"'{declared}' is not a mount kind KNIGHT knows. Use one of: iframe, redirect.");
+        return UiMountKind.Iframe;
+    }
+
+    /// <summary>A dotted lower-case name: <c>order.placed</c>, <c>admin.sidebar</c>.</summary>
+    private static bool IsEventName(string value) =>
+        value.Length is > 0 and <= 100
+        && value == value.ToLowerInvariant()
+        && value.Split('.').All(segment =>
+            segment.Length > 0
+            && char.IsAsciiLetterLower(segment[0])
+            && segment.All(character => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character) || character is '_'));
+
+    /// <summary>
+    /// A route prefix: lower-case segments, a trailing slash, no traversal.
+    ///
+    /// It becomes a route in the store's own URL space, so a prefix containing
+    /// <c>..</c> or a leading slash would be a Feature claiming somewhere it was
+    /// not given.
+    /// </summary>
+    private static bool IsRoutePrefix(string value) =>
+        value.Length is > 1 and <= 200
+        && value.EndsWith('/')
+        && !value.StartsWith('/')
+        && !value.Contains("..", StringComparison.Ordinal)
+        && value.TrimEnd('/').Split('/').All(segment =>
+            segment.Length > 0
+            && char.IsAsciiLetterLower(segment[0])
+            && segment.All(character => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character) || character is '-' or '_'));
+
     private FeatureRuntime ReadRuntimeName(JsonElement root)
     {
         var declared = OptionalString(root, "runtime");

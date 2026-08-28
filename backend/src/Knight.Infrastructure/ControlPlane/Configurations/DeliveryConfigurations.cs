@@ -105,6 +105,14 @@ internal sealed class FeatureInstallationConfiguration : IEntityTypeConfiguratio
 
         builder.Property(i => i.FeatureSlug).HasMaxLength(100).IsRequired();
         builder.Property(i => i.State).HasConversion<string>().HasMaxLength(20).IsRequired();
+
+        // Stored as its name, like every other enum here, and defaulted for the
+        // rows written before the second architecture existed.
+        builder.Property(i => i.Architecture)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .HasDefaultValue(DeliveryArchitecture.InProcess)
+            .IsRequired();
         builder.Property(i => i.InstalledVersion).HasMaxLength(50);
         builder.Property(i => i.TargetVersion).HasMaxLength(50);
         builder.Property(i => i.PreviousVersion).HasMaxLength(50);
@@ -159,6 +167,16 @@ internal sealed class FeatureInstallationJobConfiguration : IEntityTypeConfigura
         builder.Property(j => j.FailureMessage).HasMaxLength(2000);
         builder.Property(j => j.RollbackOutcome).HasConversion<string>().HasMaxLength(30).IsRequired();
         builder.Property(j => j.Trigger).HasConversion<string>().HasMaxLength(20).IsRequired();
+
+        // Stored as its name, like every other enum here: a delivery pipeline
+        // read out of a database by a person during an incident should say
+        // "ExternalService" rather than "1". Defaulted for the rows written
+        // before the second architecture existed.
+        builder.Property(j => j.Architecture)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .HasDefaultValue(DeliveryArchitecture.InProcess)
+            .IsRequired();
 
         builder.Ignore(j => j.CompletedStepCount);
         builder.Ignore(j => j.IsFinished);

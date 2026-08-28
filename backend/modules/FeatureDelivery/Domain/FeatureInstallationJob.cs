@@ -99,6 +99,20 @@ public sealed class FeatureInstallationJob : AuditableEntity, ICustomerOwned
 
     public int TotalStepCount { get; private set; }
 
+    /// <summary>
+    /// Whether this job delivers code into the store or a configuration to it.
+    ///
+    /// It decides which steps the job has, so it is on the job rather than
+    /// looked up from the version each time something asks: a job that was
+    /// queued under one pipeline must keep the step list it was queued with,
+    /// even if the Feature is republished under the other architecture while it
+    /// is in flight (adr/0033).
+    ///
+    /// Defaulted to in-process, so every job row written before this existed
+    /// still reads correctly.
+    /// </summary>
+    public DeliveryArchitecture Architecture { get; private set; }
+
     private FeatureInstallationJob()
     {
         FeatureSlug = string.Empty;
@@ -139,6 +153,7 @@ public sealed class FeatureInstallationJob : AuditableEntity, ICustomerOwned
         Trigger = trigger;
         MaxAttempts = maxAttempts;
         TotalStepCount = totalStepCount;
+        Architecture = DeliveryArchitecture.InProcess;
         QueuedAt = createdAt;
         State = JobState.Queued;
         RollbackOutcome = RollbackOutcome.NotAttempted;
@@ -160,7 +175,8 @@ public sealed class FeatureInstallationJob : AuditableEntity, ICustomerOwned
         Guid requestedBy,
         JobTrigger trigger,
         int maxAttempts = 3,
-        string? traceParent = null)
+        string? traceParent = null,
+        DeliveryArchitecture architecture = DeliveryArchitecture.InProcess)
     {
         if (type is not JobType.Uninstall && string.IsNullOrWhiteSpace(targetVersion))
         {
@@ -188,8 +204,9 @@ public sealed class FeatureInstallationJob : AuditableEntity, ICustomerOwned
             requestedBy,
             trigger,
             maxAttempts,
-            JobPipeline.StepsFor(type).Count)
+            JobPipeline.StepsFor(type, architecture).Count)
         {
+            Architecture = architecture,
             // Length-capped: a traceparent is a fixed 55-character header, and
             // anything longer did not come from a tracing library.
             TraceParent = string.IsNullOrWhiteSpace(traceParent) || traceParent.Length > 64
@@ -247,7 +264,7 @@ public sealed class FeatureInstallationJob : AuditableEntity, ICustomerOwned
 
         var name = RequireText(stepName, "step name", 100);
 
-        if (!JobPipeline.StepsFor(Type).Contains(name, StringComparer.Ordinal))
+        if (!JobPipeline.StepsFor(Type, Architecture).Contains(name, StringComparer.Ordinal))
         {
             throw DomainException.Validation($"'{name}' is not a step of a {Type} job.");
         }
@@ -376,7 +393,7 @@ public sealed class FeatureInstallationJob : AuditableEntity, ICustomerOwned
     /// </summary>
     public string? NextStep()
     {
-        foreach (var step in JobPipeline.StepsFor(Type))
+        foreach (var step in JobPipeline.StepsFor(Type, Architecture))
         {
             var recorded = _steps.Find(item => string.Equals(item.Name, step, StringComparison.Ordinal));
 
@@ -518,7 +535,61 @@ public static class JobPipeline
     /// </summary>
     private static readonly string[] RollbackSteps = [ReverseMigrate, RestorePackage, Configure, Reload, HealthCheck];
 
-    public static IReadOnlyList<string> StepsFor(JobType type) => type switch
+    // --- The external-service pipelines ------------------------------------
+    //
+    // Deliberately built from the verbs that already exist rather than from new
+    // ones. `install` means "make this Feature present in this store", and for a
+    // service that is registering its webhooks and wiring its proxy routes -
+    // the same relationship every runtime already has to the same verb, where
+    // Django unpacks a Python distribution and node unpacks an npm package
+    // (adr/0032 §3, adr/0033 §4).
+    //
+    // Not adding verbs is the whole reason this pivot does not break the three
+    // agents. A store that meets an unknown step refuses the job, and phase 20
+    // found the node store had been missing three of them for three phases
+    // without anybody noticing. Every step below is one all three agents
+    // already implement.
+
+    /// <summary>
+    /// No backup, no extensions, no migrate, no reload.
+    ///
+    /// Each absence is a fact about the architecture rather than a shortcut.
+    /// There is no package to back up, no database to create an extension in,
+    /// no schema to migrate, and nothing loaded into the store's process that a
+    /// restart would replace.
+    /// </summary>
+    private static readonly string[] ExternalInstallSteps =
+        [Preflight, Fetch, Verify, Configure, Install, Enable, HealthCheck];
+
+    /// <summary>
+    /// Restoring the previous configuration and re-applying it.
+    ///
+    /// The rollback that mattered for code - reverse the migrations before
+    /// putting the old package back - has no counterpart here, because there is
+    /// nothing in the store's database to reverse. That is the single largest
+    /// operational difference between the two architectures.
+    /// </summary>
+    private static readonly string[] ExternalRollbackSteps =
+        [RestorePackage, Configure, Install, Enable, HealthCheck];
+
+    private static readonly string[] ExternalUninstallSteps = [Disable, RemovePackage];
+
+    private static readonly string[] ExternalConfigurationSteps = [Configure, Install, HealthCheck];
+
+    private static readonly string[] ExternalEnableSteps = [Enable, HealthCheck];
+
+    private static readonly string[] ExternalDisableSteps = [Disable];
+
+    /// <summary>
+    /// The steps for a job, which depend on what is being delivered as well as
+    /// on what is being done.
+    /// </summary>
+    public static IReadOnlyList<string> StepsFor(JobType type, DeliveryArchitecture architecture = DeliveryArchitecture.InProcess) =>
+        architecture is DeliveryArchitecture.ExternalService
+            ? ExternalStepsFor(type)
+            : InProcessStepsFor(type);
+
+    private static IReadOnlyList<string> InProcessStepsFor(JobType type) => type switch
     {
         JobType.Install or JobType.Upgrade => InstallSteps,
         JobType.ApplyConfiguration => ConfigurationSteps,
@@ -526,6 +597,17 @@ public static class JobPipeline
         JobType.Disable => DisableSteps,
         JobType.Uninstall => UninstallSteps,
         JobType.Rollback => RollbackSteps,
+        _ => throw DomainException.Validation($"'{type}' is not a known job type."),
+    };
+
+    private static IReadOnlyList<string> ExternalStepsFor(JobType type) => type switch
+    {
+        JobType.Install or JobType.Upgrade => ExternalInstallSteps,
+        JobType.ApplyConfiguration => ExternalConfigurationSteps,
+        JobType.Enable => ExternalEnableSteps,
+        JobType.Disable => ExternalDisableSteps,
+        JobType.Uninstall => ExternalUninstallSteps,
+        JobType.Rollback => ExternalRollbackSteps,
         _ => throw DomainException.Validation($"'{type}' is not a known job type."),
     };
 
@@ -541,4 +623,18 @@ public static class JobPipeline
     public static bool TouchesDatabase(string step) =>
         string.Equals(step, Migrate, StringComparison.Ordinal) ||
         string.Equals(step, ReverseMigrate, StringComparison.Ordinal);
+}
+
+/// <summary>
+/// What a job is delivering: code the store runs, or configuration it acts on.
+///
+/// The delivery module's own copy of the registry's <c>FeatureArchitecture</c>.
+/// Duplicated rather than shared because modules do not reference their
+/// siblings — the same reason <c>StoreCompatibilityContext</c> reduces hosting
+/// to a boolean rather than importing the Stores module.
+/// </summary>
+public enum DeliveryArchitecture
+{
+    InProcess = 0,
+    ExternalService = 1,
 }

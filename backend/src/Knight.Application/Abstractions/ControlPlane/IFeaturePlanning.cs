@@ -25,7 +25,17 @@ public sealed record FeaturePlanStep(
     bool MigrationsRequired,
     bool MigrationsReversible,
     int MigrationSeconds,
-    bool RequiresRestart)
+    bool RequiresRestart,
+
+    /// <summary>
+    /// Whether carrying this step out delivers code into the store or a
+    /// configuration to it.
+    ///
+    /// Carried on the step because the job is queued from it, and the job's step
+    /// list depends on it. Plain data like everything else here — the manifest
+    /// itself never crosses this boundary (adr/0033).
+    /// </summary>
+    bool IsExternalService = false)
 {
     public bool IsActionable => Action is FeaturePlanAction.Install or FeaturePlanAction.Upgrade;
 }

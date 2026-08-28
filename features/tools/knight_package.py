@@ -393,9 +393,71 @@ def _sources(feature_dir: Path, manifest: dict) -> tuple[str, Path, list[Path]]:
     return runtime, source, files
 
 
+#: The keys of the configuration document an external Feature is delivered as.
+#:
+#: Copied straight out of the manifest rather than transformed, so that what a
+#: store receives and what an author wrote are the same words. The document is
+#: what gets signed, so anything this tool invented on the way would be a thing
+#: KNIGHT vouched for and nobody wrote.
+EXTERNAL_KEYS = ("service", "webhooks", "api_proxies", "ui_mounts", "configuration")
+
+
+def build_external(feature_dir: Path, dist: Path) -> Path:
+    """
+    Writes an external Feature's signed configuration document.
+
+    No archive, because there is no code: the store runs none of this Feature
+    and its database never hears about it. What it needs is a list of the events
+    to forward, the routes to proxy and the screens to hang - and that is a JSON
+    document, so that is what gets built, hashed and signed
+    (docs/adr/0033-api-driven-features.md).
+
+    Everything downstream is unchanged and that is the point. The digest is over
+    these bytes exactly as it was over an archive's, the signature is over the
+    digest, and the store fetches and verifies before it acts. Skipping the
+    signature because "it is only configuration" would mean a store wiring a
+    proxy to whatever host answered the download URL.
+
+    Deterministic for the same reason the zip is: sorted keys, no incidental
+    whitespace, so building the same manifest twice produces the same digest and
+    "is this the document published from that commit" is a question with an
+    answer.
+    """
+    manifest = load_manifest(feature_dir)
+    slug = manifest["slug"]
+    version = str(manifest["version"])
+
+    document = {
+        "apiVersion": manifest.get("apiVersion"),
+        "architecture": "external_service",
+        "slug": slug,
+        "version": version,
+        "name": manifest.get("name"),
+    }
+
+    for key in EXTERNAL_KEYS:
+        if key in manifest:
+            document[key] = manifest[key]
+
+    if not any(document.get(key) for key in ("webhooks", "api_proxies", "ui_mounts")):
+        raise SystemExit(
+            f"{slug} declares no webhooks, api_proxies or ui_mounts, so installing it would do nothing."
+        )
+
+    dist.mkdir(parents=True, exist_ok=True)
+    artifact = dist / f"{slug}-{version}.json"
+    artifact.write_bytes(json.dumps(document, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+
+    print(f"Built {artifact} ({artifact.stat().st_size} bytes, configuration only - no code)")
+    return artifact
+
+
 def build(feature_dir: Path, dist: Path) -> Path:
     """
-    Packs the feature's source into a deterministic zip.
+    Packs the feature's source into a deterministic zip, or writes its
+    configuration document when the Feature is a service rather than a package.
+
+    Deterministic on purpose: entries are sorted and timestamps are fixed, so
 
     Deterministic on purpose: entries are sorted and timestamps are fixed, so
     building the same source twice produces the same bytes and therefore the same
@@ -406,6 +468,10 @@ def build(feature_dir: Path, dist: Path) -> Path:
     does - see LAYOUTS.
     """
     manifest = load_manifest(feature_dir)
+
+    if str(manifest.get("architecture") or "in_process") == "external_service":
+        return build_external(feature_dir, dist)
+
     slug = manifest["slug"]
     version = str(manifest["version"])
     runtime, source, extras = _sources(feature_dir, manifest)

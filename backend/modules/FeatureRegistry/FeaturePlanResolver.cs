@@ -133,5 +133,6 @@ internal sealed class FeaturePlanResolver : IFeaturePlanResolver
         step.MigrationsRequired,
         step.MigrationsReversible,
         step.MigrationSeconds,
-        step.RequiresRestart);
+        step.RequiresRestart,
+        step.IsExternalService);
 }

@@ -153,8 +153,29 @@ public sealed class FeatureInstallation : AuditableEntity, ICustomerOwned
     //
     // Everything not drawn there is rejected below.
 
+    /// <summary>
+    /// Whether this Feature is code in the store or a service it talks to.
+    ///
+    /// Recorded here as well as on each job because the small jobs — enable,
+    /// disable, uninstall, rollback — have no plan to read it from. An
+    /// installation is the store's record of what this Feature *is*, so it is
+    /// the right place for the one fact that decides which steps those jobs get
+    /// (adr/0033).
+    ///
+    /// Set by the install that put the Feature there, and left alone
+    /// afterwards. It changes only if the Feature is republished under the
+    /// other architecture and installed again, which is a new install rather
+    /// than an upgrade.
+    /// </summary>
+    public DeliveryArchitecture Architecture { get; private set; }
+
     /// <summary>Accepts a queued install or upgrade job and records what it is aiming at.</summary>
-    public void QueueJob(Guid jobId, Guid targetVersionId, string targetVersion, DateTimeOffset now)
+    public void QueueJob(
+        Guid jobId,
+        Guid targetVersionId,
+        string targetVersion,
+        DateTimeOffset now,
+        DeliveryArchitecture? architecture = null)
     {
         if (State is not (InstallationState.NotInstalled or InstallationState.Installed or
             InstallationState.Disabled or InstallationState.Failed))
@@ -173,6 +194,15 @@ public sealed class FeatureInstallation : AuditableEntity, ICustomerOwned
         TargetVersionId = targetVersionId;
         TargetVersion = targetVersion;
         State = InstallationState.Pending;
+
+        // Only when the caller knows. A rollback re-queues against the same
+        // installation and has no plan to read this from, and overwriting it
+        // with a default there would make the rollback's own steps wrong.
+        if (architecture is { } declared)
+        {
+            Architecture = declared;
+        }
+
         ClearFailure();
         MarkUpdated(now);
     }

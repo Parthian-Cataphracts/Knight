@@ -424,4 +424,111 @@ public sealed class FeatureInstallationJobTests
         Assert.DoesNotContain(JobPipeline.CreateExtensions, JobPipeline.StepsFor(JobType.Rollback));
         Assert.DoesNotContain(JobPipeline.CreateExtensions, JobPipeline.StepsFor(JobType.Uninstall));
     }
+
+    // --- Delivering a service rather than a package -------------------------
+
+    [Fact]
+    public void AnExternalServiceInstallNeitherMigratesNorBacksUpNorReloads()
+    {
+        var steps = JobPipeline.StepsFor(JobType.Install, DeliveryArchitecture.ExternalService);
+
+        // Each absence is a fact about the architecture rather than a shortcut:
+        // no package to back up, no database to add an extension to, no schema
+        // to migrate, and nothing loaded into the store's process that a restart
+        // would replace (adr/0033).
+        Assert.DoesNotContain(JobPipeline.Backup, steps);
+        Assert.DoesNotContain(JobPipeline.CreateExtensions, steps);
+        Assert.DoesNotContain(JobPipeline.Migrate, steps);
+        Assert.DoesNotContain(JobPipeline.Reload, steps);
+    }
+
+    [Fact]
+    public void NoExternalPipelineNamesAVerbTheInProcessOneDoesNot()
+    {
+        var known = new[]
+        {
+            JobType.Install, JobType.Upgrade, JobType.Rollback,
+            JobType.Enable, JobType.Disable, JobType.Uninstall, JobType.ApplyConfiguration,
+        };
+
+        var vocabulary = known
+            .SelectMany(type => JobPipeline.StepsFor(type, DeliveryArchitecture.InProcess))
+            .Distinct(StringComparer.Ordinal)
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var type in known)
+        {
+            foreach (var step in JobPipeline.StepsFor(type, DeliveryArchitecture.ExternalService))
+            {
+                // The whole reason this pivot does not break the three store
+                // agents. A store that meets an unknown step refuses the job,
+                // and phase 20 found the node store had been missing three
+                // verbs for three phases without anybody noticing. Adding a new
+                // one here would have broken every store on the day it shipped.
+                Assert.True(
+                    vocabulary.Contains(step),
+                    $"The external pipeline for {type} names '{step}', which no store has ever been asked to perform.");
+            }
+        }
+    }
+
+    [Fact]
+    public void AnExternalServiceRollbackHasNothingToReverse()
+    {
+        var steps = JobPipeline.StepsFor(JobType.Rollback, DeliveryArchitecture.ExternalService);
+
+        // The single largest operational difference between the two
+        // architectures. The rollback that mattered for code — reverse the
+        // migrations before restoring the package — has no counterpart, because
+        // there is nothing in the store's database to reverse.
+        Assert.DoesNotContain(JobPipeline.ReverseMigrate, steps);
+        Assert.Contains(JobPipeline.RestorePackage, steps);
+    }
+
+    [Fact]
+    public void TheStepCountAJobReportsAgainstIsItsOwnPipelines()
+    {
+        var external = Queue(JobType.Install, DeliveryArchitecture.ExternalService);
+        var inProcess = Queue(JobType.Install, DeliveryArchitecture.InProcess);
+
+        // A job counting eleven steps while running seven would show a progress
+        // bar that never finishes, on every external install, for ever.
+        Assert.Equal(
+            JobPipeline.StepsFor(JobType.Install, DeliveryArchitecture.ExternalService).Count,
+            external.TotalStepCount);
+
+        Assert.NotEqual(inProcess.TotalStepCount, external.TotalStepCount);
+    }
+
+    [Fact]
+    public void AJobRefusesAStepItsOwnPipelineDoesNotName()
+    {
+        var job = Queue(JobType.Install, DeliveryArchitecture.ExternalService);
+        job.Claim(Now, ClaimTimeout);
+
+        // `migrate` is a real verb and a real step of the *other* pipeline. An
+        // external job reporting it would be a store that had run a migration
+        // for a Feature with no schema, and KNIGHT should not record that as
+        // having happened.
+        Assert.Throws<DomainException>(() =>
+            job.ReportStep(JobPipeline.Migrate, StepStatus.Succeeded, Now));
+    }
+
+    private static FeatureInstallationJob Queue(JobType type, DeliveryArchitecture architecture) =>
+        FeatureInstallationJob.Queue(
+            Guid.CreateVersion7(),
+            Now,
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            "subscriptions",
+            type,
+            Guid.CreateVersion7(),
+            "2.0.0",
+            $"{type}:{Guid.NewGuid():n}",
+            Guid.NewGuid().ToString("n"),
+            Guid.CreateVersion7(),
+            JobTrigger.Manual,
+            architecture: architecture);
 }
