@@ -49,6 +49,8 @@ def sign(secret: str, method: str, path: str, body: bytes = b"") -> dict[str, st
     Returns the headers rather than mutating a request object, so the same
     function serves the proxy, the webhook sender and anything written later.
     """
+    from ..conf import get_settings
+
     timestamp = str(int(time.time()))
     nonce = uuid.uuid4().hex
     message = canonical_string(method, path, timestamp, nonce, body)
@@ -56,6 +58,12 @@ def sign(secret: str, method: str, path: str, body: bytes = b"") -> dict[str, st
     signature = hmac.new(secret.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).hexdigest()
 
     return {
+        # Which store this is, by the id KNIGHT issued rather than by a slug a
+        # merchant can rename. It is set here rather than by each caller so that
+        # a new caller cannot forget it — and one did: both the proxy and the
+        # delivery worker were sending the *Feature's* slug, which is a name the
+        # service has no reason to know a store by.
+        "X-Knight-Store": get_settings().store_id,
         "X-Knight-Timestamp": timestamp,
         "X-Knight-Nonce": nonce,
         "X-Knight-Signature": f"sha256={signature}",

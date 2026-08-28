@@ -56,6 +56,13 @@ jobs:
           pip install -r stores/reference-store/requirements.txt
           pip install cryptography
 
+      # The service the drill delivers an event to. Installed here rather than
+      # run from an image, because the drill starts and stops it — the phase's
+      # gate is that an event survives the service being down, and that needs a
+      # process this run can kill.
+      - name: Install the subscriptions service
+        run: pip install -r services/subscriptions/requirements.txt
+
       # A pair generated here rather than carried in as a repository secret.
       # Nothing about this run needs a key anybody else has ever seen, and a
       # shared credential in a workflow whose whole point is that it starts from

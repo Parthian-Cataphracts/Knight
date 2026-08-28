@@ -77,6 +77,7 @@ Read in this order:
 15. [`migration-plan.md`](migration-plan.md) — how to get from the current repo to the target
 16. [`risks.md`](risks.md) — open risks, contradictions, unresolved decisions
 17. [`roadmap.md`](roadmap.md) — the whole remaining trajectory: seven phases to production, every open item classified, and the decisions that are the product owner's
+18. [`phase-23-verification.md`](phase-23-verification.md) — the live service layer, and the six defects that only two processes disagreeing could show
 17. [`development.md`](development.md) — how to run, test, and contribute
 18. [`phase-3-verification.md`](phase-3-verification.md) — the exact steps to bring KNIGHT, a store and the dashboard up together and see the link work
 19. [`phase-11-verification.md`](phase-11-verification.md) — the exact steps to install KNIGHT on a server and prove it did not disturb anything else on it

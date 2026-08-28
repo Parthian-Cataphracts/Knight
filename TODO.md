@@ -11,8 +11,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 22 complete — a Feature may be a service the store talks to.** `architecture:` joins `runtime:` as a discriminator; KNIGHT signs and delivers a configuration document instead of an archive, and all three agents register rather than unpack. Nothing that worked before stopped |
-| **Next phase** | **Phase 23 — the live service layer.** The whole remaining trajectory is now in [`docs/roadmap.md`](docs/roadmap.md): seven phases, 53 open items classified, and the five decisions that are the product owner's rather than mine |
+| **Current phase** | **Phase 23 — the live service layer. Complete.** An order placed in the reference store reaches a running subscriptions service, and a request to the store comes back from it. Six defects found, every one of them invisible until two processes had to agree about a signature |
+| **Next phase** | **Phase 24 — secrets, identity and rotation.** The shared secret is set by hand today, which is right for one store and an incident at ten. See [`docs/roadmap.md`](docs/roadmap.md) for the seven phases and the five decisions that are the product owner's |
 | **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **819 backend tests green** (646 unit, 13 architecture, 160 PostgreSQL-backed integration), plus **775 store tests with nothing skipped**, the same 775 passing with no Feature installed at all, 14 node-store tests, and 9 dashboard — and, since phase 19, **the delivery drill itself**, which is the only thing here that runs the path a customer travels |
 | **Blocking decisions** | R26 is **answered**: a Feature is publishable for any of three runtimes, and since phase 22 an `external_service` Feature needs no runtime at all. What is left is five decisions only the product owner can make, listed in [`docs/roadmap.md`](docs/roadmap.md) §7 — where the service code lives, the hosting platform, engaging the security reviewer (longest lead time, R16 stays open until it happens), Phonix access, and backup custody |
 
@@ -47,6 +47,7 @@ Phase 19   The delivery drill runs itself  ██████████ 100%
 Phase 20   Second runtime, and the refusals ██████████ 100%
 Phase 21   A third runtime, and two real stores ███████░░░  70%
 Phase 22   Features as services              ██████████ 100%
+Phase 23   The live service layer          ██████████ 100%
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -1685,6 +1686,85 @@ Carried, and each of them written down rather than implied:
       delivery is not deprecated by this: it is still the right answer for
       anything that must be inside the store's transaction, and there is no way
       to be inside a transaction over HTTP
+
+---
+
+## Phase 23 — The live service layer ✅
+
+**Exit criteria:** an order placed in the reference store is received by a real
+subscriptions service, and a merchant's request reaches that service through the
+store's proxy and comes back — both over the real delivery path, asserted by the
+drill. **Met.**
+
+**Verification:** [`docs/phase-23-verification.md`](docs/phase-23-verification.md)
+— the six defects that only two processes disagreeing could show.
+
+Phase 22 built the whole API-driven architecture against nothing.
+`subscriptions` 2.0.0 named a service at `https://subscriptions.knight.dev` and
+no such thing existed: the store registered webhooks it would never deliver and
+proxy routes that forwarded to a host that did not answer. Every test passed and
+not one byte had crossed between a store and a service.
+
+- [x] **The subscriptions service** — `services/subscriptions/`, an ordinary
+      Django application with its own database. The domain moved unchanged; what
+      it lost is the store's database handle and what it gained is its own
+- [x] **Every row belongs to a store.** One deployment serves every shop, so a
+      reference is unique *within* a store rather than globally — two shops both
+      numbering from `SUB-1` is normal, and a global unique index would have
+      made the second shop's first subscription fail to create
+- [x] **Its half of the contract** — HMAC verification, skew window, replay
+      rejection, four receivers, the proxied APIs, `/healthz`. Seventeen tests,
+      most of them attacks
+- [x] **The delivery queue** — a table, a worker, exponential retry over roughly
+      twelve hours, then a dead letter that is kept. `at-least-once` stopped
+      being a word in a manifest
+- [x] **The store publishes**, through the façade rather than by importing the
+      bus — the boundary test caught that within a minute of it being wrong
+- [x] **`docker-compose.yml`**, so one command stands the picture up
+- [x] **Drill steps 12 and 13**, and CI runs them on every push
+
+### Found and fixed while verifying phase 23
+
+- [x] **The store signed one path and the service verified another.** The proxy
+      signed over the path on the *store*; the service builds its canonical
+      string from the path it received. Every proxied request would have failed
+      with a signature that was perfectly correct about the wrong thing. The
+      delivery worker had the same defect, from slicing a URL rather than
+      parsing it
+- [x] **The store identified itself by the Feature's name.** `X-Knight-Store`
+      was set from `contract.slug` in both callers, so every request was refused
+      as `store.unknown`. The header is now set inside `sign()` — a caller
+      cannot forget it — and carries the store id KNIGHT issued rather than a
+      slug a merchant can rename
+- [x] **The webhook demanded something the store cannot know.** `order_placed`
+      required a period sequence, and a period is the service's idea. The store
+      now carries an opaque reference and the service works out what it means
+- [x] **Business code reached past the façade**, and the store's own boundary
+      test caught it. That test has paid for itself twice now
+- [x] **The drill read a 401 as "not started"**, and waited its full timeout for
+      a store that had been serving the whole time
+- [x] **A stopped server kept serving.** `stop()` returned before the socket was
+      free, the restart could not bind and exited, and the old process kept
+      answering — so the drill tested a urlconf built before the Feature was
+      installed. It waits for the port now, and `start()` notices a process that
+      died rather than trusting whatever answers
+
+### Not done
+
+- [ ] **The shared secret is set by hand.** Both ends have to agree and this
+      phase creates both. KNIGHT issuing it per store and rotating it without an
+      outage is phase 24
+- [ ] **The service is not deployed anywhere.** It runs in `docker compose` and
+      in CI; putting it on a host is phase 27
+- [ ] **`order.refunded` has a receiver and no publisher** — the base store has
+      no refund flow yet. Declared and wired, not exercised
+- [ ] **The billing loop is not closed.** The service marks a period as owing an
+      order; the store command that reads that and places one is not written.
+      The drill places an order directly, which proves the event path and not
+      the loop
+- [ ] **Nothing rotates the nonce table.** `forget_old_nonces` exists and is
+      tested and nothing runs it on a timer. One cron entry, and it belongs with
+      phase 26
 
 ---
 

@@ -539,7 +539,9 @@ def record_order(store, reference: str, sequence: int, order_number: int) -> Sub
     if existing is not None:
         return existing
 
-    return SubscriptionOrder.objects.create(period=period, source_order_number=int(order_number))
+    return SubscriptionOrder.objects.create(
+        period=period, store=store, source_order_number=int(order_number)
+    )
 
 
 # --- Reading ----------------------------------------------------------------

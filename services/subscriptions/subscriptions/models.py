@@ -478,12 +478,27 @@ class SubscriptionOrder(models.Model):
     """
 
     period = models.OneToOneField(BillingPeriod, on_delete=models.CASCADE, related_name="order")
-    source_order_number = models.BigIntegerField(unique=True)
+
+    #: Denormalised from `period.subscription.store`, and only so the constraint
+    #: below can exist. An order number is unique **within a store**: it was
+    #: globally unique when each store had its own database, and leaving it that
+    #: way would have meant the second shop to place order 1001 could not record
+    #: it (`adr/0033`).
+    store = models.ForeignKey(
+        "knightlink.Store", on_delete=models.PROTECT, related_name="subscription_orders"
+    )
+
+    source_order_number = models.BigIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "knight_subscriptions_order"
         ordering = ("-created_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["store", "source_order_number"], name="knight_sub_order_per_store"
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"period {self.period_id} → order {self.source_order_number}"

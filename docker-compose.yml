@@ -1,0 +1,59 @@
+# The whole picture, in one command.
+#
+# KNIGHT, a store, and a Feature's service — the three things the API-driven
+# architecture needs in the same room to mean anything. `docker compose up`
+# stands them up; the delivery drill drives them
+# (docs/adr/0033-api-driven-features.md, docs/roadmap.md).
+#
+# This is a development and CI arrangement, not a deployment. Where any of this
+# runs in production is phase 27 and waits on a hosting decision.
+
+name: knight
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: knight
+      POSTGRES_PASSWORD: knight
+      POSTGRES_DB: knight
+    ports:
+      - "5433:5432"
+    healthcheck:
+      # Without this the first migration races the server's own start-up and
+      # fails for a reason that has nothing to do with the code.
+      test: ["CMD-SHELL", "pg_isready -U knight"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "6379:6379"
+
+  subscriptions:
+    build: ./services/subscriptions
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SUBSCRIPTIONS_DEBUG: "true"
+      SUBSCRIPTIONS_DB_HOST: postgres
+      SUBSCRIPTIONS_DB_PORT: "5432"
+      SUBSCRIPTIONS_DB_NAME: subscriptions
+      SUBSCRIPTIONS_DB_USER: knight
+      SUBSCRIPTIONS_DB_PASSWORD: knight
+    ports:
+      - "8100:8100"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/healthz')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+volumes:
+  postgres:

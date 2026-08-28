@@ -15,7 +15,7 @@
 # is an operational job, not something a manifest can promise.
 apiVersion: knight.dev/v1
 slug: subscriptions
-version: 2.0.0
+version: 2.1.0
 name: Subscriptions and Recurring Orders
 description: >-
   Recurring orders with a state machine that can be paused and resumed, billing
@@ -85,6 +85,18 @@ api_proxies:
     upstream: /api/v1/subscriptions/
     methods: [GET, POST]
     identity: customer
+
+  # The public face: what a storefront shows somebody who is not signed in.
+  # `identity: anonymous` means the store forwards it without asserting anybody,
+  # and the service answers with nothing that belongs to a person.
+  #
+  # A real Feature needs one of these, and having one is also the only way to
+  # tell "the proxy works" from "the store refused before trying" - a route that
+  # always needs a session cannot distinguish those two.
+  - prefix: subscribe/
+    upstream: /api/v1/public/
+    methods: [GET]
+    identity: anonymous
 
   # The merchant's side. Staff-only, and again decided by the store: a service
   # deciding for itself whether a caller is staff would be the store trusting a

@@ -67,23 +67,25 @@ def verify(request) -> Store:
     integrating against this needs to tell "my clock is wrong" from "my secret is
     wrong", and those look identical from a 401.
     """
-    store_slug = request.headers.get("X-Knight-Store", "")
+    store_id = request.headers.get("X-Knight-Store", "")
     signature = request.headers.get("X-Knight-Signature", "")
     timestamp = request.headers.get("X-Knight-Timestamp", "")
     nonce = request.headers.get("X-Knight-Nonce", "")
 
-    if not (store_slug and signature and timestamp and nonce):
+    if not (store_id and signature and timestamp and nonce):
         raise Unsigned("The request is not signed.", "signature.missing")
 
     if not signature.startswith("sha256="):
         raise Unsigned("The signature is not in a form this service understands.", "signature.malformed")
 
-    store = Store.objects.filter(slug=store_slug, enabled=True).first()
+    # By the id KNIGHT issued, not by a slug. A slug is a name a merchant can
+    # change; a store id is the stable name across KNIGHT, the store and here.
+    store = Store.objects.filter(store_id=store_id, enabled=True).first() if _is_uuid(store_id) else None
 
     if store is None:
         # Deliberately the same shape of answer as a bad signature. A caller
         # must not be able to enumerate which stores this service serves.
-        logger.warning("A request arrived for unknown or disabled store '%s'.", store_slug)
+        logger.warning("A request arrived for unknown or disabled store '%s'.", store_id)
         raise Unsigned("This service does not answer that store.", "store.unknown")
 
     try:
@@ -105,7 +107,7 @@ def verify(request) -> Store:
     ).hexdigest()
 
     if not hmac.compare_digest(expected, signature[len("sha256=") :]):
-        logger.warning("A request for store '%s' did not verify.", store_slug)
+        logger.warning("A request for store '%s' did not verify.", store.slug)
         raise Unsigned("The signature does not verify.", "signature.invalid")
 
     _claim_nonce(store, nonce)
@@ -143,3 +145,20 @@ def forget_old_nonces(now=None) -> int:
     deleted, _ = SeenNonce.objects.filter(seen_at__lt=cutoff).delete()
 
     return deleted
+
+
+def _is_uuid(value: str) -> bool:
+    """
+    Whether the header is even shaped like a store id.
+
+    Checked before the database is asked, so a caller cannot use this endpoint
+    to probe what the query does with arbitrary text.
+    """
+    import uuid
+
+    try:
+        uuid.UUID(str(value))
+    except (ValueError, AttributeError, TypeError):
+        return False
+
+    return True

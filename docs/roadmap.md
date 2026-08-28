@@ -10,7 +10,8 @@ is, and the shape of it is the useful part:
 | | Items | Who can close it |
 |---|---|---|
 | Blocked on a decision or an account only the product owner has | **11** | you |
-| Real engineering, not started | **27** | me |
+| Real engineering, not started | **22** | me |
+| Done since this was written | **5** | phase 23 |
 | Deliberate non-goals, recorded so they are not rediscovered | **15** | nobody — they stay open on purpose |
 
 The eleven in the first row are why phases 10, 11 and 21 are not ticked, and no
@@ -94,12 +95,18 @@ list of work, and a gate that must be green before the next one starts — the
 same discipline phases 18 to 22 used, because it is the only thing that has
 reliably caught defects on this project.
 
-### Phase 23 — The live service layer
+### Phase 23 — The live service layer ✅ **done**
 
 **Exit:** an order placed in the reference store is received by a real
 subscriptions service, and a merchant's request reaches that service through the
 store's proxy and comes back — both over the real delivery path, asserted by the
-drill.
+drill. **Met**, and the gate with it: an event survives the service being
+stopped and restarted.
+
+Six defects found, all of them between two processes rather than inside one —
+the store signed one path and the service verified another; the store identified
+itself by the Feature's name; the webhook demanded a period sequence a store
+cannot know. See [`phase-23-verification.md`](phase-23-verification.md).
 
 This is the phase that closes the largest gap phase 22 left, and section 4 below
 is its step-by-step sequence.

@@ -30,6 +30,9 @@ urlpatterns = [
     path("hooks/order-cancelled", webhooks.order_cancelled, name="hook-order-cancelled"),
     path("hooks/order-refunded", webhooks.order_refunded, name="hook-order-refunded"),
 
+    # What `subscribe/` forwards to. Public, and signed like everything else.
+    path("api/v1/public/", views.public, name="public"),
+
     # What `subscriptions/` forwards to.
     path("api/v1/subscriptions/", views.index, name="subscriptions"),
     path("api/v1/subscriptions/<str:reference>/", views.detail, name="subscription"),

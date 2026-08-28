@@ -30,7 +30,7 @@ from django.views.decorators.http import require_POST
 from knightlink.auth import body, signed
 
 from . import services
-from .models import Subscription
+from .models import PeriodState, Subscription
 
 logger = logging.getLogger(__name__)
 
@@ -39,48 +39,103 @@ def _received(what: str, **extra) -> JsonResponse:
     return JsonResponse({"received": True, "action": what, **extra})
 
 
+def _note(subscription, store, what: str) -> None:
+    """
+    Writes one line into the subscription's history.
+
+    Append-only, like every other event on this aggregate. On a Feature that
+    takes money the history is not diagnostics — it is the answer to "I never
+    agreed to that", and something the store told us is exactly the kind of
+    thing that needs to be in it.
+
+    Idempotent by content: the store retries, and the same line twice is noise
+    rather than a second fact.
+    """
+    if subscription.events.filter(reason=what).exists():
+        return
+
+    subscription.events.create(
+        from_state=subscription.state,
+        to_state=subscription.state,
+        actor=f"store:{store.slug}",
+        reason=what,
+    )
+
+
 @csrf_exempt
 @require_POST
 @signed
 def order_placed(request):
     """
-    An order was placed. If it was one of ours, record that the period it paid
-    for has an order against it.
+    An order was placed. If it was one of ours, attach it to the period it pays
+    for.
 
-    A store places the order for a period this service asked it to bill, then
-    tells us the number. Until that arrives, the period is paid and has no order
-    against it — which is a real state and one `periods_awaiting_orders` exists
-    to report on.
+    **The store does not say which period.** It cannot: a period is this
+    service's idea, and a store that had to know about them would be a store
+    coupled to this Feature's internals — which is the whole thing the
+    architecture is trying to stop. The store carries an opaque reference and
+    the order number, and working out what they mean is this service's job.
+
+    So: the oldest paid period still owing an order gets it. If none is owing —
+    a merchant placing an order by hand, an order for a subscription that has
+    not billed yet — the order is recorded in the subscription's history
+    instead, because "we heard about this and it did not match a period" is a
+    fact somebody will want when they ask why a box did not arrive.
+
+    Idempotent both ways. The store retries, so this runs twice as a matter of
+    course.
     """
     payload = body(request)
-    reference = str(payload.get("subscriptionReference") or "").strip()
+    reference = str(payload.get("externalReference") or payload.get("subscriptionReference") or "").strip()
 
     if not reference:
-        # Most orders in a shop have nothing to do with a subscription. Saying
-        # so plainly beats a 400 that would make the store retry forever.
+        # Most orders in a shop have nothing to do with a subscription. Deciding
+        # "this one is mine" is the Feature's job, and saying so plainly beats a
+        # 400 that would make the store retry for ever.
         return _received("ignored", reason="not a subscription order")
 
     try:
-        sequence = int(payload.get("periodSequence") or 0)
         number = int(payload.get("orderNumber") or 0)
     except (TypeError, ValueError):
-        return JsonResponse({"detail": "periodSequence and orderNumber must be numbers."}, status=400)
+        return JsonResponse({"detail": "orderNumber must be a number."}, status=400)
 
-    if not sequence or not number:
-        return JsonResponse({"detail": "periodSequence and orderNumber are required."}, status=400)
+    if not number:
+        return JsonResponse({"detail": "orderNumber is required."}, status=400)
 
-    try:
-        services.record_order(request.knight.store, reference, sequence, number)
-    except services.UnknownSubscription:
+    subscription = Subscription.objects.filter(
+        store=request.knight.store, reference=reference
+    ).first()
+
+    if subscription is None:
         # A store telling us about a subscription we have never heard of is a
-        # store that is confused, or one whose data was restored from a backup
-        # older than ours. Neither is fixed by retrying, so it is not a 5xx.
+        # store that is confused, or one restored from a backup older than ours.
+        # Neither is fixed by retrying, so it is not a 5xx.
         logger.warning("Order for unknown subscription '%s' from %s.", reference, request.knight.store.slug)
         return _received("ignored", reason="unknown subscription")
-    except services.SubscriptionError as refusal:
-        return JsonResponse({"detail": str(refusal)}, status=409)
 
-    return _received("order recorded", reference=reference, sequence=sequence)
+    with transaction.atomic():
+        owing = (
+            subscription.periods.filter(state=PeriodState.PAID, order__isnull=True)
+            .order_by("sequence")
+            .first()
+        )
+
+        if owing is not None:
+            try:
+                services.record_order(request.knight.store, reference, owing.sequence, number)
+            except services.SubscriptionError as refusal:
+                return JsonResponse({"detail": str(refusal)}, status=409)
+
+            _note(subscription, request.knight.store, f"order {number} was placed for period {owing.sequence}")
+
+            return _received("order recorded", reference=reference, sequence=owing.sequence)
+
+        # Nothing owing. Recorded rather than dropped: an order naming this
+        # subscription that matched no period is exactly what somebody will be
+        # looking for when they ask why a box did not arrive.
+        _note(subscription, request.knight.store, f"order {number} was placed with no period owing one")
+
+    return _received("noted", reference=reference, orderNumber=number)
 
 
 @csrf_exempt
@@ -98,7 +153,7 @@ def order_paid(request):
     subscription is the place that will land.
     """
     payload = body(request)
-    reference = str(payload.get("subscriptionReference") or "").strip()
+    reference = str(payload.get("externalReference") or payload.get("subscriptionReference") or "").strip()
 
     if not reference:
         return _received("ignored", reason="not a subscription order")
@@ -120,7 +175,7 @@ def order_cancelled(request):
     ``cancelSubscription``.
     """
     payload = body(request)
-    reference = str(payload.get("subscriptionReference") or "").strip()
+    reference = str(payload.get("externalReference") or payload.get("subscriptionReference") or "").strip()
 
     if not reference or not payload.get("cancelSubscription"):
         return _received("ignored", reason="not a subscription cancellation")
@@ -159,7 +214,7 @@ def order_refunded(request):
     nothing.
     """
     payload = body(request)
-    reference = str(payload.get("subscriptionReference") or "").strip()
+    reference = str(payload.get("externalReference") or payload.get("subscriptionReference") or "").strip()
 
     if not reference:
         return _received("ignored", reason="not a subscription order")
@@ -171,11 +226,6 @@ def order_refunded(request):
     if subscription is None:
         return _received("ignored", reason="unknown subscription")
 
-    subscription.events.create(
-        from_state=subscription.state,
-        to_state=subscription.state,
-        actor=f"store:{request.knight.store.slug}",
-        reason=f"order {payload.get('orderNumber') or '?'} was refunded",
-    )
+    _note(subscription, request.knight.store, f"order {payload.get('orderNumber') or '?'} was refunded")
 
     return _received("noted", reference=reference)

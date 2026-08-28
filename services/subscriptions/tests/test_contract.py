@@ -54,7 +54,7 @@ class ContractTests(TestCase):
         body = json.dumps(payload or {}).encode()
 
         extra = {
-            "HTTP_X_KNIGHT_STORE": store.slug,
+            "HTTP_X_KNIGHT_STORE": str(store.store_id),
             "HTTP_X_KNIGHT_IDENTITY": "customer",
             "HTTP_X_KNIGHT_SUBJECT": "1",
             **sign(secret or store.secret, method, path, body),
@@ -86,7 +86,7 @@ class ContractTests(TestCase):
         tampered = json.dumps({"subscriptionReference": "SUB-1", "cancelSubscription": True}).encode()
 
         extra = {
-            "HTTP_X_KNIGHT_STORE": self.store.slug,
+            "HTTP_X_KNIGHT_STORE": str(self.store.store_id),
             **sign(SECRET, "POST", path, original),
         }
 
@@ -105,7 +105,7 @@ class ContractTests(TestCase):
     def test_a_replayed_request_is_refused_the_second_time(self):
         path = "/hooks/order-placed"
         body = json.dumps({}).encode()
-        headers = {"HTTP_X_KNIGHT_STORE": self.store.slug, **sign(SECRET, "POST", path, body)}
+        headers = {"HTTP_X_KNIGHT_STORE": str(self.store.store_id), **sign(SECRET, "POST", path, body)}
 
         first = self.client.generic("POST", path, body, content_type="application/json", **headers)
         second = self.client.generic("POST", path, body, content_type="application/json", **headers)
@@ -123,7 +123,7 @@ class ContractTests(TestCase):
 
         self.client.generic(
             "POST", path, body, content_type="application/json",
-            HTTP_X_KNIGHT_STORE=self.store.slug,
+            HTTP_X_KNIGHT_STORE=str(self.store.store_id),
             **sign("wrong-secret", "POST", path, body, nonce=nonce),
         )
 
@@ -134,7 +134,7 @@ class ContractTests(TestCase):
 
         good = self.client.generic(
             "POST", path, body, content_type="application/json",
-            HTTP_X_KNIGHT_STORE=self.store.slug,
+            HTTP_X_KNIGHT_STORE=str(self.store.store_id),
             **sign(SECRET, "POST", path, body, nonce=nonce),
         )
         self.assertEqual(200, good.status_code)
@@ -151,10 +151,22 @@ class ContractTests(TestCase):
         self.assertEqual(401, response.status_code)
         self.assertEqual("store.unknown", response.json()["errorCode"])
 
+    def test_a_store_id_that_is_not_even_a_uuid_is_refused_before_the_database(self):
+        response = self.client.generic(
+            "POST", "/hooks/order-placed", b"{}", content_type="application/json",
+            HTTP_X_KNIGHT_STORE="'; drop table knight_store; --",
+            **sign("anything", "POST", "/hooks/order-placed", b"{}"),
+        )
+
+        # Checked for shape before the database is asked, so this endpoint
+        # cannot be used to probe what the query does with arbitrary text.
+        self.assertEqual(401, response.status_code)
+        self.assertEqual("store.unknown", response.json()["errorCode"])
+
     def test_an_unknown_store_gets_the_same_answer_as_a_bad_signature(self):
         response = self.client.generic(
             "POST", "/hooks/order-placed", b"{}", content_type="application/json",
-            HTTP_X_KNIGHT_STORE="a-shop-that-does-not-exist",
+            HTTP_X_KNIGHT_STORE=str(uuid.uuid4()),
             **sign("anything", "POST", "/hooks/order-placed", b"{}"),
         )
 
@@ -221,7 +233,7 @@ class IsolationTests(TestCase):
 
     def get(self, path, store, identity="staff", subject="7"):
         extra = {
-            "HTTP_X_KNIGHT_STORE": store.slug,
+            "HTTP_X_KNIGHT_STORE": str(store.store_id),
             "HTTP_X_KNIGHT_IDENTITY": identity,
             "HTTP_X_KNIGHT_SUBJECT": subject,
             **sign(store.secret, "GET", path, b""),

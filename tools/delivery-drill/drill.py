@@ -56,6 +56,14 @@ DRILL = Path(__file__).resolve().parent
 #: enough to include a dependency edge: analytics-reports needs analytics-core.
 REAL_FEATURES = ["analytics-core", "analytics-reports", "gift-cards"]
 
+#: The shared secret between the store and the subscriptions service.
+#:
+#: Fixed for the drill and generated nowhere, because both ends have to agree
+#: and this run creates both. In a deployment KNIGHT issues it per store and
+#: delivers it as a configuration secret; that is phase 24 and it is not
+#: pretended here (docs/roadmap.md).
+SERVICE_SECRET = "drill-shared-secret-not-for-a-deployment"
+
 
 class DrillFailed(RuntimeError):
     """A step of the journey was not true. Carries what was expected."""
@@ -328,6 +336,194 @@ def _npm() -> str:
     return "npm.cmd" if os.name == "nt" else "npm"
 
 
+class Service:
+    """
+    A Feature's own service, running.
+
+    Started rather than mocked, because the whole of phase 23 is the claim that
+    an event genuinely reaches one. A drill that stubbed this would be asserting
+    that the store can write a row.
+    """
+
+    def __init__(self, root: Path, environment: dict[str, str], port: int) -> None:
+        self.root = root
+        self.environment = environment
+        self.port = port
+        self.base_url = f"http://127.0.0.1:{port}"
+        self._process: subprocess.Popen | None = None
+
+    def manage(self, *arguments: str, allow_failure: bool = False) -> str:
+        completed = subprocess.run(  # noqa: S603 - fixed argv, never shell=True
+            [sys.executable, "manage.py", *arguments],
+            cwd=str(self.root),
+            env={**os.environ, **self.environment},
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
+        )
+
+        if completed.returncode != 0 and not allow_failure:
+            raise DrillFailed(
+                f"the service's `manage.py {' '.join(arguments)}` failed:"
+                f"\n{(completed.stderr or completed.stdout)[-2000:]}"
+            )
+
+        return completed.stdout
+
+    def start(self) -> None:
+        self._process = subprocess.Popen(  # noqa: S603
+            [sys.executable, "manage.py", "runserver", f"127.0.0.1:{self.port}", "--noreload"],
+            cwd=str(self.root),
+            env={**os.environ, **self.environment},
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        self.wait_until_up()
+
+    def stop(self) -> None:
+        if self._process is not None:
+            self._process.terminate()
+
+            try:
+                self._process.wait(timeout=20)
+            except subprocess.TimeoutExpired:
+                self._process.kill()
+
+            self._process = None
+
+    def wait_until_up(self, seconds: int = 60) -> None:
+        for _ in range(seconds * 2):
+            try:
+                with urllib.request.urlopen(f"{self.base_url}/healthz", timeout=2) as response:
+                    if response.status == 200:
+                        return
+            except (urllib.error.URLError, OSError):
+                pass
+
+            time.sleep(0.5)
+
+        raise DrillFailed(f"The service at {self.base_url} never became healthy.")
+
+    def is_up(self) -> bool:
+        try:
+            with urllib.request.urlopen(f"{self.base_url}/healthz", timeout=2) as response:
+                return response.status == 200
+        except (urllib.error.URLError, OSError):
+            return False
+
+
+class StoreServer:
+    """
+    The reference store, serving HTTP.
+
+    Needed only from phase 23 on: a proxy route cannot be exercised by a
+    management command, and "a merchant's request reaches the service through
+    the store" is a claim about a request.
+    """
+
+    def __init__(self, store: "Store", port: int) -> None:
+        self.store = store
+        self.port = port
+        self.base_url = f"http://127.0.0.1:{port}"
+        self._process: subprocess.Popen | None = None
+
+    def start(self) -> None:
+        self._process = subprocess.Popen(  # noqa: S603
+            [sys.executable, "manage.py", "runserver", f"127.0.0.1:{self.port}", "--noreload"],
+            cwd=str(self.store.root),
+            env={**os.environ, **self.store.environment},
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+
+        # Any HTTP answer means the socket is serving, and that is the whole
+        # question. `/api/knight/health` is KNIGHT's own endpoint and answers
+        # 401 to anything without a signature — reading that as "not started"
+        # made the drill wait sixty seconds for a store that had been up for
+        # fifty-nine of them.
+        for _ in range(120):
+            # Before asking the port: a `runserver` that could not bind exits,
+            # and the answer on that port would then be somebody else's process.
+            if self._process.poll() is not None:
+                output = (self._process.communicate()[0] or "")[-1500:]
+                raise DrillFailed(f"The store's server exited immediately:\n{output}")
+
+            try:
+                with urllib.request.urlopen(f"{self.base_url}/api/knight/health", timeout=2):
+                    return
+            except urllib.error.HTTPError:
+                return
+            except (urllib.error.URLError, OSError):
+                pass
+
+            time.sleep(0.5)
+
+        # Whatever it said on the way down. A drill that reported only "it never
+        # started" would send somebody to read a log that was thrown away.
+        output = ""
+
+        if self._process is not None:
+            self._process.terminate()
+
+            try:
+                output = (self._process.communicate(timeout=10)[0] or "")[-1500:]
+            except subprocess.TimeoutExpired:
+                self._process.kill()
+
+        raise DrillFailed(f"The store at {self.base_url} never started serving:\n{output}")
+
+    def stop(self) -> None:
+        """
+        Stops it, and waits until the port is genuinely free.
+
+        Waiting for the process is not enough: the socket outlives it for a
+        moment, and a restart that raced it bound nothing while the old process
+        kept answering. The drill then tested an old urlconf and reported a 404
+        that had nothing to do with the code under test — which cost an hour, so
+        the wait is here rather than in a comment.
+        """
+        if self._process is not None:
+            self._process.terminate()
+
+            try:
+                self._process.wait(timeout=20)
+            except subprocess.TimeoutExpired:
+                self._process.kill()
+                self._process.wait(timeout=10)
+
+            self._process = None
+
+        for _ in range(40):
+            try:
+                with urllib.request.urlopen(f"{self.base_url}/api/knight/health", timeout=1):
+                    pass
+            except urllib.error.HTTPError:
+                pass
+            except (urllib.error.URLError, OSError):
+                return
+
+            time.sleep(0.25)
+
+        raise DrillFailed(f"Something is still listening on {self.base_url}.")
+
+    def get(self, path: str, headers: dict | None = None):
+        """One request at the store, as a browser would make it."""
+        request = urllib.request.Request(
+            f"{self.base_url}/{path.lstrip('/')}",
+            headers=headers or {},
+            method="GET",
+        )
+
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                return response.status, response.read().decode(errors="replace")
+        except urllib.error.HTTPError as exc:
+            return exc.code, exc.read().decode(errors="replace")
+
+
 # --- The journey -------------------------------------------------------------
 
 
@@ -376,17 +572,27 @@ def main() -> int:
         secret_file=work / f"totp-{arguments.admin_email}.secret",
     )
 
+    # Everything the journey starts, so a failure halfway through does not
+    # leave a service and a store listening on ports the next run wants.
+    stoppable: list = []
+
     try:
-        journey(knight, arguments, work, run)
+        journey(knight, arguments, work, run, stoppable)
     except DrillFailed as failure:
         print(f"\nDRILL FAILED: {failure}", file=sys.stderr)
         return 1
+    finally:
+        for process in stoppable:
+            try:
+                process.stop()
+            except Exception:  # noqa: BLE001
+                pass
 
     print("\nThe delivery drill passed: every step of the journey is still true.")
     return 0
 
 
-def journey(knight: Knight, arguments, work: Path, run: str) -> None:
+def journey(knight: Knight, arguments, work: Path, run: str, stoppable: list) -> None:
     signing_key = os.environ.get("KNIGHT_SIGNING_KEY", "")
 
     if not signing_key:
@@ -489,6 +695,25 @@ def journey(knight: Knight, arguments, work: Path, run: str) -> None:
     reference.manage("migrate")
     reference.manage("knight_register")
     reference.manage("knight_heartbeat")
+
+    # The subscriptions service, and the store serving HTTP. Both are needed
+    # from phase 23 on: an event has to reach something, and a proxy route
+    # cannot be exercised by a management command.
+    service_database = make_database(f"subs_{run}")
+    service = Service(
+        REPO / "services" / "subscriptions",
+        service_environment(work, service_database),
+        port=8140,
+    )
+    service.manage("migrate")
+    service.start()
+    stoppable.append(service)
+    detail(f"the subscriptions service is up at {service.base_url}")
+
+    store_server = StoreServer(reference, port=8141)
+    store_server.start()
+    stoppable.append(store_server)
+    detail(f"the store is serving at {store_server.base_url}")
 
     context = knight.call("POST", "/installations/plan", {
         "storeId": store["id"],
@@ -787,22 +1012,36 @@ def journey(knight: Knight, arguments, work: Path, run: str) -> None:
 
     tables_before = set(store_tables(reference))
 
-    publish(
+    # Staged, with the service's address rewritten to the one actually running.
+    # The base URL is part of the signed document, so this is a genuinely
+    # different publish rather than a runtime override — which is right: where a
+    # Feature's service lives is a property of the version, and a store must not
+    # be able to point a signed configuration somewhere else.
+    staged = stage(
         REPO / "features" / "knight-feature-subscriptions-service",
-        dist,
-        artifacts,
-        arguments.base_url,
-        knight.token,
+        work / "subscriptions-service",
+        "subscriptions",
     )
+    _set_base_url(staged, service.base_url)
 
-    artifact = artifacts / "subscriptions-2.0.0.json"
+    # A version of its own each run, for the reason the tamper test needs one:
+    # a published version is immutable, so a second run that rewrote the
+    # artifact under the same number would leave KNIGHT holding the first run's
+    # digest and every install failing verification. The drill has to be able to
+    # run twice against one KNIGHT.
+    service_version = _next_patch(knight, service_feature["id"], "2.1")
+    _set_version(staged, service_version)
+
+    publish(staged, dist, artifacts, arguments.base_url, knight.token)
+
+    artifact = artifacts / f"subscriptions-{service_version}.json"
 
     expect(
         artifact.exists(),
         "an external Feature is published as a signed configuration document, not an archive",
     )
     expect(
-        not (artifacts / "subscriptions-2.0.0.zip").exists(),
+        not (artifacts / f"subscriptions-{service_version}.zip").exists(),
         "and no archive is built for it at all",
     )
 
@@ -811,7 +1050,7 @@ def journey(knight: Knight, arguments, work: Path, run: str) -> None:
     external_plan = knight.call("POST", "/installations/plan", {
         "storeId": store["id"],
         "slug": "subscriptions",
-        "versionRange": "2.0.0",
+        "versionRange": service_version,
     })
 
     expect(
@@ -822,12 +1061,12 @@ def journey(knight: Knight, arguments, work: Path, run: str) -> None:
     knight.call("POST", "/installations/install", {
         "storeId": store["id"],
         "slug": "subscriptions",
-        "versionRange": "2.0.0",
+        "versionRange": service_version,
     })
     run_jobs(reference)
 
     expect(
-        installed_versions(knight, store["id"]).get("subscriptions") == "2.0.0",
+        installed_versions(knight, store["id"]).get("subscriptions") == service_version,
         "KNIGHT records the configuration version the store registered",
     )
 
@@ -843,7 +1082,7 @@ def journey(knight: Knight, arguments, work: Path, run: str) -> None:
         "the store registered every event the Feature subscribed to",
     )
     expect(
-        len(contract.get("api_proxies") or []) == 2,
+        len(contract.get("api_proxies") or []) == 3,
         "and every route it asked the store to forward",
     )
     expect(
@@ -886,6 +1125,143 @@ def journey(knight: Knight, arguments, work: Path, run: str) -> None:
     expect(
         set(store_tables(reference)) == tables_before,
         "and still no table was created or dropped in the store's database",
+    )
+
+    # --- The service, for real -----------------------------------------------
+    #
+    # Everything above proved the store *registered* a configuration. This
+    # proves the configuration does something: an order placed in the store
+    # reaches a running service, and a request to the store comes back from it.
+    #
+    # This is phase 23's exit criterion, and the reason the drill now starts two
+    # more processes (docs/roadmap.md).
+
+    step("Delivering an event to a service that is actually running")
+
+    # Step 11 revoked this to prove that withdrawing an entitlement stops the
+    # store forwarding. Granting it back is not tidying up: re-entitlement is
+    # its own path — a customer who renews next week — and it must re-enable
+    # what is already registered rather than deliver it again.
+    knight.call("POST", f"/customers/{customer['id']}/entitlements", {"featureId": service_feature["id"]})
+    run_jobs(reference)
+
+    expect(
+        registry_entry(store_work, "subscriptions")["enabled"],
+        "re-entitling a customer switches the Feature back on without delivering it again",
+    )
+
+    # The store's half of the shared secret is configuration; the service's half
+    # is a row. An operator sets both, and this is that operator.
+    service.manage(
+        "knight_store",
+        "add",
+        "--slug",
+        store["slug"],
+        "--store-id",
+        store["id"],
+        "--secret",
+        SERVICE_SECRET,
+    )
+
+    detail(f"the service will answer store {store['id']}")
+
+    subscription_reference = f"SUB-{run}"
+    _make_subscription(service, store["id"], subscription_reference)
+
+    expect(
+        _service_subscriptions(service, store["id"]) == 1,
+        "the service holds a subscription for this store and nobody else's",
+    )
+
+    # An order, placed by the store's own code. Not a call to `publish`: the
+    # point is that the store's business logic announces this without knowing
+    # anything about subscribers.
+    order_number = _place_order(reference, reference=subscription_reference)
+    detail(f"placed order {order_number}")
+
+    expect(
+        _queued_deliveries(reference) >= 1,
+        "placing an order queued a delivery, without the store making a request",
+    )
+
+    counts = _run_deliveries(reference)
+
+    expect(
+        counts.get("delivered", 0) >= 1,
+        f"the worker delivered it to the running service ({counts})",
+    )
+    expect(
+        _service_saw_order(service, store["id"], subscription_reference, order_number),
+        "and the service recorded the order against the subscription - "
+        "the event genuinely arrived",
+    )
+
+    # And back the other way, through the store's own URL space.
+    #
+    # The store is restarted first, and that is a real property rather than a
+    # test artefact: a urlconf is built once at start-up and a proxy route
+    # registered afterwards is not in it. The same restart an in-process Feature
+    # needs, for the same reason — `install.requiresRestart` says so on one and
+    # the store's own `reload` step says so on the other.
+    store_server.stop()
+    store_server.start()
+
+    status, answered = store_server.get("subscribe/")
+
+    expect(
+        status == 200,
+        f"a request to the store's proxy prefix is answered ({status}: {answered[:200]})",
+    )
+    expect(
+        '"service": "subscriptions"' in answered.replace(" ", "").replace('"service":"subscriptions"', '"service": "subscriptions"'),
+        f"and what comes back is the service's own answer, not the store's ({answered[:200]})",
+    )
+
+    # And the store refuses on the service's behalf, before anything is
+    # forwarded. Two independent checks of the same rule, and this is the one
+    # that does not depend on the service being correct.
+    refused, _ = store_server.get("admin/subscriptions/")
+
+    expect(
+        refused == 403,
+        f"a staff route is refused by the store when nobody is signed in (got {refused})",
+    )
+
+    # --- The gate ------------------------------------------------------------
+    #
+    # An event survives the service being down. This is what separates a working
+    # queue from a lucky one, and it is the phase's gate rather than a nice
+    # extra.
+
+    step("Losing the service, and losing no event")
+
+    service.stop()
+
+    expect(not service.is_up(), "the service is down")
+
+    second = _place_order(reference, reference=subscription_reference)
+    attempted = _run_deliveries(reference)
+
+    expect(
+        attempted.get("delivered", 0) == 0,
+        "nothing was delivered while the service was down",
+    )
+    expect(
+        _pending_deliveries(reference) >= 1,
+        "and the event is queued rather than lost",
+    )
+
+    service.start()
+    _make_deliveries_due(reference)
+    recovered = _run_deliveries(reference)
+
+    expect(
+        recovered.get("delivered", 0) >= 1,
+        f"when the service came back, the queued event was delivered ({recovered})",
+    )
+    expect(
+        _service_saw_order(service, store["id"], subscription_reference, second),
+        "and the service received the order placed while it was down",
     )
 
     # --- The other runtime ---------------------------------------------------
@@ -1091,6 +1467,25 @@ def run_jobs(store: Store) -> int:
     return output.count("Job succeeded")
 
 
+def make_database(name: str) -> str:
+    """
+    A database of its own, created fresh.
+
+    The same reasoning as `make_store_database`: a reused database is a drill
+    telling the truth about its own environment rather than about the product,
+    which is the least useful kind of red.
+    """
+    import psycopg
+
+    settings = _store_database_settings()
+
+    with psycopg.connect(**{**settings, "dbname": "postgres"}, autocommit=True) as connection:
+        connection.execute(f'drop database if exists "{name}"')
+        connection.execute(f'create database "{name}"')
+
+    return name
+
+
 def make_store_database(run: str) -> str:
     """
     A database of this run's own, created before the store is pointed at it.
@@ -1144,6 +1539,10 @@ def store_environment(credential: dict, store: dict, work: Path, database: str) 
         "KNIGHT_SIGNING_KEYS": json.dumps({os.environ.get("KNIGHT_SIGNING_KEY_ID", "dev"): public_key}),
         "STORE_DB_NAME": database,
         **{f"STORE_DB_{key.upper()}": str(value) for key, value in _store_database_settings().items()},
+        # The store's half of the shared secret with the subscriptions service.
+        # The service's half is a row it holds; an operator sets both, and in a
+        # deployment KNIGHT issues it per store (phase 24).
+        "SUBSCRIPTIONS_SERVICE_SECRET": SERVICE_SECRET,
         "DJANGO_SECRET_KEY": "delivery-drill-only",
         "DJANGO_DEBUG": "false",
         "DJANGO_ALLOWED_HOSTS": "*",
@@ -1356,6 +1755,188 @@ def _job_named(knight: Knight, store_id: str, slug: str, step_name: str) -> bool
                 return True
 
     return False
+
+
+
+
+# --- The service, and the traffic between it and the store -------------------
+
+
+def _set_base_url(source: Path, base_url: str) -> None:
+    """
+    Rewrites a staged manifest's service address.
+
+    The base URL is inside the signed document, so this makes a genuinely
+    different publish rather than a runtime override. That is the right shape:
+    where a Feature's service lives is a property of the version, and a store
+    must not be able to point a signed configuration somewhere else.
+    """
+    manifest = source / "knight_manifest.yaml"
+    lines = manifest.read_text(encoding="utf-8").splitlines()
+    out = []
+
+    for line in lines:
+        if line.strip().startswith("base_url:"):
+            indent = line[: len(line) - len(line.lstrip())]
+            out.append(f"{indent}base_url: {base_url}")
+        else:
+            out.append(line)
+
+    manifest.write_text("\n".join(out) + "\n", encoding="utf-8")
+
+
+def service_environment(work: Path, database: str) -> dict[str, str]:
+    return {
+        "SUBSCRIPTIONS_DEBUG": "true",
+        "SUBSCRIPTIONS_DB_NAME": database,
+        "SUBSCRIPTIONS_DB_HOST": os.environ.get("STORE_DB_HOST", "127.0.0.1"),
+        "SUBSCRIPTIONS_DB_PORT": os.environ.get("STORE_DB_PORT", "5433"),
+        "SUBSCRIPTIONS_DB_USER": os.environ.get("STORE_DB_USER", "knight"),
+        "SUBSCRIPTIONS_DB_PASSWORD": os.environ.get("STORE_DB_PASSWORD", "knight"),
+        "SUBSCRIPTIONS_LOG_LEVEL": "WARNING",
+    }
+
+
+def _make_subscription(service: Service, store_id: str, reference: str) -> None:
+    """One subscription on the service, so an order has something to be about."""
+    service.manage(
+        "shell",
+        "-c",
+        "from knightlink.models import Store;"
+        "from subscriptions import services;"
+        f"store = Store.objects.get(store_id='{store_id}');"
+        f"services.create(store, '{reference}', amount='25.00', shopper_id=1,"
+        " lines=[{'sku': 'COFFEE', 'name': 'Coffee', 'quantity': 1, 'unit_price': '25.00'}]);"
+        "print('made')",
+    )
+
+
+def _service_subscriptions(service: Service, store_id: str) -> int:
+    output = service.manage(
+        "shell",
+        "-c",
+        "from subscriptions.models import Subscription;"
+        f"print(Subscription.objects.filter(store__store_id='{store_id}').count())",
+    )
+
+    return int(output.strip().splitlines()[-1])
+
+
+def _service_saw_order(service: Service, store_id: str, reference: str, order_number: int) -> bool:
+    """
+    Whether the service recorded that order against that subscription.
+
+    Read out of the service's **own database**, not out of a log line or out of
+    a response the store showed us. The claim being tested is that the event
+    arrived and was acted on, and only the service's own tables can settle that.
+    """
+    output = service.manage(
+        "shell",
+        "-c",
+        "from subscriptions.models import SubscriptionEvent;"
+        "print(SubscriptionEvent.objects.filter("
+        f"subscription__store__store_id='{store_id}',"
+        f"subscription__reference='{reference}',"
+        f"reason__contains='order {order_number}').exists())",
+    )
+
+    return "True" in output
+
+
+def _place_order(reference_store: Store, *, reference: str) -> int:
+    """
+    Places a real order through the store's own model, and returns its number.
+
+    `Order.place`, not a hand-written row: the whole point is that the store's
+    business code announces this without knowing anything about subscribers.
+    """
+    output = reference_store.manage(
+        "shell",
+        "-c",
+        "from decimal import Decimal;"
+        "from apps.orders.models import Order;"
+        "order = Order.place("
+        f"external_reference='{reference}', "
+        "subtotal=Decimal('25.00'), total=Decimal('25.00'));"
+        "print(order.number)",
+    )
+
+    return int(output.strip().splitlines()[-1])
+
+
+def _queued_deliveries(reference_store: Store) -> int:
+    output = reference_store.manage(
+        "shell",
+        "-c",
+        "from knight_integration.external.delivery import WebhookDelivery;"
+        "print(WebhookDelivery.objects.count())",
+    )
+
+    return int(output.strip().splitlines()[-1])
+
+
+def _pending_deliveries(reference_store: Store) -> int:
+    output = reference_store.manage(
+        "shell",
+        "-c",
+        "from knight_integration.external.delivery import WebhookDelivery, DeliveryState;"
+        "print(WebhookDelivery.objects.filter(state=DeliveryState.PENDING).count())",
+    )
+
+    return int(output.strip().splitlines()[-1])
+
+
+def _make_deliveries_due(reference_store: Store) -> None:
+    """Brings the retry clock forward, rather than waiting thirty seconds for it."""
+    reference_store.manage(
+        "shell",
+        "-c",
+        "from django.utils import timezone;"
+        "from knight_integration.external.delivery import WebhookDelivery, DeliveryState;"
+        "WebhookDelivery.objects.filter(state=DeliveryState.PENDING)"
+        ".update(next_attempt_at=timezone.now());"
+        "print('due')",
+    )
+
+
+def _run_deliveries(reference_store: Store) -> dict[str, int]:
+    """
+    One pass of the store's delivery worker, through the real command.
+
+    `manage.py knight_deliver`, because that is what a store runs on a timer and
+    a drill that called the function directly would not have exercised it.
+    """
+    output = reference_store.manage("knight_deliver", allow_failure=True)
+    counts = {"delivered": 0, "retrying": 0, "dead": 0}
+
+    for line in output.splitlines():
+        for key in counts:
+            marker = f" {key}"
+
+            if marker in line:
+                for word in line.replace(",", " ").split():
+                    if word.isdigit():
+                        counts[key] = int(word)
+                        break
+
+    # The command prints "N delivered, N retrying, N dead-lettered." Parsed
+    # rather than re-derived, so the drill reads what an operator would.
+    parts = [part.strip() for part in output.replace(".", "").split(",")]
+
+    for part in parts:
+        pieces = part.split()
+
+        if len(pieces) >= 2 and pieces[0].isdigit():
+            word = pieces[1].lower()
+
+            if word.startswith("deliver"):
+                counts["delivered"] = int(pieces[0])
+            elif word.startswith("retry"):
+                counts["retrying"] = int(pieces[0])
+            elif word.startswith("dead"):
+                counts["dead"] = int(pieces[0])
+
+    return counts
 
 
 if __name__ == "__main__":

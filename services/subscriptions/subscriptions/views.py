@@ -62,6 +62,32 @@ def _mine(request):
     return found
 
 
+# --- The public face --------------------------------------------------------
+
+
+@signed
+def public(request):
+    """
+    What a storefront can show somebody who is not signed in.
+
+    Signed like everything else — the store still proves it is the store — but
+    with no identity asserted, so nothing here may be about a person. What it
+    returns is the shape of the offer: which currency this merchant bills in and
+    what intervals they support.
+    """
+    from . import config
+
+    return JsonResponse(
+        {
+            "service": "subscriptions",
+            "store": request.knight.store.slug,
+            "currency": config.currency(),
+            "intervals": ["daily", "weekly", "monthly", "yearly"],
+            "acceptingNew": request.knight.store.enabled,
+        }
+    )
+
+
 # --- The shopper's side -----------------------------------------------------
 
 

@@ -233,6 +233,16 @@ class Order(models.Model):
 
         return history
 
+    #: A reference to something outside this store that caused this order.
+    #:
+    #: Opaque, and deliberately so: the base store never interprets it. A
+    #: Feature that places orders — a subscription's billing run, say — puts its
+    #: own reference here, and the store carries it and announces it without
+    #: knowing what it means. The same `source_*` discipline every other outside
+    #: reference in this app follows, and it is what keeps the base store free
+    #: of any particular Feature (adr/0024, adr/0033).
+    external_reference = models.CharField(max_length=100, blank=True, default="", db_index=True)
+
     @classmethod
     @transaction.atomic
     def place(cls, **fields) -> "Order":
@@ -280,11 +290,10 @@ def _announce(event: str, order, **extra) -> None:
                 "total": str(order.total),
                 "currency": getattr(order, "currency", ""),
                 "customerId": getattr(order, "source_shopper_id", None) or getattr(order, "customer_id", None),
-                # Set by whatever placed the order when it was a subscription's.
-                # Absent on the overwhelming majority of orders, which is why
-                # the receiving service treats its absence as "not mine".
-                "subscriptionReference": getattr(order, "subscription_reference", "") or "",
-                "periodSequence": getattr(order, "subscription_period", None),
+                # Whatever caused this order, if anything outside the store
+                # did. Absent on the overwhelming majority of orders, which is
+                # why a receiving service treats its absence as "not mine".
+                "externalReference": order.external_reference,
                 **extra,
             },
         )

@@ -152,7 +152,21 @@ def forward(
     if not _identity_satisfied(request, identity):
         return JsonResponse({"detail": "Not authorised."}, status=403)
 
-    target = contract.url_for(f"{upstream.strip('/')}/{remainder.lstrip('/')}".strip("/"))
+    # The path **on the service**, not the path on the store. Both ends build
+    # the canonical string independently, and the service builds it from the
+    # path it actually received — so signing over the store's own path would
+    # make every proxied request fail verification with a signature that is
+    # perfectly correct about the wrong thing.
+    upstream_path = "/" + f"{upstream.strip('/')}/{remainder.lstrip('/')}".strip("/")
+
+    if request.path.endswith("/") and not upstream_path.endswith("/"):
+        # Django's APPEND_SLASH world: the service's urlconf declares its routes
+        # with a trailing slash, so the store must ask for the URL the service
+        # will actually route, or it signs one path and is verified against
+        # another after a redirect.
+        upstream_path += "/"
+
+    target = contract.url_for(upstream_path)
     body = request.body or b""
 
     headers = {
@@ -163,12 +177,12 @@ def forward(
 
     # Who is asking, asserted by the store and signed. This is the only identity
     # the service ever sees, and it is the reason no credential is forwarded.
-    headers["X-Knight-Store"] = contract.slug
+    headers["X-Knight-Feature"] = contract.slug
     headers["X-Knight-Identity"] = identity
     headers["X-Knight-Subject"] = _subject(request, identity)
 
     try:
-        headers.update(sign(secret_for(contract), request.method, f"/{remainder.lstrip('/')}", body))
+        headers.update(sign(secret_for(contract), request.method, upstream_path, body))
     except LookupError as exc:
         # An unsigned request is not a fallback. A service that accepted one
         # would accept anybody's.

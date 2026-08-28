@@ -219,12 +219,18 @@ def _post(delivery: WebhookDelivery) -> int:
     if contract is None:
         raise LookupError(f"{delivery.feature_slug} is no longer installed on this store.")
 
+    from urllib.parse import urlsplit
+
     body = json.dumps(delivery.payload, default=str).encode("utf-8")
-    path = "/" + delivery.url.split("/", 3)[-1] if delivery.url.count("/") > 2 else "/"
+
+    # The path the service will see. Parsed rather than sliced, because the two
+    # ends build the canonical string independently and a signature over the
+    # wrong path is a signature that is perfectly correct about nothing.
+    path = urlsplit(delivery.url).path or "/"
 
     headers = {
         "Content-Type": "application/json",
-        "X-Knight-Store": contract.slug,
+        "X-Knight-Feature": contract.slug,
         "X-Knight-Event": delivery.event,
         "X-Knight-Delivery": str(delivery.pk),
         # The attempt number, so a service can tell a retry from a duplicate it
