@@ -768,6 +768,126 @@ def journey(knight: Knight, arguments, work: Path, run: str) -> None:
         "the store's own registry agrees the Feature is no longer serving",
     )
 
+    # --- The other architecture ----------------------------------------------
+    #
+    # Everything above delivers code into a store. This delivers a
+    # configuration: no archive, no package on disk, and nothing whatsoever in
+    # the store's database. It is the half of the catalogue the 150-Feature
+    # roadmap depends on, and the assertions that matter are the absences
+    # (adr/0033).
+
+    step("Delivering a Feature that is a service rather than a package")
+
+    service_feature = ensure_feature(
+        knight,
+        "subscriptions",
+        "Subscriptions and Recurring Orders",
+        "Recurring orders, run as a service.",
+    )
+
+    tables_before = set(store_tables(reference))
+
+    publish(
+        REPO / "features" / "knight-feature-subscriptions-service",
+        dist,
+        artifacts,
+        arguments.base_url,
+        knight.token,
+    )
+
+    artifact = artifacts / "subscriptions-2.0.0.json"
+
+    expect(
+        artifact.exists(),
+        "an external Feature is published as a signed configuration document, not an archive",
+    )
+    expect(
+        not (artifacts / "subscriptions-2.0.0.zip").exists(),
+        "and no archive is built for it at all",
+    )
+
+    knight.call("POST", f"/customers/{customer['id']}/entitlements", {"featureId": service_feature["id"]})
+
+    external_plan = knight.call("POST", "/installations/plan", {
+        "storeId": store["id"],
+        "slug": "subscriptions",
+        "versionRange": "2.0.0",
+    })
+
+    expect(
+        external_plan["isSuccessful"],
+        "a store can be planned against for a Feature that runs nowhere near it",
+    )
+
+    knight.call("POST", "/installations/install", {
+        "storeId": store["id"],
+        "slug": "subscriptions",
+        "versionRange": "2.0.0",
+    })
+    run_jobs(reference)
+
+    expect(
+        installed_versions(knight, store["id"]).get("subscriptions") == "2.0.0",
+        "KNIGHT records the configuration version the store registered",
+    )
+
+    entry = registry_entry(store_work, "subscriptions")
+    contract = entry.get("extra") or {}
+
+    expect(
+        contract.get("architecture") == "external_service",
+        "the store's own registry records it as a service rather than a package",
+    )
+    expect(
+        len(contract.get("webhooks") or []) == 4,
+        "the store registered every event the Feature subscribed to",
+    )
+    expect(
+        len(contract.get("api_proxies") or []) == 2,
+        "and every route it asked the store to forward",
+    )
+    expect(
+        len(contract.get("ui_mounts") or []) == 2,
+        "and every place it hangs a screen",
+    )
+
+    # The three absences that are the whole point of the architecture.
+    expect(
+        set(store_tables(reference)) == tables_before,
+        "installing it created no table in the store's database - a service has no schema here",
+    )
+    expect(
+        not (store_work / "features" / "subscriptions").exists(),
+        "and no package directory, because there is no package",
+    )
+    expect(
+        not _job_named(knight, store["id"], "subscriptions", "migrate"),
+        "and no migrate step was ever run for it",
+    )
+
+    expect(
+        entry["enabled"],
+        "the Feature is serving: the store will forward its events and proxy its routes",
+    )
+
+    # And withdrawing it stops all of that, without touching the service's own
+    # data - which the store never had.
+    knight.call(
+        "POST",
+        f"/customers/{customer['id']}/entitlements/{service_feature['id']}/revoke",
+        {"reason": f"delivery drill {run}"},
+    )
+    run_jobs(reference)
+
+    expect(
+        not registry_entry(store_work, "subscriptions")["enabled"],
+        "withdrawing the entitlement stops the store forwarding anything to it",
+    )
+    expect(
+        set(store_tables(reference)) == tables_before,
+        "and still no table was created or dropped in the store's database",
+    )
+
     # --- The other runtime ---------------------------------------------------
 
     step("Delivering to a store that is not Django")
@@ -1214,6 +1334,28 @@ def _next_patch(knight: Knight, feature_id: str, series: str) -> str:
             return candidate
 
     raise DrillFailed(f"A thousand versions of {series} already exist, which cannot be right.")
+
+
+
+
+def _job_named(knight: Knight, store_id: str, slug: str, step_name: str) -> bool:
+    """
+    Whether any job for this Feature ever ran a given step.
+
+    Reads the steps KNIGHT recorded rather than the pipeline it would have
+    composed, because the question is what the store actually did.
+    """
+    for job in knight.call("GET", f"/jobs?storeId={store_id}&pageSize=100")["items"]:
+        if job.get("featureSlug") != slug:
+            continue
+
+        detail = knight.call("GET", f"/jobs/{job['id']}")
+
+        for recorded in detail.get("steps") or []:
+            if recorded.get("name") == step_name or recorded.get("step") == step_name:
+                return True
+
+    return False
 
 
 if __name__ == "__main__":

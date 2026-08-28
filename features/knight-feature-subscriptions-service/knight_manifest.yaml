@@ -1,0 +1,120 @@
+# Subscriptions, delivered as a service instead of as a package.
+#
+# The same Feature as `knight-feature-subscriptions` 1.x and the same business
+# rules: periods opened before they are charged, an append-only ledger of every
+# attempt, a pause that moves the clock forward rather than accruing. What
+# changed is where the code runs. In 1.x it was a Django app installed into each
+# store, with that store's database handle and that store's migrations; here it
+# runs once, as a service the author operates, and each store is handed a
+# configuration telling it which events to forward and which routes to proxy
+# (docs/adr/0033-api-driven-features.md).
+#
+# The version is a **major** bump on purpose. A store on 1.x has this Feature's
+# tables in its own database and an upgrade does not move them: 2.0.0 is a
+# different deployment of the same product and the data migration between them
+# is an operational job, not something a manifest can promise.
+apiVersion: knight.dev/v1
+slug: subscriptions
+version: 2.0.0
+name: Subscriptions and Recurring Orders
+description: >-
+  Recurring orders with a state machine that can be paused and resumed, billing
+  periods that are opened before they are charged, and an append-only ledger of
+  every attempt - run as a service rather than installed into the store. The
+  store forwards the four order events the billing clock depends on and proxies
+  the merchant's screens through to it.
+
+# The discriminator that decides everything else. There is no `runtime:` block,
+# no `migrations:` block and no `install:` block, because the store loads none
+# of this and its database never hears about it. KNIGHT refuses a manifest that
+# carries them anyway, which is what stops a copied manifest promising a
+# migration that will never run.
+architecture: external_service
+
+service:
+  # Where the Feature runs. One deployment for every store on it, which is the
+  # whole scaling argument: 1.x needed a Django package built, signed, versioned
+  # and installed into each store, and this needs a URL.
+  base_url: https://subscriptions.knight.dev
+
+  # HMAC over method, path, timestamp, nonce and a digest of the body. The body
+  # is covered because a subscription charge is the kind of request somebody
+  # would want to alter in flight; the timestamp and nonce are covered because a
+  # captured one must stop working and must not replay.
+  auth: hmac-sha256
+
+  health: /healthz
+
+  # The **name** of the shared secret, never the secret. This document is
+  # public, signed, and kept in a catalogue - a secret in it would be a secret
+  # in every copy of it for ever. The operator sets the variable on the store.
+  secret: SUBSCRIPTIONS_SERVICE_SECRET
+
+# The events the billing clock depends on. In 1.x these were Django signals the
+# installed app connected to in the store's own process; now they are HTTP
+# deliveries, and the difference that matters is that the store keeps its
+# transaction and the service gets told afterwards.
+webhooks:
+  # At-least-once on all four, and the service is idempotent because of it. The
+  # alternative silently drops an event somebody was charged for, which is the
+  # one failure this Feature exists not to have.
+  - event: order.placed
+    path: /hooks/order-placed
+    delivery: at-least-once
+
+  - event: order.paid
+    path: /hooks/order-paid
+    delivery: at-least-once
+
+  - event: order.cancelled
+    path: /hooks/order-cancelled
+    delivery: at-least-once
+
+  - event: order.refunded
+    path: /hooks/order-refunded
+    delivery: at-least-once
+
+# The routes 1.x mounted at `subscriptions/` through its urlconf, forwarded
+# rather than mounted. The store makes an HTTP request and returns what comes
+# back; it does not run this code and does not hand it a database handle.
+api_proxies:
+  # A shopper managing their own subscriptions. `identity: customer` means the
+  # store refuses the request itself when nobody is signed in, and asserts who
+  # is asking in a signed header - it never forwards the shopper's session.
+  - prefix: subscriptions/
+    upstream: /api/v1/subscriptions/
+    methods: [GET, POST]
+    identity: customer
+
+  # The merchant's side. Staff-only, and again decided by the store: a service
+  # deciding for itself whether a caller is staff would be the store trusting a
+  # third party about its own users.
+  - prefix: admin/subscriptions/
+    upstream: /api/v1/admin/
+    methods: [GET, POST, PATCH, DELETE]
+    identity: staff
+
+# Where the merchant finds it. A slot and a URL, not markup: the store decides
+# what a sidebar entry looks like and the Feature decides what is behind it,
+# which is the only division that survives the store restyling itself.
+ui_mounts:
+  - slot: admin.sidebar
+    label: Subscriptions
+    path: /admin/subscriptions
+    kind: iframe
+
+  - slot: admin.customer_detail
+    label: Subscriptions
+    path: /admin/customers
+    kind: iframe
+
+# Read by the service, not by the store. The store writes it beside its feature
+# registry and forwards it on; nothing here is a secret, and the ones that are
+# arrive the way the shared secret does.
+configuration:
+  defaults:
+    # The two the merchant actually changes. Everything else 1.x exposed was
+    # about how the installed app behaved inside the store, and there is no
+    # installed app any more.
+    retry_attempts: 3
+    grace_period_days: 3

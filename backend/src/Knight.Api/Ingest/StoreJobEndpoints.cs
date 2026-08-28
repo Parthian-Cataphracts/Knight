@@ -145,7 +145,8 @@ public static class StoreJobEndpoints
                 assignment.Runtime.MountPrefix,
                 [.. assignment.Runtime.Workers.Select(worker =>
                     new AgentWorkerResponse(worker.Name, worker.Entrypoint, worker.Schedule))]),
-        assignment.ClaimExpiresAt);
+        assignment.ClaimExpiresAt,
+        assignment.Architecture);
 
     /// <summary>
     /// The store's id, from the token. A handler reached without one is a

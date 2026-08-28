@@ -466,7 +466,8 @@ internal sealed class AgentJobService : IAgentJobService
             configuration,
             migrations,
             runtime,
-            job.ClaimExpiresAt ?? _clock.UtcNow.Add(_options.JobClaimTimeout));
+            job.ClaimExpiresAt ?? _clock.UtcNow.Add(_options.JobClaimTimeout),
+            job.Architecture is DeliveryArchitecture.ExternalService ? "external_service" : "in_process");
     }
 
     private async Task<FeatureInstallationJob> RequireJobAsync(Guid storeId, Guid jobId, CancellationToken cancellationToken)

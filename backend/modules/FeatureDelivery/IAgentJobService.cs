@@ -34,7 +34,19 @@ public sealed record AgentJobAssignment(
     /// carries no target version, which is every job that installs nothing.
     /// </summary>
     AgentRuntimeIntegration? Runtime,
-    DateTimeOffset ClaimExpiresAt);
+    DateTimeOffset ClaimExpiresAt,
+    /// <summary>
+    /// <c>in_process</c> or <c>external_service</c>.
+    ///
+    /// It tells the agent what the artifact it is about to fetch <b>is</b>: an
+    /// archive of code to unpack, or a signed configuration document to read.
+    /// The agent needs to know before it fetches, which is why it is here and
+    /// not only inside the artifact (<c>adr/0033</c>).
+    ///
+    /// Always sent, and defaulted, so an agent written before the second
+    /// architecture existed reads the value it always assumed.
+    /// </summary>
+    string Architecture = "in_process");
 
 /// <summary>
 /// The names a store needs to load a delivered package: what its migrations are
