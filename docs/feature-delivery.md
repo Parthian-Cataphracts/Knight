@@ -112,6 +112,7 @@ apiVersion: knight.dev/v1
 slug: analytics-reports
 version: 1.4.0
 name: Analytics Reports
+architecture: in_process   # in_process | external_service; omitted means in_process
 runtime: django            # closed list; omitted means django
 django:                    # the block is named for the runtime above
   app_label: knight_analytics_reports
@@ -199,6 +200,85 @@ node. An author who writes the wrong one is told which shape was wanted.
 A runtime is only added to the list once a store of that runtime has actually
 taken delivery of a Feature — see
 [`../stores/node-reference-store`](../stores/node-reference-store).
+### The architecture, and Features that are not code
+
+`architecture:` says whether the store runs this Feature's code at all, and it
+sits **above** `runtime:`. `runtime` answers "what language is this code written
+for" and only means anything when there is code; `architecture` answers "is there
+code at all". Omitting it means `in_process`, because every manifest written
+before phase 22 is code
+([`adr/0033`](adr/0033-api-driven-features.md)).
+
+An `external_service` Feature runs wherever its author runs it, once, for every
+store. What KNIGHT delivers is a **signed configuration document** rather than an
+archive:
+
+```yaml
+apiVersion: knight.dev/v1
+slug: subscriptions
+version: 2.0.0
+name: Subscriptions and Recurring Orders
+architecture: external_service
+
+service:
+  base_url: https://subscriptions.knight.dev   # absolute; https outside development
+  auth: hmac-sha256                            # hmac-sha256 | bearer-token
+  health: /healthz
+  secret: SUBSCRIPTIONS_SERVICE_SECRET         # the NAME of the secret, never its value
+
+webhooks:                                      # events the store forwards
+  - event: order.placed                        # must be in the store's own catalogue
+    path: /hooks/order-placed
+    delivery: at-least-once                    # at-least-once | at-most-once
+
+api_proxies:                                   # routes the store forwards
+  - prefix: subscriptions/                     # in the store's own URL space
+    upstream: /api/v1/subscriptions/
+    methods: [GET, POST]                       # defaults to [GET]
+    identity: customer                         # anonymous | customer | staff
+
+ui_mounts:                                     # where its screens hang
+  - slot: admin.sidebar                        # must be a slot the store offers
+    label: Subscriptions
+    path: /admin/subscriptions
+    kind: iframe                               # iframe | redirect
+
+configuration:
+  defaults: { retry_attempts: 3 }
+```
+
+An `external_service` manifest carrying `runtime`, `django`, `node`, `dotnet`,
+`migrations`, `install`, `dependencies` or `workers` is **refused**. Those blocks
+only mean something for code the store runs, and a `migrations:` block is the
+most dangerous of them, because it reads like a promise that something will be
+migrated and nothing will.
+
+A manifest declaring none of `webhooks`, `api_proxies` or `ui_mounts` is also
+refused: installing it would do nothing at all, which is a manifest somebody has
+not finished.
+
+**It is still signed.** The configuration *is* the artifact — same digest, same
+detached ECDSA signature over the same ASCII digest string, same `fetch` then
+`verify` before the store acts on any of it. A document that tells a store where
+to forward its customers' requests is not a thing to take on trust because it
+happens to be JSON.
+
+**What each side validates.** KNIGHT checks the *shape* of an event name and a
+slot at publish, because it cannot know what any particular store emits or
+offers. The store checks the *name* at install, against its own catalogue,
+because it is the only thing that can — without which a Feature subscribing to
+`order.plaecd` installs cleanly, passes its health check and never hears
+anything.
+
+**What the store does with it.** It registers the subscriptions in its own event
+bus, mounts the proxy prefixes in its own URL space, and records the mounts for
+its own interface. Forwarded requests carry a signed assertion of *who is asking*
+and **none of the shopper's own credentials**: no session cookie, no
+`Authorization` header, no CSRF token. The store decides `anonymous` / `customer`
+/ `staff` itself, forwards only the declared methods, and refuses to return a
+`Set-Cookie` — a Feature's service must not be able to issue a session on the
+store's origin.
+
 ## 6. Installation state machine
 
 ```
@@ -268,6 +348,37 @@ Properties:
   lacks, and this ordering means that failure arrives before the schema has been
   touched, naming the statement an administrator must run
   ([`adr/0031`](adr/0031-database-extensions-are-declared-not-migrated.md)).
+
+
+### The external-service pipelines
+
+A Feature that is a service gets a different step list, built entirely from the
+verbs above:
+
+| Job | Steps |
+|---|---|
+| Install / upgrade | `preflight` `fetch` `verify` `backup` `configure` `install` `enable` `healthcheck` |
+| Rollback | `restore-package` `configure` `enable` `healthcheck` |
+| Uninstall | `disable` `backup` `remove-package` |
+| Enable / disable / configure | `enable` `healthcheck` / `disable` / `configure` `healthcheck` |
+
+`install` means "make this Feature present in this store", which for a service is
+registering its webhooks and wiring its proxy routes — the same relationship
+every runtime already has to that verb.
+
+**No verb here is new**, and that is deliberate rather than tidy. A store that
+meets a step it does not know refuses the whole job, and stores are upgraded on
+their own schedule: adding a verb would have broken every store that had not
+caught up, on the day it shipped, for exactly the Features that most needed to
+work. There is a test in the backend suite that fails if an external pipeline
+ever names a verb the in-process one does not.
+
+Four steps are absent, and each absence is a fact about the architecture rather
+than a shortcut: **no `create-extensions`** because there is no database to
+create one in, **no `migrate`** and **no `reverse-migrate`** because there is no
+schema in the store, and **no `reload`** because nothing was loaded into the
+store's process. `backup` stays, and keeps the *registration* rather than a
+package tree, so a rollback has something local to restore.
 
 ## 8. Dependency resolution and compatibility
 

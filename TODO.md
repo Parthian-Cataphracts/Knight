@@ -11,8 +11,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 20 — the second runtime, through the real path, and the refusals.** A node store has never asked KNIGHT for work, and KNIGHT cannot plan against one: compatibility is still decided on Python and Django versions a node store has no way to report. The drill, meanwhile, has twenty-four assertions and every one checks that something *worked* |
-| **Next phase** | Nothing scheduled after 20. What remains is the standing work below: the external security review nobody inside the project can close, and wiring real vendors to the four Features that honestly refuse without one |
+| **Current phase** | **Phase 22 complete — a Feature may be a service the store talks to.** `architecture:` joins `runtime:` as a discriminator; KNIGHT signs and delivers a configuration document instead of an archive, and all three agents register rather than unpack. Nothing that worked before stopped |
+| **Next phase** | Standing up a real service behind `subscriptions` 2.0.0, and giving the reference store a delivery queue so an event is actually sent. Both are named in phase 22's carried list |
 | **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **819 backend tests green** (646 unit, 13 architecture, 160 PostgreSQL-backed integration), plus **775 store tests with nothing skipped**, the same 775 passing with no Feature installed at all, 14 node-store tests, and 9 dashboard — and, since phase 19, **the delivery drill itself**, which is the only thing here that runs the path a customer travels |
 | **Blocking decisions** | **Are Features publishable for a store that is not Django?** Everything except the manifest is already stack-agnostic; `ManifestReader` is the one thing that is not (R26, decision 14 in [`docs/risks.md`](docs/risks.md)). Until it is answered, a non-Django store is entitled and observed but not delivered to. Separately, the **restore drill is done** and runs in CI on every push, so the proposed release blocker is answered ([`adr/0027`](docs/adr/0027-the-restore-drill-is-the-backup-test.md)). One item remains that nobody inside the project can close: the **external security review of the code-delivery path**, scoped in [`docs/security/external-review-scope.md`](docs/security/external-review-scope.md). R16 stays open until it has happened |
 
@@ -46,6 +46,7 @@ Phase 18   The catalogue through delivery  ██████████ 100%
 Phase 19   The delivery drill runs itself  ██████████ 100%
 Phase 20   Second runtime, and the refusals ██████████ 100%
 Phase 21   A third runtime, and two real stores ███████░░░  70%
+Phase 22   Features as services              ██████████ 100%
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -1639,6 +1640,51 @@ store rather than an integration written per project, which is the answer to
       finished until one has been, which is what phases 18 to 20 were about
 - [ ] **A .NET Feature to deliver to them.** The catalogue is Django packages;
       a `dotnet` Feature exists only as a manifest shape and a test fixture
+
+---
+
+## Phase 22 — Features as services, not only as packages ✅
+
+**Exit criteria:** a Feature can be delivered as a signed configuration rather
+than as code, all three agents act on one, and nothing that worked before stops.
+
+Building the third store agent was the argument for this. It cost a library,
+fifteen verbs and nineteen tests — and the node agent turned out to have been
+missing three verbs for three phases and three more for four. 150 Features across
+three runtimes is 450 packages to build, sign, install, migrate and roll back,
+each inside a store we do not operate, holding that store's database handle.
+
+- [x] **`architecture: external_service`**, with `service`, `webhooks`,
+      `api_proxies` and `ui_mounts`; the in-process blocks refused on one
+- [x] **Signed configuration instead of an archive** — still hashed, still
+      signed, still verified before the store acts
+- [x] **Six external pipelines**, built entirely from verbs all three agents
+      already implement, with a test that fails if that ever stops being true
+- [x] **All three agents** register rather than unpack, and each validates the
+      events and slots against its own catalogue
+- [x] **`subscriptions` 2.0.0** as the proof of concept
+- [x] **The drill walks it**, asserting the absences: no table, no package
+      directory, no migrate step
+- [x] **[`adr/0033`](docs/adr/0033-api-driven-features.md)** and
+      [the verification](docs/phase-22-verification.md)
+
+Carried, and each of them written down rather than implied:
+
+- [ ] **Nothing runs at the other end.** `subscriptions` 2.0.0 names a service
+      that does not exist. The delivery path is proven end to end; standing the
+      service up is a deployment and a separate piece of work
+- [ ] **No event has actually been delivered and no request actually proxied.**
+      Both are unit-tested against a mocked transport. The reference store has
+      no queue, and one that picked Celery would be telling every store to run it
+- [ ] **The `at-least-once` retry policy is named, not built**
+- [ ] **A store cannot pin a service version.** Versioning the configuration
+      does not version the service behind it: an author can change behaviour for
+      every store at once, which is the same property that lets them fix a bug
+      for every store at once
+- [ ] **The other fifteen Features are unconverted**, deliberately. In-process
+      delivery is not deprecated by this: it is still the right answer for
+      anything that must be inside the store's transaction, and there is no way
+      to be inside a transaction over HTTP
 
 ---
 
