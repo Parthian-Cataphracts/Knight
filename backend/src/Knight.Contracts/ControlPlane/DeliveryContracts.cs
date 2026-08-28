@@ -29,6 +29,32 @@ public sealed record ConfigureFeatureRequest(
     string Values,
     IReadOnlyDictionary<string, string>? Secrets);
 
+/// <summary>
+/// Issue or rotate the secret a store signs a Feature's service with.
+///
+/// <c>OverlapSeconds</c> is how long the previous secret keeps working, and it
+/// is the difference between a rotation and an outage: the store carries on
+/// signing with the old value until it takes delivery of the new configuration.
+/// Absent means the deployment's default. Zero is what a leak needs and is never
+/// the default.
+/// </summary>
+public sealed record RotateServiceSecretRequest(Guid StoreId, Guid FeatureId, int? OverlapSeconds);
+
+/// <summary>
+/// What happened to a store's credential with a Feature's service.
+///
+/// No secret, in either direction. The value exists at KNIGHT, at the service
+/// and at the store, and a response that carried it would make every log and
+/// every browser a fourth place.
+/// </summary>
+public sealed record ServiceSecretResponse(
+    Guid StoreId,
+    string FeatureSlug,
+    string SecretName,
+    bool Rotated,
+    int OverlapSeconds,
+    int ConfigurationVersion);
+
 // --- Responses ---------------------------------------------------------------
 
 public sealed record ManifestErrorResponse(string Path, string Message);

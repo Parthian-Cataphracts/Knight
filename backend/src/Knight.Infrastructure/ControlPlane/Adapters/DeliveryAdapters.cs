@@ -334,13 +334,16 @@ internal sealed class FeatureVersionReader : IFeatureVersionReader
 internal sealed class DeliveryEntitlementEventPublisher : IEntitlementEventPublisher
 {
     private readonly IFeatureDeliveryService _delivery;
+    private readonly IServiceCredentialService _credentials;
     private readonly ILogger<DeliveryEntitlementEventPublisher> _logger;
 
     public DeliveryEntitlementEventPublisher(
         IFeatureDeliveryService delivery,
+        IServiceCredentialService credentials,
         ILogger<DeliveryEntitlementEventPublisher> logger)
     {
         _delivery = delivery;
+        _credentials = credentials;
         _logger = logger;
     }
 
@@ -379,6 +382,20 @@ internal sealed class DeliveryEntitlementEventPublisher : IEntitlementEventPubli
         try
         {
             await _delivery.ApplyEntitlementChangeAsync(customerId, featureId, entitled, reason, cancellationToken);
+
+            if (!entitled)
+            {
+                // The half a store cannot be trusted with. Disabling the
+                // installation stops the store forwarding, and a store whose
+                // registry is stale — or restored from a backup taken before
+                // this — would carry on calling a Feature nobody pays for. This
+                // stops the service answering it
+                // (docs/adr/0034-a-shared-secret-has-a-lifetime.md).
+                //
+                // After the disable rather than before, so that a service which
+                // is unreachable cannot stop the store-side half from happening.
+                await _credentials.RevokeForCustomerAsync(customerId, featureId, cancellationToken);
+            }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

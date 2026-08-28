@@ -485,6 +485,98 @@ class RequestSigningTests(SimpleTestCase):
         self.assertEqual(first, second)
 
 
+class SharedSecretTests(SimpleTestCase):
+    """
+    Where the secret this store signs with comes from.
+
+    KNIGHT issues it per (store, feature) and rotates it, and a rotation reaches
+    the store as a configuration version written beside the registry
+    (`docs/adr/0034-a-shared-secret-has-a-lifetime.md`). What is asserted here is
+    the precedence, because getting it the wrong way round fails silently: a
+    store pinned to an environment variable ignores every rotation and looks
+    perfectly healthy until the overlap window closes.
+    """
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp(prefix="knight-secrets-"))
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+
+        self.contract = ExternalContract(
+            slug="subscriptions",
+            version="2.1.0",
+            base_url="https://subscriptions.knight.dev",
+            auth="hmac-sha256",
+            health_path="/healthz",
+            secret_name="SUBSCRIPTIONS_SERVICE_SECRET",
+            webhooks=[],
+            api_proxies=[],
+            ui_mounts=[],
+        )
+
+    def deliver(self, secret: str, *, version: int = 4) -> None:
+        """The file the installer writes when KNIGHT sends a configuration."""
+        (self.root / "subscriptions.config.json").write_text(
+            json.dumps(
+                {"version": version, "values": {}, "secrets": {"SUBSCRIPTIONS_SERVICE_SECRET": secret}}
+            ),
+            encoding="utf-8",
+        )
+
+    def secret(self, **environment) -> str:
+        from knight_integration.external.signing import secret_for
+
+        with mock.patch("knight_integration.conf.get_settings") as settings:
+            settings.return_value.feature_root = str(self.root)
+
+            with mock.patch.dict("os.environ", environment, clear=True):
+                return secret_for(self.contract, required=False)
+
+    def test_what_knight_delivered_wins_over_the_environment(self):
+        self.deliver("the-secret-knight-issued-and-has-since-rotated")
+
+        # The assertion this class exists for. An environment variable that took
+        # precedence would mean a store quietly ignoring every rotation.
+        self.assertEqual(
+            "the-secret-knight-issued-and-has-since-rotated",
+            self.secret(SUBSCRIPTIONS_SERVICE_SECRET="what-an-operator-typed-on-day-one"),
+        )
+
+    def test_the_environment_is_used_when_knight_has_delivered_nothing(self):
+        # A developer against a service on their laptop, and an operator while a
+        # store is being brought up.
+        self.assertEqual(
+            "a-local-secret", self.secret(SUBSCRIPTIONS_SERVICE_SECRET="a-local-secret")
+        )
+
+    def test_a_rotation_is_picked_up_without_a_restart(self):
+        self.deliver("the-first-secret")
+        self.assertEqual("the-first-secret", self.secret())
+
+        self.deliver("the-second-secret", version=5)
+
+        # Read from the file every time. A value cached at import would keep a
+        # store signing with a secret whose window is closing, which is the one
+        # failure this arrangement exists to avoid.
+        self.assertEqual("the-second-secret", self.secret())
+
+    def test_an_unreadable_configuration_is_not_a_broken_store(self):
+        (self.root / "subscriptions.config.json").write_text("{ this is not json", encoding="utf-8")
+
+        self.assertEqual(
+            "a-local-secret", self.secret(SUBSCRIPTIONS_SERVICE_SECRET="a-local-secret")
+        )
+
+    def test_a_feature_with_no_secret_anywhere_raises_rather_than_signing_with_nothing(self):
+        from knight_integration.external.signing import secret_for
+
+        with mock.patch("knight_integration.conf.get_settings") as settings:
+            settings.return_value.feature_root = str(self.root)
+
+            with mock.patch.dict("os.environ", {}, clear=True):
+                with self.assertRaises(LookupError):
+                    secret_for(self.contract)
+
+
 class ProxyTests(SimpleTestCase):
     """What the store will and will not forward."""
 

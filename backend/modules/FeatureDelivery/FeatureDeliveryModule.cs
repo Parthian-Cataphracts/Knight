@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Knight.Application.Abstractions.ControlPlane;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -48,6 +49,7 @@ public static class FeatureDeliveryModule
         services.AddScoped<IFeatureDeliveryService, FeatureDeliveryService>();
         services.AddScoped<IFeatureRolloutService, FeatureRolloutService>();
         services.AddScoped<IAgentJobService, AgentJobService>();
+        services.AddScoped<IServiceCredentialService, ServiceCredentialService>();
 
         return services;
     }

@@ -258,6 +258,49 @@ public static class ControlPlaneDeliveryEndpoints
             Results.Ok((await service.RollbackAsync(request.StoreId, request.FeatureId, cancellationToken)).ToResponse()))
             .RequirePermission(ControlPlanePermissions.InstallationRollback);
 
+        // The shared secret with a Feature's service. Issued and rotated rather
+        // than typed into two places, and never returned: what comes back is
+        // which name was set, whether this replaced an earlier one, and how long
+        // the old one keeps working (adr/0034).
+        group.MapPost("/service-secret", async (
+            RotateServiceSecretRequest request,
+            IServiceCredentialService credentials,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await credentials.IssueAsync(
+                request.StoreId, request.FeatureId, request.OverlapSeconds, cancellationToken);
+
+            return Results.Ok(new ServiceSecretResponse(
+                result.StoreId,
+                result.FeatureSlug,
+                result.SecretName,
+                result.Rotated,
+                result.OverlapSeconds,
+                result.ConfigurationVersion));
+        }).RequirePermission(ControlPlanePermissions.InstallationManage);
+
+        // Uninstalling is not the only reason to take a credential away, and it
+        // is the heavier act: this ends the store's access to the service and
+        // leaves everything else where it is. It needs the uninstall permission
+        // rather than the manage one, because a store that cannot reach the
+        // service it is entitled to looks, from inside the shop, exactly like
+        // the Feature having been removed.
+        group.MapPost("/service-secret/revoke", async (
+            InstallationActionRequest request,
+            IServiceCredentialService credentials,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await credentials.RevokeAsync(request.StoreId, request.FeatureId, cancellationToken);
+
+            return Results.Ok(new ServiceSecretResponse(
+                result.StoreId,
+                result.FeatureSlug,
+                result.SecretName,
+                result.Rotated,
+                result.OverlapSeconds,
+                result.ConfigurationVersion));
+        }).RequirePermission(ControlPlanePermissions.InstallationUninstall);
+
         group.MapPut("/configuration", async (
             ConfigureFeatureRequest request,
             IFeatureDeliveryService service,

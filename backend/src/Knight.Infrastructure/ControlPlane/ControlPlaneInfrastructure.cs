@@ -128,6 +128,15 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<IStoreDeliveryReader, StoreDeliveryReader>();
         services.AddScoped<FeatureDelivery.IFeatureVersionReader, FeatureVersionReader>();
 
+        // Where a Feature's service lives, read out of the manifest the store
+        // took delivery of, and the call that tells that service who its stores
+        // are (docs/adr/0034-a-shared-secret-has-a-lifetime.md).
+        services.AddScoped<IServiceEndpointReader, ServiceEndpointReader>();
+        services.AddScoped<IServiceControlPlane, ServiceControlPlaneClient>();
+
+        services.AddOptions<ServiceControlPlaneOptions>()
+            .Bind(configuration.GetSection(ServiceControlPlaneOptions.SectionName));
+
         services.AddOptions<FeatureArtifactOptions>()
             .Bind(configuration.GetSection(FeatureArtifactOptions.SectionName));
 
