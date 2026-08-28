@@ -159,7 +159,9 @@ correct for one store and one service and becomes an incident at ten.
 **Gate:** rotate a live secret with a request in flight and lose nothing;
 revoke an entitlement and watch the next call be refused **by the service**.
 
-### Phase 25 — The two real stores, end to end
+### Phase 25 — The two real stores, end to end 🔸 **BojanStore done; Phonix carried**
+
+Verified in [`phase-25-verification.md`](phase-25-verification.md).
 
 **Exit:** BojanStore takes delivery of a Feature from a running KNIGHT, and
 serves it.

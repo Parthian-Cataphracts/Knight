@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-28** (revision 31 — phase 24 done: a shared secret can be rotated, and a withdrawn entitlement is refused by the service)
+Last updated: **2026-08-28** (revision 32 — phase 25 done: a store whose code is not in this repository took delivery of a Feature and serves it, connected from its own panel)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,8 +11,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 24 — secrets, identity and rotation. Complete.** A store's shared secret is a row with a lifetime, issued by KNIGHT and rotated with an overlap, and withdrawing an entitlement is refused by the **service** rather than only by the store. [`docs/phase-24-verification.md`](docs/phase-24-verification.md) says how it was checked |
-| **Next phase** | **Phase 25 — the two real stores, end to end.** BojanStore takes delivery of a Feature from a running KNIGHT and serves it, verified in a browser. Much cheaper than when phase 21 was written: an `external_service` Feature has no runtime, so it needs no .NET Feature to exist. See [`docs/roadmap.md`](docs/roadmap.md) |
+| **Current phase** | **Phase 25 — the two real stores, end to end. Complete for BojanStore.** It was connected to KNIGHT from its own admin panel — no redeploy — took delivery of `subscriptions` 2.1.0, and serves it: `GET /api/features/subscribe/` on that shop answers with the service's own reply. Phonix is carried forward, since there is no write access to it from here. [`docs/phase-25-verification.md`](docs/phase-25-verification.md) |
+| **Previous phase** | **Phase 24 — secrets, identity and rotation. Complete.** A store's shared secret is a row with a lifetime, issued by KNIGHT and rotated with an overlap, and withdrawing an entitlement is refused by the **service** rather than only by the store. [`docs/phase-24-verification.md`](docs/phase-24-verification.md) says how it was checked |
+| **Next phase** | **Phase 26 — operating it.** A failed delivery, a proxy 502 and a job stuck in `Running` are each visible on a screen and each raise an alert, without anybody reading a log. The architecture has three new ways to fail silently and none of them is visible anywhere. See [`docs/roadmap.md`](docs/roadmap.md) |
 | **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **868 backend tests green** (691 unit, 13 architecture, 164 PostgreSQL-backed integration), plus **841 store tests with nothing skipped**, 14 node-store tests, **57 subscriptions-service tests**, and 9 dashboard — and, since phase 19, **the delivery drill itself**, which is the only thing here that runs the path a customer travels |
 | **Blocking decisions** | R26 is **answered**: a Feature is publishable for any of three runtimes, and since phase 22 an `external_service` Feature needs no runtime at all. What is left is five decisions only the product owner can make, listed in [`docs/roadmap.md`](docs/roadmap.md) §7 — where the service code lives, the hosting platform, engaging the security reviewer (longest lead time, R16 stays open until it happens), Phonix access, and backup custody |
 
@@ -49,7 +50,7 @@ Phase 21   A third runtime, and two real stores ███████░░░  
 Phase 22   Features as services              ██████████ 100%
 Phase 23   The live service layer          ██████████ 100%
 Phase 24   Secrets and rotation             ██████████ 100%
-Phase 25   The two real stores              ░░░░░░░░░░   0%
+Phase 25   The two real stores              ███████░░░  70%
 Phase 26   Operating it                     ░░░░░░░░░░   0%
 Phase 27   Deployment                       ░░░░░░░░░░   0%
 Phase 28   Migrating the catalogue          ░░░░░░░░░░   0%
@@ -1862,21 +1863,32 @@ store can take delivery of one without a single line of .NET Feature code
 existing — which took the largest item off phase 21's critical path without
 anybody doing anything.
 
-- [ ] **BojanStore connected** — issue it a credential against a running
-      KNIGHT, set `Knight__Enabled=true`, watch the handshake and the heartbeat
-- [ ] **`subscriptions` installed on it** and serving: the proxied route
-      answers, the sidebar mount appears
-- [ ] **Driven in a browser**, not asserted in a test. Every phase from 10
-      onward has found something that only a browser could show
-- [ ] **Phonix the same**, once there is write access to that repository or the
-      patch on the desktop has been applied
-- [ ] **A `dotnet` Feature**, to prove the in-process path on that runtime. No
-      longer on the critical path, and still worth having: it is the only
-      runtime whose in-process delivery has never been exercised against a real
-      store
+- [x] **BojanStore connected** — and not by an environment variable. The
+      credential is entered on its own settings screen, the agent reads it on
+      its next pass and the handshake follows without a restart, because the
+      person who owns a shop cannot restart a container and "send me your client
+      secret" is a worse answer
+- [x] **`subscriptions` 2.1.0 installed on it and serving.**
+      `GET /api/features/subscribe/` on that shop answers with the service's
+      own reply; a staff route is 403 and an undeclared method 405, both refused
+      by the store before anything is forwarded
+- [x] **Driven in a browser**, and it found three defects nothing else would
+      have: a delivered Feature that was recorded and never served, a shared
+      secret that arrived and was thrown away, and a forwarded request that was
+      correctly signed and did not say which store it came from
+- [ ] **Phonix the same** — no write access to that repository from here, and
+      the patch on the desktop is the product owner's to apply. Carried
+- [ ] **A `dotnet` Feature**, to prove the in-process path on that runtime.
+      BojanStore took delivery of a Feature that is a *service*, which needs no
+      runtime at all, so this is still the one runtime whose in-process delivery
+      has never been exercised against a real store
+- [ ] **UI mounts are listed, not mounted.** The panel shows where a Feature's
+      screens want to hang and nothing renders them. The next honest piece of
+      work on this seam
 
-**Gate:** a Feature installed on a store whose code is not in this repository,
-verified through a browser rather than a test.
+**Gate: passed for BojanStore.** A Feature installed on a store whose code is
+not in this repository, serving through it, verified in a browser rather than in
+a test. [`docs/phase-25-verification.md`](docs/phase-25-verification.md).
 
 ---
 
