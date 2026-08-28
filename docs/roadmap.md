@@ -137,7 +137,10 @@ is its step-by-step sequence.
 **Gate:** the drill step is green in CI, **and** an event survives the service
 being stopped for sixty seconds and restarted.
 
-### Phase 24 — Secrets, identity and rotation
+### Phase 24 — Secrets, identity and rotation ✅ **done**
+
+Verified in [`phase-24-verification.md`](phase-24-verification.md); the decision
+is [`adr/0034`](adr/0034-a-shared-secret-has-a-lifetime.md).
 
 **Exit:** each store has its own shared secret with each service, issued by
 KNIGHT and rotatable without an outage, and a store whose entitlement was

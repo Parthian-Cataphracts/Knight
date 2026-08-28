@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-27** (revision 30 — phase 18 done: the catalogue installed through its own delivery path, which had never worked)
+Last updated: **2026-08-28** (revision 31 — phase 24 done: a shared secret can be rotated, and a withdrawn entitlement is refused by the service)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,9 +11,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Current phase** | **Phase 23 — the live service layer. Complete.** An order placed in the reference store reaches a running subscriptions service, and a request to the store comes back from it. Six defects found, every one of them invisible until two processes had to agree about a signature |
-| **Next phase** | **Phase 24 — secrets, identity and rotation.** The shared secret is set by hand today, which is right for one store and an incident at ten. See [`docs/roadmap.md`](docs/roadmap.md) for the seven phases and the five decisions that are the product owner's |
-| **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **819 backend tests green** (646 unit, 13 architecture, 160 PostgreSQL-backed integration), plus **775 store tests with nothing skipped**, the same 775 passing with no Feature installed at all, 14 node-store tests, and 9 dashboard — and, since phase 19, **the delivery drill itself**, which is the only thing here that runs the path a customer travels |
+| **Current phase** | **Phase 24 — secrets, identity and rotation. Complete.** A store's shared secret is a row with a lifetime, issued by KNIGHT and rotated with an overlap, and withdrawing an entitlement is refused by the **service** rather than only by the store. [`docs/phase-24-verification.md`](docs/phase-24-verification.md) says how it was checked |
+| **Next phase** | **Phase 25 — the two real stores, end to end.** BojanStore takes delivery of a Feature from a running KNIGHT and serves it, verified in a browser. Much cheaper than when phase 21 was written: an `external_service` Feature has no runtime, so it needs no .NET Feature to exist. See [`docs/roadmap.md`](docs/roadmap.md) |
+| **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **868 backend tests green** (691 unit, 13 architecture, 164 PostgreSQL-backed integration), plus **841 store tests with nothing skipped**, 14 node-store tests, **57 subscriptions-service tests**, and 9 dashboard — and, since phase 19, **the delivery drill itself**, which is the only thing here that runs the path a customer travels |
 | **Blocking decisions** | R26 is **answered**: a Feature is publishable for any of three runtimes, and since phase 22 an `external_service` Feature needs no runtime at all. What is left is five decisions only the product owner can make, listed in [`docs/roadmap.md`](docs/roadmap.md) §7 — where the service code lives, the hosting platform, engaging the security reviewer (longest lead time, R16 stays open until it happens), Phonix access, and backup custody |
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
@@ -48,7 +48,7 @@ Phase 20   Second runtime, and the refusals ██████████ 100%
 Phase 21   A third runtime, and two real stores ███████░░░  70%
 Phase 22   Features as services              ██████████ 100%
 Phase 23   The live service layer          ██████████ 100%
-Phase 24   Secrets and rotation             ░░░░░░░░░░   0%
+Phase 24   Secrets and rotation             ██████████ 100%
 Phase 25   The two real stores              ░░░░░░░░░░   0%
 Phase 26   Operating it                     ░░░░░░░░░░   0%
 Phase 27   Deployment                       ░░░░░░░░░░   0%
@@ -62,9 +62,9 @@ the image; **16 sellable Features** (`analytics-core` 1.1.0, `analytics-reports`
 `customer-segmentation`, `loyalty-rewards` 1.1.0, `gift-cards`,
 `marketing-automation`, `ai-reports`, `advanced-inventory`,
 `restaurant-operations`, `multi-location`, `subscriptions`,
-`external-marketplaces`, `log-shipping`); **no Draft identities left**; 5 plans,
+`external-marketplaces` 1.1.0, `log-shipping`); **no Draft identities left**; 5 plans,
 two of them bundles. Seven Features run scheduled work declared in their own
-manifests, and `multi-location` deliberately declares none.
+manifests — `external-marketplaces` three of them since phase 24, and `multi-location` deliberately declares none.
 
 There is one Feature outside the catalogue and it is not for sale:
 `node-conformance`, which exists so the `node` runtime is demonstrated rather
@@ -1811,31 +1811,43 @@ entitlement stops the store forwarding without stopping the service answering.
 Phase 23 said so in its own drill — the constant is called
 `drill-shared-secret-not-for-a-deployment` — rather than pretending otherwise.
 
-- [ ] **KNIGHT issues the secret**, per (store, feature), and delivers it down
-      the configuration-secret path that `marketing-automation` and `ai-reports`
-      already use. Never in the manifest: a manifest is public, signed and kept
-      in a catalogue, so a secret in one is a secret in every copy for ever
-- [ ] **Rotation with overlapping validity.** Two secrets valid at once for the
-      length of one window, so a rotation is a deploy rather than an outage. A
-      service that accepted only the newest would refuse every request already
-      in flight
-- [ ] **The service learns about stores from KNIGHT** rather than from an
-      operator typing `knight_store add`. A registration endpoint on the
-      service, authenticated as KNIGHT rather than as a store
-- [ ] **Revocation reaches the service.** Withdrawing an entitlement disables
-      the store's registration *and* the service's, so a store with a stale
-      registration cannot reach a Feature nobody pays for. Half of this exists:
-      `Store.enabled` is checked on every request and nothing sets it
-- [ ] **The nonce table is rotated** — `forget_old_nonces` exists, is tested,
-      and nothing runs it on a timer. Carried from phase 23
-- [ ] **OAuth token refresh is automated** for `external-marketplaces`, which
-      stores a token and a refresh token and refreshes neither. Carried from
-      phase 17, and it is the same problem shaped differently: a credential
-      nobody rotates
+- [x] **KNIGHT issues the secret**, per (store, feature), delivered down the
+      configuration-secret path every other secret travels. Never in the
+      manifest, which names the variable and nothing else
+- [x] **Rotation with overlapping validity.** A store's secrets are rows with
+      lifetimes and any currently valid one verifies, so issuing a new one sets
+      the old ones expiring rather than replacing them. An expiry only ever
+      moves downwards; an overlap of zero is allowed and is what a leak needs
+- [x] **The service learns about stores from KNIGHT.** Four routes under
+      `/knight/`, signed with a control secret that is not any store's —
+      authenticating them as a store would be circular, because issuing that
+      store's secret is what they are for. Unconfigured refuses everything
+- [x] **Revocation reaches the service.** Withdrawing an entitlement disables
+      the installation *and* ends the store's secrets, so a store whose registry
+      is stale or restored from a backup is refused by the service itself
+- [x] **The nonce table is rotated** — `knight_maintain`, hourly, as a compose
+      sidecar. It also throws away the value of secrets nobody can use any more,
+      keeping the row and its dates
+- [x] **OAuth token refresh is automated** for `external-marketplaces` 1.1.0: an
+      hourly worker renews what is close to expiring, leaves a long-lived token
+      alone, and marks a connection expired when the other end rejects the
+      refresh token rather than retrying into a rate limit
 
-**Gate:** rotate a live secret with a request in flight and lose nothing; revoke
-an entitlement and watch the next call be refused **by the service**, with the
-store's own forwarding already stopped.
+**Gate: passed.** Drill step 14 rotates a live secret and finds both valid, sees
+the store serve with the new one without a restart, and watches a withdrawn
+entitlement refused by the service — 401 from the service itself, whatever the
+store's own registry says. [`docs/phase-24-verification.md`](docs/phase-24-verification.md).
+
+### Not done
+
+- [ ] **Nothing calls the issue endpoint on install.** An external Feature's
+      first credential is still asked for by hand. Small, and it belongs with
+      phase 25 where a second real store makes the omission obvious
+- [ ] **Nothing rotates on a schedule.** Rotation being possible was the missing
+      property; a ninety-day policy is phase 26's operational work
+- [ ] **The control secret has no rotation story of its own.** One value per
+      Feature, held by KNIGHT, changed in two places at once — the same problem
+      one level up, and smaller, because there is one holder rather than a fleet
 
 ---
 

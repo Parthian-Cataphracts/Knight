@@ -270,6 +270,31 @@ because it is the only thing that can — without which a Feature subscribing to
 `order.plaecd` installs cleanly, passes its health check and never hears
 anything.
 
+**Where the shared secret comes from.** KNIGHT issues it, per (store, feature),
+and delivers it as a configuration secret down the path every other secret
+travels — never in the manifest, which is public, signed and kept in a
+catalogue. The manifest names the variable and nothing more.
+
+It is **rotatable without an outage**, which is the property that decides
+whether it is ever rotated at all. The service holds a store's secrets as rows
+with lifetimes and accepts any that is currently valid, so issuing a new one
+sets the old ones expiring rather than replacing them: both work for the length
+of one window, and a request signed a second before the change still verifies a
+second after it. The store keeps signing with what it has until its agent takes
+delivery of the new configuration, which is why the default window is an hour
+rather than a minute.
+
+The order is fixed: the service is told first and the store second. A store
+holding a credential the service has not heard of would be a store signing with
+something that cannot verify. If the service refuses or does not answer, nothing
+is delivered and the store carries on with what it has.
+
+Withdrawing an entitlement revokes the credential at the service as well as
+disabling the installation at the store, because a store whose registry is
+stale — or restored from a backup taken before the withdrawal — would otherwise
+keep calling a Feature nobody pays for
+([`adr/0034`](adr/0034-a-shared-secret-has-a-lifetime.md)).
+
 **What the store does with it.** It registers the subscriptions in its own event
 bus, mounts the proxy prefixes in its own URL space, and records the mounts for
 its own interface. Forwarded requests carry a signed assertion of *who is asking*
