@@ -94,6 +94,20 @@ python manage.py knight_store disable --slug camden-coffee
 progress; zero is a store that cannot say anything, and is the one worth
 spotting.
 
+## Housekeeping
+
+Two tables grow for ever if nothing runs: used nonces, which are only useful
+while a captured request's timestamp is still acceptable, and secrets nobody can
+use any more, which keep their dates and lose their values after a month.
+
+```bash
+python manage.py knight_maintain                      # one pass
+python manage.py knight_maintain --loop --every 3600  # what the compose sidecar runs
+```
+
+Safe at any interval and safe to run twice: every operation is over a cut-off,
+and a second pass finds nothing left to do.
+
 ## Testing
 
 ```bash

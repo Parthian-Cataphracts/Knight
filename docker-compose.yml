@@ -55,5 +55,29 @@ services:
       timeout: 5s
       retries: 6
 
+  # The service's housekeeping, which nothing was running.
+  #
+  # Used nonces are the replay defence and are only useful while a captured
+  # request's timestamp is still acceptable; without a sweep the table grows
+  # with traffic and is never read. Spent secrets keep their dates and lose
+  # their values after a month.
+  #
+  # A sidecar rather than cron inside the service image: the service should do
+  # one thing, and a container that also ran a scheduler would have two reasons
+  # to be restarted (docs/adr/0034-a-shared-secret-has-a-lifetime.md).
+  subscriptions-maintenance:
+    build: ./services/subscriptions
+    command: ["python", "manage.py", "knight_maintain", "--loop", "--every", "3600"]
+    depends_on:
+      subscriptions:
+        condition: service_healthy
+    environment:
+      SUBSCRIPTIONS_DEBUG: "true"
+      SUBSCRIPTIONS_DB_HOST: postgres
+      SUBSCRIPTIONS_DB_PORT: "5432"
+      SUBSCRIPTIONS_DB_NAME: subscriptions
+      SUBSCRIPTIONS_DB_USER: knight
+      SUBSCRIPTIONS_DB_PASSWORD: knight
+
 volumes:
   postgres:

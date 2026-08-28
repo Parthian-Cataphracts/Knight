@@ -339,3 +339,70 @@ class ControlPlaneTests(TestCase):
         self.assertEqual(404, response.status_code)
         self.assertFalse(response.json()["registered"])
         self.assertEqual(0, Store.objects.count())
+
+
+class MaintenanceTests(TestCase):
+    """
+    The sweep that keeps two tables from growing for ever.
+
+    Nonces are the replay defence and are only useful while a captured request's
+    timestamp is still acceptable; spent secrets are history, and history is
+    worth keeping without the part of it that is worth stealing.
+    """
+
+    def setUp(self) -> None:
+        self.store = Store.objects.create(store_id=uuid.uuid4(), slug="camden-coffee")
+        self.store.rotate_to(STORE_SECRET, issued_by="a test")
+
+    def sweep(self) -> str:
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        out = StringIO()
+        call_command("knight_maintain", stdout=out)
+
+        return out.getvalue()
+
+    def test_a_nonce_older_than_the_window_is_forgotten(self):
+        SeenNonce.objects.create(store=self.store, nonce="old", seen_at=timezone.now() - timedelta(days=1))
+        SeenNonce.objects.create(store=self.store, nonce="fresh")
+
+        self.sweep()
+
+        # Forgotten no earlier than the window that makes them matter: a nonce
+        # dropped while its timestamp is still acceptable is a replay hole
+        # exactly as wide as the difference.
+        self.assertEqual(["fresh"], [seen.nonce for seen in SeenNonce.objects.all()])
+
+    def test_a_long_revoked_secret_keeps_its_dates_and_loses_its_value(self):
+        self.store.revoke_secrets(now=timezone.now() - timedelta(days=40))
+
+        self.sweep()
+
+        row = StoreSecret.objects.get()
+        self.assertNotIn(STORE_SECRET, row.secret)
+        # The row and its dates stay: "when did this key stop working" is the
+        # first question of any incident.
+        self.assertIsNotNone(row.revoked_at)
+
+    def test_a_secret_still_inside_its_overlap_is_left_alone(self):
+        self.store.rotate_to("the-secret-that-replaced-it", overlap_seconds=600)
+
+        self.sweep()
+
+        self.assertEqual(
+            {STORE_SECRET, "the-secret-that-replaced-it"},
+            {row.secret for row in StoreSecret.objects.all()},
+        )
+
+    def test_sweeping_twice_forgets_the_same_secret_once(self):
+        self.store.revoke_secrets(now=timezone.now() - timedelta(days=40))
+
+        self.sweep()
+        second = self.sweep()
+
+        # Safe to run at any interval, which is what makes it a cron entry
+        # rather than an operator's decision.
+        self.assertIn("blanked 0", second)
+        self.assertEqual(1, StoreSecret.objects.count())
