@@ -1,0 +1,4 @@
+# Deliberately short. This service does one thing and a dependency here is a
+# dependency in whatever runs it.
+Django>=5.1,<6.0
+psycopg[binary]>=3.1
