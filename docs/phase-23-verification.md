@@ -26,6 +26,7 @@ agree with each other.
 | **Its half of the contract** | HMAC verification, skew window, replay rejection, four webhook receivers, a public route, the proxied shopper and staff APIs, `/healthz` |
 | **The delivery queue** | A table, a worker, exponential retry over roughly twelve hours, then a dead letter that is kept |
 | **The store publishing** | `apps/orders` announces `order.placed`, `order.paid` and `order.cancelled` through the façade |
+| **The billing loop** | `knight_generate_subscription_orders` — the store asks the Feature what is owed an order, places them, reports the numbers back. Identical code whether `subscriptions` is a package or a service |
 | **`docker-compose.yml`** | PostgreSQL, Redis and the service, so one command stands the picture up |
 | **Drill steps 12 and 13** | The end-to-end proof, and the gate |
 
@@ -206,7 +207,7 @@ one**, and it is the assertion the phase is gated on rather than a nice extra.
 | Backend unit | **680 passed** |
 | Backend architecture | 13 passed |
 | Backend integration, `REQUIRE_POSTGRES_TESTS=1` | **164 passed** |
-| Reference store, all Features, `REQUIRE_FEATURE_TESTS=1` | **814 passed** (13 new) |
+| Reference store, all Features, `REQUIRE_FEATURE_TESTS=1` | **826 passed** (25 new) |
 | Node reference store | 30 passed |
 | .NET store agent | 31 passed |
 | **Subscriptions service** | **17 passed** (new) |
@@ -237,10 +238,17 @@ and nothing in the base store emits it, because the store has no refund flow yet
 The receiver is written and the subscription is declared, so the day it exists
 the wiring is already there — but it is not exercised and is not claimed to be.
 
-**The billing loop is not closed.** The service can bill a period and mark it
-owing an order; the store command that reads that and places the order is not
-written. The drill places an order directly, which proves the event path and
-does not prove the loop.
+**The billing loop is closed, and the drill does not walk it.**
+`knight_generate_subscription_orders` asks the Feature which paid periods are
+owed an order, places them, and reports the numbers back — and it does that the
+same way whether `subscriptions` is a package or a service, which is the clearest
+demonstration in the repository that the two architectures are one contract. It
+has ten tests, including one asserting the request is signed and asserts the
+store itself rather than a shopper.
+
+What the drill still does is place an order *directly*, because what step 12
+exists to prove is the event path. Walking the whole loop — bill, generate,
+report — is a natural fifteenth step and it is not written.
 
 **Nothing rotates the nonce table.** `forget_old_nonces` exists and is tested,
 and nothing runs it on a timer. It is one cron entry and it belongs with the

@@ -227,16 +227,14 @@ class Command(BaseCommand):
         shopper here, and asserting one would be telling the service something
         untrue.
         """
-        from knight_integration.external import ServiceCallFailed, call, contract_for
+        from knight_integration.features import ServiceUnavailable, ask, serves_as_service
 
-        contract = contract_for(FEATURE_SLUG)
-
-        if contract is None:
+        if not serves_as_service(FEATURE_SLUG):
             return None
 
         try:
-            answer = call(contract, "GET", f"{AWAITING_PATH}?limit={limit}")
-        except ServiceCallFailed as failure:
+            answer = ask(FEATURE_SLUG, "GET", f"{AWAITING_PATH}?limit={limit}")
+        except ServiceUnavailable as failure:
             # Not a traceback. The store is fine and the service is not, and a
             # cron job that shouted a stack trace at a merchant would bury the
             # one line that says which.
@@ -270,7 +268,7 @@ class Command(BaseCommand):
                         )
                         for line in item.get("lines") or []
                     ],
-                    report=_reporter(contract, item),
+                    report=_reporter(item),
                 )
             )
 
@@ -357,7 +355,7 @@ class Command(BaseCommand):
         return order
 
 
-def _reporter(contract, item: dict):
+def _reporter(item: dict):
     """
     The call that tells a service which order a period became.
 
@@ -365,14 +363,14 @@ def _reporter(contract, item: dict):
     two halves the service reported — and so the loop below has one shape for
     both kinds of Feature.
     """
-    from knight_integration.external import call
+    from knight_integration.features import ask
 
     reference = str(item.get("reference") or "")
     sequence = int(item.get("sequence") or 0)
     path = f"/api/v1/admin/{reference}/periods/{sequence}/order/"
 
     def report(number: int) -> None:
-        call(contract, "POST", path, {"orderNumber": int(number)})
+        ask(FEATURE_SLUG, "POST", path, {"orderNumber": int(number)})
 
     return report
 

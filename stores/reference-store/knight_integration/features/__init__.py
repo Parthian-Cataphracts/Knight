@@ -82,6 +82,61 @@ def announce(event: str, payload: dict) -> int:
     return publish(event, payload)
 
 
+class ServiceUnavailable(RuntimeError):
+    """
+    A Feature's service could not be reached, or refused.
+
+    Named on the façade so business code can catch it without importing
+    anything deeper. A cron job that has to tell a merchant "the subscriptions
+    service is not answering" needs a name for that, and it should not be the
+    name of a module it is not allowed to import.
+    """
+
+
+def ask(slug: str, method: str, path: str, payload: dict | None = None) -> dict:
+    """
+    Asks a Feature's service a question, as the store itself.
+
+    The third direction. `announce` tells a service something happened and
+    returns nothing; this asks and waits for an answer, which is what the
+    store's own scheduled work needs — "which periods are owed an order" is a
+    question only the Feature can answer.
+
+    Nobody is asking on a shopper's behalf, so the store asserts itself rather
+    than a person. And it is not on anybody's request path: a slow service
+    delays a cron run rather than a checkout.
+
+    Raises :class:`ServiceUnavailable` rather than letting an HTTP exception out,
+    so business code never has to know what this is built on
+    (`docs/adr/0033-api-driven-features.md`).
+    """
+    from ..external import ServiceCallFailed, call, contract_for
+
+    contract = contract_for(slug)
+
+    if contract is None:
+        raise ServiceUnavailable(f"'{slug}' is not installed on this store as a service.")
+
+    try:
+        return call(contract, method, path, payload)
+    except ServiceCallFailed as failure:
+        raise ServiceUnavailable(str(failure)) from failure
+
+
+def serves_as_service(slug: str) -> bool:
+    """
+    Whether this Feature is present as a service rather than as a package.
+
+    The one question business code legitimately has about *how* a Feature
+    arrived, because the two shapes are reached differently: a package is
+    imported and a service is asked. Everything else about the difference stays
+    behind this façade.
+    """
+    from ..external import contract_for
+
+    return contract_for(slug) is not None
+
+
 def known_events() -> frozenset[str]:
     """
     The events this store publishes, for a Feature to subscribe to.
@@ -96,8 +151,11 @@ def known_events() -> frozenset[str]:
 
 __all__ = [
     "EntitlementSet",
+    "ServiceUnavailable",
     "announce",
+    "ask",
     "known_events",
+    "serves_as_service",
     "FeatureNotEntitled",
     "current",
     "installed_features",

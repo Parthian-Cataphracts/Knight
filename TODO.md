@@ -1764,10 +1764,12 @@ not one byte had crossed between a store and a service.
       in CI; putting it on a host is phase 27
 - [ ] **`order.refunded` has a receiver and no publisher** — the base store has
       no refund flow yet. Declared and wired, not exercised
-- [ ] **The billing loop is not closed.** The service marks a period as owing an
-      order; the store command that reads that and places one is not written.
-      The drill places an order directly, which proves the event path and not
-      the loop
+- [x] **The billing loop is closed** — `knight_generate_subscription_orders`
+      asks the Feature what is owed an order, places them and reports the
+      numbers back, and does it the same way whether `subscriptions` is a
+      package or a service. Ten tests. The **drill** still places an order
+      directly, because step 12 exists to prove the event path; walking bill →
+      generate → report is a natural fifteenth step and is not written
 - [ ] **Nothing rotates the nonce table.** `forget_old_nonces` exists and is
       tested and nothing runs it on a timer. One cron entry, and it belongs with
       phase 26
