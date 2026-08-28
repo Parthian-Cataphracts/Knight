@@ -180,15 +180,39 @@ public sealed class KnightConnection(IOptions<KnightOptions> options, IKnightCre
     }
 
     /// <summary>
+    /// Why this store cannot be connected, or null when it can.
+    ///
+    /// One reason, and it is the one nothing else can recover from: a store with
+    /// no trusted signing key can verify nothing it downloads, so every delivery
+    /// would fail at `verify` after the operator had been told they were
+    /// connected. Better to say so on the screen where somebody can act on it.
+    /// </summary>
+    public string? Impediment =>
+        _options.SigningKeys.Count == 0
+            ? "This store trusts no signing key, so it could not verify anything KNIGHT delivered. "
+              + "Set Knight:SigningKeys before connecting."
+            : null;
+
+    /// <summary>
     /// Records a credential an operator entered, and turns the agent on.
     ///
     /// The secret is taken as given and never checked here. Whether it works is
     /// answered by the handshake, which is the only thing that can answer it,
     /// and a panel that pretended to validate a credential locally would be
     /// telling a merchant something it cannot know.
+    ///
+    /// What *is* checked is whether connecting could ever work — see
+    /// <see cref="Impediment"/>.
     /// </summary>
-    public Task ConnectAsync(KnightCredential credential, CancellationToken cancellationToken = default) =>
-        store.SaveAsync(credential with { Enabled = true }, cancellationToken);
+    public Task ConnectAsync(KnightCredential credential, CancellationToken cancellationToken = default)
+    {
+        if (Impediment is { } reason)
+        {
+            throw new InvalidOperationException(reason);
+        }
+
+        return store.SaveAsync(credential with { Enabled = true }, cancellationToken);
+    }
 
     /// <summary>
     /// Stops this store talking to KNIGHT, and forgets the credential.

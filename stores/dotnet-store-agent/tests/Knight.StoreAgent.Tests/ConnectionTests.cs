@@ -27,9 +27,17 @@ public sealed class ConnectionTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// A connection whose store trusts a key, unless a test says otherwise.
+    ///
+    /// The key matters here: connecting a store that trusts none is refused,
+    /// because every delivery would fail at `verify` after somebody had been
+    /// told they were connected.
+    /// </summary>
     private KnightConnection Connection(KnightOptions? options = null)
     {
-        var settings = Options.Create(options ?? new KnightOptions { FeatureRoot = _root });
+        options ??= new KnightOptions { FeatureRoot = _root, SigningKeys = { ["dev"] = "a-public-key" } };
+        var settings = Options.Create(options);
 
         return new KnightConnection(settings, new FileKnightCredentialStore(settings));
     }
@@ -44,6 +52,7 @@ public sealed class ConnectionTests : IDisposable
             ClientId = "from-configuration",
             ClientSecret = "a-secret",
             Enabled = true,
+            SigningKeys = { ["dev"] = "a-public-key" },
         });
 
         var credential = await connection.CurrentAsync();
@@ -63,6 +72,7 @@ public sealed class ConnectionTests : IDisposable
             FeatureRoot = _root,
             ClientId = "from-configuration",
             ClientSecret = "an-old-secret",
+            SigningKeys = { ["dev"] = "a-public-key" },
         });
 
         await connection.ConnectAsync(new KnightCredential
@@ -109,6 +119,7 @@ public sealed class ConnectionTests : IDisposable
             FeatureRoot = _root,
             ClientId = "from-configuration",
             ClientSecret = "a-secret",
+            SigningKeys = { ["dev"] = "a-public-key" },
         });
 
         await connection.ConnectAsync(new KnightCredential { BaseUrl = "http://knight.internal" });
@@ -144,9 +155,34 @@ public sealed class ConnectionTests : IDisposable
     }
 
     [Fact]
-    public async Task A_status_snapshot_carries_no_secret()
+    public async Task A_store_that_trusts_no_signing_key_is_refused_before_it_is_told_it_is_connected()
     {
         var settings = Options.Create(new KnightOptions { FeatureRoot = _root });
+        var connection = new KnightConnection(settings, new FileKnightCredentialStore(settings));
+
+        Assert.NotNull(connection.Impediment);
+
+        // Every delivery would fail at `verify`, after somebody had been shown a
+        // screen saying the shop was connected. Said here, where they can act on
+        // it, rather than at start-up — a store is added to this library long
+        // before it has a credential, and refusing to boot would break hosts
+        // that had not started the task yet.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => connection.ConnectAsync(new KnightCredential
+        {
+            BaseUrl = "http://knight.internal",
+            ClientId = "a-client",
+            ClientSecret = "a-secret",
+        }));
+    }
+
+    [Fact]
+    public async Task A_status_snapshot_carries_no_secret()
+    {
+        var settings = Options.Create(new KnightOptions
+        {
+            FeatureRoot = _root,
+            SigningKeys = { ["dev"] = "a-public-key" },
+        });
         var connection = new KnightConnection(settings, new FileKnightCredentialStore(settings));
 
         await connection.ConnectAsync(new KnightCredential

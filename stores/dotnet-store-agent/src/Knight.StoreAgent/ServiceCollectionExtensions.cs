@@ -39,12 +39,17 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !options.Enabled || !string.IsNullOrWhiteSpace(options.ClientSecret),
                 "Knight:ClientSecret is required when the agent is enabled.")
-            // Not conditioned on `Enabled` any more. A store can now be
-            // connected from its own panel, so the keys it verifies downloads
-            // against have to be in place before that happens rather than
-            // checked at a start-up that has already gone by.
+            // Still conditioned on `Enabled`, and the condition matters more
+            // now rather than less: a store that has not been connected yet has
+            // no reason to hold a signing key, and refusing to start without one
+            // would mean adding this library broke every host that had not
+            // finished a task it had not started. The check that keeps a
+            // connected store honest is in `KnightConnection.ConnectAsync`,
+            // which refuses to connect at all without a key — at the moment
+            // somebody is looking at a screen, rather than at a start-up that
+            // has already gone by.
             .Validate(
-                options => options.SigningKeys.Count > 0,
+                options => !options.Enabled || options.SigningKeys.Count > 0,
                 "Knight:SigningKeys must name at least one trusted key, or this store can verify nothing it downloads.")
             .ValidateOnStart();
 
