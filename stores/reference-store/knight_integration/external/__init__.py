@@ -17,6 +17,7 @@ own — because it was never inside the deploy.
 from .catalogue import KNOWN_EVENTS, UI_SLOTS, is_known_event, is_known_slot
 from .contract import ExternalContract, contract_of, external_features
 from .bus import publish, subscribers_for
+from .delivery import DeliveryState, WebhookDelivery, send_due
 
 __all__ = [
     "KNOWN_EVENTS",
@@ -26,6 +27,9 @@ __all__ = [
     "external_features",
     "is_known_event",
     "is_known_slot",
+    "DeliveryState",
+    "WebhookDelivery",
     "publish",
+    "send_due",
     "subscribers_for",
 ]

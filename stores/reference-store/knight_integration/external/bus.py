@@ -65,9 +65,15 @@ def publish(
     own code wants to log. An event nobody subscribed to costs one registry read
     and does nothing, which is the overwhelmingly common case.
 
-    `deliver` is the store's own transport, taking (contract, subscription,
-    payload). The default logs and does nothing, because a reference store has
-    no queue and pretending otherwise would be worse than saying so.
+    `deliver` is the transport, taking (contract, subscription, payload). The
+    default writes to the store's delivery queue, **in the caller's
+    transaction**: an order that rolls back must take its notifications with it,
+    and a queue written after the commit loses events whenever the process dies
+    in between.
+
+    Sending is a separate process reading committed rows. A store that posted to
+    somebody else's endpoint while holding a lock on its own orders table would
+    be a store whose checkout stops when a third party is slow.
     """
     if not is_known_event(event):
         # Loudly, because this is the store's own code publishing something it
@@ -86,7 +92,7 @@ def publish(
 
     for contract, subscription in subscribers:
         try:
-            (deliver or _log_only)(contract, subscription, payload)
+            (deliver or _queue)(contract, subscription, payload)
             sent += 1
         except Exception:  # noqa: BLE001
             # One Feature's delivery failing must not stop the next one's. The
@@ -98,12 +104,16 @@ def publish(
     return sent
 
 
-def _log_only(contract: ExternalContract, subscription: dict[str, Any], payload: dict[str, Any]) -> None:
+def _queue(contract: ExternalContract, subscription: dict[str, Any], payload: dict[str, Any]) -> None:
+    """The default transport: write it down and let the worker deal with it."""
+    from .delivery import enqueue
+
+    enqueue(contract, subscription, payload)
+
     logger.info(
-        "Would deliver %s to %s at %s (%s): %s",
+        "Queued %s for %s at %s (%s).",
         subscription.get("event"),
         contract.slug,
         contract.url_for(subscription.get("path", "/")),
         subscription.get("delivery", "at-least-once"),
-        json.dumps(payload, default=str)[:200],
     )

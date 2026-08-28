@@ -16,11 +16,14 @@ stays readable after the promotions Feature is uninstalled and its tables are
 gone ([`adr/0024`](../../../../docs/adr/0024-base-store-versus-optional-feature.md)).
 """
 
+import logging
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models, transaction
+
+logger = logging.getLogger(__name__)
 
 
 class OrderStatus(models.TextChoices):
@@ -215,13 +218,20 @@ class Order(models.Model):
             ]
         )
 
-        return OrderStatusHistory.objects.create(
+        history = OrderStatusHistory.objects.create(
             order=self,
             from_status=previous,
             to_status=target,
             actor=actor,
             reason=reason.strip(),
         )
+
+        if target == OrderStatus.COMPLETED:
+            _announce("order.paid", self)
+        elif target == OrderStatus.CANCELLED:
+            _announce("order.cancelled", self, reason=reason.strip())
+
+        return history
 
     @classmethod
     @transaction.atomic
@@ -236,7 +246,50 @@ class Order(models.Model):
         order = cls(number=OrderNumberSequence.take(), **fields)
         order.save()
 
+        _announce("order.placed", order)
+
         return order
+
+
+def _announce(event: str, order, **extra) -> None:
+    """
+    Tells any external Feature that subscribed about something this order did.
+
+    Called **inside** the order's own transaction, on purpose. The delivery row
+    is written with the order, so an order that rolls back takes its
+    notifications with it — a queue written after the commit loses events
+    whenever the process dies in between, and one written before it announces
+    orders that never happened.
+
+    Nothing here reaches the network. `announce` writes a row; a separate worker
+    deals with somebody else's server being slow, because a checkout that waited
+    on a third party would be a checkout that stops when they do
+    (docs/adr/0033-api-driven-features.md).
+
+    Never raises. A shop must not fail to take an order because a Feature's
+    plumbing is unhappy, and the store's own tables are the record either way.
+    """
+    try:
+        from knight_integration.features import announce
+
+        announce(
+            event,
+            {
+                "orderNumber": order.number,
+                "status": order.status,
+                "total": str(order.total),
+                "currency": getattr(order, "currency", ""),
+                "customerId": getattr(order, "source_shopper_id", None) or getattr(order, "customer_id", None),
+                # Set by whatever placed the order when it was a subscription's.
+                # Absent on the overwhelming majority of orders, which is why
+                # the receiving service treats its absence as "not mine".
+                "subscriptionReference": getattr(order, "subscription_reference", "") or "",
+                "periodSequence": getattr(order, "subscription_period", None),
+                **extra,
+            },
+        )
+    except Exception:  # noqa: BLE001 - see the docstring
+        logger.exception("Announcing %s for order %s failed.", event, getattr(order, "number", "?"))
 
 
 class OrderItem(models.Model):

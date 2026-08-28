@@ -59,8 +59,45 @@ def is_available(slug: str) -> bool:
     return is_enabled(slug) and is_installed(slug)
 
 
+def announce(event: str, payload: dict) -> int:
+    """
+    Tells any Feature that subscribed that something happened in this store.
+
+    On the façade rather than reached for directly, because a business module
+    that imported the event bus would be coupled to how KNIGHT happens to
+    deliver events today — which is the whole rule this façade exists to keep
+    (`tests/test_boundaries.py`). Business code says what happened; nothing in
+    `apps/` needs to know that a subscriber is an HTTP service, or that there is
+    a queue, or that there are subscribers at all.
+
+    Returns how many deliveries were queued, which is the useful thing to log.
+    Zero is the overwhelmingly common answer and is not a failure.
+
+    **Call it inside the transaction that made the thing true.** The delivery is
+    written with it, so a rolled-back order takes its notifications with it.
+    Nothing here touches the network (`docs/adr/0033-api-driven-features.md`).
+    """
+    from ..external import publish
+
+    return publish(event, payload)
+
+
+def known_events() -> frozenset[str]:
+    """
+    The events this store publishes, for a Feature to subscribe to.
+
+    Exposed here so a business module can assert it is about to publish
+    something real, without importing the catalogue itself.
+    """
+    from ..external import KNOWN_EVENTS
+
+    return KNOWN_EVENTS
+
+
 __all__ = [
     "EntitlementSet",
+    "announce",
+    "known_events",
     "FeatureNotEntitled",
     "current",
     "installed_features",
