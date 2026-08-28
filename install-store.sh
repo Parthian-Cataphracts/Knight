@@ -184,8 +184,12 @@ fi
 
 step "Database"
 
-if sudo -u "$SERVICE_USER" env $(grep -v '^#' "$ENV_FILE" | xargs) \
-     "${VENV_DIR}/bin/python" "${APP_DIR}/manage.py" migrate --noinput >/dev/null; then
+# The environment file is sourced rather than expanded onto a command line: a
+# password with a space in it would otherwise arrive as two arguments, and the
+# migration would fail with a message about the database that has nothing to do
+# with the database.
+if sudo -u "$SERVICE_USER" bash -c "set -a; . '${ENV_FILE}'; set +a; \
+     '${VENV_DIR}/bin/python' '${APP_DIR}/manage.py' migrate --noinput" >/dev/null; then
   success "migrations applied"
 else
   fail "Migrations failed. The store is installed and not serving; fix the database and re-run."
