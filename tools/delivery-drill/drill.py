@@ -56,13 +56,24 @@ DRILL = Path(__file__).resolve().parent
 #: enough to include a dependency edge: analytics-reports needs analytics-core.
 REAL_FEATURES = ["analytics-core", "analytics-reports", "gift-cards"]
 
-#: The shared secret between the store and the subscriptions service.
+#: The shared secret the store starts with.
 #:
-#: Fixed for the drill and generated nowhere, because both ends have to agree
-#: and this run creates both. In a deployment KNIGHT issues it per store and
-#: delivers it as a configuration secret; that is phase 24 and it is not
-#: pretended here (docs/roadmap.md).
+#: Fixed for the drill, because something has to be true before KNIGHT issues
+#: anything: this is the secret an operator sets while a store is being brought
+#: up, and step 14 replaces it with one KNIGHT mints and rotates
+#: (docs/adr/0034-a-shared-secret-has-a-lifetime.md).
 SERVICE_SECRET = "drill-shared-secret-not-for-a-deployment"
+
+#: What KNIGHT signs the service's control plane with.
+#:
+#: Not a store's secret, and it cannot be: a store cannot prove it is a store
+#: before it has a secret, and issuing that secret is what the control plane is
+#: for. The API must be started with the same value in
+#: `ServiceControlPlane__Secrets__subscriptions`, which is what the delivery
+#: workflow does.
+CONTROL_SECRET = os.environ.get(
+    "KNIGHT_SERVICE_CONTROL_SECRET", "drill-control-secret-not-for-a-deployment"
+)
 
 
 class DrillFailed(RuntimeError):
@@ -1264,6 +1275,104 @@ def journey(knight: Knight, arguments, work: Path, run: str, stoppable: list) ->
         "and the service received the order placed while it was down",
     )
 
+    # --- Secrets, rotation and revocation -------------------------------------
+    #
+    # Phase 24's gate: rotate a live secret with a request in flight and lose
+    # nothing; withdraw an entitlement and watch the next call be refused **by
+    # the service**, not only by the store
+    # (docs/adr/0034-a-shared-secret-has-a-lifetime.md).
+    #
+    # Everything before this point ran on a secret an operator typed into both
+    # ends. This is KNIGHT taking that over.
+
+    step("Rotating a live secret, and revoking one")
+
+    expect(
+        _service_answers(service, store["id"], SERVICE_SECRET) == 200,
+        "the store's original secret works before anything is rotated",
+    )
+
+    issued = knight.call("POST", "/installations/service-secret", {
+        "storeId": store["id"],
+        "featureId": service_feature["id"],
+        "overlapSeconds": 600,
+    })
+
+    detail(f"KNIGHT issued {issued['secretName']} (configuration version {issued['configurationVersion']})")
+
+    expect(
+        _service_secrets(service, store["id"]) == 2,
+        "the service now holds two usable secrets - the old one has not been cut off",
+    )
+    expect(
+        _service_answers(service, store["id"], SERVICE_SECRET) == 200,
+        "and a request signed with the old one is still answered, which is what "
+        "makes a rotation a deploy rather than an outage",
+    )
+
+    # The store takes delivery of the new one the way it takes delivery of any
+    # configuration: a queued job its agent runs.
+    run_jobs(reference)
+
+    delivered = _delivered_secret(store_work, "subscriptions", issued["secretName"])
+
+    expect(
+        bool(delivered) and delivered != SERVICE_SECRET,
+        "the store was given a different secret, down the ordinary configuration path",
+    )
+    expect(
+        _service_answers(service, store["id"], delivered) == 200,
+        "and the service answers the secret the store now holds",
+    )
+
+    # The store is not restarted. The delivered configuration is read per
+    # request on purpose: a value cached at start-up would keep a store signing
+    # with a secret whose window is closing, which is the one failure this
+    # arrangement exists to avoid.
+    status, answered = store_server.get("subscribe/")
+
+    expect(
+        status == 200,
+        f"the store's proxy still answers, without a restart ({status}: {answered[:120]})",
+    )
+
+    # And the other half of the gate. Withdrawing the entitlement stops the
+    # store forwarding - already proved in step 11 - and now stops the service
+    # answering a store that has not noticed.
+    knight.call(
+        "POST",
+        f"/customers/{customer['id']}/entitlements/{service_feature['id']}/revoke",
+        {"reason": f"delivery drill {run} - revocation"},
+    )
+
+    expect(
+        _service_answers(service, store["id"], delivered) == 401,
+        "a store whose entitlement was withdrawn is refused by the service itself, "
+        "whatever its own registry still says",
+    )
+    expect(
+        _service_secrets(service, store["id"]) == 0,
+        "because its secrets were ended rather than left to expire",
+    )
+
+    # Re-entitling puts it back, without an operator touching the service.
+    knight.call("POST", f"/customers/{customer['id']}/entitlements", {"featureId": service_feature["id"]})
+    run_jobs(reference)
+
+    reissued = knight.call("POST", "/installations/service-secret", {
+        "storeId": store["id"],
+        "featureId": service_feature["id"],
+    })
+    run_jobs(reference)
+
+    restored = _delivered_secret(store_work, "subscriptions", reissued["secretName"])
+
+    expect(
+        _service_answers(service, store["id"], restored) == 200,
+        "and a customer who comes back is serving again with a new credential, "
+        "issued rather than typed",
+    )
+
     # --- The other runtime ---------------------------------------------------
 
     step("Delivering to a store that is not Django")
@@ -1461,10 +1570,22 @@ def install_all(knight: Knight, store: Store, store_id: str, wanted: dict[str, s
 
 
 def run_jobs(store: Store) -> int:
-    """Lets the store claim and run everything waiting for it."""
-    output = store.manage("knight_apply_job", "--max-jobs", "30", allow_failure=True)
+    """
+    Lets the store claim and run everything waiting for it.
 
-    return output.count("Job succeeded")
+    A run that succeeded at nothing says what the store printed. The failure is
+    allowed — a job that fails is something several steps here deliberately
+    provoke — but a store that ran nothing at all is usually a store that could
+    not start, and the install loop's "did not settle" is a description of the
+    symptom rather than of the cause.
+    """
+    output = store.manage("knight_apply_job", "--max-jobs", "30", allow_failure=True)
+    succeeded = output.count("Job succeeded")
+
+    if succeeded == 0 and output.strip():
+        detail(f"the store ran nothing: {output.strip().splitlines()[-1][:300]}")
+
+    return succeeded
 
 
 def make_database(name: str) -> str:
@@ -1794,6 +1915,10 @@ def service_environment(work: Path, database: str) -> dict[str, str]:
         "SUBSCRIPTIONS_DB_USER": os.environ.get("STORE_DB_USER", "knight"),
         "SUBSCRIPTIONS_DB_PASSWORD": os.environ.get("STORE_DB_PASSWORD", "knight"),
         "SUBSCRIPTIONS_LOG_LEVEL": "WARNING",
+        # What KNIGHT signs the control plane with. Without it the service
+        # refuses that whole surface, which is the right default and the wrong
+        # thing for a run whose gate is a rotation.
+        "SUBSCRIPTIONS_CONTROL_SECRET": CONTROL_SECRET,
     }
 
 
@@ -1809,6 +1934,78 @@ def _make_subscription(service: Service, store_id: str, reference: str) -> None:
         " lines=[{'sku': 'COFFEE', 'name': 'Coffee', 'quantity': 1, 'unit_price': '25.00'}]);"
         "print('made')",
     )
+
+
+def _service_answers(service: Service, store_id: str, secret: str) -> int:
+    """
+    The status a store gets when it signs a request with `secret`.
+
+    Signed here rather than through the store, because what is being asked is
+    whether a *particular* secret still verifies — including one the store has
+    already replaced. Going through the store would only ever exercise whichever
+    secret the store currently holds.
+    """
+    path = "/hooks/order-placed"
+    body = json.dumps({"externalReference": "", "orderNumber": 0}).encode()
+    timestamp = str(int(time.time()))
+    nonce = uuid.uuid4().hex
+    digest = hashlib.sha256(body).hexdigest()
+    # The canonical string, built here independently. Importing the store's
+    # copy would let one bug agree with itself.
+    message = "\n".join(["POST", path, timestamp, nonce, digest])
+
+    request = urllib.request.Request(
+        f"{service.base_url}{path}",
+        data=body,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "X-Knight-Store": store_id,
+            "X-Knight-Identity": "staff",
+            "X-Knight-Subject": "system",
+            "X-Knight-Timestamp": timestamp,
+            "X-Knight-Nonce": nonce,
+            "X-Knight-Signature": "sha256="
+            + hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest(),
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            return response.status
+    except urllib.error.HTTPError as refusal:
+        return refusal.code
+
+
+def _service_secrets(service: Service, store_id: str) -> int:
+    """How many secrets that store may currently sign with. Never their values."""
+    output = service.manage(
+        "shell",
+        "-c",
+        "from knightlink.models import Store;"
+        f"store = Store.objects.filter(store_id='{store_id}').first();"
+        "print(len(store.usable_secrets()) if store else 0)",
+    )
+
+    return int(output.strip().splitlines()[-1])
+
+
+def _delivered_secret(store_work: Path, slug: str, name: str) -> str:
+    """
+    The secret KNIGHT delivered to the store, out of the file the installer wrote.
+
+    Read from disk rather than asked of KNIGHT, because the question is whether
+    the store *has* it. KNIGHT knowing what it sent proves nothing about what
+    arrived.
+    """
+    path = store_work / "features" / f"{slug}.config.json"
+
+    if not path.is_file():
+        return ""
+
+    document = json.loads(path.read_text(encoding="utf-8"))
+
+    return str((document.get("secrets") or {}).get(name) or "")
 
 
 def _service_subscriptions(service: Service, store_id: str) -> int:

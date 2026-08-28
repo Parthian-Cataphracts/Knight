@@ -112,6 +112,12 @@ jobs:
           FeatureArtifacts__ActiveKeyId: dev
           FeatureArtifacts__ArtifactRoot: /tmp/knight-artifacts
           FeatureArtifacts__PublicBaseUrl: http://localhost:5008/artifacts
+          # What KNIGHT signs the subscriptions service's control plane with,
+          # so it can issue and rotate that store's shared secret. The drill
+          # starts the service with the same value; both are fixed for a run
+          # that throws its own database away
+          # (docs/adr/0034-a-shared-secret-has-a-lifetime.md).
+          ServiceControlPlane__Secrets__subscriptions: drill-control-secret-not-for-a-deployment
         run: |
           set -euo pipefail
           export FeatureArtifacts__Keys__dev__PublicKey="$KNIGHT_PUBLIC_KEY"
