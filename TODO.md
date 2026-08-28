@@ -48,6 +48,12 @@ Phase 20   Second runtime, and the refusals ██████████ 100%
 Phase 21   A third runtime, and two real stores ███████░░░  70%
 Phase 22   Features as services              ██████████ 100%
 Phase 23   The live service layer          ██████████ 100%
+Phase 24   Secrets and rotation             ░░░░░░░░░░   0%
+Phase 25   The two real stores              ░░░░░░░░░░   0%
+Phase 26   Operating it                     ░░░░░░░░░░   0%
+Phase 27   Deployment                       ░░░░░░░░░░   0%
+Phase 28   Migrating the catalogue          ░░░░░░░░░░   0%
+Phase 29   The production gate              ░░░░░░░░░░   0%
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -1766,6 +1772,266 @@ not one byte had crossed between a store and a service.
       tested and nothing runs it on a timer. One cron entry, and it belongs with
       phase 26
 
+---
+
+# The rest of the road
+
+Six phases from here to a release decision. Every one has an exit criterion that
+is a **demonstrable fact** rather than a list of work, and a gate that must be
+green before the next starts — the discipline phases 18 to 23 used, which is the
+only thing on this project that has reliably caught defects.
+
+[`docs/roadmap.md`](docs/roadmap.md) is the same road drawn end to end, with the
+dependency order and the five decisions that are the product owner's rather than
+an engineer's.
+
+**A note on counting.** Work carried from an earlier phase appears **twice** in
+this file, on purpose: once in the phase that recorded not doing it, because
+that is the historical record and rewriting it would be a lie about what
+happened, and once in the phase below that owns closing it. So the unticked
+boxes in this file are not a count of remaining work — the roadmap has that
+count, sorted by who can actually close each item.
+
+---
+
+## Phase 24 — Secrets, identity and rotation
+
+**Exit criteria:** each store has its own shared secret with each service,
+issued by KNIGHT and rotatable without an outage, and a store whose entitlement
+was revoked cannot call the service at all.
+
+Today the secret is one environment variable an operator sets by hand on the
+store and one row an operator writes on the service. That is correct for one
+store and one service, and it is an incident at ten: nobody can rotate it
+without downtime, nobody can tell which stores share one, and revoking an
+entitlement stops the store forwarding without stopping the service answering.
+
+Phase 23 said so in its own drill — the constant is called
+`drill-shared-secret-not-for-a-deployment` — rather than pretending otherwise.
+
+- [ ] **KNIGHT issues the secret**, per (store, feature), and delivers it down
+      the configuration-secret path that `marketing-automation` and `ai-reports`
+      already use. Never in the manifest: a manifest is public, signed and kept
+      in a catalogue, so a secret in one is a secret in every copy for ever
+- [ ] **Rotation with overlapping validity.** Two secrets valid at once for the
+      length of one window, so a rotation is a deploy rather than an outage. A
+      service that accepted only the newest would refuse every request already
+      in flight
+- [ ] **The service learns about stores from KNIGHT** rather than from an
+      operator typing `knight_store add`. A registration endpoint on the
+      service, authenticated as KNIGHT rather than as a store
+- [ ] **Revocation reaches the service.** Withdrawing an entitlement disables
+      the store's registration *and* the service's, so a store with a stale
+      registration cannot reach a Feature nobody pays for. Half of this exists:
+      `Store.enabled` is checked on every request and nothing sets it
+- [ ] **The nonce table is rotated** — `forget_old_nonces` exists, is tested,
+      and nothing runs it on a timer. Carried from phase 23
+- [ ] **OAuth token refresh is automated** for `external-marketplaces`, which
+      stores a token and a refresh token and refreshes neither. Carried from
+      phase 17, and it is the same problem shaped differently: a credential
+      nobody rotates
+
+**Gate:** rotate a live secret with a request in flight and lose nothing; revoke
+an entitlement and watch the next call be refused **by the service**, with the
+store's own forwarding already stopped.
+
+---
+
+## Phase 25 — The two real stores, end to end
+
+**Exit criteria:** BojanStore takes delivery of a Feature from a running KNIGHT
+and serves it, verified in a browser.
+
+Closes the open half of phase 21, and it is much cheaper than it was when that
+phase was written. **An `external_service` Feature has no runtime**, so a .NET
+store can take delivery of one without a single line of .NET Feature code
+existing — which took the largest item off phase 21's critical path without
+anybody doing anything.
+
+- [ ] **BojanStore connected** — issue it a credential against a running
+      KNIGHT, set `Knight__Enabled=true`, watch the handshake and the heartbeat
+- [ ] **`subscriptions` installed on it** and serving: the proxied route
+      answers, the sidebar mount appears
+- [ ] **Driven in a browser**, not asserted in a test. Every phase from 10
+      onward has found something that only a browser could show
+- [ ] **Phonix the same**, once there is write access to that repository or the
+      patch on the desktop has been applied
+- [ ] **A `dotnet` Feature**, to prove the in-process path on that runtime. No
+      longer on the critical path, and still worth having: it is the only
+      runtime whose in-process delivery has never been exercised against a real
+      store
+
+**Gate:** a Feature installed on a store whose code is not in this repository,
+verified through a browser rather than a test.
+
+---
+
+## Phase 26 — Operating it
+
+**Exit criteria:** a failed webhook delivery, a proxy 502 and a job stuck in
+`Running` are each visible on a screen and each raise an alert, without anybody
+reading a log.
+
+The architecture now has three new ways to fail silently — a delivery that
+dead-letters, a service that stops answering, a proxy that times out — and none
+of them is visible anywhere. A dead letter is the record that a Feature a
+merchant pays for did not hear something, and at the moment the only way to find
+one is to run `knight_deliver --dead-letters` and know to.
+
+- [ ] **Delivery metrics**: attempted, delivered, retried, dead-lettered, by
+      feature and by store
+- [ ] **A metrics scrape endpoint.** The meter is published and any collector
+      could read it; there is nothing to read it from. Carried from phase 7
+- [ ] **Redis instrumentation**, carried from phase 7
+- [ ] **Dashboard screens** for deliveries and the dead-letter queue, and for
+      the two ledgers phase 14 left unreachable — issuing a gift card, voiding
+      one, and reading a loyalty balance are all API-only today
+- [ ] **A reusable job-progress component.** The events are broadcast and the
+      screens refetch; nothing renders per-step progress. Carried from phase 6
+- [ ] **Alerting rules, and a runbook per alert.** An alert without a runbook is
+      a page at three in the morning that begins with reading source code
+- [ ] **`server_metrics` partitioning**, carried from phase 4: retention works
+      and the table is one table
+- [ ] **Manual merge and split of error groups**, carried from phase 5, where
+      `adr/0013` names it as the mitigation for a grouping heuristic that will
+      sometimes be wrong
+- [ ] **Log search, filtering and export**, carried from phase 3 and still open
+      after phase 7 passed without it
+- [ ] **The health poller captures the runtime block**, carried from phase 17. A
+      store KNIGHT polls but which never heartbeats is still uncertifiable
+- [ ] **Concurrency proven rather than argued.** Recorded three times — phases
+      14, 15 and 17 — and it is the kind of thing that is fine until it is an
+      incident. The locks and the constraints are the right ones; nothing has
+      run two workers at the same row and watched
+
+**Gate:** break a service on purpose and be *told*, before looking.
+
+---
+
+## Phase 27 — Deployment
+
+**Exit criteria:** KNIGHT, the reference store and one service deploy from CI to
+a real host, with TLS, scheduled backups going offsite, and a rehearsed way
+back.
+
+The server half is not blocked and can go first. The image half waits on the
+hosting decision, which is one of the five things only the product owner can
+settle ([`docs/roadmap.md`](docs/roadmap.md) §7).
+
+- [ ] **`install-agent.sh`** for the servers that host stores, and an installer
+      for a Django store. Carried from phase 11, where it was out of scope for a
+      phase about installing KNIGHT itself
+- [ ] **Docker images and the deploy stages** of
+      [`deployment.md`](docs/deployment.md) §8 — *needs the hosting decision*
+- [ ] **An offsite copy of the nightly dumps** — *needs a custody decision*.
+      The timer writes them to the same machine and the installer says so
+- [ ] **The installer against a real cloud VM with real DNS** — *needs a VM and
+      a domain*. The container run exercised everything except certificate
+      issuance
+- [ ] **Provisioning automation** — creating the machine, building the instance,
+      wiring DNS and TLS. Carried from phase 9 and blocked on the same decision
+      as the images
+- [ ] **A restart strategy that does not drop live traffic.** Carried from phase
+      3.5: the installer writes a unit and restarting it drops whatever was in
+      flight
+- [ ] **Signed agent releases and a self-update path**, carried from phase 4.
+      An agent that cannot update itself is a fleet somebody updates by hand
+
+**Gate:** a deploy, and a restore from the offsite copy onto a clean machine.
+
+---
+
+## Phase 28 — Migrating the catalogue
+
+**Exit criteria:** every one of the sixteen Features has a recorded decision —
+service, or in-process, with the reason — and the ones that should move have
+moved.
+
+Not "convert everything", and the honest split **is** the deliverable. A pivot
+that converted the catalogue without writing down why each one moved would leave
+the next person guessing, and the in-process path is not a legacy to be
+apologised for: it is the only way to be inside the store's transaction.
+
+- [ ] **The decision table**, for all sixteen, with the reason against each:
+      - **Should be services** — anything integrating a third party, anything
+        with a vendor credential, anything whose logic is identical for every
+        store: `external-marketplaces`, `marketing-automation`, `ai-reports`,
+        and `subscriptions` (done)
+      - **Should stay in-process** — anything that must be inside the store's
+        transaction. There is no way to be inside a transaction over HTTP, and
+        `advanced-inventory` reserving stock during checkout is the clearest
+        case
+      - **Genuinely arguable** — the rest, and the argument gets written down
+- [ ] **The ones marked "service" delivered as services**, each with the same
+      end-to-end drill step `subscriptions` has
+- [ ] **A vendor wired to at least one of them.** Four Features honestly refuse
+      without a credential and none has ever called anybody — *needs four
+      accounts*. Carried from phases 15 and 17
+- [ ] **The abandoned-cart event.** `marketing-automation` needs an event the
+      base store does not emit; the store's event catalogue now exists and
+      `cart.abandoned` is in it, so this is a publisher rather than a design.
+      Carried from phase 15
+- [ ] **Configuration JSON Schema validation against the manifest.** Values are
+      validated as a document and stored encrypted; the schema is not enforced.
+      Carried from phase 3.5, and it matters more now that a configuration is
+      what an external Feature *is*
+- [ ] **The orphan identities withdrawn** — `analytics`, `loyalty`,
+      `order-management` and the rest, carried from phase 12
+- [ ] **Feature and version creation from the dashboard**, carried from phase 6:
+      publishing is a command-line act and an operator should not need a
+      terminal to withdraw a bad version
+- [ ] **Per-feature plan composition and time-boxed prices**, carried from
+      phase 6
+
+**Gate:** the decision table exists for all sixteen, and the ones marked
+"service" are delivered as services and driven by the drill.
+
+---
+
+## Phase 29 — The production gate
+
+**Exit criteria:** all six conditions in [`docs/roadmap.md`](docs/roadmap.md) §2
+are true. This is the release decision, and it is the product owner's.
+
+- [ ] **The external security review of the code-delivery path**, and a decision
+      recorded against every finding. The scope and briefing pack are ready in
+      [`security/external-review-scope.md`](docs/security/external-review-scope.md).
+      **Longest lead time of anything on this list** — R16 stays open until the
+      report exists
+- [ ] **The architecture-validation questions from phase 0**, answered. Eleven
+      of them, in [`risks.md`](docs/risks.md) §3
+- [ ] **The restore drill against production-shaped data.** It runs in CI on
+      every push against a seeded database; it has never run against a real one
+- [ ] **Domain verification exercised.** Modelled since phase 3, never used, and
+      nothing in the delivery path gates on it — a store can be installed into
+      while still `Pending`. DNS TXT verification is the half that was never
+      built
+- [ ] **A decision on the in-process path**: deprecated with a date, or kept
+      indefinitely as the transactional option. Phase 28's decision table is the
+      input; this is the call
+
+**Gate:** yours.
+
+---
+
+## Beyond the production gate
+
+Product work on individual Features, deliberately outside the release path.
+Recorded here so they are not mistaken for gaps in the architecture, and so
+nobody rediscovers them as new.
+
+- **Real-time order updates for the kitchen board** — `restaurant-operations`
+  polls; a board on a wall should not
+- **Geography in routing** — a `Location` carries latitude and longitude and
+  `multi-location` routes by rule rather than by distance
+- **A branch's menu joined to its stock** — `multi-location` can say a branch
+  serves something and `advanced-inventory` can say it has none
+- **Fuzzy matching for `advanced-search` 1.1**, carried since phase 13
+- **Tax computation.** Jurisdictional, and wrong is a legal matter rather than a
+  bug. The figure is settable on a draft and KNIGHT does not calculate it
+- **Frontend quality**: shadcn/ui for the heavier primitives, type generation
+  from the OpenAPI document, per-route error boundaries, a logical-property lint
+  rule, and a Playwright suite to replace the hand-driven browser walk
 ---
 
 ## Cross-cutting, always open

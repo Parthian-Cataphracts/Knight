@@ -43,5 +43,17 @@ urlpatterns = [
     # What `admin/subscriptions/` forwards to.
     path("api/v1/admin/", views.admin_index, name="admin-subscriptions"),
     path("api/v1/admin/due/", views.admin_due, name="admin-due"),
+
+    # The billing loop. Declared before `<str:reference>/` because a literal
+    # route that came after a catch-all would be read as a subscription called
+    # "awaiting-orders", which is the kind of thing that works until somebody
+    # names one that.
+    path("api/v1/admin/awaiting-orders/", views.awaiting_orders, name="admin-awaiting-orders"),
+    path(
+        "api/v1/admin/<str:reference>/periods/<int:sequence>/order/",
+        views.record_order,
+        name="admin-record-order",
+    ),
+
     path("api/v1/admin/<str:reference>/", views.admin_detail, name="admin-subscription"),
 ]

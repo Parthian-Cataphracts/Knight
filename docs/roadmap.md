@@ -4,17 +4,30 @@
 because the phase-by-phase log in [`TODO.md`](../TODO.md) records *what happened*
 and is a bad instrument for seeing *what is left*.
 
-There are **53 open items across 18 phases**. That number sounds worse than it
-is, and the shape of it is the useful part:
+Six phases from here to a release decision. Every open item in the project now
+belongs to one of them, or is recorded as a deliberate non-goal — the full
+checklists live in [`../TODO.md`](../TODO.md) under *The rest of the road*, and
+this document is the same road drawn end to end.
+
+| | Phase | Exit |
+|---|---|---|
+| ~~23~~ | ~~The live service layer~~ | ✅ **done** — an order in the store reaches a running service |
+| **24** | Secrets, identity and rotation | A secret KNIGHT issues, rotates without an outage, and can revoke |
+| **25** | The two real stores, end to end | BojanStore serves a Feature it took delivery of |
+| **26** | Operating it | A silent failure becomes a page |
+| **27** | Deployment | It deploys from CI, and restores from an offsite copy |
+| **28** | Migrating the catalogue | Sixteen recorded decisions, and the services delivered |
+| **29** | The production gate | The six conditions below are all true |
+
+**36 items across the six**, plus six pieces of Feature-level product work kept
+deliberately outside the release path. The shape of the 36 is the useful part:
 
 | | Items | Who can close it |
 |---|---|---|
-| Blocked on a decision or an account only the product owner has | **11** | you |
-| Real engineering, not started | **22** | me |
-| Done since this was written | **5** | phase 23 |
-| Deliberate non-goals, recorded so they are not rediscovered | **15** | nobody — they stay open on purpose |
+| Blocked on a decision or an account only the product owner has | **8** | you |
+| Real engineering | **28** | me |
 
-The eleven in the first row are why phases 10, 11 and 21 are not ticked, and no
+The eight in the first row are why phases 10, 11 and 21 are not ticked, and no
 amount of work here closes them. They are listed first, with the exact unblock
 for each.
 
@@ -219,18 +232,17 @@ Not "convert everything". The honest split is the deliverable:
 
 ---
 
-## 4. The live service layer, step by step
+## 4. The live service layer, step by step ✅
 
-Phase 23 in the order the work actually goes, because this was your second
-question and it deserves a precise answer rather than a phase heading.
+**Done.** Kept as written because it is the order the work actually went, and
+because the next service to be stood up follows the same ten steps.
+[`phase-23-verification.md`](phase-23-verification.md) records what it found.
 
-**Step 0 — a decision I need from you, or I will assume the default.**
-Where does the service's code live? I propose **this repository**, under
-`services/subscriptions/`, and here is the argument: the drill has to start it
-in CI, and a service in another repository means CI cannot run the end-to-end
-test that is the entire point of the phase. Splitting it out later is a `git
-filter-repo` and a submodule; starting split makes the verification impossible
-today. **Unless you say otherwise, I will build it here.**
+**Step 0 — settled.** The service lives in **this repository**, under
+`services/subscriptions/`. The argument was that the drill has to start it in
+CI, and a service in another repository means CI cannot run the end-to-end test
+that is the entire point of the phase. Splitting it out later is a
+`git filter-repo` and a submodule.
 
 Then:
 
@@ -286,86 +298,96 @@ same hosting decision everything else does.
 
 ---
 
-## 5. Consolidated checklist
+## 5. Where every open item went
 
-All 53 open items, classified. Nothing here is new work invented for the
-roadmap — every line traces to a phase that recorded it.
+The full checklists are in [`../TODO.md`](../TODO.md) under *The rest of the
+road* — one section per phase, in the same form every other phase in that file
+uses. This is the map.
 
-### Blocked on you (11)
+Nothing below is work invented for the roadmap. Every line traces to a phase
+that recorded not doing it, and that record stays where it is: rewriting an old
+phase to pretend it had planned for this would be a lie about what happened.
+Carried work therefore appears twice in `TODO.md` — once where it was recorded,
+once where it is owned — and the file says so.
 
-| # | Item | From | Unblock |
-|---|---|---|---|
-| 1 | Architecture validation — the 11 questions | 0 | Answer [`risks.md`](risks.md) §3 |
-| 2 | External security review | 10 | Engage a reviewer |
-| 3 | Hosting platform choice → Docker images, deploy stages | 11 | Choose one |
-| 4 | Offsite backup destination | 11 | Say where |
-| 5 | A cloud VM with real DNS | 11 | An hour of a machine |
-| 6 | Phonix write access | 21 | Grant, or apply the patch |
-| 7–10 | Vendor credentials: marketing-automation, ai-reports, subscriptions, external-marketplaces | 15, 17 | Four accounts |
-| 11 | Provisioning automation needs a cloud account | 9 | Same decision as #3 |
+### Blocked on you (8)
 
-### Engineering, scheduled (27)
+| # | Item | Recorded in | Owned by | Unblock |
+|---|---|---|---|---|
+| 1 | External security review | 10 | 29 | Engage a reviewer. **Longest lead time here** |
+| 2 | Architecture validation — the 11 questions | 0 | 29 | Answer [`risks.md`](risks.md) §3 |
+| 3 | Hosting platform → images, deploy stages | 11 | 27 | Choose one |
+| 4 | Provisioning automation | 9 | 27 | Same decision as #3 |
+| 5 | Offsite backup destination | 11 | 27 | Say where. Then it is an afternoon |
+| 6 | A cloud VM with real DNS | 11 | 27 | An hour of a machine |
+| 7 | Phonix write access | 21 | 25 | Grant it, or apply the patch |
+| 8 | Vendor credentials — four Features refuse honestly without one | 15, 17 | 28 | Four accounts |
 
-| Phase | Items |
+### Engineering, by the phase that owns it (28)
+
+| Phase | What it closes, and where it was recorded |
 |---|---|
-| **23** | The service; HMAC verification; webhook receivers; proxied API; delivery queue with retry and dead-letter; the store publishing events; docker-compose; drill step 13; the failure-mode proof |
-| **24** | Per-store secrets; rotation with overlap; service-side verification; immediate revocation |
-| **25** | BojanStore end to end; Phonix end to end; a `dotnet` Feature (no longer critical path) |
-| **26** | Delivery metrics; metrics scrape endpoint (from 7); Redis instrumentation (7); delivery + dead-letter screens; alerting and runbooks; job-progress component (6) |
-| **27** | `install-agent.sh`; Django store installer; images and deploy stages; offsite backups; the cloud-VM install |
-| **28** | The decision table for sixteen Features; converting the ones that should move |
-| **Unscheduled but small** | Config JSON Schema validation (3.5); health poller runtime block (17); domain verification exercised (3, 17); orphan identities withdrawn (12); OAuth token refresh (17) |
+| **24** | Per-store secrets; rotation with overlap; the service learning about stores from KNIGHT; revocation reaching the service; the nonce sweep (23); OAuth token refresh (17) |
+| **25** | BojanStore end to end; Phonix end to end; a `dotnet` Feature (21) |
+| **26** | Delivery metrics; the scrape endpoint (7); Redis instrumentation (7); delivery and dead-letter screens; the two ledgers unreachable from the dashboard (14); job-progress component (6); alerting and runbooks; `server_metrics` partitioning (4); error-group merge and split (5); log search and export (3); the health poller's runtime block (17); **concurrency proven rather than argued** (14, 15, 17) |
+| **27** | `install-agent.sh` and the Django store installer (11); restart without dropping traffic (3.5); signed agent releases and self-update (4) |
+| **28** | The decision table for all sixteen; delivering the ones that should move; the abandoned-cart publisher (15); configuration schema validation (3.5); orphan identities withdrawn (12); Feature and version creation from the dashboard (6); per-feature plan composition (6) |
+| **29** | The restore drill against production-shaped data; domain verification exercised (3, 17); the decision on the in-process path |
 
-### Deliberate non-goals, recorded so they are not rediscovered (15)
+**Concurrency is the one worth promoting out of that table.** It is recorded
+three times — phases 14, 15 and 17 — as "argued, not proven". The locks and the
+constraints are the right ones and nothing has ever run two workers at the same
+row and watched. That is fine until it is an incident.
 
-These stay open on purpose. Each has a reason already written in `TODO.md`:
-tax computation (jurisdictional, and wrong is a legal matter); restart without
-dropping traffic (needs a process manager decision); signed agent releases;
-`server_metrics` partitioning (retention already works); manual error-group
-merge; shadcn adoption; OpenAPI type generation; per-route error boundaries;
-logical-property lint; Playwright; per-feature plan composition; feature
-creation from the dashboard; fuzzy matching for `advanced-search`; the two
-ledgers unreachable from the dashboard; concurrency proven rather than argued.
+### Deliberately outside the release path (6)
 
-**Concurrency is the one in that list worth promoting.** It is recorded three
-times — phases 14, 15 and 17 — as "argued, not proven", and it is the kind of
-thing that is fine until it is an incident. It belongs in phase 26.
-
----
+Product work on individual Features, listed at the end of `TODO.md` so nobody
+rediscovers them as gaps in the architecture: real-time updates for the kitchen
+board, geography in routing, a branch's menu joined to its stock, fuzzy matching
+for `advanced-search`, tax computation (jurisdictional, and wrong is a legal
+matter), and the frontend quality set — shadcn, OpenAPI types, error boundaries,
+a lint rule, and Playwright.
 
 ## 6. Dependencies and gates, in order
 
 ```
-23 live service ──┬── 24 secrets ──┬── 26 operating ── 29 production gate
-                  │                │                        ▲
-                  └── 25 real stores┘                        │
-                                                             │
-27 deployment ───────────────────────────────────────────────┤
-   (needs: hosting decision)                                 │
-                                                             │
-28 catalogue migration ──────────────────────────────────────┘
-   (needs: 23, and the vendor credentials for four of them)
+23 live service ✅ ─┬─ 24 secrets ──┬── 26 operating ─── 29 production gate
+                    │               │                          ▲
+                    └─ 25 stores ───┘                          │
+                                                               │
+27 deployment ─────────────────────────────────────────────────┤
+   needs: hosting decision                                     │
+                                                               │
+28 catalogue ──────────────────────────────────────────────────┘
+   needs: vendor credentials for four of them
 ```
 
-- **23 blocks everything else about services.** Until an event is genuinely
-  delivered, phases 24, 26 and 28 are all building on an assumption.
-- **25 does not wait for 24.** A single hand-set secret is fine for two stores;
-  it is the tenth that needs rotation.
+- **23 unblocked the rest.** Until an event was genuinely delivered, 24, 26 and
+  28 were all building on an assumption. They are not any more.
+- **24 and 25 can run in parallel**, and 25 does not wait for 24: a single
+  hand-set secret is fine for two stores, and it is the tenth that needs
+  rotation.
 - **27 can start today** for the server half, and waits on you for the image
-  half.
-- **29 cannot start until the review is engaged**, which is the longest lead
-  time on this list and the reason it is item #2 above rather than item #11.
+  half. It does not block 26 or 28.
+- **29 cannot finish until the review is engaged**, which is the longest lead
+  time on this list and the reason it is the first ask below rather than the
+  last. Everything else can proceed while it is in progress.
 
 ---
 
-## 7. What I need from you, shortest version
+## 7. What I need from you
 
-1. **Where does the service's code live?** I will assume this repository unless
-   told otherwise, because CI cannot run the end-to-end test any other way.
-2. **The hosting platform.** It unblocks phase 27 and item #11.
-3. **Engage the security reviewer**, or say it is deferred and accept R16 stays
-   open. It has the longest lead time of anything here.
-4. **Phonix access**, or apply the patch yourself.
-5. **Backup custody** — where the offsite copy goes.
+One is answered: the service lives in this repository. Five left, in the order
+their lead time makes sensible.
+
+1. **Engage the security reviewer**, or say it is deferred and accept that R16
+   stays open. **Longest lead time of anything on this list**, which is why it
+   is first — the work of phases 24 to 28 can run while it is in progress.
+2. **The hosting platform.** It unblocks phase 27's image half and the
+   provisioning automation carried from phase 9.
+3. **Phonix access**, or apply the patch on your desktop yourself. Phase 25.
+4. **Backup custody** — where the offsite copy goes. Phase 27.
+5. **Four vendor accounts**, for the Features that refuse honestly without one.
+   Phase 28, and the only one of the five that can wait.
 
 Everything else on this list, I can do.

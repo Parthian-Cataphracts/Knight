@@ -232,6 +232,107 @@ def admin_due(request):
 
 
 @signed(require="staff")
+def awaiting_orders(request):
+    """
+    The paid periods this store has not yet turned into an order.
+
+    The store's half of the billing loop, and the direction is deliberate: this
+    service names what is owed and the store's own command creates the order,
+    because orders are the store's and a Feature that wrote them would be one
+    the store could not uninstall (``adr/0024``, ``adr/0033``).
+
+    Everything a store needs to build the order is here — the lines as they were
+    subscribed to and the money as the *period* was priced, not as today's
+    catalogue prices it. A shopper who subscribed at last year's price is owed
+    last year's price, and the order documenting it has to say so.
+
+    ``orderReference`` is opaque to the store. It puts it on the order and
+    announces it back untouched; which period it names is this service's
+    business and nobody else's.
+    """
+    try:
+        limit = min(max(int(request.GET.get("limit") or 200), 1), 500)
+    except (TypeError, ValueError):
+        limit = 200
+
+    return JsonResponse(
+        {
+            "items": [
+                {
+                    "orderReference": services.order_reference(period),
+                    "reference": period.subscription.reference,
+                    "sequence": period.sequence,
+                    "currency": period.currency,
+                    "amount": str(period.amount),
+                    "startsOn": period.starts_on.isoformat(),
+                    "endsOn": period.ends_on.isoformat(),
+                    "settledAt": period.settled_at.isoformat() if period.settled_at else None,
+                    "shopper": {
+                        "id": period.subscription.source_shopper_id,
+                        "displayName": period.subscription.display_name,
+                        "email": period.subscription.email,
+                    },
+                    "lines": [
+                        {
+                            "sourceProductId": line.source_product_id,
+                            "sourceVariantId": line.source_variant_id,
+                            "sku": line.sku,
+                            "name": line.name,
+                            "quantity": line.quantity,
+                            "unitPrice": str(line.unit_price),
+                        }
+                        for line in period.subscription.lines.all()
+                    ],
+                }
+                for period in services.periods_awaiting_orders(request.knight.store, limit=limit)
+            ]
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+@signed(require="staff")
+def record_order(request, reference: str, sequence: int):
+    """
+    The order the store made for one period, reported back.
+
+    The other half of the loop, and it closes it *synchronously*. The
+    ``order.placed`` webhook would eventually say the same thing, but it is
+    queued and retried and a store that had to wait for its own delivery worker
+    before it knew the period was settled would run its generator again first
+    and make a second order.
+
+    Idempotent: the same number twice is the delivery this service asked for,
+    arriving twice.
+    """
+    payload = body(request)
+
+    try:
+        number = int(payload.get("orderNumber") or 0)
+    except (TypeError, ValueError):
+        number = 0
+
+    if not number:
+        return JsonResponse(
+            {"detail": "orderNumber is required.", "errorCode": "invalid"}, status=400
+        )
+
+    try:
+        recorded = services.record_order(request.knight.store, reference, int(sequence), number)
+    except services.SubscriptionError as refusal:
+        return JsonResponse({"detail": str(refusal), "errorCode": "refused"}, status=409)
+
+    return JsonResponse(
+        {
+            "reference": reference,
+            "sequence": int(sequence),
+            "orderNumber": recorded.source_order_number,
+        }
+    )
+
+
+@signed(require="staff")
 def admin_detail(request, reference: str):
     try:
         summary = services.summarise(reference, store=request.knight.store)

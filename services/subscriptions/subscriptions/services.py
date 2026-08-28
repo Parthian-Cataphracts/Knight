@@ -508,17 +508,70 @@ def retry_failed(*, now=None, limit: int = 500) -> dict[str, int]:
 
 # --- What the store turns a paid period into --------------------------------
 
-def periods_awaiting_orders(*, limit: int = 200):
+#: What separates a subscription's reference from a period's sequence inside an
+#: order reference. A character no reference may contain, so the two halves can
+#: always be told apart again.
+ORDER_REFERENCE_SEPARATOR = "#"
+
+
+def order_reference(period: BillingPeriod) -> str:
+    """
+    The opaque string a store carries on the order it makes for this period.
+
+    Opaque **to the store**, which is the whole point: the store puts it on the
+    order's `external_reference`, announces it back with `order.placed`, and
+    never interprets it. This service reads it, because a period is this
+    service's idea and working out which one an order was for is its job.
+
+    Naming the period rather than only the subscription is what makes the loop
+    exact. "The oldest period still owing an order" is a good guess and a guess
+    is not good enough when two orders for two periods are created in one batch
+    and their deliveries arrive in the other order.
+    """
+    return f"{period.subscription.reference}{ORDER_REFERENCE_SEPARATOR}{period.sequence}"
+
+
+def parse_order_reference(value: str) -> tuple[str, int | None]:
+    """
+    The subscription reference and period a store handed back, if it named one.
+
+    Never raises. Whatever arrives is somebody else's string — a merchant typing
+    a reference on an order by hand is a real case — so an unparseable half is a
+    period this service does not know about rather than a 500.
+    """
+    reference = _reference(value)
+
+    if ORDER_REFERENCE_SEPARATOR not in reference:
+        return reference, None
+
+    head, _, tail = reference.rpartition(ORDER_REFERENCE_SEPARATOR)
+
+    try:
+        sequence = int(tail)
+    except ValueError:
+        return reference, None
+
+    return head.strip(), sequence if sequence > 0 else None
+
+
+def periods_awaiting_orders(store=None, *, limit: int = 200):
     """
     Paid periods the store has not yet made an order for.
 
     The seam, from this side. This Feature may not create an order — orders are
     the store's, and a Feature that wrote them would be one the store could not
     uninstall — so it names what is owed and the store's own command creates it.
+
+    `store` is optional here and only here: a worker inside this service sweeps
+    every shop at once, and the endpoint a store calls always passes its own.
     """
+    found = BillingPeriod.objects.filter(state=PeriodState.PAID, order__isnull=True)
+
+    if store is not None:
+        found = found.filter(subscription__store=store)
+
     return list(
-        BillingPeriod.objects.filter(state=PeriodState.PAID, order__isnull=True)
-        .select_related("subscription")
+        found.select_related("subscription")
         .prefetch_related("subscription__lines")
         .order_by("settled_at")[:limit]
     )
@@ -534,13 +587,32 @@ def record_order(store, reference: str, sequence: int, order_number: int) -> Sub
     payment.
     """
     period = _period(store, reference, sequence)
+    number = int(order_number)
     existing = SubscriptionOrder.objects.filter(period=period).first()
 
     if existing is not None:
+        if existing.source_order_number != number:
+            # A second, *different* order for a period that already has one. Not
+            # a retry: somebody has sent a shopper two boxes for one payment, or
+            # is about to, and saying so is more use than quietly keeping the
+            # first.
+            raise SubscriptionError(
+                f"{reference} period {sequence} is already order "
+                f"{existing.source_order_number}."
+            )
+
         return existing
 
+    claimed = SubscriptionOrder.objects.filter(store=store, source_order_number=number).first()
+
+    if claimed is not None:
+        # The same order number against two periods. The unique constraint would
+        # refuse it anyway; refusing it here makes it a 409 the store can read
+        # rather than a 500 that looks like this service is broken.
+        raise SubscriptionError(f"Order {number} is already period {claimed.period.sequence}.")
+
     return SubscriptionOrder.objects.create(
-        period=period, store=store, source_order_number=int(order_number)
+        period=period, store=store, source_order_number=number
     )
 
 

@@ -86,13 +86,18 @@ def order_placed(request):
     course.
     """
     payload = body(request)
-    reference = str(payload.get("externalReference") or payload.get("subscriptionReference") or "").strip()
+    carried = str(payload.get("externalReference") or payload.get("subscriptionReference") or "").strip()
 
-    if not reference:
+    if not carried:
         # Most orders in a shop have nothing to do with a subscription. Deciding
         # "this one is mine" is the Feature's job, and saying so plainly beats a
         # 400 that would make the store retry for ever.
         return _received("ignored", reason="not a subscription order")
+
+    # The store carried back whatever this service put on the period it was
+    # asked to bill for, and that string may name the period exactly. When it
+    # does, the guess below is not used at all.
+    reference, named = services.parse_order_reference(carried)
 
     try:
         number = int(payload.get("orderNumber") or 0)
@@ -114,13 +119,24 @@ def order_placed(request):
         return _received("ignored", reason="unknown subscription")
 
     with transaction.atomic():
-        owing = (
-            subscription.periods.filter(state=PeriodState.PAID, order__isnull=True)
-            .order_by("sequence")
-            .first()
-        )
+        if named is not None:
+            owing = subscription.periods.filter(sequence=named, state=PeriodState.PAID).first()
+        else:
+            # No period named: a merchant placing an order by hand against a
+            # subscription, or a store on an older configuration. The oldest
+            # paid period still owing one is the best available guess, and it is
+            # a guess — which is exactly why the generator names the period.
+            owing = (
+                subscription.periods.filter(state=PeriodState.PAID, order__isnull=True)
+                .order_by("sequence")
+                .first()
+            )
 
         if owing is not None:
+            # `record_order` is idempotent for the same number and refuses a
+            # different one, so a delivery arriving twice — or arriving after
+            # the store's generator has already reported the order
+            # synchronously — changes nothing here.
             try:
                 services.record_order(request.knight.store, reference, owing.sequence, number)
             except services.SubscriptionError as refusal:
