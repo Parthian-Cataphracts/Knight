@@ -78,6 +78,7 @@ public sealed class KnightServiceProxyMiddleware(
     FeatureRegistryAccessor registry,
     IHttpClientFactory clients,
     IKnightProxyIdentity identities,
+    KnightAgentStatus status,
     IOptions<KnightOptions> options,
     ILogger<KnightServiceProxyMiddleware> logger)
 {
@@ -169,6 +170,27 @@ public sealed class KnightServiceProxyMiddleware(
             return;
         }
 
+        // Which store this is, by the id KNIGHT issued. A service serves many
+        // shops and looks the caller up by it before any cryptography happens,
+        // so a forwarded request without it is refused as unsigned — which is
+        // what this store did until it started sending one.
+        //
+        // It cannot be configured: a store learns its own id at the handshake,
+        // so a store that has never connected cannot name itself to anybody.
+        var storeId = status.StoreId;
+
+        if (string.IsNullOrEmpty(storeId))
+        {
+            logger.LogWarning(
+                "A request for {Feature} arrived before this store had completed a handshake, "
+                + "so it cannot identify itself to the service.",
+                feature.Slug);
+
+            await Refuse(context, StatusCodes.Status503ServiceUnavailable,
+                "This store has not finished connecting to KNIGHT.");
+            return;
+        }
+
         var secretName = feature.Contract!.Service!.SecretName;
         var secret = FeatureConfigurationFile.SecretFor(_options.FeatureRoot, feature.Slug, secretName);
 
@@ -223,6 +245,7 @@ public sealed class KnightServiceProxyMiddleware(
             }
         }
 
+        request.Headers.TryAddWithoutValidation("X-Knight-Store", storeId);
         request.Headers.TryAddWithoutValidation("X-Knight-Feature", feature.Slug);
         request.Headers.TryAddWithoutValidation("X-Knight-Identity", identity);
         request.Headers.TryAddWithoutValidation("X-Knight-Subject", subject);

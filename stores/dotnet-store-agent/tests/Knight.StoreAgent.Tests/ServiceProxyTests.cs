@@ -107,11 +107,21 @@ public sealed class ServiceProxyTests : IDisposable
     private async Task<(HttpContext Context, Recorder Recorder, bool ReachedTheStore)> SendAsync(
         string path,
         string method = "GET",
-        IKnightProxyIdentity? identity = null)
+        IKnightProxyIdentity? identity = null,
+        bool handshaken = true)
     {
         var recorder = new Recorder();
         var settings = Options.Create(new KnightOptions { FeatureRoot = _root });
         var reachedTheStore = false;
+        var status = new KnightAgentStatus();
+
+        if (handshaken)
+        {
+            // A store learns its own id from KNIGHT, and the proxy has to send
+            // it: a service serves many shops and looks the caller up by it
+            // before any cryptography happens.
+            status.RecordHandshake(new StoreIdentity { StoreId = Guid.NewGuid(), StoreName = "A shop", Slug = "a-shop" });
+        }
 
         var middleware = new KnightServiceProxyMiddleware(
             _ =>
@@ -122,6 +132,7 @@ public sealed class ServiceProxyTests : IDisposable
             new FeatureRegistryAccessor(settings),
             new Clients(recorder),
             identity ?? new Identity("anonymous"),
+            status,
             settings,
             NullLogger<KnightServiceProxyMiddleware>.Instance);
 
@@ -161,6 +172,19 @@ public sealed class ServiceProxyTests : IDisposable
     }
 
     [Fact]
+    public async Task A_store_that_has_never_shaken_hands_cannot_name_itself()
+    {
+        await InstallAsync();
+
+        var (context, recorder, _) = await SendAsync("/subscribe/", handshaken: false);
+
+        // The service would refuse it as unsigned, which reads as a broken
+        // signature rather than as a store that has not finished connecting.
+        Assert.Equal(503, context.Response.StatusCode);
+        Assert.Null(recorder.Request);
+    }
+
+    [Fact]
     public async Task The_shoppers_credentials_never_leave_the_store()
     {
         await InstallAsync();
@@ -173,6 +197,7 @@ public sealed class ServiceProxyTests : IDisposable
         Assert.False(recorder.Request!.Headers.Contains("Cookie"));
         Assert.False(recorder.Request.Headers.Contains("Authorization"));
         Assert.True(recorder.Request.Headers.Contains("X-Knight-Signature"));
+        Assert.True(recorder.Request.Headers.Contains("X-Knight-Store"));
         Assert.Equal("anonymous", recorder.Request.Headers.GetValues("X-Knight-Identity").Single());
     }
 

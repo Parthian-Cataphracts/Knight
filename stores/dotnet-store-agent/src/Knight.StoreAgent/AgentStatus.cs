@@ -117,6 +117,25 @@ public sealed class KnightAgentStatus
     private string _lastError = string.Empty;
     private DateTimeOffset? _lastErrorAt;
 
+    /// <summary>
+    /// The store's id in KNIGHT, or empty before the first handshake.
+    ///
+    /// It is not something a store can know about itself: KNIGHT issues it, and
+    /// the handshake is where it is learned. Anything that has to *name* this
+    /// store to somebody else — the proxy signing a forwarded request — has to
+    /// wait for that.
+    /// </summary>
+    public string StoreId
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _storeId;
+            }
+        }
+    }
+
     public void RecordHandshake(StoreIdentity identity)
     {
         lock (_gate)
