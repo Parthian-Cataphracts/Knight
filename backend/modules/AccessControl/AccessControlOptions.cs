@@ -25,6 +25,15 @@ public sealed class AccessControlOptions
     public string MfaIssuer { get; init; } = "KNIGHT";
 
     /// <summary>
+    /// Whether a second factor is enforced at all. On by default: production must
+    /// never ship without it. An environment that sets this to <c>false</c> signs
+    /// accounts in on the password alone — no code is asked for and no role forces
+    /// enrolment, even for an account that already carries a secret. Intended only
+    /// for local development.
+    /// </summary>
+    public bool MfaEnforced { get; init; } = true;
+
+    /// <summary>
     /// How long an emailed invitation stays usable. Two days by default: long
     /// enough to survive a weekend, short enough that a forwarded mail sitting
     /// in an old inbox is not a way into an account nobody has claimed yet.

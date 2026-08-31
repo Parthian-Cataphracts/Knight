@@ -91,7 +91,11 @@ internal sealed class ControlPlaneAuthenticationService : IControlPlaneAuthentic
         }
 
         var roles = await _permissions.GetRoleNamesAsync(user.Id, cancellationToken);
-        var mfaExpected = user.MfaEnabled || SystemRoles.RequiresMfa(roles);
+
+        // With enforcement off, no account is asked for a second factor — not even
+        // one that already carries a secret or holds a role that would otherwise
+        // require one. The password alone signs it in, satisfied.
+        var mfaExpected = _options.MfaEnforced && (user.MfaEnabled || SystemRoles.RequiresMfa(roles));
 
         if (mfaExpected && !user.MfaEnabled)
         {
@@ -105,7 +109,7 @@ internal sealed class ControlPlaneAuthenticationService : IControlPlaneAuthentic
             return pending with { Outcome = AuthenticationOutcome.MfaEnrollmentRequired };
         }
 
-        if (user.MfaEnabled)
+        if (mfaExpected)
         {
             if (string.IsNullOrWhiteSpace(request.MfaCode))
             {

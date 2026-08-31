@@ -271,6 +271,36 @@ public sealed class ControlPlaneAuthTests
         Assert.Equal(HttpStatusCode.OK, (await upgraded.GetAsync("/api/v1/customers")).StatusCode);
     }
 
+    [Fact]
+    public async Task WithEnforcementOff_AnEnrolledPrivilegedAccountSignsInOnThePasswordAlone()
+    {
+        if (!_fixture.IsAvailable) return;
+
+        var email = Email();
+        // Admin, MFA already enrolled: the case that would otherwise demand a code.
+        await _fixture.SeedUserAsync(email, Password, SystemRoles.Admin);
+
+        // The shared fixture pins enforcement on; this one derived host turns it
+        // off the way local development does, sharing the same database.
+        var relaxed = _fixture.Factory.WithWebHostBuilder(builder =>
+            builder.UseSetting("ControlPlaneAccess:MfaEnforced", "false"));
+        var client = relaxed.CreateClient();
+
+        var login = await (await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password = Password }))
+            .Content.ReadFromJsonAsync<LoginBody>();
+
+        // No code was asked for and none was supplied: the password alone signs in.
+        Assert.Equal("succeeded", login!.Status);
+        Assert.False(string.IsNullOrWhiteSpace(login.AccessToken));
+
+        // The session is fully satisfied, not the enrolment-only kind: a
+        // permissioned endpoint is reachable straight away.
+        var authenticated = relaxed.CreateClient();
+        authenticated.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", login.AccessToken);
+        Assert.Equal(HttpStatusCode.OK, (await authenticated.GetAsync("/api/v1/customers")).StatusCode);
+    }
+
     private sealed record LoginBody(string Status, string? AccessToken, string? RefreshToken, UserBody? User);
 
     private sealed record UserBody(

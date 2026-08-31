@@ -103,6 +103,12 @@ public sealed class PostgresApiFixture : IAsyncLifetime
             builder.UseSetting("Jwt:Issuer", TestIssuer);
             builder.UseSetting("Jwt:Audience", TestAudience);
 
+            // The auth suite exercises the real second-factor flow, so it pins
+            // enforcement on regardless of the host environment's config. Local
+            // development turns it off (appsettings.Development.json); the tests
+            // must not inherit that.
+            builder.UseSetting("ControlPlaneAccess:MfaEnforced", "true");
+
             // Every test in this collection shares one WebApplicationFactory and
             // therefore one apparent client IP (TestServer has no real network
             // identity), so the per-IP auth rate limits would otherwise collapse
