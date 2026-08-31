@@ -72,6 +72,8 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<Subscriptions.Domain.IFeatureEntitlementRepository, FeatureEntitlementRepository>();
         services.AddScoped<Billing.Domain.IBillingAccountRepository, BillingAccountRepository>();
         services.AddScoped<Billing.Domain.IInvoiceRepository, InvoiceRepository>();
+        services.AddScoped<PlatformBilling.Domain.IPlatformBillingTransactionRepository, PlatformBillingTransactionRepository>();
+        services.AddScoped<PlatformBilling.Domain.ICheckoutSessionRepository, CheckoutSessionRepository>();
 
         services.AddScoped<FeatureRegistry.Domain.IFeatureVersionRepository, FeatureVersionRepository>();
         services.AddScoped<FeatureRegistry.Domain.IStoreImageRepository, StoreImageRepository>();

@@ -21,6 +21,7 @@ internal sealed class ProvisioningJobConfiguration : IEntityTypeConfiguration<Pr
         builder.Property(job => job.BaseImageVersion).HasMaxLength(50);
         builder.Property(job => job.FailureCode).HasMaxLength(100);
         builder.Property(job => job.FailureMessage).HasMaxLength(2000);
+        builder.Property(job => job.FailureClass).HasConversion<string>().HasMaxLength(30);
 
         builder.Ignore(job => job.TotalStepCount);
         builder.Ignore(job => job.CompletedStepCount);

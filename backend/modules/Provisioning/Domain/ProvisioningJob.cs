@@ -60,6 +60,20 @@ public sealed class ProvisioningJob : AuditableEntity, ICustomerOwned
 
     public string? FailureMessage { get; private set; }
 
+    /// <summary>
+    /// How the coordinator should treat the last failure — retry it, give up, or
+    /// escalate to a person (docs/self-service-saas-plan.md §8). Null while the
+    /// job has never failed.
+    /// </summary>
+    public ProvisioningFailureClass? FailureClass { get; private set; }
+
+    /// <summary>
+    /// How many times this job has been started or retried, so an automated
+    /// coordinator can stop after a bounded number of attempts rather than retry
+    /// forever. One on creation; incremented by <see cref="Retry"/>.
+    /// </summary>
+    public int AttemptCount { get; private set; }
+
     private readonly List<ProvisioningStepResult> _steps = [];
 
     public IReadOnlyCollection<ProvisioningStepResult> Steps => _steps.AsReadOnly();
@@ -92,6 +106,7 @@ public sealed class ProvisioningJob : AuditableEntity, ICustomerOwned
         CorrelationId = correlationId;
         RequestedBy = requestedBy;
         State = ProvisioningState.Running;
+        AttemptCount = 1;
     }
 
     public static ProvisioningJob Start(
@@ -244,13 +259,18 @@ public sealed class ProvisioningJob : AuditableEntity, ICustomerOwned
             completedBy: completedBy);
     }
 
-    public void Fail(string failureCode, string failureMessage, DateTimeOffset now)
+    public void Fail(
+        string failureCode,
+        string failureMessage,
+        DateTimeOffset now,
+        ProvisioningFailureClass failureClass = ProvisioningFailureClass.Transient)
     {
         EnsureUnfinished();
 
         State = ProvisioningState.Failed;
         FailureCode = RequireText(failureCode, "failure code", 100);
         FailureMessage = RequireText(failureMessage, "failure message", 2000);
+        FailureClass = failureClass;
         CompletedAt = now;
         MarkUpdated(now);
     }
@@ -277,6 +297,8 @@ public sealed class ProvisioningJob : AuditableEntity, ICustomerOwned
         State = ProvisioningState.Running;
         FailureCode = null;
         FailureMessage = null;
+        FailureClass = null;
+        AttemptCount += 1;
         CompletedAt = null;
         MarkUpdated(now);
     }
@@ -338,6 +360,9 @@ public sealed class ProvisioningJob : AuditableEntity, ICustomerOwned
         {
             FailureCode ??= recorded?.ErrorCode ?? "provisioning.step.failed";
             FailureMessage ??= recorded?.Detail ?? $"Step '{next}' failed.";
+            // A step that failed on its own is retryable until something says
+            // otherwise; the coordinator reclassifies when it knows more.
+            FailureClass ??= ProvisioningFailureClass.Transient;
             CompletedAt = now;
         }
 
@@ -371,6 +396,19 @@ public enum ProvisioningKind
 {
     Provision = 0,
     Deprovision = 1,
+}
+
+/// <summary>How a provisioning failure should be treated (docs/self-service-saas-plan.md §8).</summary>
+public enum ProvisioningFailureClass
+{
+    /// <summary>A temporary condition — a timeout, a not-ready dependency. Retrying may succeed.</summary>
+    Transient = 0,
+
+    /// <summary>A bad request or state. Retrying the same way will fail the same way; it needs a fix first.</summary>
+    Permanent = 1,
+
+    /// <summary>Nothing automated will move it forward; a person has to act.</summary>
+    ManualIntervention = 2,
 }
 
 public enum ProvisioningState

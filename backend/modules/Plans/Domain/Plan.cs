@@ -26,6 +26,16 @@ public sealed class Plan : AuditableEntity
 
     public bool IsActive { get; private set; }
 
+    /// <summary>
+    /// Whether an anonymous visitor may buy this plan from the public catalogue
+    /// and self-service checkout. Off by default: a plan is an internal or
+    /// operator-assigned arrangement until it is deliberately put on the public
+    /// price list (docs/self-service-saas-plan.md §6). Independent of
+    /// <see cref="IsActive"/> — a plan can be live for existing subscribers yet
+    /// no longer offered to new ones.
+    /// </summary>
+    public bool IsPubliclyPurchasable { get; private set; }
+
     public int SortOrder { get; private set; }
 
     /// <summary>
@@ -96,6 +106,17 @@ public sealed class Plan : AuditableEntity
     public void Deactivate(DateTimeOffset now)
     {
         IsActive = false;
+        MarkUpdated(now);
+    }
+
+    /// <summary>
+    /// Puts the plan on, or takes it off, the public self-service price list.
+    /// Deliberately separate from activation: retiring a plan from public sale
+    /// must not disturb the customers already on it.
+    /// </summary>
+    public void SetPubliclyPurchasable(bool purchasable, DateTimeOffset now)
+    {
+        IsPubliclyPurchasable = purchasable;
         MarkUpdated(now);
     }
 

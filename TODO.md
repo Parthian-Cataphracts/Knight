@@ -22,6 +22,42 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 | **Overall progress** | **Platform ~99%, catalogue 100%.** Two numbers on purpose, and the second one has arrived: the control plane and the delivery engine were finished in phase 15, and the product they exist to deliver is now **16 sellable Features, all with a package behind them**, in 5 plans. **891 backend tests green** (704 unit, 13 architecture, 174 PostgreSQL-backed integration), plus **848 store tests with nothing skipped**, 14 node-store tests, **57 subscriptions-service tests**, and 9 dashboard — and, since phase 19, **the delivery drill itself**, which is the only thing here that runs the path a customer travels |
 | **Blocking decisions** | R26 is **answered**: a Feature is publishable for any of three runtimes, and since phase 22 an `external_service` Feature needs no runtime at all. What is left is five decisions only the product owner can make, listed in [`docs/roadmap.md`](docs/roadmap.md) §7 — where the service code lives, the hosting platform, engaging the security reviewer (longest lead time, R16 stays open until it happens), Phonix access, and backup custody |
 
+## Phase 30 — Self-service SaaS
+
+Full plan: [`docs/self-service-saas-plan.md`](docs/self-service-saas-plan.md) ·
+decision: [`docs/adr/0035`](docs/adr/0035-pivot-to-self-service-saas-registration.md).
+Most of the back end is reused; the work is the front doors, a separate
+`knight_billing`, the automatic payment→provisioning wire, and a customer portal.
+
+- [~] **A — domain foundation.** `Subscription.Pending` + provider fields +
+  activate-from-pending; `Plan.IsPubliclyPurchasable` + a public projection; the
+  `PlatformBilling` module (`PlatformBillingTransaction`, `CheckoutSession`) with
+  persistence and a migration; `ProvisioningJob` failure classification; unit
+  tests for every transition. *(role/permission grants land with the endpoints in
+  B/C.)*
+- [ ] **B — public auth.** `register`, `verify-email`, `resend-verification`;
+  self-service customer/user creation; tenant-isolation and no-existence-oracle
+  tests.
+- [ ] **C — billing.** public `GET /plans`; CUSTOM selection + dependency
+  validation; `POST /billing/checkout` (authoritative price); provider webhook
+  (signature, idempotency, replay); subscription activation + entitlement
+  generation.
+- [ ] **D — provisioning automation.** `IInfrastructureAdapter` (+ simulated dev
+  adapter) making `server`/`instance`/`domain-tls` automatic; the webhook→job
+  wire; orchestrator retry/backoff/dead-letter; health checks.
+- [ ] **E — feature delivery integration.** desired state from entitlements →
+  existing delivery engine; dependencies; verify + report. No second installer.
+- [ ] **F — customer portal.** signup → verify → plan → CUSTOM selector →
+  checkout → provisioning progress → store-ready → billing/feature management,
+  separate from the operations portal.
+- [ ] **G — operations.** provisioning retry/resume, entitlement grant/revoke,
+  suspend/restore, agent monitoring, audit.
+
+Blocked on two product-owner decisions before the automation is *real* (not the
+shape): the **payment provider** (drives the `knight_billing` adapter + webhook
+signature) and the **hosting platform** (drives the real infrastructure adapter).
+Simulated adapters run the whole journey — and its acceptance test — locally.
+
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
 > not a boolean flag ([`docs/adr/0014`](docs/adr/0014-features-as-deployable-packages.md)).
 > This added a whole subsystem (registry, packaging, delivery jobs, agent
@@ -60,6 +96,7 @@ Phase 26   Operating it                     ██████░░░░  60%
 Phase 27   Deployment                       █████░░░░░  50%
 Phase 28   Migrating the catalogue          ████░░░░░░  40%
 Phase 29   The production gate              ██░░░░░░░░  20%
+Phase 30   Self-service SaaS                █░░░░░░░░░  10%
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in

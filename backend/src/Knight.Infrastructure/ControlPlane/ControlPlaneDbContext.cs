@@ -134,6 +134,12 @@ public sealed class ControlPlaneDbContext : DbContext
 
     public DbSet<Billing.Domain.Invoice> Invoices => Set<Billing.Domain.Invoice>();
 
+    public DbSet<PlatformBilling.Domain.PlatformBillingTransaction> PlatformBillingTransactions =>
+        Set<PlatformBilling.Domain.PlatformBillingTransaction>();
+
+    public DbSet<PlatformBilling.Domain.CheckoutSession> CheckoutSessions =>
+        Set<PlatformBilling.Domain.CheckoutSession>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(SchemaName);
@@ -173,6 +179,8 @@ public sealed class ControlPlaneDbContext : DbContext
         modelBuilder.ApplyConfiguration(new InvoiceLineConfiguration());
         modelBuilder.ApplyConfiguration(new PaymentRecordConfiguration());
         modelBuilder.ApplyConfiguration(new InvoiceNumberSequenceConfiguration());
+        modelBuilder.ApplyConfiguration(new PlatformBillingTransactionConfiguration());
+        modelBuilder.ApplyConfiguration(new CheckoutSessionConfiguration());
 
         modelBuilder.ApplyConfiguration(new FeatureVersionConfiguration());
         modelBuilder.ApplyConfiguration(new FeatureDependencyConfiguration());

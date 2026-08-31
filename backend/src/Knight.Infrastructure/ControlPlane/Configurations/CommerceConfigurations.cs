@@ -109,9 +109,12 @@ internal sealed class SubscriptionConfiguration : IEntityTypeConfiguration<Subsc
         builder.HasKey(s => s.Id);
 
         builder.Property(s => s.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(s => s.Provider).HasMaxLength(50);
+        builder.Property(s => s.ProviderSubscriptionId).HasMaxLength(200);
 
         builder.HasIndex(s => s.CustomerId);
         builder.HasIndex(s => s.Status);
+        builder.HasIndex(s => new { s.Provider, s.ProviderSubscriptionId });
 
         builder.HasOne<Plan>()
             .WithMany()

@@ -29,6 +29,25 @@ public sealed class Subscription : AuditableEntity, ICustomerOwned
 
     public DateTimeOffset? CancelledAt { get; private set; }
 
+    /// <summary>
+    /// True once the customer has asked to end the subscription when the paid
+    /// period runs out. The subscription stays <see cref="SubscriptionStatus.Active"/>
+    /// meanwhile: cancelling is a future intent, not an immediate teardown
+    /// (docs/self-service-saas-plan.md §9).
+    /// </summary>
+    public bool CancelAtPeriodEnd { get; private set; }
+
+    /// <summary>
+    /// The platform-billing provider that owns this subscription's money
+    /// (self-service only), and the id it knows it by. Null for an
+    /// operator-created subscription that was never taken through a provider.
+    /// This is KNIGHT's own billing, never a store's payment gateway
+    /// (docs/self-service-saas-plan.md §3).
+    /// </summary>
+    public string? Provider { get; private set; }
+
+    public string? ProviderSubscriptionId { get; private set; }
+
     private readonly List<SubscriptionFeature> _features = [];
 
     public IReadOnlyCollection<SubscriptionFeature> Features => _features.AsReadOnly();
@@ -91,17 +110,92 @@ public sealed class Subscription : AuditableEntity, ICustomerOwned
             periodEnd);
     }
 
+    /// <summary>
+    /// Begins a subscription that is awaiting its first platform payment. It
+    /// entitles the customer to nothing (see <see cref="IsEntitling"/>) until a
+    /// verified payment activates it: in self-service billing a browser redirect
+    /// never grants access — only the provider's webhook does
+    /// (docs/self-service-saas-plan.md §7). The customer may still select
+    /// optional features on it before paying, which is what the checkout prices.
+    /// </summary>
+    public static Subscription StartPending(
+        Guid id,
+        DateTimeOffset createdAt,
+        Guid customerId,
+        Guid planId,
+        DateTimeOffset periodStart,
+        DateTimeOffset periodEnd)
+    {
+        ValidateStart(customerId, planId, periodStart, periodEnd);
+
+        return new Subscription(
+            id,
+            createdAt,
+            customerId,
+            planId,
+            SubscriptionStatus.Pending,
+            periodStart,
+            periodStart,
+            periodEnd);
+    }
+
+    private static void ValidateStart(Guid customerId, Guid planId, DateTimeOffset periodStart, DateTimeOffset periodEnd)
+    {
+        if (customerId == Guid.Empty)
+        {
+            throw DomainException.Validation("A subscription must belong to a customer.");
+        }
+
+        if (planId == Guid.Empty)
+        {
+            throw DomainException.Validation("A subscription must name a plan.");
+        }
+
+        if (periodEnd <= periodStart)
+        {
+            throw DomainException.Validation("A billing period must end after it starts.");
+        }
+    }
+
+    /// <summary>
+    /// Records which platform-billing provider owns this subscription and the id
+    /// it is known by there, so a webhook can find it and a refund can be traced.
+    /// </summary>
+    public void LinkProvider(string provider, string providerSubscriptionId, DateTimeOffset now)
+    {
+        Provider = RequireText(provider, "billing provider", 50);
+        ProviderSubscriptionId = RequireText(providerSubscriptionId, "provider subscription id", 200);
+        MarkUpdated(now);
+    }
+
+    /// <summary>
+    /// Marks the subscription to end when the paid period runs out rather than at
+    /// once. Nothing is torn down here; the store keeps running until the period
+    /// closes (docs/self-service-saas-plan.md §9).
+    /// </summary>
+    public void RequestCancelAtPeriodEnd(DateTimeOffset now)
+    {
+        EnsureChangeable();
+        CancelAtPeriodEnd = true;
+        MarkUpdated(now);
+    }
+
     // --- Lifecycle -------------------------------------------------------
     //
-    // Trial ──┐
-    //         ├──> Active <──> PastDue ──> Suspended
-    //         │        │            │           │
-    //         └────────┴────────────┴───────────┴──> Cancelled (terminal)
+    // Pending ─┐   (self-service: activated only by a verified payment)
+    // Trial ───┤
+    //          ├──> Active <──> PastDue ──> Suspended
+    //          │        │            │           │
+    //          └────────┴────────────┴───────────┴──> Cancelled (terminal)
 
-    /// <summary>Converts a trial, or brings a lapsed subscription back into good standing.</summary>
+    /// <summary>
+    /// Brings a subscription into good standing: activates a paid self-service
+    /// sign-up (from <see cref="SubscriptionStatus.Pending"/>), converts a trial,
+    /// or recovers a lapsed one.
+    /// </summary>
     public void Activate(DateTimeOffset now)
     {
-        if (Status is not (SubscriptionStatus.Trial or SubscriptionStatus.PastDue or SubscriptionStatus.Suspended))
+        if (Status is not (SubscriptionStatus.Pending or SubscriptionStatus.Trial or SubscriptionStatus.PastDue or SubscriptionStatus.Suspended))
         {
             throw DomainException.Conflict($"A subscription in status '{Status}' cannot be activated.");
         }
@@ -239,6 +333,17 @@ public sealed class Subscription : AuditableEntity, ICustomerOwned
             throw DomainException.Conflict("A cancelled subscription cannot be changed.");
         }
     }
+
+    private static string RequireText(string value, string what, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw DomainException.Validation($"A {what} is required.");
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
+    }
 }
 
 public enum SubscriptionStatus
@@ -248,4 +353,10 @@ public enum SubscriptionStatus
     PastDue = 2,
     Suspended = 3,
     Cancelled = 4,
+
+    /// <summary>
+    /// Created for a self-service checkout and awaiting its first verified
+    /// payment. Entitles the customer to nothing until activated.
+    /// </summary>
+    Pending = 5,
 }
