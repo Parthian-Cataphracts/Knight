@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-28** (revision 36 — phase 29: domain verification has both halves; everything else on that list is the product owner's)
+Last updated: **2026-08-31** (revision 37 — self-service SaaS track planned: public registration, platform billing, automatic provisioning, customer portal; see the plan and ADR 0035)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,6 +11,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
+| **Next major track** | **Self-service SaaS — planned, not started.** The product owner has redirected KNIGHT from the agency model to self-service: merchants register publicly, pay KNIGHT, and get an automatically provisioned, entitled store with no operator step. The full plan (grounded in the existing modules it reuses) is [`docs/self-service-saas-plan.md`](docs/self-service-saas-plan.md); the decision that overrules "no public registration" for the customer principal is [`docs/adr/0035`](docs/adr/0035-pivot-to-self-service-saas-registration.md). Work is sequenced A–G there. |
 | **Current phase** | **Phase 29 — the production gate. One item was buildable and is built; the rest is yours.** Domain verification has had two methods and one implementation since phase 3; the DNS TXT half now exists, so a store with no HTTP surface yet can prove it owns its domain. The other four items are the security review, eleven answers, a production database and a release call — none of them code. [`docs/phase-29-verification.md`](docs/phase-29-verification.md) |
 | **Previous phase** | **Phase 28 — migrating the catalogue. The table is written; the three moves are not made.** Every one of the sixteen Features now has a recorded decision and a reason — four should be services, one of them is, eight stay in-process on the transaction argument, three are arguable and held together by `analytics-core`. [`docs/feature-architecture-decisions.md`](docs/feature-architecture-decisions.md), [`docs/phase-28-verification.md`](docs/phase-28-verification.md) |
 | **Previous phase** | **Phase 27 — deployment. The unblocked half is done; the gate needs a host.** There are now three installers — control plane, agent, Django store — the store's unit reloads without dropping what is in flight, and the nightly dumps have a verified way off the machine. What is left needs the hosting, domain and backup-custody decisions, which are the product owner's. [`docs/phase-27-verification.md`](docs/phase-27-verification.md) |

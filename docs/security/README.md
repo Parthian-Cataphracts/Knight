@@ -41,15 +41,22 @@ disabled — returns the identical external response; a dummy password
 verification runs even for unknown emails so response timing does not reveal
 account existence. See `docs/architecture/authorization.md`.
 
-## No public registration
+## No public registration — for admins and staff
+
+> **Updated by [`adr/0035`](../adr/0035-pivot-to-self-service-saas-registration.md).**
+> The **customer/merchant** principal now registers publicly via
+> `POST /api/v1/auth/register` (rate-limited, email-verified, no
+> account-existence oracle). What follows still holds for administrators and
+> staff, which remain non-registrable.
 
 There is no `/api/platform/auth/register` and there never will be one —
 `PlatformAdmin` accounts are provisioned only via `tools/Knight.Bootstrap`,
-run manually and offline. There is likewise no `/api/tenant/auth/register` —
-`TenantUser` staff accounts are provisioned only by an already-authenticated
-`TenantUser` (with `tenant.users.create`) or `PlatformAdmin`, via
-`POST /api/tenant/staff` or `POST /api/platform/tenants/{tenantId}/staff` (see
-"Tenant staff provisioning and lifecycle" below). A future end-customer
+run manually and offline. There is likewise no self-registration for
+`TenantUser` **staff** accounts — they are provisioned only by an
+already-authenticated `TenantUser` (with `tenant.users.create`) or
+`PlatformAdmin`, via `POST /api/tenant/staff` or
+`POST /api/platform/tenants/{tenantId}/staff` (see "Tenant staff provisioning
+and lifecycle" below). The end-customer
 identity is a separate concept from `TenantUser` and will not reuse it.
 
 ## Tenant role and permission delegation

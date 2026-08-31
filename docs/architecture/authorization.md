@@ -184,14 +184,21 @@ GET  /api/tenant/auth/me
 POST /api/tenant/auth/change-password
 ```
 
-There is deliberately **no public registration endpoint** for either
-principal type, and never will be for `PlatformAdmin`. `PlatformAdmin`
-accounts are provisioned only via `tools/Knight.Bootstrap` (a manual,
-offline console tool — see "Platform admin bootstrap" below); `TenantUser`
-provisioning will be exposed through a future controlled administrative API,
-not public self-registration. A future end-customer identity is an
-intentionally separate concept from `TenantUser` (which means
-administrative/staff identity) and will get its own module.
+> **Superseded for the customer principal by
+> [`adr/0035`](../adr/0035-pivot-to-self-service-saas-registration.md).** KNIGHT
+> is now a self-service SaaS: the **customer** (merchant) principal registers
+> publicly via `POST /api/v1/auth/register` with email verification, and
+> onboarding is automatic. The rest of this paragraph still holds for
+> `PlatformAdmin`, which stays non-registrable. See
+> [`self-service-saas-plan.md`](../self-service-saas-plan.md).
+
+There is deliberately **no public registration endpoint for `PlatformAdmin`**,
+and never will be. `PlatformAdmin` accounts are provisioned only via
+`tools/Knight.Bootstrap` (a manual, offline console tool — see "Platform admin
+bootstrap" below). Staff (`TenantUser`) accounts are provisioned by an
+already-authenticated administrator, not by public self-registration. The
+**end-customer / merchant** identity is the one that now registers publicly, in
+its own self-service flow, kept separate from staff identity.
 
 Tenant login/refresh/`/me` never accept a tenant selector from the request
 body — the tenant is always the one `ITenantContext` already resolved from

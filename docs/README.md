@@ -5,6 +5,17 @@
 
 ## What KNIGHT is
 
+> **Direction change (2026-08-31):** KNIGHT is moving from the agency model to a
+> **self-service SaaS**: merchants register publicly, pay KNIGHT, and get a fully
+> provisioned, entitled store with no manual operator step. The plan is
+> [`self-service-saas-plan.md`](self-service-saas-plan.md); the decision is
+> [`adr/0035`](adr/0035-pivot-to-self-service-saas-registration.md). Most of the
+> back end (plans, subscriptions, entitlements, provisioning, agent bootstrap,
+> feature delivery) already exists and is reused; the new work is public
+> registration, self-service platform billing, the automatic
+> payment→provisioning wire, and a customer portal. The description below is the
+> control plane the self-service flow is built on.
+
 KNIGHT is a **central control plane** operated by a web-design company to
 manage many **independent customer stores**. Each customer store is its own
 Django application, with its own domain, its own database, and its own
@@ -51,6 +62,7 @@ Detailed inventory: [`current-state-analysis.md`](current-state-analysis.md).
 
 Read in this order:
 
+0. [`self-service-saas-plan.md`](self-service-saas-plan.md) — **the current direction**: the self-service registration/billing/provisioning transition, and [`adr/0035`](adr/0035-pivot-to-self-service-saas-registration.md) that decided it
 1. [`current-state-analysis.md`](current-state-analysis.md) — what is really in the repo today, file by file
 2. [`architecture.md`](architecture.md) — target system architecture, containers, modules, boundaries
 3. [`feature-delivery.md`](feature-delivery.md) — **the Feature registry, packaging, and installation pipeline** (read before anything about features)
