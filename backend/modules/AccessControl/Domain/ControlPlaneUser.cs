@@ -50,6 +50,16 @@ public sealed class ControlPlaneUser : AuditableEntity, ICustomerScoped
 
     public DateTimeOffset? ActivationExpiresAt { get; private set; }
 
+    /// <summary>
+    /// Whether the holder has proved control of their email address. A
+    /// self-service account (docs/self-service-saas-plan.md §12, phase B) is
+    /// created unverified and cannot sign in until it is; an operator-created
+    /// account is vouched for by the operator who invited it. Nothing else gates
+    /// on this — authentication still turns on <see cref="Status"/> — so an
+    /// account that was Active before this flag existed is unaffected.
+    /// </summary>
+    public bool EmailVerified { get; private set; }
+
     private readonly List<UserRoleAssignment> _roles = [];
 
     public IReadOnlyCollection<UserRoleAssignment> Roles => _roles.AsReadOnly();
@@ -228,6 +238,58 @@ public sealed class ControlPlaneUser : AuditableEntity, ICustomerScoped
 
     public bool HasOutstandingInvitation(DateTimeOffset now) =>
         ActivationTokenHash is not null && (ActivationExpiresAt is null || now <= ActivationExpiresAt);
+
+    /// <summary>
+    /// Arms an email-verification token for a self-service account that already
+    /// chose its own password at registration. Reuses the activation-token
+    /// columns — an account is only ever in one of the two flows — so the
+    /// plaintext lives only in the emailed link and never here. The account
+    /// cannot sign in until the token is confirmed.
+    /// </summary>
+    public void BeginEmailVerification(string tokenHash, DateTimeOffset expiresAt, DateTimeOffset now)
+    {
+        if (string.IsNullOrWhiteSpace(tokenHash))
+        {
+            throw DomainException.Validation("An email-verification token hash is required.");
+        }
+
+        if (Status is AccountStatus.Disabled)
+        {
+            throw DomainException.Conflict("A disabled account cannot be verified.");
+        }
+
+        ActivationTokenHash = tokenHash;
+        ActivationExpiresAt = expiresAt;
+        EmailVerified = false;
+        Status = AccountStatus.Invited;
+        MarkUpdated(now);
+    }
+
+    /// <summary>
+    /// Consumes the verification token: the holder proved control of the address,
+    /// so the account becomes verified and usable. The password is untouched — it
+    /// was set at registration, unlike an invitation, where the link is where the
+    /// password is first chosen. The token is cleared rather than marked used, so
+    /// a captured link cannot be replayed; an expired one is refused.
+    /// </summary>
+    public void ConfirmEmailVerification(DateTimeOffset now)
+    {
+        if (ActivationTokenHash is null)
+        {
+            throw DomainException.Conflict("This account has no outstanding email verification.");
+        }
+
+        if (ActivationExpiresAt is { } expiry && now > expiry)
+        {
+            throw DomainException.Conflict("The verification link has expired. Ask for a new one.");
+        }
+
+        ActivationTokenHash = null;
+        ActivationExpiresAt = null;
+        EmailVerified = true;
+        Status = AccountStatus.Active;
+        MarkUpdated(now);
+    }
 
     public void ChangePasswordHash(string passwordHash, DateTimeOffset now)
     {

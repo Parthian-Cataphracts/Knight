@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-08-31** (revision 37 — self-service SaaS track planned: public registration, platform billing, automatic provisioning, customer portal; see the plan and ADR 0035)
+Last updated: **2026-09-01** (revision 38 — self-service SaaS phases A and B built: domain foundation + public registration/verification; see Phase 30 and the plan)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -11,7 +11,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / 
 
 | | |
 |---|---|
-| **Next major track** | **Self-service SaaS — planned, not started.** The product owner has redirected KNIGHT from the agency model to self-service: merchants register publicly, pay KNIGHT, and get an automatically provisioned, entitled store with no operator step. The full plan (grounded in the existing modules it reuses) is [`docs/self-service-saas-plan.md`](docs/self-service-saas-plan.md); the decision that overrules "no public registration" for the customer principal is [`docs/adr/0035`](docs/adr/0035-pivot-to-self-service-saas-registration.md). Work is sequenced A–G there. |
+| **Next major track** | **Self-service SaaS — phases A and B done, C next.** The product owner has redirected KNIGHT from the agency model to self-service: merchants register publicly, pay KNIGHT, and get an automatically provisioned, entitled store with no operator step. The full plan (grounded in the existing modules it reuses) is [`docs/self-service-saas-plan.md`](docs/self-service-saas-plan.md); the decision that overrules "no public registration" for the customer principal is [`docs/adr/0035`](docs/adr/0035-pivot-to-self-service-saas-registration.md). Work is sequenced A–G in `Phase 30` below. |
 | **Current phase** | **Phase 29 — the production gate. One item was buildable and is built; the rest is yours.** Domain verification has had two methods and one implementation since phase 3; the DNS TXT half now exists, so a store with no HTTP surface yet can prove it owns its domain. The other four items are the security review, eleven answers, a production database and a release call — none of them code. [`docs/phase-29-verification.md`](docs/phase-29-verification.md) |
 | **Previous phase** | **Phase 28 — migrating the catalogue. The table is written; the three moves are not made.** Every one of the sixteen Features now has a recorded decision and a reason — four should be services, one of them is, eight stay in-process on the transaction argument, three are arguable and held together by `analytics-core`. [`docs/feature-architecture-decisions.md`](docs/feature-architecture-decisions.md), [`docs/phase-28-verification.md`](docs/phase-28-verification.md) |
 | **Previous phase** | **Phase 27 — deployment. The unblocked half is done; the gate needs a host.** There are now three installers — control plane, agent, Django store — the store's unit reloads without dropping what is in flight, and the nightly dumps have a verified way off the machine. What is left needs the hosting, domain and backup-custody decisions, which are the product owner's. [`docs/phase-27-verification.md`](docs/phase-27-verification.md) |
@@ -29,15 +29,19 @@ decision: [`docs/adr/0035`](docs/adr/0035-pivot-to-self-service-saas-registratio
 Most of the back end is reused; the work is the front doors, a separate
 `knight_billing`, the automatic payment→provisioning wire, and a customer portal.
 
-- [~] **A — domain foundation.** `Subscription.Pending` + provider fields +
-  activate-from-pending; `Plan.IsPubliclyPurchasable` + a public projection; the
-  `PlatformBilling` module (`PlatformBillingTransaction`, `CheckoutSession`) with
-  persistence and a migration; `ProvisioningJob` failure classification; unit
-  tests for every transition. *(role/permission grants land with the endpoints in
-  B/C.)*
-- [ ] **B — public auth.** `register`, `verify-email`, `resend-verification`;
-  self-service customer/user creation; tenant-isolation and no-existence-oracle
-  tests.
+- [x] **A — domain foundation.** `Subscription.Pending` + provider fields +
+  activate-from-pending; `Plan.IsPubliclyPurchasable`; the `PlatformBilling`
+  module (`PlatformBillingTransaction`, `CheckoutSession`) with persistence and a
+  migration; `ProvisioningJob` failure classification + attempt count. 18 unit
+  tests; migration `SelfServiceSaaSFoundations`.
+- [x] **B — public auth.** `POST /auth/register`, `/verify-email`,
+  `/resend-verification`, rate-limited and anonymous. New `Onboarding` module
+  (customer + owner account in one unit of work), `ControlPlaneUser.EmailVerified`
+  with its own verification-token flow, a verification-email port distinct from
+  the invitation one. No account-existence oracle; an account cannot sign in
+  until verified. 5 unit + 5 integration tests; migration
+  `SelfServiceRegistration`. *(the customer stays `Prospect` until payment in C;
+  role grants beyond `CustomerOwner`, and the customer portal, are still ahead.)*
 - [ ] **C — billing.** public `GET /plans`; CUSTOM selection + dependency
   validation; `POST /billing/checkout` (authoritative price); provider webhook
   (signature, idempotency, replay); subscription activation + entitlement
@@ -96,7 +100,7 @@ Phase 26   Operating it                     ██████░░░░  60%
 Phase 27   Deployment                       █████░░░░░  50%
 Phase 28   Migrating the catalogue          ████░░░░░░  40%
 Phase 29   The production gate              ██░░░░░░░░  20%
-Phase 30   Self-service SaaS                █░░░░░░░░░  10%
+Phase 30   Self-service SaaS                ███░░░░░░░  30%  (A, B done)
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in

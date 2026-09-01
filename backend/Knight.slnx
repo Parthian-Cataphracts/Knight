@@ -13,6 +13,7 @@
     <Project Path="modules/Servers/Servers.csproj" />
     <Project Path="modules/Provisioning/Provisioning.csproj" />
     <Project Path="modules/PlatformBilling/PlatformBilling.csproj" />
+    <Project Path="modules/Onboarding/Onboarding.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Knight.Api/Knight.Api.csproj" />

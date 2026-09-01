@@ -68,6 +68,45 @@ public sealed record MfaEnrollmentResponse
     public required string EnrollmentUri { get; init; }
 }
 
+// --- Public self-service registration -----------------------------------------
+
+/// <summary>
+/// Public sign-up (docs/self-service-saas-plan.md §11.1). The response is the
+/// same whether or not the email was already taken, so this never confirms an
+/// account exists.
+/// </summary>
+public sealed record RegisterRequest
+{
+    public required string Email { get; init; }
+
+    public required string Password { get; init; }
+
+    /// <summary>The person's name; becomes the account's display name.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The business name, if given; otherwise the customer is named after the person.</summary>
+    public string? CompanyName { get; init; }
+}
+
+public sealed record VerifyEmailRequest
+{
+    public required string Token { get; init; }
+}
+
+public sealed record ResendVerificationRequest
+{
+    public required string Email { get; init; }
+}
+
+/// <summary>
+/// The deliberately generic answer to registration and resend. It says what
+/// happens next without ever saying whether an account already existed.
+/// </summary>
+public sealed record RegistrationAcceptedResponse
+{
+    public required string Status { get; init; }
+}
+
 // --- Account administration ---------------------------------------------------
 
 public sealed record CreateAccountRequest

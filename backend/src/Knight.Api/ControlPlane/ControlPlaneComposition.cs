@@ -9,6 +9,7 @@ using Knight.Api.Ingest;
 using Knight.Application.Abstractions.ControlPlane;
 using Knight.Infrastructure.Caching;
 using Observability;
+using Onboarding;
 using Plans;
 using Provisioning;
 using Servers;
@@ -36,6 +37,7 @@ public static class ControlPlaneComposition
         services.AddPlansModule();
         services.AddSubscriptionsModule(configuration);
         services.AddBillingModule(configuration);
+        services.AddOnboardingModule(configuration);
         services.AddIngestionModule(configuration);
         services.AddObservabilityModule(configuration);
 

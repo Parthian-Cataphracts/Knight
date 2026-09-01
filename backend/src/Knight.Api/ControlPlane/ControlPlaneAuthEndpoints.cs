@@ -1,5 +1,6 @@
 using AccessControl;
 using Knight.Contracts.ControlPlane;
+using Onboarding;
 using LoginCommand = AccessControl.LoginRequest;
 using LoginContract = Knight.Contracts.ControlPlane.LoginRequest;
 
@@ -100,6 +101,45 @@ public static class ControlPlaneAuthEndpoints
             // ordinary login, which is also what proves the password it just set
             // is the one it thinks it set.
             return Results.NoContent();
+        }).AllowAnonymous().RequireRateLimiting("auth-control-plane");
+
+        // Public self-service sign-up (docs/self-service-saas-plan.md §11.1,
+        // phase B). Rate-limited on the same policy as login: it is a
+        // credential-adjacent surface, and it must not become a way to probe or
+        // enumerate accounts. The answer is deliberately the same whether or not
+        // the email was already taken.
+        group.MapPost("/register", async (
+            RegisterRequest request,
+            IOnboardingService onboarding,
+            CancellationToken cancellationToken) =>
+        {
+            await onboarding.RegisterAsync(request.Email, request.Password, request.Name, request.CompanyName, cancellationToken);
+            return Results.Accepted(value: new RegistrationAcceptedResponse { Status = "verification_required" });
+        }).AllowAnonymous().RequireRateLimiting("auth-control-plane");
+
+        group.MapPost("/verify-email", async (
+            VerifyEmailRequest request,
+            IOnboardingService onboarding,
+            CancellationToken cancellationToken) =>
+        {
+            var verified = await onboarding.VerifyEmailAsync(request.Token, cancellationToken);
+
+            // A bad or expired token is a bad token — not a hint about any email.
+            return verified
+                ? Results.Ok(new RegistrationAcceptedResponse { Status = "verified" })
+                : Results.Problem(
+                    title: "The verification link is not valid or has expired.",
+                    statusCode: StatusCodes.Status400BadRequest,
+                    extensions: new Dictionary<string, object?> { ["errorCode"] = "invalid_verification_token" });
+        }).AllowAnonymous().RequireRateLimiting("auth-control-plane");
+
+        group.MapPost("/resend-verification", async (
+            ResendVerificationRequest request,
+            IOnboardingService onboarding,
+            CancellationToken cancellationToken) =>
+        {
+            await onboarding.ResendVerificationAsync(request.Email, cancellationToken);
+            return Results.Accepted(value: new RegistrationAcceptedResponse { Status = "verification_required" });
         }).AllowAnonymous().RequireRateLimiting("auth-control-plane");
 
         group.MapGet("/me", async (

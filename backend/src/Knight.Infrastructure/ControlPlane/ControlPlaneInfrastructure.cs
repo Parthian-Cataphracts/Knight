@@ -106,6 +106,7 @@ public static class ControlPlaneInfrastructure
 
         services.AddScoped<IEmailSender, Integration.SmtpEmailSender>();
         services.AddScoped<AccessControl.IAccountInvitationSender, Integration.AccountInvitationSender>();
+        services.AddScoped<Onboarding.IVerificationEmailSender, Integration.VerificationEmailSender>();
 
         // The four delivery rules compare records owned by different modules, so
         // the comparison lives here, where the whole schema is visible.
