@@ -43,6 +43,9 @@ public sealed class ExceptionHandlingMiddleware
     {
         var (statusCode, title, errorCode) = exception switch
         {
+            // A self-service billing/provisioning failure carries its own status
+            // and stable code (PLAN_UNAVAILABLE, INVALID_FEATURE_SELECTION, …).
+            ICodedException coded => (coded.StatusCode, exception.Message, coded.ErrorCode),
             ValidationException => (StatusCodes.Status400BadRequest, "One or more validation errors occurred.", ApiErrorCodes.ValidationFailed),
             NotFoundException => (StatusCodes.Status404NotFound, exception.Message, ApiErrorCodes.NotFound),
             ForbiddenException => (StatusCodes.Status403Forbidden, exception.Message, ApiErrorCodes.Forbidden),

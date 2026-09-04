@@ -11,6 +11,7 @@ using Knight.Infrastructure.Caching;
 using Observability;
 using Onboarding;
 using Plans;
+using PlatformBilling;
 using Provisioning;
 using Servers;
 using Stores;
@@ -38,6 +39,7 @@ public static class ControlPlaneComposition
         services.AddSubscriptionsModule(configuration);
         services.AddBillingModule(configuration);
         services.AddOnboardingModule(configuration);
+        services.AddPlatformBillingModule(configuration);
         services.AddIngestionModule(configuration);
         services.AddObservabilityModule(configuration);
 

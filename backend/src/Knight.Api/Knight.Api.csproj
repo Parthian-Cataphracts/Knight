@@ -37,6 +37,7 @@
     <ProjectReference Include="..\..\modules\Ingestion\Ingestion.csproj" />
     <ProjectReference Include="..\..\modules\Billing\Billing.csproj" />
     <ProjectReference Include="..\..\modules\Onboarding\Onboarding.csproj" />
+    <ProjectReference Include="..\..\modules\PlatformBilling\PlatformBilling.csproj" />
   </ItemGroup>
 
 </Project>
