@@ -4,6 +4,7 @@ using System.Text.Json;
 using AccessControl.Domain;
 using Json.Schema;
 using Knight.IntegrationTests.Infrastructure;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Stores.Domain;
 
 namespace Knight.IntegrationTests.ControlPlane;
@@ -147,6 +148,83 @@ public sealed class StoreIngestionTests
 
         Assert.Equal(HttpStatusCode.OK, oldStatus);
         Assert.Equal(HttpStatusCode.OK, newStatus);
+    }
+
+    /// <summary>
+    /// Rotate-on-handshake (docs/hardening-backlog.md P2): when the credential a
+    /// store authenticates with is nearing expiry, the handshake rotates it in
+    /// place and hands back the replacement — the one authenticated moment KNIGHT
+    /// can deliver a plaintext secret it never stores. The store adopts it and
+    /// authenticates with it next time; the old one survives its grace window so a
+    /// running store is never cut off.
+    /// </summary>
+    [Fact]
+    public async Task AHandshakeWithACredentialNearingExpiry_RotatesItAndDeliversTheReplacement()
+    {
+        if (!_fixture.IsAvailable) return;
+
+        // A short lifetime under a wider rotation threshold makes a freshly issued
+        // credential immediately due, so one handshake exercises the whole path.
+        var factory = _fixture.Factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("Stores:CredentialLifetime", "00:10:00");
+            builder.UseSetting("Stores:CredentialRotationThreshold", "00:15:00");
+        });
+
+        var customerId = await _fixture.SeedCustomerAsync();
+        var storeId = await _fixture.SeedStoreAsync(customerId, StoreEnvironment.Production);
+
+        var email = Email();
+        await _fixture.SeedUserAsync(email, Password, SystemRoles.Admin);
+        var token = await _fixture.SignInAsync(email, Password);
+
+        var admin = factory.CreateClient();
+        admin.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var issued = await admin.PostAsync($"/api/v1/stores/{storeId}/credentials", null);
+        issued.EnsureSuccessStatusCode();
+        var credential = await issued.Content.ReadFromJsonAsync<JsonDocument>();
+        var clientId = credential!.RootElement.GetProperty("clientId").GetString()!;
+        var clientSecret = credential.RootElement.GetProperty("clientSecret").GetString()!;
+
+        var (status, body) = await HandshakeOnAsync(factory, clientId, clientSecret, "Production");
+
+        Assert.Equal(HttpStatusCode.OK, status);
+        AssertMatchesContract("handshakeResponse", body!.RootElement);
+
+        var rotated = body.RootElement.GetProperty("rotatedCredential");
+        Assert.Equal(JsonValueKind.Object, rotated.ValueKind);
+        var newClientId = rotated.GetProperty("clientId").GetString()!;
+        var newSecret = rotated.GetProperty("clientSecret").GetString()!;
+        Assert.NotEqual(clientId, newClientId);
+
+        // The store adopts the replacement, and it authenticates.
+        var (adopted, _) = await HandshakeOnAsync(factory, newClientId, newSecret, "Production");
+        Assert.Equal(HttpStatusCode.OK, adopted);
+
+        // And the credential it presented this time still works, through its grace.
+        var (oldStill, _) = await HandshakeOnAsync(factory, clientId, clientSecret, "Production");
+        Assert.Equal(HttpStatusCode.OK, oldStill);
+    }
+
+    [Fact]
+    public async Task AnOrdinaryHandshake_DeliversNoRotatedCredential()
+    {
+        if (!_fixture.IsAvailable) return;
+
+        // The shared host sets no credential lifetime, so nothing is ever near
+        // expiry and rotation stays operator-initiated.
+        var store = await SeedRegisteredStoreAsync();
+
+        var (status, body) = await HandshakeAsync(store.ClientId, store.ClientSecret, "Production");
+
+        Assert.Equal(HttpStatusCode.OK, status);
+
+        // Either omitted or explicitly null, depending on the serializer's null
+        // handling — what matters is that no replacement was delivered.
+        Assert.True(
+            !body!.RootElement.TryGetProperty("rotatedCredential", out var value)
+            || value.ValueKind == JsonValueKind.Null);
     }
 
     [Fact]
@@ -628,6 +706,26 @@ public sealed class StoreIngestionTests
             storeVersion = "1.0.0",
             runtime = "Python 3.12 / Django 5.1",
             nonce,
+        });
+
+        var payload = await response.Content.ReadAsStringAsync();
+        return (response.StatusCode, string.IsNullOrWhiteSpace(payload) ? null : JsonDocument.Parse(payload));
+    }
+
+    private static async Task<(HttpStatusCode Status, JsonDocument? Body)> HandshakeOnAsync(
+        WebApplicationFactory<Program> factory,
+        string clientId,
+        string clientSecret,
+        string environment)
+    {
+        var response = await factory.CreateClient().PostAsJsonAsync("/api/v1/ingest/handshake", new
+        {
+            clientId,
+            clientSecret,
+            environment,
+            storeVersion = "1.0.0",
+            runtime = "Python 3.12 / Django 5.1",
+            nonce = (string?)null,
         });
 
         var payload = await response.Content.ReadAsStringAsync();

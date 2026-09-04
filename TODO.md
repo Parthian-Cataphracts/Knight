@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-09-04** (revision 47 — Phase 31 P3: **tenant data export** (GET /me/export + portal button, acceptance-tested) done; push-telemetry flagged cross-repo. Earlier P0–P2: KMS signer, ADR 0036, PgBouncer, IaC, billing outbox, agent hardening. The remaining Phase-31 items are cross-repo or infra-decision-gated. See Phase 31 and docs/hardening-backlog.md)
+Last updated: **2026-09-04** (revision 48 — Phase 31 P2: **end-to-end secret rotation** done, cross-repo — rotate-on-handshake, both KNIGHT and the .NET store agent (+ BojanStore's vendored copy); shared schema updated, tests both sides. Earlier P0–P3: KMS signer, ADR 0036, PgBouncer, IaC, billing outbox, agent hardening, tenant export. The remaining Phase-31 items are infra-decision-gated (real payment/hosting adapters, push-telemetry). See Phase 31 and docs/hardening-backlog.md)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -152,7 +152,7 @@ Phase 27   Deployment                       █████░░░░░  50%
 Phase 28   Migrating the catalogue          ████░░░░░░  40%
 Phase 29   The production gate              ██░░░░░░░░  20%
 Phase 30   Self-service SaaS                ██████████ 100%  (A–G built; real provider + host are product-owner calls)
-Phase 31   Production hardening             ███████░░░  70%  (P0/P1/P2 + tenant export done or authored; secret-rotation & push-telemetry are cross-repo)
+Phase 31   Production hardening             ████████░░  80%  (P0/P1/P2 + tenant export + secret rotation done or authored; real payment/hosting adapters & push-telemetry are infra-gated)
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -218,10 +218,16 @@ tickable version of it. Priorities use the review's P0–P3.
   the handoff no longer leaves a paid subscription with no store. Migration + tests.
 - [x] **P2 — Agent least privilege.** `agent/deploy`: dedicated user, fully-sandboxed
   systemd unit, AppArmor profile. Authored; validate on a live host before enforcing.
-- [!] **P2 — End-to-end secret rotation.** Blocked: it needs a **cross-repo** channel
-  to push a rotated secret to the store (the agent reads its secret from config), so
-  a KNIGHT-only sweep would lock stores out and is deliberately not built. See the
-  backlog for the design.
+- [x] **P2 — End-to-end secret rotation.** Done, the cross-repo way it had to be:
+  **rotate-on-handshake**. A handshake with a credential nearing expiry rotates it
+  in place and hands the replacement back in the response (`rotatedCredential`) — the
+  one authenticated moment a plaintext secret KNIGHT otherwise only hashes can be
+  delivered; the old one keeps working through its grace window. KNIGHT side off
+  unless `Stores:CredentialLifetime` + `Stores:CredentialRotationThreshold` are set;
+  the .NET agent (and the copy vendored into BojanStore) adopts and persists the
+  replacement, authenticating with it from the next handshake on. Shared contract
+  schema updated; end-to-end handshake test (KNIGHT) + adoption test (agent). Reference
+  stores' adopters (Python/node) remain for parity. See the backlog.
 - [x] **P3 — Tenant data export.** `GET /api/v1/me/export` + a portal "Download my
   data" button, and the deprovision `Export` step now auto-produces a durable
   snapshot (`IStoreExporter`) before purge — no operator step. Covered by the

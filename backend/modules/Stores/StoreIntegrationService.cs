@@ -149,6 +149,14 @@ internal sealed class StoreIntegrationService : IStoreIntegrationService
         var credential = verification.Credential!;
         credential.RecordUse(now);
 
+        // If the credential the store just authenticated with is nearing expiry,
+        // rotate it in place and hand the store its replacement now — the one
+        // authenticated moment KNIGHT can deliver a plaintext secret it never
+        // stores (docs/hardening-backlog.md P2). The old credential keeps working
+        // through its grace window, which is the store's margin to adopt the new
+        // one before the old expires. Off unless a lifetime and threshold are set.
+        var rotated = RotateIfNearingExpiry(store, credential, now);
+
         var outcome = store.CompleteHandshake(
             reportedEnvironment,
             request.StoreVersion,
@@ -199,6 +207,11 @@ internal sealed class StoreIntegrationService : IStoreIntegrationService
                 version = store.ApplicationVersion,
                 integrationStatus = outcome.Status.ToString(),
                 domainVerificationOutstanding = outcome.DomainVerificationOutstanding,
+
+                // Recorded on the handshake that carried the rotation, so the trail
+                // shows the credential turning over on its own with no operator.
+                credentialRotated = rotated is not null,
+                rotatedToClientId = rotated?.ClientId,
             });
 
         return StoreHandshakeResult.Accepted(new StoreHandshakeAccepted(
@@ -218,8 +231,56 @@ internal sealed class StoreIntegrationService : IStoreIntegrationService
             // shown to a caller that already authenticated as this store.
             outcome.DomainVerificationOutstanding ? store.DomainVerificationToken : null,
             (int)_options.HeartbeatInterval.TotalSeconds,
-            (int)_options.FeatureRefreshInterval.TotalSeconds));
+            (int)_options.FeatureRefreshInterval.TotalSeconds,
+            rotated));
     }
+
+    /// <summary>
+    /// Rotates the authenticating credential when it is inside its rotation
+    /// threshold, returning the replacement for the response — or null when
+    /// rotation is not configured or not yet due. Only a credential that is still
+    /// active (never one already in its grace period) is rotated, so a store that
+    /// keeps presenting the old secret after a rotation does not trigger a fresh
+    /// rotation on every handshake; the single delivered replacement is what it
+    /// must adopt.
+    /// </summary>
+    private RotatedStoreCredential? RotateIfNearingExpiry(Store store, StoreCredential credential, DateTimeOffset now)
+    {
+        if (_options.CredentialLifetime is not { } lifetime || _options.CredentialRotationThreshold is not { } threshold)
+        {
+            return null;
+        }
+
+        // Already rotated (in grace), or not near expiry: nothing to do.
+        if (credential.RotatedAt is not null || credential.ExpiresAt is not { } expiry || expiry - now > threshold)
+        {
+            return null;
+        }
+
+        var clientId = BuildClientId(store);
+        var secret = _secrets.Generate();
+
+        var replacement = store.RotateCredential(
+            credential.Id,
+            Guid.NewGuid(),
+            clientId,
+            secret.Hash,
+            _options.RotationGracePeriod,
+            now,
+            now.Add(lifetime));
+
+        _stores.RegisterNewCredential(replacement);
+
+        return new RotatedStoreCredential(replacement.ClientId, secret.RawValue, replacement.ExpiresAt);
+    }
+
+    /// <summary>
+    /// A random, unguessable client id. A slug is public, so the credential a
+    /// store authenticates with must not be derivable from it (matches the
+    /// dashboard's issuance path).
+    /// </summary>
+    private static string BuildClientId(Store store) =>
+        $"knight-{store.Slug}-{Guid.NewGuid().ToString("n")[..12]}";
 
     public async Task<StoreContactResult> RecordHeartbeatAsync(StoreHeartbeatInput input, CancellationToken cancellationToken)
     {

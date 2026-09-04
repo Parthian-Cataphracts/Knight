@@ -21,6 +21,29 @@ public sealed record StoreIdentity
     public string TokenType { get; init; } = string.Empty;
 
     public int ExpiresIn { get; init; }
+
+    /// <summary>
+    /// A replacement credential, present only when this handshake rotated one that
+    /// was nearing expiry. The agent persists it and authenticates with it from the
+    /// next handshake on; the credential it presented this time keeps working
+    /// through its grace window, so nothing breaks in between. Null on an ordinary
+    /// handshake.
+    /// </summary>
+    public RotatedCredential? RotatedCredential { get; init; }
+}
+
+/// <summary>The plaintext of a rotated credential, delivered once on the handshake that rotated it.</summary>
+public sealed record RotatedCredential
+{
+    public string ClientId { get; init; } = string.Empty;
+
+    /// <summary>Never logged. The one moment KNIGHT ever hands this back is this response.</summary>
+    public string ClientSecret { get; init; } = string.Empty;
+
+    public DateTimeOffset? ExpiresAt { get; init; }
+
+    public bool IsComplete =>
+        !string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(ClientSecret);
 }
 
 /// <summary>

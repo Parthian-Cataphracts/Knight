@@ -72,17 +72,25 @@ Priority uses the review's P0–P3.
   (compose, transaction mode, port 6432). No application change — EF Core/Npgsql
   use no server-side prepared statements by default. Verified by running the API
   through it. See `infrastructure/database/README.md`.
-- [!] **P2 — Automate shared-secret issuance/rotation end to end.** Phase 24 built
-  rotation with an overlap grace, but it is operator-initiated, and the store agent
-  reads its secret from its own config — there is **no channel for KNIGHT to push a
-  rotated secret to a store**. So a KNIGHT-only auto-rotation sweep would rotate the
-  credential and lock the store out when the old one's grace ended; it is not built,
-  deliberately. Finishing this is a **cross-repo** design: KNIGHT issues the
-  replacement during grace and delivers it on the next authenticated contact
-  (handshake/heartbeat), the store agent adopts it and confirms, then KNIGHT revokes
-  the old one. Both this repo and the store agent change; it is not a self-contained
-  KNIGHT task. A safe interim step (visibility, not automation) is an alert when a
-  store credential nears expiry.
+- [x] **P2 — Automate shared-secret issuance/rotation end to end.** **Built**, the
+  cross-repo way it had to be — rotate-on-handshake. When a store authenticates with
+  a credential nearing expiry, the handshake rotates it in place and hands back the
+  replacement in the response (`rotatedCredential`): the one authenticated moment
+  KNIGHT can deliver a plaintext secret it otherwise only ever stores hashed. The
+  old credential keeps working through its grace window — the store's margin to
+  switch over — and only a still-active credential is rotated, so a store that keeps
+  presenting the old secret does not trigger a fresh rotation every handshake. The
+  KNIGHT side is off unless a deployment opts in with `Stores:CredentialLifetime`
+  and `Stores:CredentialRotationThreshold`; with neither set, rotation stays
+  operator-initiated exactly as before. The store side (the .NET agent, and the copy
+  vendored into BojanStore) adopts a delivered replacement, persists it, and
+  authenticates with it from the next handshake on — without which a rotation would
+  simply lock the store out when grace ended, which is why the KNIGHT-only sweep was
+  never built. The shared contract schema carries the new field so both sides agree
+  on its shape. Covered by an end-to-end handshake test on the KNIGHT side and an
+  adoption test on the store side.
+  *Not yet done: the Python/node reference stores' `knight_integration` adopters,
+  for contract parity — the real store (BojanStore, .NET) is complete.*
 - [x] **P2 — Agent least privilege.** `agent/deploy`: a dedicated system user, a
   fully-sandboxed systemd unit (no capabilities, `@system-service` syscall filter,
   restricted address families, read-only system with writes only to the state and

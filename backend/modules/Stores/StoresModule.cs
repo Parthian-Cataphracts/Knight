@@ -23,6 +23,17 @@ public sealed class StoreOptions
     public TimeSpan? CredentialLifetime { get; init; }
 
     /// <summary>
+    /// How close to expiry a credential must be before a handshake rotates it in
+    /// place and hands the store its replacement (docs/hardening-backlog.md P2).
+    /// Only meaningful when <see cref="CredentialLifetime"/> is set — an
+    /// unexpiring credential is never near expiry. Off (null) by default: rotation
+    /// stays operator-initiated unless a deployment opts in by giving credentials
+    /// a lifetime and this window. Must be shorter than the lifetime, so a
+    /// freshly issued credential is not immediately due for rotation.
+    /// </summary>
+    public TimeSpan? CredentialRotationThreshold { get; init; }
+
+    /// <summary>
     /// How long a store token minted by the handshake stays valid. Short by
     /// design: a leaked token is the one credential in this system that is not
     /// rotatable, so it is instead made not worth stealing

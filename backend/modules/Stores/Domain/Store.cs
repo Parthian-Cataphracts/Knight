@@ -468,7 +468,8 @@ public sealed class Store : AuditableEntity, ICustomerOwned
         string clientId,
         string secretHash,
         TimeSpan grace,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        DateTimeOffset? replacementExpiresAt = null)
     {
         EnsureNotArchived();
 
@@ -485,7 +486,10 @@ public sealed class Store : AuditableEntity, ICustomerOwned
             throw DomainException.Conflict("Only an active credential can be rotated.");
         }
 
-        var replacement = StoreCredential.Issue(replacementId, Id, clientId, secretHash, now, null);
+        // The replacement carries its own expiry when rotation is lifetime-driven
+        // (rotate-on-handshake), so it too comes due for rotation in turn; an
+        // operator-initiated rotation passes none and the replacement is open-ended.
+        var replacement = StoreCredential.Issue(replacementId, Id, clientId, secretHash, now, replacementExpiresAt);
         _credentials.Add(replacement);
         current.BeginGracePeriod(now + grace, now);
         MarkUpdated(now);

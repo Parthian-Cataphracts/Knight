@@ -91,7 +91,22 @@
         "domainVerificationToken": { "type": ["string", "null"] },
         "domainVerificationPath": { "type": ["string", "null"] },
         "heartbeatSeconds": { "type": "integer", "minimum": 1 },
-        "featureRefreshSeconds": { "type": "integer", "minimum": 1 }
+        "featureRefreshSeconds": { "type": "integer", "minimum": 1 },
+        "rotatedCredential": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["clientId", "clientSecret"],
+              "properties": {
+                "clientId": { "type": "string", "minLength": 1 },
+                "clientSecret": { "type": "string", "minLength": 1 },
+                "expiresAt": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/timestamp" }] }
+              },
+              "description": "Present only when this handshake rotated a credential nearing expiry. The store adopts it and authenticates with it from the next handshake on; the credential just presented keeps working through its grace window."
+            }
+          ]
+        }
       }
     },
 

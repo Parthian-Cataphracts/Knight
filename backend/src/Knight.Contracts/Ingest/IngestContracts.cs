@@ -61,6 +61,25 @@ public sealed record StoreHandshakeResponse
     public required int HeartbeatSeconds { get; init; }
 
     public required int FeatureRefreshSeconds { get; init; }
+
+    /// <summary>
+    /// A replacement credential, present only when this handshake rotated one that
+    /// was nearing expiry. The store persists it and authenticates with it from the
+    /// next handshake on; the credential it presented this time keeps working
+    /// through its grace window. Absent on an ordinary handshake — an older agent
+    /// that does not read the field simply keeps its existing secret.
+    /// </summary>
+    public RotatedCredentialBody? RotatedCredential { get; init; }
+}
+
+/// <summary>The plaintext of a rotated credential, delivered once on the handshake that rotated it.</summary>
+public sealed record RotatedCredentialBody
+{
+    public required string ClientId { get; init; }
+
+    public required string ClientSecret { get; init; }
+
+    public DateTimeOffset? ExpiresAt { get; init; }
 }
 
 public sealed record StoreHeartbeatRequest

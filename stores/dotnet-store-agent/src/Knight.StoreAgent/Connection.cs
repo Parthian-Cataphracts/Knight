@@ -224,4 +224,25 @@ public sealed class KnightConnection(IOptions<KnightOptions> options, IKnightCre
     /// </summary>
     public Task DisconnectAsync(CancellationToken cancellationToken = default) =>
         store.ClearAsync(cancellationToken);
+
+    /// <summary>
+    /// Adopts a credential KNIGHT rotated and handed back on a handshake, so every
+    /// call from now on authenticates with it (docs/hardening-backlog.md P2). The
+    /// rest of the connection — which control plane, which environment, whether the
+    /// agent is on — is carried over from what is in force, since only the secret
+    /// changed. Persisted, so the replacement survives a restart the same way an
+    /// operator-entered credential does; the old one keeps working through its
+    /// grace window until the next handshake switches over.
+    /// </summary>
+    public async Task AdoptRotatedCredentialAsync(
+        string clientId,
+        string clientSecret,
+        CancellationToken cancellationToken = default)
+    {
+        var current = await CurrentAsync(cancellationToken);
+
+        await store.SaveAsync(
+            current with { ClientId = clientId, ClientSecret = clientSecret, Enabled = true },
+            cancellationToken);
+    }
 }

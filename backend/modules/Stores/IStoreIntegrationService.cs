@@ -40,6 +40,16 @@ public sealed record StoreMutualTlsBinding(Guid StoreId, string? Thumbprint)
 }
 
 /// <summary>
+/// A rotated credential handed back on a handshake so the store can adopt it
+/// unattended (docs/hardening-backlog.md P2). The plaintext secret exists only in
+/// this response — KNIGHT stores only its hash — so it is delivered the one moment
+/// it can be, to the caller that has just authenticated as this store over TLS.
+/// The old credential keeps working through its grace window, which is the store's
+/// margin to switch over before it expires.
+/// </summary>
+public sealed record RotatedStoreCredential(string ClientId, string ClientSecret, DateTimeOffset? ExpiresAt);
+
+/// <summary>
 /// Everything a store needs to operate for the next half hour: the token, how to
 /// verify what KNIGHT signs for it, how often to come back, and whether anything
 /// is still standing between it and <see cref="IntegrationStatus.Connected"/>.
@@ -57,7 +67,14 @@ public sealed record StoreHandshakeAccepted(
     bool DomainVerificationOutstanding,
     string? DomainVerificationToken,
     int HeartbeatSeconds,
-    int FeatureRefreshSeconds);
+    int FeatureRefreshSeconds,
+
+    /// <summary>
+    /// Set when this handshake rotated a credential nearing expiry: the store adopts
+    /// it and authenticates with it next time. Null on an ordinary handshake, which
+    /// an older agent that does not know the field reads as "no rotation".
+    /// </summary>
+    RotatedStoreCredential? RotatedCredential = null);
 
 /// <summary>
 /// A handshake either produced a session or refused, and a refusal never says

@@ -90,6 +90,9 @@ public static class StoreIngestEndpoints
                 DomainVerificationPath = session.DomainVerificationOutstanding ? DomainVerificationPaths.HttpPath : null,
                 HeartbeatSeconds = session.HeartbeatSeconds,
                 FeatureRefreshSeconds = session.FeatureRefreshSeconds,
+                RotatedCredential = session.RotatedCredential is { } r
+                    ? new RotatedCredentialBody { ClientId = r.ClientId, ClientSecret = r.ClientSecret, ExpiresAt = r.ExpiresAt }
+                    : null,
             });
         })
         .AllowAnonymous()

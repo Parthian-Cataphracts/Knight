@@ -117,6 +117,18 @@ public sealed class KnightClient
         Store = identity;
         _status.RecordHandshake(identity);
 
+        // If KNIGHT rotated the credential because it was nearing expiry, adopt the
+        // replacement now. This session keeps the token just minted (from the old
+        // client id, still valid through its grace window); the next handshake sees
+        // the newly stored credential and switches over cleanly.
+        if (identity.RotatedCredential is { IsComplete: true } rotated)
+        {
+            await _connection.AdoptRotatedCredentialAsync(rotated.ClientId, rotated.ClientSecret, cancellationToken);
+
+            _logger.LogInformation(
+                "KNIGHT rotated this store's credential; adopted the replacement, which the next handshake will use.");
+        }
+
         _logger.LogInformation(
             "Connected to KNIGHT as {StoreName} ({Slug}), integration {Status}.",
             identity.StoreName,
