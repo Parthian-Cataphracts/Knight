@@ -45,6 +45,13 @@ public interface ISubscriptionService
 
     Task<Subscription> CancelAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Asks for the subscription to end when the paid period runs out rather than
+    /// at once — the self-service customer's own cancel (docs/self-service-saas-plan.md §9).
+    /// The subscription stays Active and entitling meanwhile; nothing is torn down.
+    /// </summary>
+    Task<Subscription> RequestCancelAtPeriodEndAsync(Guid id, CancellationToken cancellationToken);
+
     Task<Subscription> SuspendAsync(Guid id, CancellationToken cancellationToken);
 
     Task<Subscription> ActivateAsync(Guid id, CancellationToken cancellationToken);

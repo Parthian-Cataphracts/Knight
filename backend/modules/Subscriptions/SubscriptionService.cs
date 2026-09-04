@@ -142,6 +142,9 @@ internal sealed class SubscriptionService : ISubscriptionService
     public Task<Subscription> CancelAsync(Guid id, CancellationToken cancellationToken) =>
         TransitionAsync(id, "subscription.cancelled", (subscription, now) => subscription.Cancel(now), cancellationToken);
 
+    public Task<Subscription> RequestCancelAtPeriodEndAsync(Guid id, CancellationToken cancellationToken) =>
+        TransitionAsync(id, "subscription.cancel_requested", (subscription, now) => subscription.RequestCancelAtPeriodEnd(now), cancellationToken);
+
     public Task<Subscription> SuspendAsync(Guid id, CancellationToken cancellationToken) =>
         TransitionAsync(id, "subscription.suspended", (subscription, now) => subscription.Suspend(now), cancellationToken);
 
