@@ -535,10 +535,32 @@ def sign(digest: str, private_key_b64: str | None = None) -> str:
     """
     Signs a digest, returning a base64 detached signature.
 
-    The key comes from KNIGHT_SIGNING_KEY, which in a real pipeline is injected
-    by whatever holds custody and never written to disk. The indirection is the
-    point: replacing this with a KMS call changes this function and nothing else.
+    Two custody models, one contract. When KNIGHT_KMS_ENDPOINT is set (and no
+    explicit key is passed), the digest is signed by an external signing service —
+    the private key never touches this environment — over the exact JSON contract
+    KNIGHT's own HttpKmsSigner uses, so a package signed here verifies there
+    unchanged (hardening backlog P0). Otherwise the key comes from
+    KNIGHT_SIGNING_KEY, injected by whatever holds custody and never written to
+    disk. The indirection was always the point; this is it.
     """
+    endpoint = os.environ.get("KNIGHT_KMS_ENDPOINT", "")
+    if endpoint and not private_key_b64:
+        response = _post(
+            endpoint,
+            {
+                "keyId": os.environ.get("KNIGHT_KMS_KEY_ID", "dev"),
+                # The same bytes KNIGHT signs: the digest, which is already the
+                # lowercase hex both sides agree on.
+                "message": base64.b64encode(digest.encode("ascii")).decode("ascii"),
+                "algorithm": "ECDSA_P256_SHA256",
+            },
+            os.environ.get("KNIGHT_KMS_TOKEN", ""),
+        )
+        signature = response.get("signature")
+        if not signature:
+            raise SystemExit("The KMS signing service returned no signature.")
+        return signature
+
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import ec
 

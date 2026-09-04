@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-09-04** (revision 43 — self-service SaaS phases A–G built and browser-verified; a real Stripe payment adapter added behind the provider seam; the post-Phase-30 hardening backlog from the external architecture review captured in docs/hardening-backlog.md. See Phase 30, the plan, and the backlog)
+Last updated: **2026-09-04** (revision 44 — self-service A–G done; **Phase 31 (production hardening)** opened and phased: the KMS-backed artifact signer (both KNIGHT and the packaging tool) and the delivery-model ADR 0036 are done. See Phase 30, Phase 31, the plan, and docs/hardening-backlog.md)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -152,6 +152,7 @@ Phase 27   Deployment                       █████░░░░░  50%
 Phase 28   Migrating the catalogue          ████░░░░░░  40%
 Phase 29   The production gate              ██░░░░░░░░  20%
 Phase 30   Self-service SaaS                ██████████ 100%  (A–G built; real provider + host are product-owner calls)
+Phase 31   Production hardening             ██░░░░░░░░  20%  (KMS signer + delivery-model ADR done; see below)
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -168,6 +169,57 @@ There is one Feature outside the catalogue and it is not for sale:
 `node-conformance`, which exists so the `node` runtime is demonstrated rather
 than declared ([`adr/0032`](docs/adr/0032-a-feature-declares-its-runtime.md) §4).
 [`docs/feature-catalog.md`](docs/feature-catalog.md) is the list.
+
+---
+
+## Phase 31 — Production hardening
+
+The work after self-service is production-hardening, most of it raised by an
+external architecture review. The full context — including where the code already
+anticipates a risk the review named — is
+[`docs/hardening-backlog.md`](docs/hardening-backlog.md); this is the phased,
+tickable version of it. Priorities use the review's P0–P3.
+
+### Product-owner decisions (unblock real automation)
+
+- [ ] **Payment provider.** Seam `IPlatformPaymentProvider`. A **Stripe adapter**
+  ships behind it (`StripePaymentProvider`, real webhook verification, off unless
+  `PlatformBilling:Stripe:SecretKey` is set). Choosing it (or another adapter) and
+  supplying live keys is what remains.
+- [ ] **Hosting platform.** Seam `IInfrastructureAdapter`. A real adapter replaces
+  `SimulatedInfrastructureAdapter` for `server`/`instance`/`domain-tls`. This is
+  also where per-tenant **immutable-image** delivery lands
+  ([`adr/0036`](docs/adr/0036-feature-delivery-runtime-install-versus-immutable-images.md)).
+- [!] **External security review of the code-delivery path** (R16). The one item
+  nobody inside the project can close.
+
+### Hardening
+
+- [~] **P0 — Signing-key custody.** **Done:** the KNIGHT-side signer has a KMS
+  path (`FeatureArtifacts:Signer=kms` → `KmsArtifactSigner` over the `IKmsSigner`
+  seam, `HttpKmsSigner` for a KMS proxy / Vault Transit; verification stays
+  local), and the offline packaging tool signs through the same KMS when
+  `KNIGHT_KMS_ENDPOINT` is set. **Remaining:** stand up a real KMS and configure
+  it in both places.
+- [x] **P0 — Delivery-model decision.** [`adr/0036`](docs/adr/0036-feature-delivery-runtime-install-versus-immutable-images.md):
+  keep verify-then-install; adopt immutable per-tenant images as a hosting option
+  behind `IInfrastructureAdapter`, not a rewrite; prefer `external_service` where a
+  Feature can be one.
+- [ ] **P1 — Replace the Bash installers with IaC** (Terraform/Ansible) behind the
+  same infrastructure adapter.
+- [ ] **P1 — PgBouncer** in front of PostgreSQL before store count makes
+  connections the bottleneck.
+- [ ] **P2 — Finish secret rotation** end to end (phase 24 is partial).
+- [ ] **P2 — Agent least privilege** (dedicated user, systemd sandboxing /
+  AppArmor/SELinux).
+- [ ] **P2 — Formal billing outbox** for the webhook→provisioning at-least-once
+  guarantee (idempotent today; not yet a transactional outbox).
+- [ ] **P3 — Tenant data export / offboarding** tooling (the deprovision `Export`
+  step exists; make it self-serve).
+- [ ] **P3 — Push-based telemetry** (OpenTelemetry collector per store).
+
+Kept as-is per the review: the modular monolith, per-store isolation, architecture
+tests and ADRs.
 
 ---
 

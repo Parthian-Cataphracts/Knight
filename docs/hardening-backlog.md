@@ -49,15 +49,15 @@ Priority uses the review's P0–P3.
   closed job vocabulary and runs no shell (`feature-delivery.md` §15); staged
   single-store canary rollout (`adr/0028`) is the blast-radius control until the
   review lands.*
-- [ ] **P0/P1 — Delivery model at scale (immutable vs. runtime install).** The
-  review recommends per-tenant immutable container images over installing signed
-  packages onto stateful servers. A serious **ADR-level comparison** is worth
-  doing rather than a foregone switch: a base store image is already signed and
-  versioned, a Feature can already be an `external_service` (no code injection at
-  all) or a non-Django runtime, delivery is verify-digest-then-install with
-  rollback, and **drift is already detectable** (the store reports installed
-  state, KNIGHT holds intended state, a `feature.drift` alert fires on the gap).
-  The immutable model trades that for build-per-purchase and image sprawl.
+- [x] **P0/P1 — Delivery model at scale (immutable vs. runtime install).**
+  Decided in [`adr/0036`](adr/0036-feature-delivery-runtime-install-versus-immutable-images.md):
+  keep verify-then-install as the model; adopt immutable per-tenant images as a
+  hosting **option** behind `IInfrastructureAdapter` (where rollback becomes a
+  container swap), chosen per store rather than for all; prefer `external_service`
+  for Features that can be one. Not a rewrite — the desired-state contract is
+  unchanged, and drift/supply-chain are already addressed by the reconciliation
+  loop, signing (now KMS-capable), digest verification, the closed agent
+  vocabulary and the canary.
 - [ ] **P1 — Replace the Bash installers with IaC.** `install.sh`/`knightctl.sh`
   are a single-server stopgap (phase 11). Production provisioning should be
   Terraform/Ansible, plugged in behind the same `IInfrastructureAdapter` the
