@@ -155,6 +155,76 @@ cmd_restart() {
   fi
 }
 
+# Builds the dashboard and publishes the API and bootstrap tool from whatever is
+# checked out in $SRC_DIR right now, then applies migrations. Returns non-zero on
+# the first failure instead of exiting, so the caller can decide whether to roll
+# back. Leaves knight-api stopped either way — the caller starts it.
+deploy_from_src() {
+  export PATH="${NODE_BIN}:${PATH}"
+  export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
+
+  # Rewritten rather than assumed to have survived the checkout, so a release
+  # that needs a different build-time setting gets one.
+  cat > "${SRC_DIR}/frontend/knight-dashboard/.env.production" <<'ENVPROD'
+VITE_USE_MOCKS=false
+VITE_DEFAULT_LOCALE=fa
+ENVPROD
+
+  info "Building the dashboard..."
+  ( cd "${SRC_DIR}/frontend/knight-dashboard" && npm ci --no-audit --no-fund && npm run build ) 2>&1 | tail -4
+  [[ -f "${SRC_DIR}/frontend/knight-dashboard/dist/index.html" ]] \
+    || { warn "The dashboard build produced no output."; return 1; }
+
+  info "Publishing the API..."
+  systemctl stop knight-api
+  "$DOTNET_EXEC" publish "${SRC_DIR}/backend/src/Knight.Api/Knight.Api.csproj" -c Release -o "$API_DIR" --nologo 2>&1 | tail -3
+  [[ -f "${API_DIR}/Knight.Api.dll" ]] || { warn "The API publish produced no Knight.Api.dll."; return 1; }
+  "$DOTNET_EXEC" publish "${SRC_DIR}/backend/tools/Knight.Bootstrap/Knight.Bootstrap.csproj" -c Release -o "$BOOTSTRAP_DIR" --nologo 2>&1 | tail -3
+  [[ -f "${BOOTSTRAP_DIR}/Knight.Bootstrap.dll" ]] || { warn "The bootstrap tool did not build."; return 1; }
+  rm -f "${API_DIR}/appsettings.Development.json"
+
+  rm -rf "${DASHBOARD_DIR:?}"/*
+  cp -r "${SRC_DIR}/frontend/knight-dashboard/dist/." "$DASHBOARD_DIR/"
+
+  # Checked, not merely shown. A migration that failed under a pipe into tail
+  # would hide its exit status, and a schema half-applied is the one thing here
+  # that a rollback exists to undo.
+  info "Applying migrations..."
+  if ! CONTROL_PLANE_DB_CONNECTION_STRING="$DB_CONNECTION" \
+       "$DOTNET_EXEC" "${BOOTSTRAP_DIR}/Knight.Bootstrap.dll" --migrate-only; then
+    warn "Migrations did not apply."
+    return 1
+  fi
+
+  chown -R "${SERVICE_USER}:${SERVICE_USER}" "$INSTALL_DIR"
+  chmod 755 "$INSTALL_DIR" "$DASHBOARD_DIR"
+  find "$DASHBOARD_DIR" -type d -exec chmod 755 {} +
+  find "$DASHBOARD_DIR" -type f -exec chmod 644 {} +
+  chmod 600 "$ENV_FILE"
+  return 0
+}
+
+# The core of a restore, without the prompt or the service juggling its callers
+# do around it: replaces every row in the control-plane database from a dump.
+# Shared by cmd_restore and the update rollback so the two cannot drift.
+restore_dump_force() {
+  local dump="$1"
+
+  # Dropping and recreating the database is not something the application role
+  # can do; where there is a local cluster those statements run as the superuser
+  # and everything else as the application role, and where there is not, the
+  # restore script falls back and says plainly what it could not do.
+  local admin_psql=""
+  if runuser -u postgres -- psql -tAc "SELECT 1" >/dev/null 2>&1; then
+    admin_psql="runuser -u postgres -- env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD psql"
+  fi
+
+  PGHOST="${KNIGHT_DB_HOST}" PGPORT="${KNIGHT_DB_PORT}" \
+  PGUSER="${KNIGHT_DB_USER}" PGPASSWORD="${KNIGHT_DB_PASSWORD}" \
+  KNIGHT_ADMIN_PSQL="$admin_psql" KNIGHT_DB_OWNER="${KNIGHT_DB_USER}" \
+    "${SRC_DIR}/infrastructure/scripts/knight-restore.sh" "$dump" "${KNIGHT_DB_NAME}" --force
+}
+
 cmd_update() {
   title "Update"
 
@@ -179,56 +249,53 @@ cmd_update() {
   fi
   info "${before} → ${after}"
 
-  # Backed up before anything is applied, because the one thing an update can do
-  # that a restart cannot undo is migrate the database.
+  # Backed up before anything is applied, and this is also the snapshot a failed
+  # update is rolled back onto. It is complete precisely because knight-api is
+  # stopped from here until the deploy succeeds or is rolled back, so nothing is
+  # written past the snapshot for a rollback to lose. The cost is that the API is
+  # down for the length of the build rather than only the publish; on a control
+  # plane, where stores keep serving from their cached entitlements, a safe
+  # rollback is worth the extra minutes of dashboard downtime.
   info "Taking a backup first..."
-  cmd_backup >/dev/null || error "The pre-update backup failed. Nothing has been changed."
+  systemctl stop knight-api >/dev/null 2>&1
+  cmd_backup >/dev/null || { systemctl start knight-api; error "The pre-update backup failed. Nothing has been changed."; }
 
-  export PATH="${NODE_BIN}:${PATH}"
-  export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
+  local pre_dump
+  pre_dump="$(find "$BACKUP_DIR" -name '*.dump' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)"
 
-  # Rewritten rather than assumed to have survived the checkout, so a release
-  # that needs a different build-time setting gets one.
-  cat > "${SRC_DIR}/frontend/knight-dashboard/.env.production" <<'ENVPROD'
-VITE_USE_MOCKS=false
-VITE_DEFAULT_LOCALE=fa
-ENVPROD
-
-  info "Building the dashboard..."
-  ( cd "${SRC_DIR}/frontend/knight-dashboard" && npm ci --no-audit --no-fund && npm run build ) 2>&1 | tail -4
-  [[ -f "${SRC_DIR}/frontend/knight-dashboard/dist/index.html" ]] \
-    || error "The dashboard build failed. The running deployment is untouched."
-
-  info "Publishing the API..."
-  systemctl stop knight-api
-  "$DOTNET_EXEC" publish "${SRC_DIR}/backend/src/Knight.Api/Knight.Api.csproj" -c Release -o "$API_DIR" --nologo 2>&1 | tail -3
-  "$DOTNET_EXEC" publish "${SRC_DIR}/backend/tools/Knight.Bootstrap/Knight.Bootstrap.csproj" -c Release -o "$BOOTSTRAP_DIR" --nologo 2>&1 | tail -3
-  rm -f "${API_DIR}/appsettings.Development.json"
-
-  rm -rf "${DASHBOARD_DIR:?}"/*
-  cp -r "${SRC_DIR}/frontend/knight-dashboard/dist/." "$DASHBOARD_DIR/"
-
-  # Checked, not merely shown. A migration that failed and an API started
-  # anyway is the one combination in this function that can lose data rather
-  # than merely fail, and a pipe into tail would hide the exit status.
-  info "Applying migrations..."
-  if ! CONTROL_PLANE_DB_CONNECTION_STRING="$DB_CONNECTION" \
-       "$DOTNET_EXEC" "${BOOTSTRAP_DIR}/Knight.Bootstrap.dll" --migrate-only; then
-    error "Migrations failed. The API is stopped, and the backup taken above is in ${BACKUP_DIR}."
+  if deploy_from_src && { systemctl start knight-api; wait_for_api; }; then
+    success "Updated to ${after} and running."
+    return
   fi
 
-  chown -R "${SERVICE_USER}:${SERVICE_USER}" "$INSTALL_DIR"
-  chmod 755 "$INSTALL_DIR" "$DASHBOARD_DIR"
-  find "$DASHBOARD_DIR" -type d -exec chmod 755 {} +
-  find "$DASHBOARD_DIR" -type f -exec chmod 644 {} +
-  chmod 600 "$ENV_FILE"
+  # The new revision did not come up healthy. Put the server back exactly as it
+  # was — the previous code and the pre-update database — rather than leave a
+  # broken deployment behind. This is the promise 'update' has always made; now
+  # it is carried out rather than described.
+  warn "The update to ${after} did not come up healthy — rolling back to ${before}."
+  systemctl stop knight-api >/dev/null 2>&1
+
+  if ! git_src reset --hard "$before" -q; then
+    systemctl start knight-api >/dev/null 2>&1
+    error "Could not restore ${before}. Recover by hand; the pre-update dump is ${pre_dump}."
+  fi
+
+  if ! deploy_from_src; then
+    systemctl start knight-api >/dev/null 2>&1
+    error "The previous revision did not rebuild either. The pre-update dump is ${pre_dump}; recover by hand."
+  fi
+
+  if [[ -n "$pre_dump" && -f "$pre_dump" ]]; then
+    info "Restoring the pre-update database..."
+    restore_dump_force "$pre_dump" >/dev/null 2>&1 \
+      || warn "The database restore reported a problem; check: knightctl logs api"
+  fi
 
   systemctl start knight-api
-
   if wait_for_api; then
-    success "Updated to ${after} and running."
+    warn "Rolled back to ${before}. The update to ${after} was not applied — see why: knightctl logs api"
   else
-    warn "Updated, but the API is not reporting ready. See: knightctl logs api"
+    error "Rolled back to ${before}, but the API is still not ready. The pre-update dump is ${pre_dump}."
   fi
 }
 
@@ -264,21 +331,8 @@ cmd_restore() {
   warn "This replaces every row in ${KNIGHT_DB_NAME}. Customers, stores, credentials, audit — all of it."
   confirm "Restore ${dump} over ${KNIGHT_DB_NAME}?" || { echo "  Nothing was changed."; return; }
 
-  # Dropping and recreating the database is not something the application role
-  # can do, and giving it that privilege on a machine it shares would be the
-  # wrong trade. Where there is a local cluster those two statements run as the
-  # superuser and everything else as knight; where there is not, the script
-  # falls back and says plainly what it could not do.
-  local admin_psql=""
-  if runuser -u postgres -- psql -tAc "SELECT 1" >/dev/null 2>&1; then
-    admin_psql="runuser -u postgres -- env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD psql"
-  fi
-
   systemctl stop knight-api
-  PGHOST="${KNIGHT_DB_HOST}" PGPORT="${KNIGHT_DB_PORT}" \
-  PGUSER="${KNIGHT_DB_USER}" PGPASSWORD="${KNIGHT_DB_PASSWORD}" \
-  KNIGHT_ADMIN_PSQL="$admin_psql" KNIGHT_DB_OWNER="${KNIGHT_DB_USER}" \
-    "${SRC_DIR}/infrastructure/scripts/knight-restore.sh" "$dump" "${KNIGHT_DB_NAME}" --force
+  restore_dump_force "$dump"
   local outcome=$?
   systemctl start knight-api
 
@@ -579,7 +633,7 @@ knightctl - manage the KNIGHT deployment at ${INSTALL_DIR}
   knightctl doctor              run every check and report what is wrong
   knightctl logs [api|redis|backup|nginx]
   knightctl start|stop|restart
-  knightctl update              pull, rebuild, migrate and restart
+  knightctl update              pull, rebuild, migrate and restart — rolls back on failure
   knightctl backup              take a dump now
   knightctl restore [dump]      restore one over the control-plane database
   knightctl admin               create an administrator
