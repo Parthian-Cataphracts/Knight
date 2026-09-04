@@ -11,6 +11,7 @@ const pages: [path: string, loader: () => Promise<{ default: ComponentType }>][]
   ["/customers/:customerId", () => import("@/features/customers/CustomerDetailPage").then((m) => ({ default: m.CustomerDetailPage }))],
   ["/stores", () => import("@/features/stores/StoresPage").then((m) => ({ default: m.StoresPage }))],
   ["/stores/:storeId", () => import("@/features/stores/StoreDetailPage").then((m) => ({ default: m.StoreDetailPage }))],
+  ["/provisioning", () => import("@/features/provisioning/ProvisioningPage").then((m) => ({ default: m.ProvisioningPage }))],
   ["/features", () => import("@/features/features/FeaturesPage").then((m) => ({ default: m.FeaturesPage }))],
   ["/store-images", () => import("@/features/features/StoreImagesPage").then((m) => ({ default: m.StoreImagesPage }))],
   ["/rollouts", () => import("@/features/features/RolloutsPage").then((m) => ({ default: m.RolloutsPage }))],

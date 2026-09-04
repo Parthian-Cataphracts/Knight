@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   Building2,
   Store,
+  ServerCog,
   Package,
   Boxes,
   Rocket,
@@ -48,6 +49,7 @@ export const NAVIGATION: NavSection[] = [
       { key: "dashboard", to: "/", icon: LayoutDashboard },
       { key: "customers", to: "/customers", icon: Building2, permission: "customer.view" },
       { key: "stores", to: "/stores", icon: Store, permission: "store.view" },
+      { key: "provisioning", to: "/provisioning", icon: ServerCog, permission: "store.view" },
     ],
   },
   {

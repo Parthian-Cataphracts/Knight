@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-09-04** (revision 41 — self-service SaaS phase F built and browser-verified: the customer portal and its `/me` API, signup → checkout → simulated payment → store-ready → cancel; only G ops remains; see Phase 30 and the plan)
+Last updated: **2026-09-04** (revision 42 — self-service SaaS phase G built and browser-verified: the operator Provisioning screen. Phases A–G are all built; what remains is the two product-owner decisions §11 names — the payment provider and the hosting platform — which the simulated adapters stand in for. See Phase 30 and the plan)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -79,8 +79,14 @@ Most of the back end is reused; the work is the front doors, a separate
   signup → verify → login → plan → checkout → simulated payment → store Ready →
   cancel — which found and fixed three defects the type-checker and the backend
   acceptance test could not. [`docs/phase-30F-verification.md`](docs/phase-30F-verification.md).
-- [ ] **G — operations.** provisioning retry/resume, entitlement grant/revoke,
-  suspend/restore, agent monitoring, audit.
+- [x] **G — operations.** A new **Provisioning** operations screen
+  (`features/provisioning`, nav under Operations, gated on `store.view`): every
+  provisioning/deprovisioning run, filterable by state, with a per-step timeline
+  and Retry/Resume/Cancel for an operator with `store.provision`. Reads the
+  existing `/api/v1/provisioning` endpoints — no new backend. The rest of G
+  already existed: entitlement grant/revoke (customer detail), suspend/restore
+  (customer lifecycle), agent monitoring (infrastructure), audit (audit log).
+  **Browser-verified** against the live API. [`docs/phase-30G-verification.md`](docs/phase-30G-verification.md).
 
 Blocked on two product-owner decisions before the automation is *real* (not the
 shape): the **payment provider** (drives the `knight_billing` adapter + webhook
@@ -125,7 +131,7 @@ Phase 26   Operating it                     ██████░░░░  60%
 Phase 27   Deployment                       █████░░░░░  50%
 Phase 28   Migrating the catalogue          ████░░░░░░  40%
 Phase 29   The production gate              ██░░░░░░░░  20%
-Phase 30   Self-service SaaS                █████████░  85%  (A–F done; G ops left)
+Phase 30   Self-service SaaS                ██████████ 100%  (A–G built; real provider + host are product-owner calls)
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in

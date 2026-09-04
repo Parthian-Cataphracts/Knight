@@ -26,7 +26,8 @@
     "sectionGovernance": "Governance",
     "alerts": "Alerts",
     "storeImages": "Store images",
-    "rollouts": "Rollouts"
+    "rollouts": "Rollouts",
+    "provisioning": "Provisioning"
   },
   "common": {
     "search": "Search",
@@ -812,7 +813,13 @@
     "markDone": "Record as done",
     "none": "No provisioning run has been started for this store.",
     "cancel": "Cancel run",
-    "cancelReason": "Cancelled from the dashboard."
+    "cancelReason": "Cancelled from the dashboard.",
+    "subtitle": "Every store coming up or being taken down, and the steps each is on.",
+    "store": "Store",
+    "progress": "Progress",
+    "started": "Started",
+    "tabAll": "All",
+    "resume": "Resume"
   },
   "provisioningState": {
     "Running": "Running",
