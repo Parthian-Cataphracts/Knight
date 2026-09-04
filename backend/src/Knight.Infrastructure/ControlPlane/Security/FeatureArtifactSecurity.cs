@@ -35,6 +35,32 @@ public sealed class FeatureArtifactOptions
     /// against this and carry an expiry.
     /// </summary>
     public string? PublicBaseUrl { get; init; }
+
+    /// <summary>
+    /// Which signer holds the private key: <c>config</c> (the default — keys in
+    /// this section, for development and CI) or <c>kms</c> (signing delegated to an
+    /// external key store, so the private key never enters the process). The
+    /// hardening backlog's P0. Verification is unchanged either way — the public
+    /// keys below are not secret.
+    /// </summary>
+    public string Signer { get; init; } = "config";
+
+    public KmsOptions Kms { get; init; } = new();
+}
+
+/// <summary>
+/// The external signing service the <c>kms</c> signer calls. A KMS, an HSM front,
+/// or Vault Transit behind one narrow JSON contract: POST <c>{ keyId, message,
+/// algorithm }</c>, receive <c>{ signature }</c>. A vendor SDK (AWS KMS, Azure Key
+/// Vault) is a drop-in <c>IKmsSigner</c> that needs no endpoint here.
+/// </summary>
+public sealed class KmsOptions
+{
+    /// <summary>The signing service's sign endpoint, e.g. an internal KMS proxy or Vault Transit.</summary>
+    public string? Endpoint { get; init; }
+
+    /// <summary>Bearer token presented to the signing service.</summary>
+    public string? Token { get; init; }
 }
 
 public sealed class FeatureSigningKey
@@ -94,7 +120,7 @@ internal sealed class EcdsaArtifactSigner : IFeatureArtifactSigner
         algorithm.ImportPkcs8PrivateKey(Convert.FromBase64String(key.PrivateKey), out _);
 
         return Convert.ToBase64String(algorithm.SignData(
-            Encoding.UTF8.GetBytes(Normalise(artifactDigest)),
+            ArtifactSignatureCodec.SigningBytes(artifactDigest),
             HashAlgorithmName.SHA256,
             DSASignatureFormat.Rfc3279DerSequence));
     }
@@ -111,21 +137,51 @@ internal sealed class EcdsaArtifactSigner : IFeatureArtifactSigner
             return false;
         }
 
+        return ArtifactSignatureCodec.Verify(artifactDigest, signature, key.PublicKey);
+    }
+}
+
+/// <summary>
+/// The bytes-on-the-wire agreement between whatever signs an artifact and whoever
+/// verifies it. Pulled out so the config-backed signer and the KMS-backed one sign
+/// the same bytes and verify the same way — a mismatch here would be a signature
+/// that one made and the other could not read.
+/// </summary>
+internal static class ArtifactSignatureCodec
+{
+    /// <summary>
+    /// The exact bytes that get signed. Pinned to a lowercase, trimmed digest so
+    /// that a signature made by the packaging tool verifies here regardless of how
+    /// either side happened to spell the hex.
+    /// </summary>
+    public static byte[] SigningBytes(string artifactDigest) =>
+        Encoding.UTF8.GetBytes(artifactDigest.Trim().ToLowerInvariant());
+
+    /// <summary>
+    /// Verifies a base64 detached signature against a digest, with a base64
+    /// SubjectPublicKeyInfo public key. A malformed key or signature is a failed
+    /// verification, never an exception the caller has to handle.
+    /// </summary>
+    public static bool Verify(string artifactDigest, string signature, string base64PublicKey)
+    {
+        if (string.IsNullOrWhiteSpace(signature) || string.IsNullOrWhiteSpace(base64PublicKey))
+        {
+            return false;
+        }
+
         try
         {
             using var algorithm = ECDsa.Create();
-            algorithm.ImportSubjectPublicKeyInfo(Convert.FromBase64String(key.PublicKey), out _);
+            algorithm.ImportSubjectPublicKeyInfo(Convert.FromBase64String(base64PublicKey), out _);
 
             return algorithm.VerifyData(
-                Encoding.UTF8.GetBytes(Normalise(artifactDigest)),
+                SigningBytes(artifactDigest),
                 Convert.FromBase64String(signature),
                 HashAlgorithmName.SHA256,
                 DSASignatureFormat.Rfc3279DerSequence);
         }
         catch (FormatException)
         {
-            // A signature that is not even base64 is a failure, not an exception
-            // for the caller to handle: publish should say "not valid", not 500.
             return false;
         }
         catch (CryptographicException)
@@ -133,13 +189,6 @@ internal sealed class EcdsaArtifactSigner : IFeatureArtifactSigner
             return false;
         }
     }
-
-    /// <summary>
-    /// The exact bytes that get signed. Pinned to a lowercase, trimmed digest so
-    /// that a signature made by the packaging tool verifies here regardless of how
-    /// either side happened to spell the hex.
-    /// </summary>
-    private static string Normalise(string artifactDigest) => artifactDigest.Trim().ToLowerInvariant();
 }
 
 /// <summary>

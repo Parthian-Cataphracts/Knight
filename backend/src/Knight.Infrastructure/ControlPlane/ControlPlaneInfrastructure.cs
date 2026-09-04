@@ -159,7 +159,20 @@ public static class ControlPlaneInfrastructure
         services.AddOptions<FeatureArtifactOptions>()
             .Bind(configuration.GetSection(FeatureArtifactOptions.SectionName));
 
-        services.AddScoped<IFeatureArtifactSigner, EcdsaArtifactSigner>();
+        // The signer's private-key custody. 'config' keeps the key in this
+        // section (development and CI); 'kms' delegates signing to an external key
+        // store so the private key never enters the process (hardening backlog P0).
+        // Verification is local either way.
+        if (string.Equals(configuration["FeatureArtifacts:Signer"], "kms", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddHttpClient<IKmsSigner, HttpKmsSigner>();
+            services.AddScoped<IFeatureArtifactSigner, KmsArtifactSigner>();
+        }
+        else
+        {
+            services.AddScoped<IFeatureArtifactSigner, EcdsaArtifactSigner>();
+        }
+
         services.AddScoped<IFeatureArtifactStore, FileSystemArtifactStore>();
         services.AddSingleton<ISecretProtector>(provider =>
             new AesGcmSecretProtector(ResolveSecretKey(configuration, provider.GetService<IHostEnvironment>())));

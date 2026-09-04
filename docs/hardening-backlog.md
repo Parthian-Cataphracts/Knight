@@ -33,17 +33,22 @@ risk, signing-key custody, which is real and tracked as R16/R21.
 
 Priority uses the review's P0–P3.
 
-- [ ] **P0 — Signing-key custody in production.** The private artifact-signing key
-  is configuration-backed today (`FeatureArtifacts:Keys`). The abstraction is
-  already `IFeatureArtifactSigner`, written explicitly as "the shape a KMS-backed
-  implementation will take" — so the work is a **KMS/HSM-backed signer**
-  (AWS KMS, Azure Key Vault or Vault Transit) selected by config, so the private
-  key never sits in a settings file or a CI secret. Verification stays as-is
-  (public keys only). *Nuance the review overstated: a leaked key lets an attacker
-  publish a malicious **signed** package — it is not arbitrary command execution.
-  The agent has a closed job vocabulary and runs no shell (`feature-delivery.md`
-  §15); staged single-store canary rollout (`adr/0028`) is the blast-radius
-  control until the review lands.*
+- [~] **P0 — Signing-key custody in production.** **Built:** the KNIGHT-side
+  signer now has a KMS path. `FeatureArtifacts:Signer=kms` selects
+  `KmsArtifactSigner`, which delegates signing to an external key store through the
+  new `IKmsSigner` seam (an `HttpKmsSigner` ships for an internal KMS proxy or
+  Vault Transit; an AWS KMS / Azure Key Vault SDK adapter is a drop-in
+  `IKmsSigner`) — so the private key never enters the process. Verification is
+  local and byte-for-byte the config signer's, both now sharing
+  `ArtifactSignatureCodec`. Default stays `config` for development and CI. 6 unit
+  tests. **Remaining:** stand up a real KMS and set `FeatureArtifacts:Kms`, and
+  move the **offline packaging tool** (`features/tools/knight_package.py`) to sign
+  through the same KMS so the key leaves that environment too.
+  *Nuance the review overstated: a leaked key lets an attacker publish a malicious
+  **signed** package — it is not arbitrary command execution. The agent has a
+  closed job vocabulary and runs no shell (`feature-delivery.md` §15); staged
+  single-store canary rollout (`adr/0028`) is the blast-radius control until the
+  review lands.*
 - [ ] **P0/P1 — Delivery model at scale (immutable vs. runtime install).** The
   review recommends per-tenant immutable container images over installing signed
   packages onto stateful servers. A serious **ADR-level comparison** is worth
