@@ -607,11 +607,11 @@ public sealed class ObservabilityTests
 
         await IngestAsync(storeClient, [DeliveryFailure(StoreFailureKinds.Unreachable, "GET /subscribe/")]);
 
-        var result = await EvaluateRulesAsync();
+        await EvaluateRulesAsync();
 
-        Assert.Equal(0, result.DeadLetters);
-        Assert.Equal(1, result.UnreachableServices);
-
+        // Scoped to this store's alerts, never to the platform-wide counts from
+        // EvaluateRulesAsync: this suite shares one database, so a dead letter or an
+        // unreachable service another test left behind must not decide this one.
         var alerts = await ListAlertsAsync(store.StoreId);
 
         Assert.Contains(
@@ -619,6 +619,12 @@ public sealed class ObservabilityTests
             alert => alert.GetProperty("ruleKey").GetString() == ObservabilityRules.ServiceUnreachable
                 && alert.GetProperty("sourceId").GetGuid() == store.StoreId
                 && alert.GetProperty("severity").GetString() == "Warning");
+
+        // Unreachable is a warning for this store, not a dead letter.
+        Assert.DoesNotContain(
+            alerts,
+            alert => alert.GetProperty("ruleKey").GetString() == ObservabilityRules.DeliveryDeadLettered
+                && alert.GetProperty("sourceId").GetGuid() == store.StoreId);
     }
 
     [Fact]
@@ -631,10 +637,17 @@ public sealed class ObservabilityTests
         // nowhere near a platform alert about delivery.
         await IngestAsync(storeClient, [Error()]);
 
-        var result = await EvaluateRulesAsync();
+        await EvaluateRulesAsync();
 
-        Assert.Equal(0, result.DeadLetters);
-        Assert.Equal(0, result.UnreachableServices);
+        // Store-scoped, not a platform-wide count: this store raised no delivery
+        // alert of either kind, whatever other tests in the shared database did.
+        var alerts = await ListAlertsAsync(store.StoreId);
+
+        Assert.DoesNotContain(
+            alerts,
+            alert => (alert.GetProperty("ruleKey").GetString() == ObservabilityRules.DeliveryDeadLettered
+                    || alert.GetProperty("ruleKey").GetString() == ObservabilityRules.ServiceUnreachable)
+                && alert.GetProperty("sourceId").GetGuid() == store.StoreId);
     }
 
     [Fact]
