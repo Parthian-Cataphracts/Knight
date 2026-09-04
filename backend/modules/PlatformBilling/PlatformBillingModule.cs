@@ -28,6 +28,17 @@ public static class PlatformBillingModule
         // journey; a real provider is added alongside it when the product owner
         // chooses one, and selected by name at checkout.
         services.AddSingleton<IPlatformPaymentProvider, SimulatedPaymentProvider>();
+
+        // Stripe joins only when a secret key is configured — a deployment with no
+        // Stripe set keeps running on the simulated provider, and one that sets it
+        // gets a real hosted checkout and a signature-verified webhook. It is one
+        // adapter behind the abstraction; a second provider is another.
+        if (!string.IsNullOrWhiteSpace(configuration[$"{PlatformBillingOptions.SectionName}:Stripe:SecretKey"]))
+        {
+            services.AddHttpClient<StripePaymentProvider>();
+            services.AddSingleton<IPlatformPaymentProvider>(sp => sp.GetRequiredService<StripePaymentProvider>());
+        }
+
         services.AddSingleton<IPlatformPaymentProviderRegistry, PlatformPaymentProviderRegistry>();
 
         services.AddScoped<IPublicPlanCatalog, PublicPlanCatalog>();

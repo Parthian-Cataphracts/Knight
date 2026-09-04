@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-09-04** (revision 42 — self-service SaaS phase G built and browser-verified: the operator Provisioning screen. Phases A–G are all built; what remains is the two product-owner decisions §11 names — the payment provider and the hosting platform — which the simulated adapters stand in for. See Phase 30 and the plan)
+Last updated: **2026-09-04** (revision 43 — self-service SaaS phases A–G built and browser-verified; a real Stripe payment adapter added behind the provider seam; the post-Phase-30 hardening backlog from the external architecture review captured in docs/hardening-backlog.md. See Phase 30, the plan, and the backlog)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -92,6 +92,26 @@ Blocked on two product-owner decisions before the automation is *real* (not the
 shape): the **payment provider** (drives the `knight_billing` adapter + webhook
 signature) and the **hosting platform** (drives the real infrastructure adapter).
 Simulated adapters run the whole journey — and its acceptance test — locally.
+
+A first real payment adapter now exists: **`StripePaymentProvider`** behind
+`IPlatformPaymentProvider`, with Stripe's real webhook-signature scheme
+(unit-tested) and hosted-checkout creation. It is off unless
+`PlatformBilling:Stripe:SecretKey` is set; the simulated provider stays the
+default. Choosing Stripe (or adding another adapter) and supplying live keys is
+the decision that remains.
+
+### Post-Phase-30 hardening
+
+The remaining work is production-hardening, most of it raised by an external
+architecture review, tracked honestly (including where the code already
+anticipates the risk) in [`docs/hardening-backlog.md`](docs/hardening-backlog.md).
+The headline items: **P0** a KMS/HSM-backed artifact signer (the `IFeatureArtifactSigner`
+seam already exists) and an ADR-level comparison of the runtime-install vs.
+immutable-image delivery model; **P1** replace the Bash installers with IaC behind
+`IInfrastructureAdapter`, and PgBouncer; **P2** finish secret rotation, agent
+least-privilege, and a formal billing outbox; **P3** tenant export and push-based
+telemetry. Kept as-is per the review: the modular monolith, per-store isolation,
+architecture tests and ADRs.
 
 > **Revision 2 note:** a Feature is versioned, deployable Django functionality —
 > not a boolean flag ([`docs/adr/0014`](docs/adr/0014-features-as-deployable-packages.md)).
