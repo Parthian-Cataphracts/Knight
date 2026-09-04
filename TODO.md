@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-09-01** (revision 38 — self-service SaaS phases A and B built: domain foundation + public registration/verification; see Phase 30 and the plan)
+Last updated: **2026-09-04** (revision 39 — self-service SaaS phase C built: public catalogue, checkout, payment-provider abstraction + simulated provider, and the activation webhook; phase D's payment→provisioning wire built; see Phase 30 and the plan)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -42,13 +42,22 @@ Most of the back end is reused; the work is the front doors, a separate
   until verified. 5 unit + 5 integration tests; migration
   `SelfServiceRegistration`. *(the customer stays `Prospect` until payment in C;
   role grants beyond `CustomerOwner`, and the customer portal, are still ahead.)*
-- [ ] **C — billing.** public `GET /plans`; CUSTOM selection + dependency
-  validation; `POST /billing/checkout` (authoritative price); provider webhook
-  (signature, idempotency, replay); subscription activation + entitlement
-  generation.
-- [ ] **D — provisioning automation.** `IInfrastructureAdapter` (+ simulated dev
-  adapter) making `server`/`instance`/`domain-tls` automatic; the webhook→job
-  wire; orchestrator retry/backoff/dead-letter; health checks.
+- [x] **C — billing.** public `GET /plans`; CUSTOM selection validated against
+  what the plan offers; `POST /billing/checkout` with an authoritative,
+  server-computed price; a payment-provider abstraction with a simulated
+  provider standing in for the unchosen gateway; the provider webhook
+  (signature, idempotency, replay) as the only activation path; subscription
+  activation + entitlement generation via `ReconcileAsync`. Stable error codes
+  carried through the exception middleware. 11 unit tests. *(Transitive
+  dependency resolution across selected features is deferred to the delivery
+  engine at install time, which already resolves and installs dependencies.)*
+- [~] **D — provisioning automation.** The webhook→job wire is **done**:
+  `ProvisioningActivationListener` creates the store and starts the provisioning
+  job on a confirmed payment, idempotently. Still to build: the
+  `IInfrastructureAdapter` (+ simulated adapter) that flips `server`/`instance`/
+  `domain-tls` to automatic and, for a fully local journey, produces the
+  credential/agent/handshake/health facts the fact-based pipeline observes; the
+  orchestrator retry/backoff/dead-letter tuning; the end-to-end acceptance test.
 - [ ] **E — feature delivery integration.** desired state from entitlements →
   existing delivery engine; dependencies; verify + report. No second installer.
 - [ ] **F — customer portal.** signup → verify → plan → CUSTOM selector →
@@ -100,7 +109,7 @@ Phase 26   Operating it                     ██████░░░░  60%
 Phase 27   Deployment                       █████░░░░░  50%
 Phase 28   Migrating the catalogue          ████░░░░░░  40%
 Phase 29   The production gate              ██░░░░░░░░  20%
-Phase 30   Self-service SaaS                ███░░░░░░░  30%  (A, B done)
+Phase 30   Self-service SaaS                ████░░░░░░  45%  (A, B, C done; D wire done)
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
