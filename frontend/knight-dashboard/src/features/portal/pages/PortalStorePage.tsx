@@ -59,7 +59,7 @@ export function PortalStorePage() {
               <p className="text-body font-medium text-on-surface">{progress.friendlyStatus}</p>
             </div>
 
-            <Meter label={t("portal.provisioning.progress")} value={progress.percentComplete / 100} />
+            <Meter label={t("portal.provisioning.progress")} value={progress.percentComplete} />
 
             <ol className="flex flex-col gap-2">
               {progress.steps.map((step) => (

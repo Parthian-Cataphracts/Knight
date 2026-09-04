@@ -37,7 +37,7 @@ export function PortalSignUpPage() {
           </span>
           <h1 className="text-headline font-semibold text-on-surface">{t("portal.signup.checkEmailTitle")}</h1>
           <p className="text-body-sm text-on-surface-variant">{t("portal.signup.checkEmailBody", { email })}</p>
-          <Link to="/verify" className="text-body-sm text-primary hover:underline">
+          <Link to="/verify-email" className="text-body-sm text-primary hover:underline">
             {t("portal.signup.haveToken")}
           </Link>
         </div>

@@ -81,7 +81,7 @@ export function App() {
               invitation link, signs up, or verifies an email has no session yet. */}
           <Route path="/activate" element={<ActivateAccountPage />} />
           <Route path="/signup" element={<PortalSignUpPage />} />
-          <Route path="/verify" element={<PortalVerifyPage />} />
+          <Route path="/verify-email" element={<PortalVerifyPage />} />
 
           <Route
             element={

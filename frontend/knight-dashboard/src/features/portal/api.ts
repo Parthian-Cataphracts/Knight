@@ -81,9 +81,11 @@ export function usePublicPlans() {
 
 export function useMySubscription() {
   return useQuery({
-    // 204 comes back as undefined — a customer who has not bought yet.
     queryKey: ["portal", "me", "subscription"],
-    queryFn: () => apiRequest<MeSubscription | undefined>("/me/subscription"),
+    // A customer who has not bought yet gets a 204, which the client reads as
+    // undefined — normalised to null here, because TanStack Query forbids a query
+    // function returning undefined.
+    queryFn: async () => (await apiRequest<MeSubscription | undefined>("/me/subscription")) ?? null,
   });
 }
 

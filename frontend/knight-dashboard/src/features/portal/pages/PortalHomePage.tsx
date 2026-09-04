@@ -1,14 +1,16 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import { Store, Sparkles, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { Meter } from "@/components/ui/Meter";
 import { LoadingBlock, ErrorBlock } from "@/components/ui/StateBlock";
 import { formatDateTime } from "@/lib/utils/format";
 import { ApiError } from "@/lib/api/problem";
 import { ButtonLink } from "../components";
-import { useMyStores, useMySubscription, useProvisioning, type MeStore } from "../api";
+import { useCancelSubscription, useMyStores, useMySubscription, useProvisioning, type MeStore } from "../api";
 
 /**
  * The portal's home. What a merchant sees depends only on where they are in the
@@ -64,6 +66,15 @@ export function PortalHomePage() {
 
 function SubscriptionCard({ subscription }: { subscription: NonNullable<ReturnType<typeof useMySubscription>["data"]> }) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const cancel = useCancelSubscription();
+
+  const onCancel = () => {
+    cancel.mutate(undefined, {
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ["portal", "me", "subscription"] }),
+    });
+  };
+
   return (
     <Card>
       <CardHeader title={t("portal.subscription.title")} />
@@ -80,9 +91,11 @@ function SubscriptionCard({ subscription }: { subscription: NonNullable<ReturnTy
           ) : (
             <StatusChip tone="success">{t(`portal.subStatus.${subscription.status}`, subscription.status)}</StatusChip>
           )}
-          <ButtonLink variant="outline" to="/portal/plans">
-            {t("portal.subscription.manage")}
-          </ButtonLink>
+          {!subscription.cancelAtPeriodEnd ? (
+            <Button variant="ghost" size="sm" onClick={onCancel} loading={cancel.isPending}>
+              {t("portal.subscription.cancel")}
+            </Button>
+          ) : null}
         </div>
       </CardBody>
     </Card>
@@ -131,7 +144,7 @@ function StoreCard({ store }: { store: MeStore }) {
           </div>
         ) : progress ? (
           <div className="flex flex-col gap-2">
-            <Meter label={progress.friendlyStatus} value={progress.percentComplete / 100} />
+            <Meter label={progress.friendlyStatus} value={progress.percentComplete} />
             <Link to={`/portal/stores/${store.id}`} className="text-body-sm text-primary hover:underline">
               {t("portal.store.watch")}
             </Link>

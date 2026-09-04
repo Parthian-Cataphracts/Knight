@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-09-04** (revision 40 — self-service SaaS phases C, D and E built: public catalogue, checkout, the activation webhook, the payment→provisioning wire, the simulated infrastructure adapter + worker, and the green end-to-end acceptance test; F portal and G ops remain; see Phase 30 and the plan)
+Last updated: **2026-09-04** (revision 41 — self-service SaaS phase F built and browser-verified: the customer portal and its `/me` API, signup → checkout → simulated payment → store-ready → cancel; only G ops remains; see Phase 30 and the plan)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -69,9 +69,16 @@ Most of the back end is reused; the work is the front doors, a separate
   store → simulated infra → feature install → **READY**, with no operator step.
 - [ ] **E — feature delivery integration.** desired state from entitlements →
   existing delivery engine; dependencies; verify + report. No second installer.
-- [ ] **F — customer portal.** signup → verify → plan → CUSTOM selector →
-  checkout → provisioning progress → store-ready → billing/feature management,
-  separate from the operations portal.
+- [x] **F — customer portal.** A separate, role-gated route tree from the
+  operations dashboard (`features/portal`, `RoleLayout`): public sign-up and
+  email verification, a plan catalogue with a CUSTOM add-on selector and a
+  server-priced checkout, a portal home showing the subscription and the store
+  with live provisioning progress, a store page with the friendly step timeline,
+  and cancel-at-period-end. Backend: the customer `/me` API and public
+  `/catalog/plans`. **Driven end to end in a browser** against the live API —
+  signup → verify → login → plan → checkout → simulated payment → store Ready →
+  cancel — which found and fixed three defects the type-checker and the backend
+  acceptance test could not. [`docs/phase-30F-verification.md`](docs/phase-30F-verification.md).
 - [ ] **G — operations.** provisioning retry/resume, entitlement grant/revoke,
   suspend/restore, agent monitoring, audit.
 
@@ -118,7 +125,7 @@ Phase 26   Operating it                     ██████░░░░  60%
 Phase 27   Deployment                       █████░░░░░  50%
 Phase 28   Migrating the catalogue          ████░░░░░░  40%
 Phase 29   The production gate              ██░░░░░░░░  20%
-Phase 30   Self-service SaaS                ███████░░░  70%  (A–E done; F portal, G ops left)
+Phase 30   Self-service SaaS                █████████░  85%  (A–F done; G ops left)
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in

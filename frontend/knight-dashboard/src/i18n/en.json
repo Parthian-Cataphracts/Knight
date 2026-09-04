@@ -980,7 +980,8 @@
       "title": "Your subscription",
       "renews": "Renews on {{date}}",
       "ending": "Ends at period end",
-      "manage": "Manage"
+      "manage": "Manage",
+      "cancel": "Cancel"
     },
     "subStatus": {
       "active": "Active",

@@ -76,11 +76,19 @@ public sealed class SimulatedInfrastructureWorker : BackgroundService
         var provisioning = scope.ServiceProvider.GetRequiredService<IProvisioningService>();
         var adapter = scope.ServiceProvider.GetRequiredService<IInfrastructureAdapter>();
 
-        var running = await provisioning.ListAsync(
-            new ProvisioningJobQuery(1, 50, StoreId: null, CustomerId: null, State: ProvisioningState.Running),
+        // Any state but a finished one: a run that is waiting on a manual step
+        // sits in AwaitingOperator, not Running, and that is exactly the step the
+        // simulated adapter exists to complete — filtering to Running would leave
+        // every such store stalled forever.
+        var page = await provisioning.ListAsync(
+            new ProvisioningJobQuery(1, 100, StoreId: null, CustomerId: null, State: null),
             cancellationToken);
 
-        foreach (var job in running.Items.Where(job => job.Kind is ProvisioningKind.Provision))
+        var inflight = page.Items.Where(job =>
+            job.Kind is ProvisioningKind.Provision &&
+            job.State is ProvisioningState.Running or ProvisioningState.AwaitingOperator);
+
+        foreach (var job in inflight)
         {
             // Produce the facts still missing, then let the ordinary engine advance
             // the run over them. Both are idempotent, so a run part-way up simply
