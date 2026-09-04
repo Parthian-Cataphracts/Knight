@@ -43,6 +43,11 @@ public static class ControlPlaneComposition
         services.AddIngestionModule(configuration);
         services.AddObservabilityModule(configuration);
 
+        // The automatic wire from a confirmed payment to a provisioned store.
+        // Composition glue, so it lives here rather than in a module: it crosses
+        // billing, stores and provisioning, which no single module may.
+        services.AddScoped<PlatformBilling.ISubscriptionActivatedListener, ProvisioningActivationListener>();
+
         services.AddScoped<IControlPlanePrincipal, HttpControlPlanePrincipal>();
         services.AddScoped<IStorePrincipal, HttpStorePrincipal>();
         services.AddScoped<IAuditContext, HttpAuditContext>();
