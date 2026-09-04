@@ -87,10 +87,12 @@ Priority uses the review's P0–P3.
   authenticates with it from the next handshake on — without which a rotation would
   simply lock the store out when grace ended, which is why the KNIGHT-only sweep was
   never built. The shared contract schema carries the new field so both sides agree
-  on its shape. Covered by an end-to-end handshake test on the KNIGHT side and an
-  adoption test on the store side.
-  *Not yet done: the Python/node reference stores' `knight_integration` adopters,
-  for contract parity — the real store (BojanStore, .NET) is complete.*
+  on its shape. Covered by an end-to-end handshake test on the KNIGHT side and
+  adoption tests on every store side: the .NET agent (and BojanStore's vendored
+  copy), the Python `reference-store` and the `node-reference-store`. Each persists
+  a rotated credential beside its feature registry and authenticates with it from
+  the next handshake on, the environment staying the floor for a store that has
+  never rotated. Nothing operator-facing remains.
 - [x] **P2 — Agent least privilege.** `agent/deploy`: a dedicated system user, a
   fully-sandboxed systemd unit (no capabilities, `@system-service` syscall filter,
   restricted address families, read-only system with writes only to the state and

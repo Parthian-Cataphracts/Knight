@@ -66,9 +66,15 @@ class KnightClient:
         The nonce makes a captured request body useless a second time: KNIGHT
         remembers it for the length of its window and refuses a replay.
         """
+        from .credentials import active_credential
+
+        # The persisted credential when KNIGHT has rotated one, the environment
+        # otherwise. The one place a handshake decides which secret it presents.
+        client_id, client_secret = active_credential(self._config)
+
         payload = {
-            "clientId": self._config.client_id,
-            "clientSecret": self._config.client_secret,
+            "clientId": client_id,
+            "clientSecret": client_secret,
             "environment": self._config.environment,
             "storeVersion": self._config.store_version,
             "runtime": _runtime_description(),

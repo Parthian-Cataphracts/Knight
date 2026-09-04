@@ -108,6 +108,13 @@ def _handshake(config: KnightSettings) -> StoreSession:
 
     body = KnightClient(config).handshake()
 
+    # If KNIGHT rotated a credential nearing expiry, it handed the replacement
+    # back on this response. Adopt it now; the token just minted stays valid
+    # through its grace window and the next handshake uses the stored one.
+    from .credentials import adopt_if_rotated
+
+    adopt_if_rotated(config, body)
+
     session = StoreSession(
         access_token=body["accessToken"],
         expires_at=time.time() + int(body.get("expiresIn", 0)),

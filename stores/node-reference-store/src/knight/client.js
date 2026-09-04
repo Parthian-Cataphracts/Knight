@@ -22,6 +22,8 @@
  *   and a control plane that has gone away must never become one.
  */
 
+import { activeCredential, adoptIfRotated } from './credentials.js';
+
 export class KnightUnavailable extends Error {}
 
 export class KnightRejected extends Error {
@@ -47,9 +49,13 @@ export class KnightClient {
    * for the length of its window and refuses a replay.
    */
   async handshake() {
+    // The persisted credential when KNIGHT has rotated one, the environment
+    // otherwise. The one place a handshake decides which secret it presents.
+    const { clientId, clientSecret } = await activeCredential(this.settings);
+
     const body = await this.#request('POST', '/api/v1/ingest/handshake', {
-      clientId: this.settings.clientId,
-      clientSecret: this.settings.clientSecret,
+      clientId,
+      clientSecret,
       environment: this.settings.environment,
       storeVersion: this.settings.storeVersion,
       runtime: `Node ${process.versions.node}`,
@@ -58,6 +64,11 @@ export class KnightClient {
 
     this.token = body.accessToken;
     this.store = body;
+
+    // If KNIGHT rotated a credential nearing expiry, it handed the replacement
+    // back on this response. Adopt it now; the token just minted stays valid
+    // through its grace window and the next handshake uses the stored one.
+    await adoptIfRotated(this.settings, body);
 
     return body;
   }

@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-09-04** (revision 48 — Phase 31 P2: **end-to-end secret rotation** done, cross-repo — rotate-on-handshake, both KNIGHT and the .NET store agent (+ BojanStore's vendored copy); shared schema updated, tests both sides. Earlier P0–P3: KMS signer, ADR 0036, PgBouncer, IaC, billing outbox, agent hardening, tenant export. The remaining Phase-31 items are infra-decision-gated (real payment/hosting adapters, push-telemetry). See Phase 31 and docs/hardening-backlog.md)
+Last updated: **2026-09-04** (revision 49 — Phase 31 P2: **end-to-end secret rotation** done, cross-repo — rotate-on-handshake, on KNIGHT and every store adopter: the .NET store agent (+ BojanStore's vendored copy), the Python reference-store and the node-reference-store; shared schema updated, tests on all sides. Earlier P0–P3: KMS signer, ADR 0036, PgBouncer, IaC, billing outbox, agent hardening, tenant export. The remaining Phase-31 items are infra-decision-gated (real payment/hosting adapters, push-telemetry). See Phase 31 and docs/hardening-backlog.md)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -226,8 +226,10 @@ tickable version of it. Priorities use the review's P0–P3.
   unless `Stores:CredentialLifetime` + `Stores:CredentialRotationThreshold` are set;
   the .NET agent (and the copy vendored into BojanStore) adopts and persists the
   replacement, authenticating with it from the next handshake on. Shared contract
-  schema updated; end-to-end handshake test (KNIGHT) + adoption test (agent). Reference
-  stores' adopters (Python/node) remain for parity. See the backlog.
+  schema updated; end-to-end handshake test (KNIGHT) + adoption tests on every store
+  side — the .NET agent (and BojanStore's vendored copy), the Python `reference-store`
+  and the `node-reference-store`, each persisting the replacement beside its feature
+  registry with the environment as the floor. See the backlog.
 - [x] **P3 — Tenant data export.** `GET /api/v1/me/export` + a portal "Download my
   data" button, and the deprovision `Export` step now auto-produces a durable
   snapshot (`IStoreExporter`) before purge — no operator step. Covered by the
