@@ -72,17 +72,29 @@ Priority uses the review's P0–P3.
   (compose, transaction mode, port 6432). No application change — EF Core/Npgsql
   use no server-side prepared statements by default. Verified by running the API
   through it. See `infrastructure/database/README.md`.
-- [ ] **P2 — Automate shared-secret issuance/rotation end to end** (phase 24 is
-  partial): store credentials and agent tokens issued and rotated with no manual
-  step.
-- [ ] **P2 — Agent least privilege.** Run the agent under a dedicated user with
-  the narrowest filesystem and process rights, confined by systemd sandboxing /
-  AppArmor/SELinux.
-- [ ] **P2 — Formal outbox for billing → provisioning.** The webhook→provisioning
-  wire is idempotent and commits the activation before provisioning runs (a
-  failed provisioning never un-takes a payment; the coordinator retries), but a
-  transactional **outbox** would make the at-least-once guarantee explicit and
-  survive a process death between commit and enqueue.
+- [!] **P2 — Automate shared-secret issuance/rotation end to end.** Phase 24 built
+  rotation with an overlap grace, but it is operator-initiated, and the store agent
+  reads its secret from its own config — there is **no channel for KNIGHT to push a
+  rotated secret to a store**. So a KNIGHT-only auto-rotation sweep would rotate the
+  credential and lock the store out when the old one's grace ended; it is not built,
+  deliberately. Finishing this is a **cross-repo** design: KNIGHT issues the
+  replacement during grace and delivers it on the next authenticated contact
+  (handshake/heartbeat), the store agent adopts it and confirms, then KNIGHT revokes
+  the old one. Both this repo and the store agent change; it is not a self-contained
+  KNIGHT task. A safe interim step (visibility, not automation) is an alert when a
+  store credential nears expiry.
+- [x] **P2 — Agent least privilege.** `agent/deploy`: a dedicated system user, a
+  fully-sandboxed systemd unit (no capabilities, `@system-service` syscall filter,
+  restricted address families, read-only system with writes only to the state and
+  store roots) and an AppArmor profile as a second confinement. Authored; validate
+  on a live host before enforcing (no Linux host in CI).
+- [x] **P2 — Formal outbox for billing → provisioning.** Built: the webhook writes
+  an `ActivationOutboxEntry` in the same unit of work as the activation, and a
+  platform-scoped `OutboxDispatcherWorker` drains it — so a crash between the
+  activation commit and the store's creation no longer leaves a paid subscription
+  with no store. At-least-once (the provisioning listener is idempotent), with
+  backoff and a dead-letter ceiling. Migration `ActivationOutbox`; unit tests + the
+  acceptance test.
 - [ ] **P3 — Tenant data export / offboarding tooling.** The deprovision pipeline
   already models an `Export` step and a retention window before purge
   (`adr/0026`); this is turning that manual step into a standard, self-serve

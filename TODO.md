@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-09-04** (revision 45 — Phase 31: KMS signer, delivery-model ADR 0036, and **PgBouncer** (verified) done; the **IaC** replacement for the Bash installers authored in infrastructure/iac (Ansible role + Terraform ref, syntax-checked, awaiting a live-host run). See Phase 30, Phase 31, and docs/hardening-backlog.md)
+Last updated: **2026-09-04** (revision 46 — Phase 31 P2: the **billing outbox** (built, migration + tests + acceptance test) and **agent least-privilege** (hardened systemd unit + AppArmor, authored) done; end-to-end secret rotation flagged as a cross-repo design. Earlier: KMS signer, ADR 0036, PgBouncer, IaC. See Phase 31 and docs/hardening-backlog.md)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -152,7 +152,7 @@ Phase 27   Deployment                       █████░░░░░  50%
 Phase 28   Migrating the catalogue          ████░░░░░░  40%
 Phase 29   The production gate              ██░░░░░░░░  20%
 Phase 30   Self-service SaaS                ██████████ 100%  (A–G built; real provider + host are product-owner calls)
-Phase 31   Production hardening             ████░░░░░░  40%  (KMS signer, delivery ADR, PgBouncer done; IaC authored; see below)
+Phase 31   Production hardening             ██████░░░░  60%  (P0/P1 + billing outbox + agent hardening done; IaC authored; secret rotation cross-repo)
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -213,11 +213,15 @@ tickable version of it. Priorities use the review's P0–P3.
   verified path meanwhile.
 - [x] **P1 — PgBouncer** in front of PostgreSQL (compose, transaction mode, 6432).
   No app change; verified by running the API through it.
-- [ ] **P2 — Finish secret rotation** end to end (phase 24 is partial).
-- [ ] **P2 — Agent least privilege** (dedicated user, systemd sandboxing /
-  AppArmor/SELinux).
-- [ ] **P2 — Formal billing outbox** for the webhook→provisioning at-least-once
-  guarantee (idempotent today; not yet a transactional outbox).
+- [x] **P2 — Formal billing outbox.** The webhook writes an `ActivationOutboxEntry`
+  in the activation's unit of work; `OutboxDispatcherWorker` drains it — a crash in
+  the handoff no longer leaves a paid subscription with no store. Migration + tests.
+- [x] **P2 — Agent least privilege.** `agent/deploy`: dedicated user, fully-sandboxed
+  systemd unit, AppArmor profile. Authored; validate on a live host before enforcing.
+- [!] **P2 — End-to-end secret rotation.** Blocked: it needs a **cross-repo** channel
+  to push a rotated secret to the store (the agent reads its secret from config), so
+  a KNIGHT-only sweep would lock stores out and is deliberately not built. See the
+  backlog for the design.
 - [ ] **P3 — Tenant data export / offboarding** tooling (the deprovision `Export`
   step exists; make it self-serve).
 - [ ] **P3 — Push-based telemetry** (OpenTelemetry collector per store).

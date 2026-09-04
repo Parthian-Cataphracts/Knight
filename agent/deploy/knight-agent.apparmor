@@ -1,0 +1,51 @@
+# AppArmor profile for the KNIGHT agent — a second, independent confinement
+# alongside the systemd sandbox (hardening backlog P2). Install to
+# /etc/apparmor.d/usr.local.bin.knight-agent and load with `apparmor_parser -r`.
+#
+# It permits exactly what the agent does: run Python, read /proc for metrics,
+# read/write its own state, and read/write the store directories it manages when
+# applying installation jobs. Everything else is denied. Adjust the /srv/stores
+# path to match this host, and the python path to the interpreter the agent runs
+# under.
+#include <tunables/global>
+
+profile knight-agent /usr/local/bin/knight-agent {
+  #include <abstractions/base>
+  #include <abstractions/python>
+  #include <abstractions/ssl_certs>
+  #include <abstractions/nameservice>
+
+  # The interpreter and the agent's own code.
+  /usr/bin/python3* ix,
+  /usr/local/bin/knight-agent r,
+  /usr/local/lib/python3*/** r,
+
+  # Metrics come from /proc; read-only.
+  @{PROC}/ r,
+  @{PROC}/stat r,
+  @{PROC}/meminfo r,
+  @{PROC}/loadavg r,
+  @{PROC}/net/dev r,
+  @{PROC}/diskstats r,
+
+  # The agent's own state — its credential — is the one thing it writes outside a
+  # store.
+  /var/lib/knight/ rw,
+  /var/lib/knight/** rwk,
+
+  # The stores this agent manages: read and write, because applying a Feature
+  # installs into the store's own tree. Narrow this to the exact stores in
+  # production.
+  /srv/stores/ r,
+  /srv/stores/** rwk,
+
+  # Outbound HTTPS to KNIGHT. No listening sockets.
+  network inet stream,
+  network inet6 stream,
+
+  # Deny the obvious escapes explicitly, so a future edit that widens a rule above
+  # still cannot reach them.
+  deny /etc/shadow r,
+  deny /root/** rwx,
+  deny capability,
+}

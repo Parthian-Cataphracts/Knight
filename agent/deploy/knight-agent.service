@@ -1,0 +1,63 @@
+# A hardened systemd unit for the KNIGHT agent (hardening backlog P2).
+#
+# The agent reads /proc and writes its own state; when it applies a store's queued
+# installation jobs it also writes into that store's directory. It needs nothing
+# else — no privileges, no other filesystem, no other network families — and this
+# unit takes all of it away. Adjust ReadWritePaths to the stores this agent
+# manages, and validate on the target: a step that shells out (a Feature that
+# builds a wheel from source) may need a directive here loosened, which is a
+# deliberate, reviewed exception rather than running unconfined by default.
+[Unit]
+Description=KNIGHT agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# A dedicated, unprivileged system user (see deploy/README.md); never root.
+User=knight
+Group=knight
+ExecStart=/usr/local/bin/knight-agent \
+  --base-url https://knight.example.com \
+  --state /var/lib/knight/agent.json \
+  --store /srv/stores/cafe-parthia \
+  run
+Restart=always
+RestartSec=30
+
+# --- Least privilege -------------------------------------------------------
+# No capabilities at all, and no way to gain any.
+CapabilityBoundingSet=
+AmbientCapabilities=
+NoNewPrivileges=true
+
+# A read-only view of the system; write only where the agent legitimately must.
+ProtectSystem=strict
+ReadWritePaths=/var/lib/knight /srv/stores
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+
+# Kernel and cgroup surfaces the agent never touches.
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+# The agent speaks HTTPS to KNIGHT and nothing else — no unix or packet sockets.
+RestrictAddressFamilies=AF_INET AF_INET6
+
+# The system-service syscall set is enough for a Python daemon and pip; anything
+# outside it is denied rather than allowed by omission.
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

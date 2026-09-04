@@ -75,6 +75,11 @@ NoNewPrivileges=true
 WantedBy=multi-user.target
 ```
 
+For a production host use the **hardened** deployment in [`deploy/`](deploy/): a
+dedicated system user, a fully-sandboxed systemd unit (no capabilities, restricted
+syscalls and address families), and an AppArmor profile as a second, independent
+confinement.
+
 ## What it reports
 
 CPU, memory, disk, network and load average, read from the standard library and
