@@ -1,7 +1,7 @@
 using Knight.Domain.Common;
 using Knight.Domain.Exceptions;
-using PlatformBilling.Domain;
 using Plans.Domain;
+using PlatformBilling.Domain;
 using Provisioning.Domain;
 using Subscriptions.Domain;
 using Xunit;
