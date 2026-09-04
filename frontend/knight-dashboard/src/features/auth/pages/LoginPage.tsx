@@ -216,6 +216,15 @@ export function LoginPage() {
             {t("auth.secure")}
           </p>
         </form>
+
+        {step === "credentials" ? (
+          <p className="mt-6 text-center text-body-sm text-on-surface-variant">
+            {t("auth.newHere")}{" "}
+            <a href="/signup" className="text-primary hover:underline">
+              {t("auth.createStore")}
+            </a>
+          </p>
+        ) : null}
       </div>
     </div>
   );

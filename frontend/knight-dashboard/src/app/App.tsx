@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { queryClient } from "@/lib/api/queryClient";
@@ -10,7 +10,31 @@ import { DIRECTION } from "@/i18n";
 import { AppLayout } from "@/layouts/AppLayout";
 import { RequireAuth } from "./RequireAuth";
 import { ActivateAccountPage } from "@/features/auth/pages/ActivateAccountPage";
+import { PortalLayout } from "@/features/portal/PortalLayout";
+import { PortalHomePage } from "@/features/portal/pages/PortalHomePage";
+import { PortalPlansPage } from "@/features/portal/pages/PortalPlansPage";
+import { PortalStorePage } from "@/features/portal/pages/PortalStorePage";
+import { PortalSignUpPage } from "@/features/portal/pages/PortalSignUpPage";
+import { PortalVerifyPage } from "@/features/portal/pages/PortalVerifyPage";
 import { featureRoutes } from "./routes";
+
+/**
+ * Picks the shell by who is signed in. A customer principal (one bound to a
+ * customer) gets the self-service portal; platform staff get the operations
+ * dashboard — two separate route trees, never mixed (docs/self-service-saas-plan.md
+ * §12, F). A principal on the wrong tree is redirected to its own home rather
+ * than shown the other's chrome.
+ */
+function RoleLayout() {
+  const isCustomer = Boolean(useAuthStore((state) => state.user?.customerId));
+  const { pathname } = useLocation();
+  const onPortal = pathname.startsWith("/portal");
+
+  if (isCustomer && !onPortal) return <Navigate to="/portal" replace />;
+  if (!isCustomer && onPortal) return <Navigate to="/" replace />;
+
+  return isCustomer ? <PortalLayout /> : <AppLayout />;
+}
 
 /** Keeps <html lang/dir/data-theme> in sync with the UI store. */
 function DocumentSettings() {
@@ -54,17 +78,24 @@ export function App() {
       <BrowserRouter>
         <Routes>
           {/* Outside the authenticated shell on purpose: whoever follows an
-              invitation link has no session yet, and cannot get one until they
-              have set a password here. */}
+              invitation link, signs up, or verifies an email has no session yet. */}
           <Route path="/activate" element={<ActivateAccountPage />} />
+          <Route path="/signup" element={<PortalSignUpPage />} />
+          <Route path="/verify" element={<PortalVerifyPage />} />
 
           <Route
             element={
               <RequireAuth>
-                <AppLayout />
+                <RoleLayout />
               </RequireAuth>
             }
           >
+            {/* Customer self-service portal. */}
+            <Route path="/portal" element={<PortalHomePage />} />
+            <Route path="/portal/plans" element={<PortalPlansPage />} />
+            <Route path="/portal/stores/:storeId" element={<PortalStorePage />} />
+
+            {/* Operations dashboard. */}
             {featureRoutes()}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

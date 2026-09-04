@@ -77,7 +77,9 @@
     "verify": "Verify and sign in",
     "backToCredentials": "Back",
     "mfaEnrolPrompt": "This account requires two-factor authentication. Add the key below to your authenticator app, then enter the code it shows.",
-    "copySecret": "Copy key"
+    "copySecret": "Copy key",
+    "newHere": "New to KNIGHT?",
+    "createStore": "Create your store"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -963,5 +965,95 @@
     "Dispatched": "Dispatched",
     "Succeeded": "Succeeded",
     "Failed": "Failed"
+  },
+  "portal": {
+    "brand": "Your Store",
+    "signOut": "Sign out",
+    "home": {
+      "title": "Welcome",
+      "subtitle": "Set up and manage your store.",
+      "noPlanTitle": "Choose a plan to get started",
+      "noPlanBody": "Pick a plan and any optional features. We'll build your store automatically once your payment is confirmed.",
+      "choosePlan": "Choose a plan"
+    },
+    "subscription": {
+      "title": "Your subscription",
+      "renews": "Renews on {{date}}",
+      "ending": "Ends at period end",
+      "manage": "Manage"
+    },
+    "subStatus": {
+      "active": "Active",
+      "trial": "Trial",
+      "past_due": "Past due",
+      "suspended": "Suspended",
+      "pending": "Pending payment",
+      "cancelled": "Cancelled"
+    },
+    "store": {
+      "title": "Your store",
+      "ready": "Ready",
+      "provisioning": "Setting up",
+      "open": "Open store",
+      "details": "View progress",
+      "watch": "Watch it come up",
+      "starting": "Starting your store…",
+      "back": "Back"
+    },
+    "plans": {
+      "title": "Plans",
+      "subtitle": "Pick the plan that fits, and add optional features.",
+      "monthly": "monthly",
+      "yearly": "yearly",
+      "addOns": "Optional add-ons",
+      "total": "Estimated total",
+      "checkout": "Continue to checkout"
+    },
+    "checkout": {
+      "readyTitle": "Almost there",
+      "readyBody": "Complete your payment to have your store built automatically.",
+      "pay": "Proceed to payment"
+    },
+    "provisioning": {
+      "title": "Setting up your store",
+      "progress": "Progress"
+    },
+    "step": {
+      "server": "Preparing the machine",
+      "instance": "Building your store",
+      "store-record": "Registering your store",
+      "credentials": "Issuing credentials",
+      "agent": "Connecting the agent",
+      "base-features": "Installing features",
+      "configuration": "Applying configuration",
+      "domain-tls": "Setting up your domain",
+      "healthcheck": "Final checks"
+    },
+    "signup": {
+      "title": "Create your store",
+      "subtitle": "Start selling with KNIGHT in minutes.",
+      "name": "Your name",
+      "company": "Company (optional)",
+      "email": "Email",
+      "password": "Password",
+      "passwordHint": "At least 12 characters.",
+      "submit": "Create account",
+      "haveAccount": "Already have an account?",
+      "signIn": "Sign in",
+      "checkEmailTitle": "Check your email",
+      "checkEmailBody": "We sent a verification link to {{email}}. Follow it to activate your account.",
+      "haveToken": "I have a verification code"
+    },
+    "verify": {
+      "title": "Verify your email",
+      "subtitle": "Paste the code from your verification email.",
+      "token": "Verification code",
+      "submit": "Verify",
+      "failed": "That code is not valid or has expired.",
+      "doneTitle": "Email verified",
+      "doneBody": "Your account is ready. Sign in to choose a plan.",
+      "signIn": "Sign in",
+      "backToSignup": "Back to sign up"
+    }
   }
 }
