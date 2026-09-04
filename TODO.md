@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-09-04** (revision 50 — added **Phase 32** (access tiers + entitlement-gated UI) and **Phase 33** (the Automatic Admin Feature) as planned, not-started work at the owner's request; corrected the stale Phase-3 DNS-TXT entry (delivered in c075b9c). Prior: Phase 31 P2 **end-to-end secret rotation** done, cross-repo — rotate-on-handshake, on KNIGHT and every store adopter: the .NET store agent (+ BojanStore's vendored copy), the Python reference-store and the node-reference-store; shared schema updated, tests on all sides. Earlier P0–P3: KMS signer, ADR 0036, PgBouncer, IaC, billing outbox, agent hardening, tenant export. The remaining Phase-31 items are infra-decision-gated (real payment/hosting adapters, push-telemetry). See Phase 31 and docs/hardening-backlog.md)
+Last updated: **2026-09-05** (revision 51 — **live on a real Hetzner VM** at `knight.abolfazltafakori.com`: installer + TLS proven sharing the box with two unrelated projects untouched, `knightctl update` exercised end to end and now **rolls back a failed update** to the previous revision + pre-update database, and the **restore drill ran against the real database** (54 tables / 324 rows / 18 migrations verified). Ticked the real-VM items in phases 11/27/29. Prior (rev 50): added **Phase 32** (access tiers + entitlement-gated UI) and **Phase 33** (the Automatic Admin Feature) as planned work; corrected the stale Phase-3 DNS-TXT entry (delivered in c075b9c). Prior: Phase 31 P2 **end-to-end secret rotation** done, cross-repo — rotate-on-handshake, on KNIGHT and every store adopter: the .NET store agent (+ BojanStore's vendored copy), the Python reference-store and the node-reference-store; shared schema updated, tests on all sides. Earlier P0–P3: KMS signer, ADR 0036, PgBouncer, IaC, billing outbox, agent hardening, tenant export. The remaining Phase-31 items are infra-decision-gated (real payment/hosting adapters, push-telemetry). See Phase 31 and docs/hardening-backlog.md)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -132,7 +132,7 @@ Phase 7    Observability                  ██████████ 100%
 Phase 8    Business-domain port to Django ██████████ 100%
 Phase 9    Provisioning & professional infra ██████████ 100%
 Phase 10   Optimisation & hardening       █████████░  95%
-Phase 11   Deployment & installation       ████████░░  80%
+Phase 11   Deployment & installation       █████████░  90%  (installer proven on a real Hetzner VM with TLS; docker images + offsite copy remain)
 Phase 12   Catalogue alignment            ██████████ 100%
 Phase 13   Delivery validation on Features ██████████ 100%
 Phase 14   Commercial foundations         ██████████ 100%
@@ -148,9 +148,9 @@ Phase 23   The live service layer          ██████████ 100%
 Phase 24   Secrets and rotation             ██████████ 100%
 Phase 25   The two real stores              ███████░░░  70%
 Phase 26   Operating it                     ██████░░░░  60%
-Phase 27   Deployment                       █████░░░░░  50%
+Phase 27   Deployment                       ███████░░░  70%  (live on a real VM + update/rollback exercised; provisioning automation & docker images remain)
 Phase 28   Migrating the catalogue          ████░░░░░░  40%
-Phase 29   The production gate              ██░░░░░░░░  20%
+Phase 29   The production gate              ████░░░░░░  40%  (DNS-TXT + restore-drill-on-real-data done; security review, 11 answers, in-process call remain — owner's)
 Phase 30   Self-service SaaS                ██████████ 100%  (A–G built; real provider + host are product-owner calls)
 Phase 31   Production hardening             ████████░░  80%  (P0/P1/P2 + tenant export + secret rotation done or authored; real payment/hosting adapters & push-telemetry are infra-gated)
 Phase 32   Access tiers & entitlement-gated UI ░░░░░░░░░░   0%  (not started — planned; see the phase for scope)
@@ -1224,9 +1224,11 @@ nginx, and the six defects that only a real second install could show.
       they should go is a custody decision, not a default
 - [ ] `install-agent.sh` for the servers that host stores, and an installer for
       a Django store. Both are other machines, and out of scope here
-- [ ] Running the installer against a real cloud VM with real DNS. The container
-      run exercised everything except certificate issuance, which needs a
-      resolvable domain
+- [x] Running the installer against a real cloud VM with real DNS — **done.**
+      KNIGHT runs on a Hetzner Ubuntu box at `knight.abolfazltafakori.com`, TLS
+      issued by certbot, sharing the server with two unrelated projects (`cobalt`,
+      `wui`) that the install and a later update left untouched — the isolation
+      this installer was written for, proven in place rather than argued
 
 ---
 
@@ -2238,9 +2240,11 @@ settle ([`docs/roadmap.md`](docs/roadmap.md) §7).
       `KNIGHT_OFFSITE_TARGET`, because where a database of customer records may
       be copied to is a custody decision and not an installer's. *Still needs
       that decision to actually run.*
-- [ ] **The installer against a real cloud VM with real DNS** — *needs a VM and
-      a domain*. The container run exercised everything except certificate
-      issuance
+- [x] **The installer against a real cloud VM with real DNS** — **done** on a
+      Hetzner Ubuntu host (`knight.abolfazltafakori.com`), TLS issued, and
+      `knightctl update` since exercised on it end to end (backup → rebuild →
+      migrate → restart). `knightctl update` now also **rolls a failed update
+      back** to the previous revision and the pre-update database snapshot
 - [ ] **Provisioning automation** — creating the machine, building the instance,
       wiring DNS and TLS. Carried from phase 9 and blocked on the same decision
       as the images
@@ -2334,8 +2338,11 @@ are true. This is the release decision, and it is the product owner's.
       report exists
 - [ ] **The architecture-validation questions from phase 0**, answered. Eleven
       of them, in [`risks.md`](docs/risks.md) §3
-- [ ] **The restore drill against production-shaped data.** It runs in CI on
-      every push against a seeded database; it has never run against a real one
+- [x] **The restore drill against production-shaped data** — **run** against the
+      live Hetzner deployment's own database: 54 tables, 324 rows, 18 migrations
+      (latest `ActivationOutbox`), 486 constraints and 165 indexes all restored
+      into a scratch database and verified identical, then dropped. It had only
+      ever run in CI against a seeded database before
 - [x] **DNS TXT verification is built** — the half that never was. A TXT lookup
       at `_knight-verification.<domain>`, in about a hundred lines of DNS and no
       new dependency, tried after the HTTP method: HTTP is what an operator can
