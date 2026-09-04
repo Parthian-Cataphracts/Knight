@@ -96,3 +96,7 @@ build/
 /backups/
 backups/
 *.dump
+
+# Generated tenant exports (deprovisioning Export step)
+exports/
+backend/exports/

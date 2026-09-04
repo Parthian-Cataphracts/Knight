@@ -44,6 +44,13 @@ public sealed class ProvisioningOptions
     /// real deployment must not fabricate infrastructure it does not have.
     /// </summary>
     public bool SimulateInfrastructure { get; init; }
+
+    /// <summary>
+    /// Where a deprovisioning run writes the customer's export before purge. A
+    /// local directory in development; object storage in a real deployment
+    /// (docs/hardening-backlog.md P3).
+    /// </summary>
+    public string ExportRoot { get; init; } = "exports";
 }
 
 public static class ProvisioningModule

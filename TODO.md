@@ -223,9 +223,9 @@ tickable version of it. Priorities use the review's P0–P3.
   a KNIGHT-only sweep would lock stores out and is deliberately not built. See the
   backlog for the design.
 - [x] **P3 — Tenant data export.** `GET /api/v1/me/export` + a portal "Download my
-  data" button: KNIGHT's whole record of the customer as self-serve JSON. Covered
-  by the acceptance test. (Small follow-up: auto-produce it in the deprovision
-  `Export` step.)
+  data" button, and the deprovision `Export` step now auto-produces a durable
+  snapshot (`IStoreExporter`) before purge — no operator step. Covered by the
+  acceptance test and a store-export test.
 - [!] **P3 — Push-based telemetry.** Cross-repo/infra (the store must emit OTLP; a
   collector must run) — sequenced with the hosting-platform decision.
 

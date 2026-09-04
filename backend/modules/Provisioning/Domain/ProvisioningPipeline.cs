@@ -65,7 +65,7 @@ public static class ProvisioningPipeline
         new(RevokeAccess, ProvisioningStepMode.Automatic, "Store credentials and the agent's token are revoked."),
         new(StopIngestion, ProvisioningStepMode.Automatic, "The store can no longer report anything to KNIGHT."),
         new(Retain, ProvisioningStepMode.Automatic, "The contractual retention window runs."),
-        new(Export, ProvisioningStepMode.Manual, "An exportable backup is produced and handed over."),
+        new(Export, ProvisioningStepMode.Automatic, "The customer's export is produced before anything is purged."),
         new(Purge, ProvisioningStepMode.Automatic, "The store's retained data is deleted."),
     ];
 

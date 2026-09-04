@@ -119,6 +119,22 @@ public interface IBaseImageCatalog
     Task<BaseImageDescriptor?> FindUsableAsync(string version, CancellationToken cancellationToken);
 }
 
+/// <summary>Where a produced store export landed, and how big it is.</summary>
+public sealed record StoreExportRecord(string Location, long SizeBytes);
+
+/// <summary>
+/// Produces the durable export a deprovisioning run makes before it purges
+/// anything — the automation of the pipeline's manual <c>Export</c> step
+/// (hardening backlog P3). It writes a snapshot of KNIGHT's record of the store's
+/// customer, so the customer keeps it even after their store is archived and their
+/// self-serve access ends. It is KNIGHT's record, not the store's business data,
+/// which is the store's own export handed over separately.
+/// </summary>
+public interface IStoreExporter
+{
+    Task<StoreExportRecord> ExportAsync(Guid storeId, CancellationToken cancellationToken);
+}
+
 /// <summary>What producing a store's infrastructure achieved on one pass.</summary>
 public sealed record InfrastructureProgress(
     bool ServerReady,

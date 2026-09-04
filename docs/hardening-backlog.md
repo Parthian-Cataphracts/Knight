@@ -99,9 +99,10 @@ Priority uses the review's P0–P3.
   hands a customer KNIGHT's whole record of them — store metadata, subscription,
   entitlements, provisioning history and telemetry counts — as a self-serve JSON
   download (a "Download my data" button in the portal). `ITenantExportReader` reads
-  only what KNIGHT holds, never a store's own business data. Covered by the
-  acceptance test. *Remaining (small): have the deprovision `Export` step call this
-  to produce the artifact automatically instead of waiting for an operator.*
+  only what KNIGHT holds, never a store's own business data. The deprovision
+  pipeline's `Export` step now produces this automatically (via `IStoreExporter`,
+  writing a durable snapshot before purge) — no longer a manual step. Covered by
+  the acceptance test and a store-export test.
 - [!] **P3 — Push-based telemetry.** The meter and traces already exist (phase 7,
   off by default); moving from KNIGHT polling stores to stores pushing to an
   OpenTelemetry collector is a **cross-repo, infrastructure** change — the store

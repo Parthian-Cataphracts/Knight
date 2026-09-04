@@ -127,6 +127,7 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<IStoreDataPurger, StoreDataPurger>();
         services.AddScoped<IRetentionPolicyReader, RetentionPolicyReader>();
         services.AddScoped<ITenantExportReader, TenantExportReader>();
+        services.AddScoped<IStoreExporter, StoreExporter>();
 
         // The infrastructure adapter. The manual one produces nothing (an operator,
         // or a real provider adapter, produces the facts); the simulated one

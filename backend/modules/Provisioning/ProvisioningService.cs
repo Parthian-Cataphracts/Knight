@@ -29,6 +29,7 @@ internal sealed class ProvisioningService : IProvisioningService
     private readonly IServerProvisioningPort _servers;
     private readonly IBaseFeatureInstaller _features;
     private readonly IStoreDataPurger _purger;
+    private readonly IStoreExporter _exporter;
     private readonly IRetentionPolicyReader _retention;
     private readonly IBaseImageCatalog _images;
     private readonly IAuditTrail _audit;
@@ -42,6 +43,7 @@ internal sealed class ProvisioningService : IProvisioningService
         IServerProvisioningPort servers,
         IBaseFeatureInstaller features,
         IStoreDataPurger purger,
+        IStoreExporter exporter,
         IRetentionPolicyReader retention,
         IBaseImageCatalog images,
         IAuditTrail audit,
@@ -54,6 +56,7 @@ internal sealed class ProvisioningService : IProvisioningService
         _servers = servers;
         _features = features;
         _purger = purger;
+        _exporter = exporter;
         _retention = retention;
         _images = images;
         _audit = audit;
@@ -422,8 +425,7 @@ internal sealed class ProvisioningService : IProvisioningService
                 ? StepOutcome.Waiting($"The store's data is retained until {retainUntil:u}.")
                 : StepOutcome.Succeeded("The retention window has closed."),
 
-            ProvisioningPipeline.Export => StepOutcome.Waiting(
-                "Produce the exportable backup and hand it to the customer before anything is purged."),
+            ProvisioningPipeline.Export => await ExportAsync(job.StoreId, cancellationToken),
 
             ProvisioningPipeline.Purge => Describe(await _purger.PurgeAsync(job.StoreId, cancellationToken)),
 
@@ -475,6 +477,17 @@ internal sealed class ProvisioningService : IProvisioningService
             agents > 0
                 ? $"Credentials revoked and {agents} agent(s) on the dedicated server revoked."
                 : "Store credentials revoked.");
+    }
+
+    /// <summary>
+    /// Produces the customer's export before anything is purged. A failure fails
+    /// the step rather than walking on: purging without the export the retention
+    /// promise is about would defeat the point of the step.
+    /// </summary>
+    private async Task<StepOutcome> ExportAsync(Guid storeId, CancellationToken cancellationToken)
+    {
+        var record = await _exporter.ExportAsync(storeId, cancellationToken);
+        return StepOutcome.Succeeded($"Exported {record.SizeBytes} bytes to {record.Location}.");
     }
 
     private static StepOutcome Describe(BaseFeatureProgress progress)
