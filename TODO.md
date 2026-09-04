@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-09-04** (revision 44 — self-service A–G done; **Phase 31 (production hardening)** opened and phased: the KMS-backed artifact signer (both KNIGHT and the packaging tool) and the delivery-model ADR 0036 are done. See Phase 30, Phase 31, the plan, and docs/hardening-backlog.md)
+Last updated: **2026-09-04** (revision 45 — Phase 31: KMS signer, delivery-model ADR 0036, and **PgBouncer** (verified) done; the **IaC** replacement for the Bash installers authored in infrastructure/iac (Ansible role + Terraform ref, syntax-checked, awaiting a live-host run). See Phase 30, Phase 31, and docs/hardening-backlog.md)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -152,7 +152,7 @@ Phase 27   Deployment                       █████░░░░░  50%
 Phase 28   Migrating the catalogue          ████░░░░░░  40%
 Phase 29   The production gate              ██░░░░░░░░  20%
 Phase 30   Self-service SaaS                ██████████ 100%  (A–G built; real provider + host are product-owner calls)
-Phase 31   Production hardening             ██░░░░░░░░  20%  (KMS signer + delivery-model ADR done; see below)
+Phase 31   Production hardening             ████░░░░░░  40%  (KMS signer, delivery ADR, PgBouncer done; IaC authored; see below)
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -205,10 +205,14 @@ tickable version of it. Priorities use the review's P0–P3.
   keep verify-then-install; adopt immutable per-tenant images as a hosting option
   behind `IInfrastructureAdapter`, not a rewrite; prefer `external_service` where a
   Feature can be one.
-- [ ] **P1 — Replace the Bash installers with IaC** (Terraform/Ansible) behind the
-  same infrastructure adapter.
-- [ ] **P1 — PgBouncer** in front of PostgreSQL before store count makes
-  connections the bottleneck.
+- [~] **P1 — Replace the Bash installers with IaC.** Built in
+  `infrastructure/iac`: an idempotent Ansible role that is the provider-agnostic
+  replacement for `install.sh`'s logic + a Terraform machine reference; YAML
+  syntax-checked. Not ticked done until it has provisioned a live host end to end
+  (no Ansible/Terraform in CI; hosting platform unchosen). `install.sh` stays the
+  verified path meanwhile.
+- [x] **P1 — PgBouncer** in front of PostgreSQL (compose, transaction mode, 6432).
+  No app change; verified by running the API through it.
 - [ ] **P2 — Finish secret rotation** end to end (phase 24 is partial).
 - [ ] **P2 — Agent least privilege** (dedicated user, systemd sandboxing /
   AppArmor/SELinux).

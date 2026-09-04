@@ -58,13 +58,20 @@ Priority uses the review's P0–P3.
   unchanged, and drift/supply-chain are already addressed by the reconciliation
   loop, signing (now KMS-capable), digest verification, the closed agent
   vocabulary and the canary.
-- [ ] **P1 — Replace the Bash installers with IaC.** `install.sh`/`knightctl.sh`
-  are a single-server stopgap (phase 11). Production provisioning should be
-  Terraform/Ansible, plugged in behind the same `IInfrastructureAdapter` the
-  self-service automation already uses.
-- [ ] **P1 — Database connection pooling.** Add PgBouncer in front of PostgreSQL
-  before the store count makes independent connections the bottleneck. The load
-  test (1,882 req/s) shows headroom now; this is a scaling item, not a fire.
+- [~] **P1 — Replace the Bash installers with IaC.** **Built:**
+  `infrastructure/iac` — an Ansible role that is the provider-agnostic,
+  idempotent replacement for `install.sh`'s logic (packages, .NET toolchain,
+  PostgreSQL role/db, Redis, checkout/publish/migrate, a hardened systemd unit,
+  the single-hostname nginx site with certbot TLS, the first admin, the nightly
+  backup), plus a Terraform reference for the machine. YAML syntax-checked.
+  **Remaining:** run it against a live host end to end before ticking it done (no
+  Ansible/Terraform in CI, and the hosting platform is unchosen) — the same bar
+  `install.sh` cleared in phase 11. `install.sh` stays the verified path until
+  then.
+- [x] **P1 — Database connection pooling.** PgBouncer runs in front of PostgreSQL
+  (compose, transaction mode, port 6432). No application change — EF Core/Npgsql
+  use no server-side prepared statements by default. Verified by running the API
+  through it. See `infrastructure/database/README.md`.
 - [ ] **P2 — Automate shared-secret issuance/rotation end to end** (phase 24 is
   partial): store credentials and agent tokens issued and rotated with no manual
   step.

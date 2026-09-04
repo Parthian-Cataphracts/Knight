@@ -1,0 +1,22 @@
+# Managed by Ansible (infrastructure/iac). One site, its own file — it does not
+# touch nginx.conf or anyone else's site. certbot adds the TLS lines and the
+# 80->443 redirect on first run.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ knight_domain }};
+
+    location / {
+        proxy_pass         http://127.0.0.1:{{ knight_app_port }};
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+
+        # SignalR needs the upgrade headers to hold the websocket open.
+        proxy_set_header   Upgrade    $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_read_timeout 3600s;
+    }
+}

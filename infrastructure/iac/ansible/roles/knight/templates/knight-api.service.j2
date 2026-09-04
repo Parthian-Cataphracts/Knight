@@ -1,0 +1,25 @@
+# Managed by Ansible (infrastructure/iac). The KNIGHT control-plane API.
+[Unit]
+Description=KNIGHT control-plane API
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ knight_service_user }}
+Group={{ knight_service_user }}
+WorkingDirectory={{ knight_install_dir }}/app
+EnvironmentFile={{ knight_install_dir }}/knight.env
+ExecStart={{ knight_install_dir }}/toolchain/dotnet/dotnet {{ knight_install_dir }}/app/Knight.Api.dll
+Restart=on-failure
+RestartSec=5
+
+# Least privilege: the service reads its app and writes nothing outside it.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths={{ knight_install_dir }}
+
+[Install]
+WantedBy=multi-user.target

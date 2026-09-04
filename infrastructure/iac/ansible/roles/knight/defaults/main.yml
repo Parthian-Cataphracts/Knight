@@ -1,0 +1,40 @@
+---
+# Everything install.sh asks for interactively is a variable here, with the same
+# defaults. Override per host in group_vars or the inventory; the secrets
+# (db password, jwt signing key, first-admin password) must come from a vault or
+# the environment, never from a committed file.
+
+knight_domain: "knight.example.com"
+knight_acme_email: "ops@example.com"
+
+# Where the application and its private toolchain live, and the unprivileged user
+# that runs it — the same layout install.sh creates.
+knight_install_dir: "/opt/knight"
+knight_service_user: "knight"
+knight_repo_url: "https://github.com/Parthian-Cataphracts/Knight.git"
+knight_repo_ref: "main"
+
+knight_dotnet_major: "10"
+knight_app_port: 5080
+
+# The control-plane database. Point knight_db_host at PgBouncer (6432) rather than
+# PostgreSQL directly to pool connections; see infrastructure/database/README.md.
+knight_db_host: "127.0.0.1"
+knight_db_port: 5432
+knight_db_name: "knight"
+knight_db_user: "knight"
+knight_db_password: ""          # required — supply from a vault
+knight_manage_postgres: true    # false when the database is managed elsewhere
+
+knight_redis_enabled: true
+
+# The application's own secrets. Generate once and keep in a vault; regenerating
+# the JWT key signs every existing session out.
+knight_jwt_signing_key: ""      # required — >= 32 chars
+knight_first_admin_email: "admin@example.com"
+knight_first_admin_password: "" # required — bootstraps the first SuperAdmin
+
+# Nightly backup, matching install.sh's knight-backup.timer.
+knight_backup_enabled: true
+knight_backup_hour: "3"
+knight_backup_dir: "/var/backups/knight"

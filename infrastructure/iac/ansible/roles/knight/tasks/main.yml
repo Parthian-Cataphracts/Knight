@@ -1,0 +1,257 @@
+---
+# The declarative equivalent of install.sh. Each block is one of its steps, made
+# idempotent: re-running converges rather than repeats. install.sh's promises hold
+# here too — nginx listens on 127.0.0.1 only behind its own TLS terminator, the
+# service runs as an unprivileged user, and nothing edits another application's
+# config.
+
+- name: Required secrets are supplied
+  ansible.builtin.assert:
+    that:
+      - knight_db_password | length > 0
+      - knight_jwt_signing_key | length >= 32
+      - knight_first_admin_password | length > 0
+    fail_msg: >-
+      Set knight_db_password, knight_jwt_signing_key (>= 32 chars) and
+      knight_first_admin_password from a vault before running this play.
+
+# --- System packages -------------------------------------------------------
+- name: Install system packages
+  ansible.builtin.apt:
+    name:
+      - curl
+      - git
+      - nginx
+      - certbot
+      - python3-certbot-nginx
+      - openssl
+      - libicu-dev
+      - iproute2
+      - acl
+    update_cache: true
+    state: present
+
+- name: Create the service user
+  ansible.builtin.user:
+    name: "{{ knight_service_user }}"
+    system: true
+    home: "{{ knight_install_dir }}"
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Create the install directory
+  ansible.builtin.file:
+    path: "{{ knight_install_dir }}"
+    state: directory
+    owner: "{{ knight_service_user }}"
+    group: "{{ knight_service_user }}"
+    mode: "0750"
+
+# --- .NET toolchain --------------------------------------------------------
+# Into the install's own toolchain dir, never /usr/share/dotnet, so an unrelated
+# .NET already on the box is left alone — the same rule install.sh keeps.
+- name: Fetch the dotnet-install script
+  ansible.builtin.get_url:
+    url: https://dot.net/v1/dotnet-install.sh
+    dest: "{{ knight_install_dir }}/dotnet-install.sh"
+    mode: "0755"
+
+- name: Install the .NET SDK
+  ansible.builtin.command:
+    cmd: >-
+      {{ knight_install_dir }}/dotnet-install.sh
+      --channel {{ knight_dotnet_major }}.0
+      --install-dir {{ knight_install_dir }}/toolchain/dotnet
+    creates: "{{ knight_install_dir }}/toolchain/dotnet/dotnet"
+
+# --- PostgreSQL ------------------------------------------------------------
+- name: Ensure PostgreSQL
+  when: knight_manage_postgres | bool
+  block:
+    - name: Install PostgreSQL
+      ansible.builtin.apt:
+        name: [postgresql, postgresql-client]
+        state: present
+
+    - name: PostgreSQL is running and enabled
+      ansible.builtin.service:
+        name: postgresql
+        state: started
+        enabled: true
+
+    - name: Create the database role
+      become: true
+      become_user: postgres
+      ansible.builtin.command:
+        cmd: >-
+          psql -v ON_ERROR_STOP=1 -tAc
+          "SELECT 1 FROM pg_roles WHERE rolname = '{{ knight_db_user }}'"
+      register: knight_role_exists
+      changed_when: false
+
+    - name: Add the database role
+      become: true
+      become_user: postgres
+      ansible.builtin.command:
+        cmd: >-
+          psql -v ON_ERROR_STOP=1 -c
+          "CREATE ROLE \"{{ knight_db_user }}\" LOGIN PASSWORD '{{ knight_db_password }}'"
+      when: knight_role_exists.stdout != "1"
+      no_log: true
+
+    - name: Create the database
+      become: true
+      become_user: postgres
+      ansible.builtin.command:
+        cmd: createdb -O "{{ knight_db_user }}" "{{ knight_db_name }}"
+        creates: "/var/lib/postgresql/.knight-{{ knight_db_name }}-created"
+      register: knight_db_created
+
+    - name: Mark the database created
+      become: true
+      become_user: postgres
+      ansible.builtin.file:
+        path: "/var/lib/postgresql/.knight-{{ knight_db_name }}-created"
+        state: touch
+        mode: "0600"
+      when: knight_db_created is changed
+
+- name: Install Redis
+  when: knight_redis_enabled | bool
+  ansible.builtin.apt:
+    name: redis-server
+    state: present
+
+# --- Source, build and publish ---------------------------------------------
+- name: Clone the repository
+  become: true
+  become_user: "{{ knight_service_user }}"
+  ansible.builtin.git:
+    repo: "{{ knight_repo_url }}"
+    dest: "{{ knight_install_dir }}/src"
+    version: "{{ knight_repo_ref }}"
+  register: knight_source
+
+- name: Publish the API
+  become: true
+  become_user: "{{ knight_service_user }}"
+  ansible.builtin.command:
+    cmd: >-
+      {{ knight_install_dir }}/toolchain/dotnet/dotnet publish
+      backend/src/Knight.Api/Knight.Api.csproj -c Release
+      -o {{ knight_install_dir }}/app
+    chdir: "{{ knight_install_dir }}/src"
+  environment:
+    DOTNET_CLI_HOME: "{{ knight_install_dir }}"
+  when: knight_source is changed
+  notify: Restart knight-api
+
+- name: Write the environment file
+  ansible.builtin.template:
+    src: knight.env.j2
+    dest: "{{ knight_install_dir }}/knight.env"
+    owner: "{{ knight_service_user }}"
+    group: "{{ knight_service_user }}"
+    mode: "0640"
+  no_log: true
+  notify: Restart knight-api
+
+# --- Migrations ------------------------------------------------------------
+- name: Apply control-plane migrations
+  become: true
+  become_user: "{{ knight_service_user }}"
+  ansible.builtin.command:
+    cmd: >-
+      {{ knight_install_dir }}/toolchain/dotnet/dotnet ef database update
+      --project backend/src/Knight.Infrastructure
+      --startup-project backend/src/Knight.Api
+      --context ControlPlaneDbContext
+    chdir: "{{ knight_install_dir }}/src"
+  environment:
+    CONTROL_PLANE_DB_CONNECTION_STRING: >-
+      Host={{ knight_db_host }};Port={{ knight_db_port }};Database={{ knight_db_name }};Username={{ knight_db_user }};Password={{ knight_db_password }}
+  when: knight_source is changed
+  no_log: true
+
+# --- Service ---------------------------------------------------------------
+- name: Install the systemd unit
+  ansible.builtin.template:
+    src: knight-api.service.j2
+    dest: /etc/systemd/system/knight-api.service
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart knight-api
+
+- name: knight-api is running and enabled
+  ansible.builtin.systemd:
+    name: knight-api
+    state: started
+    enabled: true
+    daemon_reload: true
+
+# --- First administrator ---------------------------------------------------
+# Idempotent: the bootstrap tool refuses a second time for an email that exists,
+# so a re-run is a no-op rather than an error.
+- name: Bootstrap the first administrator
+  become: true
+  become_user: "{{ knight_service_user }}"
+  ansible.builtin.shell:
+    cmd: >-
+      printf '%s\n%s\n' '{{ knight_first_admin_password }}' '{{ knight_first_admin_password }}' |
+      {{ knight_install_dir }}/toolchain/dotnet/dotnet run --project backend/tools/Knight.Bootstrap --
+      --control-plane --email {{ knight_first_admin_email }}
+    chdir: "{{ knight_install_dir }}/src"
+  environment:
+    CONTROL_PLANE_DB_CONNECTION_STRING: >-
+      Host={{ knight_db_host }};Port={{ knight_db_port }};Database={{ knight_db_name }};Username={{ knight_db_user }};Password={{ knight_db_password }}
+  register: knight_bootstrap
+  changed_when: "'created' in knight_bootstrap.stdout"
+  failed_when:
+    - knight_bootstrap.rc != 0
+    - "'already exists' not in knight_bootstrap.stdout"
+  no_log: true
+
+# --- nginx + TLS -----------------------------------------------------------
+- name: Install the nginx site
+  ansible.builtin.template:
+    src: nginx-knight.conf.j2
+    dest: "/etc/nginx/sites-available/knight-{{ knight_domain }}.conf"
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Enable the nginx site
+  ansible.builtin.file:
+    src: "/etc/nginx/sites-available/knight-{{ knight_domain }}.conf"
+    dest: "/etc/nginx/sites-enabled/knight-{{ knight_domain }}.conf"
+    state: link
+  notify: Reload nginx
+
+- name: Obtain a TLS certificate
+  ansible.builtin.command:
+    cmd: >-
+      certbot --nginx -n --agree-tos -m {{ knight_acme_email }}
+      -d {{ knight_domain }}
+    creates: "/etc/letsencrypt/live/{{ knight_domain }}/fullchain.pem"
+  notify: Reload nginx
+
+# --- Nightly backup --------------------------------------------------------
+- name: Install the backup script
+  when: knight_backup_enabled | bool
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../scripts/knight-backup.sh"
+    dest: "{{ knight_install_dir }}/knight-backup.sh"
+    mode: "0750"
+    owner: "{{ knight_service_user }}"
+    group: "{{ knight_service_user }}"
+
+- name: Schedule the nightly backup
+  when: knight_backup_enabled | bool
+  ansible.builtin.cron:
+    name: knight-nightly-backup
+    user: "{{ knight_service_user }}"
+    hour: "{{ knight_backup_hour }}"
+    minute: "0"
+    job: >-
+      {{ knight_install_dir }}/knight-backup.sh {{ knight_backup_dir }}
+      >> /var/log/knight-backup.log 2>&1

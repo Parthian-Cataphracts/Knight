@@ -1,0 +1,13 @@
+---
+# Turns a fresh Ubuntu/Debian host into a running KNIGHT — the declarative
+# equivalent of install.sh. Run it against an inventory:
+#
+#   ansible-playbook -i inventory.ini site.yml
+#
+# Secrets (knight_db_password, knight_jwt_signing_key, knight_first_admin_password)
+# come from a vault or --extra-vars, never from a committed file.
+- name: Deploy the KNIGHT control plane
+  hosts: knight
+  become: true
+  roles:
+    - knight
