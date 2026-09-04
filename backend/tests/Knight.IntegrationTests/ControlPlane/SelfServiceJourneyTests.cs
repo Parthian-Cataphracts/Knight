@@ -142,6 +142,12 @@ public sealed class SelfServiceJourneyTests
             new StringContent(payload, System.Text.Encoding.UTF8, "application/json"));
         Assert.Equal(HttpStatusCode.OK, webhook.StatusCode);
 
+        // The webhook commits the activation and a durable "provision this store"
+        // outbox entry; the store is created when the dispatcher drains it. Drive
+        // it inline so the assertion is deterministic rather than racing the 5s
+        // background sweep.
+        await DispatchOutboxAsync(factory);
+
         // The subscription is Active, and the store record exists — created with
         // no operator ever touching it.
         var storeId = await WaitForStoreAsync(factory, session.User!.CustomerId!.Value);
@@ -261,6 +267,20 @@ public sealed class SelfServiceJourneyTests
     /// loop — exactly the pair the background worker runs — until the store's run
     /// finishes, so the assertion below is not racing a timer.
     /// </summary>
+    /// <summary>
+    /// Drains the activation outbox inline — the durable webhook → provisioning
+    /// handoff — so the store is created deterministically rather than when the
+    /// background sweep next fires.
+    /// </summary>
+    private static async Task DispatchOutboxAsync(WebApplicationFactory<Program> factory)
+    {
+        using var scope = factory.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<ICustomerScopeAccessor>().SetPlatformScope();
+        await scope.ServiceProvider
+            .GetRequiredService<PlatformBilling.IActivationOutboxDispatcher>()
+            .DispatchDueAsync(50, CancellationToken.None);
+    }
+
     private static async Task DriveProvisioningToActiveAsync(WebApplicationFactory<Program> factory, Guid storeId)
     {
         for (var pass = 0; pass < 25; pass++)

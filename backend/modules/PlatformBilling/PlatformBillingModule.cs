@@ -44,6 +44,7 @@ public static class PlatformBillingModule
         services.AddScoped<IPublicPlanCatalog, PublicPlanCatalog>();
         services.AddScoped<ICheckoutService, CheckoutService>();
         services.AddScoped<IPlatformWebhookService, PlatformWebhookService>();
+        services.AddScoped<IActivationOutboxDispatcher, ActivationOutboxDispatcher>();
 
         return services;
     }

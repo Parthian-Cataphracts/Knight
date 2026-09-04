@@ -25,6 +25,23 @@ public interface IPlatformBillingTransactionRepository
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// Persistence for the activation outbox — the durable handoff from a settled
+/// payment to provisioning (hardening backlog P2).
+/// </summary>
+public interface IActivationOutboxRepository
+{
+    Task AddAsync(ActivationOutboxEntry entry, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The entries a dispatcher may attempt now: pending, and past their backoff.
+    /// Read in platform scope by the dispatcher, which acts for every customer.
+    /// </summary>
+    Task<IReadOnlyCollection<ActivationOutboxEntry>> ListDispatchableAsync(int limit, DateTimeOffset now, CancellationToken cancellationToken);
+
+    Task SaveChangesAsync(CancellationToken cancellationToken);
+}
+
 /// <summary>Persistence for self-service checkout sessions.</summary>
 public interface ICheckoutSessionRepository
 {

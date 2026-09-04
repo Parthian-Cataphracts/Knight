@@ -46,6 +46,38 @@ internal sealed class PlatformBillingTransactionRepository : IPlatformBillingTra
         _context.SaveChangesAsync(cancellationToken);
 }
 
+/// <summary>
+/// Persistence for the activation outbox. The dispatcher reads it in platform
+/// scope (it acts for every customer), so the sweep <c>IgnoreQueryFilters</c> —
+/// the customer isolation filter would otherwise hide the rows it exists to drain.
+/// </summary>
+internal sealed class ActivationOutboxRepository : IActivationOutboxRepository
+{
+    private readonly ControlPlaneDbContext _context;
+
+    public ActivationOutboxRepository(ControlPlaneDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task AddAsync(ActivationOutboxEntry entry, CancellationToken cancellationToken) =>
+        await _context.ActivationOutbox.AddAsync(entry, cancellationToken);
+
+    public async Task<IReadOnlyCollection<ActivationOutboxEntry>> ListDispatchableAsync(
+        int limit,
+        DateTimeOffset now,
+        CancellationToken cancellationToken) =>
+        await _context.ActivationOutbox
+            .IgnoreQueryFilters()
+            .Where(entry => entry.Status == ActivationOutboxStatus.Pending && entry.NextAttemptAt <= now)
+            .OrderBy(entry => entry.NextAttemptAt)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+    public Task SaveChangesAsync(CancellationToken cancellationToken) =>
+        _context.SaveChangesAsync(cancellationToken);
+}
+
 internal sealed class CheckoutSessionRepository : ICheckoutSessionRepository
 {
     private readonly ControlPlaneDbContext _context;

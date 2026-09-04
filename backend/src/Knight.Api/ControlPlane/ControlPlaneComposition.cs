@@ -73,6 +73,9 @@ public static class ControlPlaneComposition
         // Produces the facts a self-service run waits on when infrastructure is
         // simulated; stands down entirely otherwise (docs/self-service-saas-plan.md §11).
         services.AddHostedService<SimulatedInfrastructureWorker>();
+
+        // Drains the activation outbox — the durable payment → provisioning handoff.
+        services.AddHostedService<OutboxDispatcherWorker>();
         services.AddHostedService<RolloutCoordinator>();
         services.AddHostedService<BillingRunner>();
 

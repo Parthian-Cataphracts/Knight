@@ -140,6 +140,9 @@ public sealed class ControlPlaneDbContext : DbContext
     public DbSet<PlatformBilling.Domain.CheckoutSession> CheckoutSessions =>
         Set<PlatformBilling.Domain.CheckoutSession>();
 
+    public DbSet<PlatformBilling.Domain.ActivationOutboxEntry> ActivationOutbox =>
+        Set<PlatformBilling.Domain.ActivationOutboxEntry>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(SchemaName);

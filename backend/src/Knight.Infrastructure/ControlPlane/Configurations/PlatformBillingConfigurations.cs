@@ -37,6 +37,26 @@ internal sealed class PlatformBillingTransactionConfiguration : IEntityTypeConfi
     }
 }
 
+internal sealed class ActivationOutboxEntryConfiguration : IEntityTypeConfiguration<ActivationOutboxEntry>
+{
+    public void Configure(EntityTypeBuilder<ActivationOutboxEntry> builder)
+    {
+        builder.ToTable("activation_outbox");
+
+        builder.HasKey(e => e.Id);
+
+        builder.Property(e => e.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(e => e.AttemptCount).IsRequired();
+        builder.Property(e => e.LastError).HasMaxLength(2000);
+
+        builder.HasIndex(e => e.SubscriptionId);
+
+        // The dispatcher's sweep: pending entries whose backoff has passed, oldest
+        // first. Filtered so the index stays small as processed rows accumulate.
+        builder.HasIndex(e => new { e.Status, e.NextAttemptAt });
+    }
+}
+
 internal sealed class CheckoutSessionConfiguration : IEntityTypeConfiguration<CheckoutSession>
 {
     public void Configure(EntityTypeBuilder<CheckoutSession> builder)

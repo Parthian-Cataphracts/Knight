@@ -26,6 +26,7 @@ public sealed class PlatformWebhookServiceTests
     private readonly IPlatformBillingTransactionRepository _transactions = Substitute.For<IPlatformBillingTransactionRepository>();
     private readonly ISubscriptionRepository _subscriptions = Substitute.For<ISubscriptionRepository>();
     private readonly IEntitlementService _entitlements = Substitute.For<IEntitlementService>();
+    private readonly IActivationOutboxRepository _outbox = Substitute.For<IActivationOutboxRepository>();
     private readonly ICustomerScopeAccessor _scope = Substitute.For<ICustomerScopeAccessor>();
     private readonly IAuditTrail _audit = Substitute.For<IAuditTrail>();
     private readonly IDateTimeProvider _clock = Substitute.For<IDateTimeProvider>();
@@ -40,16 +41,14 @@ public sealed class PlatformWebhookServiceTests
         _clock.UtcNow.Returns(Now);
     }
 
-    private PlatformWebhookService Build(
-        string webhookSecret = "",
-        IEnumerable<ISubscriptionActivatedListener>? listeners = null)
+    private PlatformWebhookService Build(string webhookSecret = "")
     {
         var options = Options.Create(new PlatformBillingOptions { WebhookSecret = webhookSecret });
         var registry = new PlatformPaymentProviderRegistry([new SimulatedPaymentProvider(options)]);
 
         return new PlatformWebhookService(
             registry, _sessions, _transactions, _subscriptions, _entitlements,
-            listeners ?? [], _scope, _audit, _clock, NullLogger<PlatformWebhookService>.Instance);
+            _outbox, _scope, _audit, _clock, NullLogger<PlatformWebhookService>.Instance);
     }
 
     private void SeedOpenCheckout()
@@ -104,33 +103,34 @@ public sealed class PlatformWebhookServiceTests
     }
 
     [Fact]
-    public async Task TheActivationListenerRunsOnceOnSuccess()
+    public async Task ActivationQueuesExactlyOneOutboxEntryForProvisioning()
     {
         SeedOpenCheckout();
-        var listener = Substitute.For<ISubscriptionActivatedListener>();
-        var service = Build(listeners: [listener]);
+        ActivationOutboxEntry? queued = null;
+        await _outbox.AddAsync(Arg.Do<ActivationOutboxEntry>(e => queued = e), Arg.Any<CancellationToken>());
+        var service = Build();
 
         await service.HandleAsync("simulated", SuccessPayload(), signature: null, CancellationToken.None);
 
-        await listener.Received(1).OnActivatedAsync(
-            Arg.Is<SubscriptionActivatedContext>(c => c.CustomerId == _customerId && c.SubscriptionId == _subscription.Id),
-            Arg.Any<CancellationToken>());
+        // The webhook does not provision in-process any more — it commits a durable
+        // intent in the same unit of work, and the dispatcher acts on it.
+        await _outbox.Received(1).AddAsync(Arg.Any<ActivationOutboxEntry>(), Arg.Any<CancellationToken>());
+        Assert.NotNull(queued);
+        Assert.Equal(_customerId, queued!.CustomerId);
+        Assert.Equal(_subscription.Id, queued.SubscriptionId);
+        Assert.Equal(ActivationOutboxStatus.Pending, queued.Status);
     }
 
     [Fact]
-    public async Task AListenerFailureDoesNotUndoTheActivation()
+    public async Task ARedeliveredWebhookDoesNotQueueASecondOutboxEntry()
     {
         SeedOpenCheckout();
-        var listener = Substitute.For<ISubscriptionActivatedListener>();
-        listener.OnActivatedAsync(Arg.Any<SubscriptionActivatedContext>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromException(new InvalidOperationException("provisioning is down")));
-        var service = Build(listeners: [listener]);
+        _transaction.Succeed(Now); // already settled by the first delivery
+        var service = Build();
 
-        var result = await service.HandleAsync("simulated", SuccessPayload(), signature: null, CancellationToken.None);
+        await service.HandleAsync("simulated", SuccessPayload(), signature: null, CancellationToken.None);
 
-        // The payment stands; provisioning is recovered on its own machinery.
-        Assert.Equal(WebhookOutcome.Processed, result.Outcome);
-        Assert.Equal(SubscriptionStatus.Active, _subscription.Status);
+        await _outbox.DidNotReceive().AddAsync(Arg.Any<ActivationOutboxEntry>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

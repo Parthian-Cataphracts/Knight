@@ -26,7 +26,7 @@ internal sealed class PlatformWebhookService : IPlatformWebhookService
     private readonly IPlatformBillingTransactionRepository _transactions;
     private readonly ISubscriptionRepository _subscriptions;
     private readonly IEntitlementService _entitlements;
-    private readonly IEnumerable<ISubscriptionActivatedListener> _listeners;
+    private readonly IActivationOutboxRepository _outbox;
     private readonly ICustomerScopeAccessor _scope;
     private readonly IAuditTrail _audit;
     private readonly IDateTimeProvider _clock;
@@ -38,7 +38,7 @@ internal sealed class PlatformWebhookService : IPlatformWebhookService
         IPlatformBillingTransactionRepository transactions,
         ISubscriptionRepository subscriptions,
         IEntitlementService entitlements,
-        IEnumerable<ISubscriptionActivatedListener> listeners,
+        IActivationOutboxRepository outbox,
         ICustomerScopeAccessor scope,
         IAuditTrail audit,
         IDateTimeProvider clock,
@@ -49,7 +49,7 @@ internal sealed class PlatformWebhookService : IPlatformWebhookService
         _transactions = transactions;
         _subscriptions = subscriptions;
         _entitlements = entitlements;
-        _listeners = listeners;
+        _outbox = outbox;
         _scope = scope;
         _audit = audit;
         _clock = clock;
@@ -150,11 +150,21 @@ internal sealed class PlatformWebhookService : IPlatformWebhookService
 
         session.Complete(now);
 
+        // The transactional outbox: the "provision this store" intent is written in
+        // the same unit of work as the activation, so a crash after this commit
+        // still leaves a durable record the dispatcher will act on — a paid
+        // subscription is never left with no store because the process died in the
+        // handoff (hardening backlog P2).
+        await _outbox.AddAsync(
+            ActivationOutboxEntry.Queue(Guid.CreateVersion7(), now, subscription.CustomerId, subscription.Id, subscription.PlanId),
+            cancellationToken);
+
         await _subscriptions.SaveChangesAsync(cancellationToken);
 
         // Resolve the entitlements the now-active subscription owes: the plan's
         // included features plus the ones the customer chose at checkout. This is
-        // the desired-state the delivery engine consumes in phase E.
+        // the desired-state the delivery engine consumes in phase E, before the
+        // dispatcher starts provisioning.
         await _entitlements.ReconcileAsync(subscription.CustomerId, cancellationToken);
 
         await _audit.RecordAsync(
@@ -164,28 +174,6 @@ internal sealed class PlatformWebhookService : IPlatformWebhookService
             subscription.CustomerId,
             cancellationToken,
             newValue: new { providerName, transaction.ProviderTransactionId, transaction.Amount, transaction.Currency });
-
-        // Provisioning is wired here in phase D. A listener runs after the
-        // activation is committed, so nothing it does can un-take the payment, and
-        // it must be idempotent because a redelivered webhook can reach it again.
-        var context = new SubscriptionActivatedContext(subscription.CustomerId, subscription.Id, subscription.PlanId);
-        foreach (var listener in _listeners)
-        {
-            try
-            {
-                await listener.OnActivatedAsync(context, cancellationToken);
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                // A provisioning failure is recovered on its own machinery
-                // (retry/coordinator); it must not turn a settled payment into a
-                // failed webhook the provider keeps redelivering.
-                _logger.LogError(
-                    exception,
-                    "A post-activation listener failed for subscription {SubscriptionId}; the payment stands and provisioning will be retried.",
-                    subscription.Id);
-            }
-        }
 
         return new WebhookResult(WebhookOutcome.Processed, subscription.Id);
     }
