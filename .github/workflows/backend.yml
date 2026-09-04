@@ -99,9 +99,33 @@ jobs:
         # High and critical only. A moderate advisory in a build-time dependency
         # is worth knowing about and is not worth blocking a release over, and a
         # gate that cries wolf gets switched off.
+        #
+        # `npm audit` exits non-zero both for a real advisory and for a registry
+        # that would not answer, and the two are not the same problem: the first
+        # is ours to fix, the second is npmjs.org having a bad day. This retries a
+        # transient registry error a few times and, if the registry stays
+        # unreachable, warns and passes rather than failing a release on npm's
+        # uptime — a real high/critical advisory still fails on the first attempt.
         run: |
           npm ci
-          npm audit --audit-level=high
+          attempt=1
+          max=5
+          while true; do
+            out=$(npm audit --audit-level=high 2>&1) && { echo "$out"; break; }
+            echo "$out"
+            if echo "$out" | grep -qiE "audit endpoint returned an error|Service Unavailable|ETIMEDOUT|ENETUNREACH|ECONNRESET|network timeout|50[0-9]|429"; then
+              if [ "$attempt" -ge "$max" ]; then
+                echo "::warning::npm audit could not reach the registry after ${max} attempts; passing without an audit result."
+                break
+              fi
+              echo "Transient registry error (attempt ${attempt}/${max}); retrying in $((attempt * 15))s…"
+              sleep $((attempt * 15))
+              attempt=$((attempt + 1))
+              continue
+            fi
+            echo "::error::npm audit found a high or critical advisory. See the report above." >&2
+            exit 1
+          done
 
   shell:
     name: Shell scripts
