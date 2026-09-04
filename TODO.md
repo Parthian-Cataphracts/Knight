@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-09-04** (revision 49 — Phase 31 P2: **end-to-end secret rotation** done, cross-repo — rotate-on-handshake, on KNIGHT and every store adopter: the .NET store agent (+ BojanStore's vendored copy), the Python reference-store and the node-reference-store; shared schema updated, tests on all sides. Earlier P0–P3: KMS signer, ADR 0036, PgBouncer, IaC, billing outbox, agent hardening, tenant export. The remaining Phase-31 items are infra-decision-gated (real payment/hosting adapters, push-telemetry). See Phase 31 and docs/hardening-backlog.md)
+Last updated: **2026-09-04** (revision 50 — added **Phase 32** (access tiers + entitlement-gated UI) and **Phase 33** (the Automatic Admin Feature) as planned, not-started work at the owner's request; corrected the stale Phase-3 DNS-TXT entry (delivered in c075b9c). Prior: Phase 31 P2 **end-to-end secret rotation** done, cross-repo — rotate-on-handshake, on KNIGHT and every store adopter: the .NET store agent (+ BojanStore's vendored copy), the Python reference-store and the node-reference-store; shared schema updated, tests on all sides. Earlier P0–P3: KMS signer, ADR 0036, PgBouncer, IaC, billing outbox, agent hardening, tenant export. The remaining Phase-31 items are infra-decision-gated (real payment/hosting adapters, push-telemetry). See Phase 31 and docs/hardening-backlog.md)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -153,6 +153,8 @@ Phase 28   Migrating the catalogue          ████░░░░░░  40%
 Phase 29   The production gate              ██░░░░░░░░  20%
 Phase 30   Self-service SaaS                ██████████ 100%  (A–G built; real provider + host are product-owner calls)
 Phase 31   Production hardening             ████████░░  80%  (P0/P1/P2 + tenant export + secret rotation done or authored; real payment/hosting adapters & push-telemetry are infra-gated)
+Phase 32   Access tiers & entitlement-gated UI ░░░░░░░░░░   0%  (not started — planned; see the phase for scope)
+Phase 33   The Automatic Admin Feature       ░░░░░░░░░░   0%  (not started — planned; a large multi-channel Feature with per-channel pricing)
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -239,6 +241,96 @@ tickable version of it. Priorities use the review's P0–P3.
 
 Kept as-is per the review: the modular monolith, per-store isolation, architecture
 tests and ADRs.
+
+---
+
+## Phase 32 — Access tiers and entitlement-gated UI
+
+**Not started. Planned.** Two related visibility problems, both about a screen
+showing a control the viewer must not merely be *unable* to use but must not
+*see at all*. The system already enforces both facts server-side; this phase is
+about the surface honestly reflecting them, so an option a viewer has no right to
+is absent rather than present-and-refused.
+
+**Exit criteria:** (a) an operator sees only the sections and actions their
+access tier grants — everything else is not rendered, not just disabled; and (b)
+a customer's own storefront/admin never shows a control belonging to a Feature
+they have not bought — the entitlement, not the styling, decides whether the menu
+item, page and route exist for them.
+
+### A — Operator access tiers (control-plane RBAC, made visible)
+
+- [ ] **Define the tiers.** Today control-plane roles exist (`Admin`,
+      `CustomerOwner`, …) and permissions gate the API. What is missing is a
+      *product owner's* definition of tiers below full admin: which sections
+      (customers, stores, catalogue, billing, provisioning, observability,
+      settings) each tier may see and act on. **This is a decision the owner
+      supplies; the enforcement then follows it.**
+- [ ] **Hide, not just disable.** The dashboard already checks a permission
+      before rendering some actions; make that the rule everywhere — navigation
+      items, routes and whole screens absent when the tier lacks the permission,
+      so the sidebar of a limited operator is genuinely shorter. Server-side
+      authorization stays the source of truth; the UI mirrors it and never
+      substitutes for it.
+- [ ] **A tier-management screen** for assigning tiers to operators, itself
+      behind the highest tier.
+- [ ] **Tests:** an operator of each tier sees exactly their sections in the
+      navigation payload, and a hidden route returns 403 as well as being unlinked.
+
+### B — Entitlement-gated customer UI
+
+- [ ] **The entitlement set already tells a store what it may run.** Extend the
+      contract so a Feature also declares its **UI surface** (menu items, pages,
+      route prefixes) — `subscriptions` already carries `uiMounts`; generalise
+      it — and the store renders a Feature's UI only when it is entitled, so an
+      unbought Feature has no menu entry, no page and no route in that store.
+- [ ] **The store agents mount conditionally.** The .NET agent and the reference
+      stores read the entitlement set; a withdrawn entitlement removes the mount
+      on the next refresh, not only refuses the API behind it.
+- [ ] **Tests:** a store entitled to a Feature shows its UI mount; the same store
+      after withdrawal shows nothing for it, on both the API and the rendered nav.
+
+---
+
+## Phase 33 — The Automatic Admin Feature
+
+**Not started. Planned.** A large sellable Feature — "Automatic Admin" (ادمین
+خودکار) — that generates and publishes marketing content across channels on the
+store's behalf. It is itself composed of **sub-features**, each independently
+sellable, and the price is the sum of the sub-features the customer ticks. It
+needs its own dedicated page in the customer portal and admin.
+
+This is the first Feature whose **entitlement is composed of sub-entitlements**,
+so it exercises Phase 32B directly: the customer sees only the sub-features they
+bought, and the page prices the selection live.
+
+### Scope (to be refined into ADRs before building)
+
+- [ ] **Sub-feature catalogue.** Each is a channel or a generation capability,
+      priced on its own. Initial set from the owner: Instagram post, Divar
+      (دیوار) post, Basalam (باسلام) post, image generation, caption generation,
+      story. **The full list and the per-item prices are the owner's to supply.**
+- [ ] **Composed pricing.** The Feature's price for a customer is the sum of the
+      chosen sub-features (with any bundle rules the owner defines). This extends
+      the catalogue's pricing model, which today prices a Feature as one line —
+      **an ADR is needed on how a Feature carries sub-priced parts.**
+- [ ] **A dedicated page** in the portal to choose sub-features, see the running
+      price, and manage what is connected — gated per Phase 32B so only bought
+      sub-features appear.
+- [ ] **The generation/publishing engine.** Where content is generated (an AI
+      provider — model and key are the owner's decision, behind the existing
+      `IPlatformPaymentProvider`-style seam pattern) and how each channel is
+      posted to (each of Instagram, Divar, Basalam has its own API, credentials
+      and review/authorisation flow — several are **owner-supplied integrations**).
+- [ ] **Channel credentials and OAuth.** Each channel the customer connects needs
+      its own authorisation; this reuses the per-store secret delivery built in
+      phases 24 and 31.
+- [ ] **Tests and a delivery drill**, the same bar every catalogue Feature clears.
+
+> Both phases 32 and 33 are recorded here at the owner's request as upcoming
+> work. Neither is started; scope above is the brief, not a spec — each needs its
+> decisions pinned (tiers, sub-feature list and prices, AI provider, channel
+> integrations) before it is built.
 
 ---
 
@@ -460,7 +552,7 @@ the endpoints replace a whole record and the forms sent back only part of it.
       [`docs/risks.md`](docs/risks.md); it is a product decision, not an oversight
 
 ### Deferred, deliberately
-- [ ] DNS TXT domain verification — modelled, and the method provisioning will need in phase 9; only HTTP is implemented
+- [x] DNS TXT domain verification — **delivered** (commit c075b9c): a TXT lookup at `_knight-verification.<domain>`, tried after HTTP, answer compared and never fetched, 13 tests. Entry was stale; the build is recorded under phase 29
 - [x] Error grouping and fingerprinting — **delivered in phase 5** (`ErrorFingerprint`, `error_groups`, the Errors screen). Entry was stale; caught in the phase 10 audit ([`adr/0013`](docs/adr/0013-error-grouping-strategy.md))
 - [ ] Log search, filtering by time and export — **still open, and phase 7 passed without it.** The stream, a store filter and a level filter exist; full-text search, a time range and export do not. Re-confirmed open in the phase 10 audit rather than left pointing at a finished phase
 - [x] `StoreHealthCheck` retention — **delivered in phase 7**; `RetentionService` sweeps it alongside logs, events and error events (30 days by default). Entry was stale; caught in the phase 10 audit
