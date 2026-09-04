@@ -27,7 +27,7 @@ namespace Knight.IntegrationTests.Infrastructure;
 /// must never be mistaken for a passing one — see
 /// docs/adr/0005-postgresql-integration-testing.md.
 /// </summary>
-public sealed class PostgresApiFixture : IAsyncLifetime
+public class PostgresApiFixture : IAsyncLifetime
 {
     private const string RequireEnvironmentVariable = "REQUIRE_POSTGRES_TESTS";
 
@@ -129,12 +129,25 @@ public sealed class PostgresApiFixture : IAsyncLifetime
             // observability suites together exceed on suite size alone.
             builder.UseSetting("RateLimiting:IngestHandshakePermitLimit", "1000000");
             builder.UseSetting("RateLimiting:IngestPermitLimit", "1000000");
+
+            // A derived fixture that needs its own settings or services — a mode
+            // like simulated infrastructure that must not be shared with the rest
+            // of the collection — hooks in here, on its own host and database.
+            ConfigureWebHost(builder);
         });
 
         // The host does not migrate itself — that is a deployment step — so the
         // control-plane schema and its system roles are brought up here, the
         // same way Knight.Bootstrap does it against a real database.
         await Factory.Services.MigrateAndSeedControlPlaneAsync();
+    }
+
+    /// <summary>
+    /// Overridden by a derived fixture to add host settings or test services. The
+    /// base does nothing, so the shared fixture stays exactly as it was.
+    /// </summary>
+    protected virtual void ConfigureWebHost(IWebHostBuilder builder)
+    {
     }
 
     public async Task DisposeAsync()

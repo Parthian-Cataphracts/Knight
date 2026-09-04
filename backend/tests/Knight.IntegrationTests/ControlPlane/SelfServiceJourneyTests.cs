@@ -35,19 +35,27 @@ namespace Knight.IntegrationTests.ControlPlane;
 /// billing, the entitlements, the provisioning engine, the delivery pipeline — is
 /// the real code that runs in production.
 /// </summary>
-[Collection(PostgresCollection.Name)]
-public sealed class SelfServiceJourneyTests
+/// <summary>
+/// A fixture of its own — its own database and its own host, with infrastructure
+/// simulated — so the always-running simulated worker and the provisioning it
+/// drives never touch the rows the shared collection's tests depend on.
+/// </summary>
+public sealed class SimulatedJourneyFixture : PostgresApiFixture
 {
-    private const string Password = "correct horse battery staple";
+    public CapturingVerificationSender Verification { get; } = new();
 
-    private readonly PostgresApiFixture _fixture;
-
-    public SelfServiceJourneyTests(PostgresApiFixture fixture)
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        _fixture = fixture;
+        builder.UseSetting("Provisioning:SimulateInfrastructure", "true");
+        builder.UseSetting("FeatureArtifacts:PublicBaseUrl", "http://localhost/artifacts");
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IVerificationEmailSender>();
+            services.AddSingleton<IVerificationEmailSender>(Verification);
+        });
     }
 
-    private sealed class CapturingVerificationSender : IVerificationEmailSender
+    public sealed class CapturingVerificationSender : IVerificationEmailSender
     {
         public string? LastToken { get; private set; }
 
@@ -59,27 +67,33 @@ public sealed class SelfServiceJourneyTests
             return Task.FromResult(true);
         }
     }
+}
+
+[CollectionDefinition(Name)]
+public sealed class SimulatedJourneyCollection : ICollectionFixture<SimulatedJourneyFixture>
+{
+    public const string Name = "SimulatedJourney";
+}
+
+[Collection(SimulatedJourneyCollection.Name)]
+public sealed class SelfServiceJourneyTests
+{
+    private const string Password = "correct horse battery staple";
+
+    private readonly SimulatedJourneyFixture _fixture;
+
+    public SelfServiceJourneyTests(SimulatedJourneyFixture fixture)
+    {
+        _fixture = fixture;
+    }
 
     [Fact]
     public async Task AnAnonymousVisitorReachesAProvisionedStoreWithNoOperatorStep()
     {
         if (!_fixture.IsAvailable) return;
 
-        var sender = new CapturingVerificationSender();
-
-        // The same host, with infrastructure simulated and the verification email
-        // captured instead of sent. Everything else is production wiring.
-        var factory = _fixture.Factory.WithWebHostBuilder(builder =>
-        {
-            builder.UseSetting("Provisioning:SimulateInfrastructure", "true");
-            builder.UseSetting("FeatureArtifacts:PublicBaseUrl", "http://localhost/artifacts");
-            builder.ConfigureTestServices(services =>
-            {
-                services.RemoveAll<IVerificationEmailSender>();
-                services.AddSingleton<IVerificationEmailSender>(sender);
-            });
-        });
-
+        var factory = _fixture.Factory;
+        var sender = _fixture.Verification;
         var client = factory.CreateClient();
 
         // --- Arrange: a publicly purchasable plan offering one installable feature.
