@@ -988,7 +988,8 @@
       "renews": "Renews on {{date}}",
       "ending": "Ends at period end",
       "manage": "Manage",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "export": "Export my data"
     },
     "subStatus": {
       "active": "Active",

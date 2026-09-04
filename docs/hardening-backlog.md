@@ -95,13 +95,19 @@ Priority uses the review's P0–P3.
   with no store. At-least-once (the provisioning listener is idempotent), with
   backoff and a dead-letter ceiling. Migration `ActivationOutbox`; unit tests + the
   acceptance test.
-- [ ] **P3 — Tenant data export / offboarding tooling.** The deprovision pipeline
-  already models an `Export` step and a retention window before purge
-  (`adr/0026`); this is turning that manual step into a standard, self-serve
-  export.
-- [ ] **P3 — Push-based telemetry.** Move from polling to an OpenTelemetry
-  collector per store. The meter and traces already exist (phase 7); this is the
-  transport.
+- [x] **P3 — Tenant data export / offboarding tooling.** Built: `GET /api/v1/me/export`
+  hands a customer KNIGHT's whole record of them — store metadata, subscription,
+  entitlements, provisioning history and telemetry counts — as a self-serve JSON
+  download (a "Download my data" button in the portal). `ITenantExportReader` reads
+  only what KNIGHT holds, never a store's own business data. Covered by the
+  acceptance test. *Remaining (small): have the deprovision `Export` step call this
+  to produce the artifact automatically instead of waiting for an operator.*
+- [!] **P3 — Push-based telemetry.** The meter and traces already exist (phase 7,
+  off by default); moving from KNIGHT polling stores to stores pushing to an
+  OpenTelemetry collector is a **cross-repo, infrastructure** change — the store
+  side must emit OTLP and a collector must run — not a self-contained control-plane
+  task. Sequenced with the hosting-platform decision, like the real infrastructure
+  adapter.
 
 ## What the review said to keep (and we agree)
 

@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
-import { Store, Sparkles, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { Store, Sparkles, ArrowRight, CheckCircle2, Loader2, Download } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -10,7 +10,7 @@ import { LoadingBlock, ErrorBlock } from "@/components/ui/StateBlock";
 import { formatDateTime } from "@/lib/utils/format";
 import { ApiError } from "@/lib/api/problem";
 import { ButtonLink } from "../components";
-import { useCancelSubscription, useMyStores, useMySubscription, useProvisioning, type MeStore } from "../api";
+import { useCancelSubscription, useExportMyData, useMyStores, useMySubscription, useProvisioning, type MeStore } from "../api";
 
 /**
  * The portal's home. What a merchant sees depends only on where they are in the
@@ -68,6 +68,7 @@ function SubscriptionCard({ subscription }: { subscription: NonNullable<ReturnTy
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const cancel = useCancelSubscription();
+  const exportData = useExportMyData();
 
   const onCancel = () => {
     cancel.mutate(undefined, {
@@ -91,6 +92,15 @@ function SubscriptionCard({ subscription }: { subscription: NonNullable<ReturnTy
           ) : (
             <StatusChip tone="success">{t(`portal.subStatus.${subscription.status}`, subscription.status)}</StatusChip>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => exportData.mutate()}
+            loading={exportData.isPending}
+          >
+            <Download className="size-4" aria-hidden />
+            {t("portal.subscription.export")}
+          </Button>
           {!subscription.cancelAtPeriodEnd ? (
             <Button variant="ghost" size="sm" onClick={onCancel} loading={cancel.isPending}>
               {t("portal.subscription.cancel")}

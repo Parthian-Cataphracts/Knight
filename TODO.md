@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-09-04** (revision 46 — Phase 31 P2: the **billing outbox** (built, migration + tests + acceptance test) and **agent least-privilege** (hardened systemd unit + AppArmor, authored) done; end-to-end secret rotation flagged as a cross-repo design. Earlier: KMS signer, ADR 0036, PgBouncer, IaC. See Phase 31 and docs/hardening-backlog.md)
+Last updated: **2026-09-04** (revision 47 — Phase 31 P3: **tenant data export** (GET /me/export + portal button, acceptance-tested) done; push-telemetry flagged cross-repo. Earlier P0–P2: KMS signer, ADR 0036, PgBouncer, IaC, billing outbox, agent hardening. The remaining Phase-31 items are cross-repo or infra-decision-gated. See Phase 31 and docs/hardening-backlog.md)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -152,7 +152,7 @@ Phase 27   Deployment                       █████░░░░░  50%
 Phase 28   Migrating the catalogue          ████░░░░░░  40%
 Phase 29   The production gate              ██░░░░░░░░  20%
 Phase 30   Self-service SaaS                ██████████ 100%  (A–G built; real provider + host are product-owner calls)
-Phase 31   Production hardening             ██████░░░░  60%  (P0/P1 + billing outbox + agent hardening done; IaC authored; secret rotation cross-repo)
+Phase 31   Production hardening             ███████░░░  70%  (P0/P1/P2 + tenant export done or authored; secret-rotation & push-telemetry are cross-repo)
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -222,9 +222,12 @@ tickable version of it. Priorities use the review's P0–P3.
   to push a rotated secret to the store (the agent reads its secret from config), so
   a KNIGHT-only sweep would lock stores out and is deliberately not built. See the
   backlog for the design.
-- [ ] **P3 — Tenant data export / offboarding** tooling (the deprovision `Export`
-  step exists; make it self-serve).
-- [ ] **P3 — Push-based telemetry** (OpenTelemetry collector per store).
+- [x] **P3 — Tenant data export.** `GET /api/v1/me/export` + a portal "Download my
+  data" button: KNIGHT's whole record of the customer as self-serve JSON. Covered
+  by the acceptance test. (Small follow-up: auto-produce it in the deprovision
+  `Export` step.)
+- [!] **P3 — Push-based telemetry.** Cross-repo/infra (the store must emit OTLP; a
+  collector must run) — sequenced with the hosting-platform decision.
 
 Kept as-is per the review: the modular monolith, per-store isolation, architecture
 tests and ADRs.

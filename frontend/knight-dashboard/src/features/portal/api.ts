@@ -138,3 +138,24 @@ export function useCancelSubscription() {
     mutationFn: () => apiRequest<void>("/me/subscription/cancel", { method: "POST" }),
   });
 }
+
+/**
+ * Fetches the customer's KNIGHT record and hands it to the browser as a JSON
+ * download — data portability, self-serve (hardening backlog P3). The fetch goes
+ * through the API client so it carries the bearer token; the blob download is a
+ * client-side convenience the server does not need to know about.
+ */
+export function useExportMyData() {
+  return useMutation({
+    mutationFn: async () => {
+      const data = await apiRequest<unknown>("/me/export");
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `knight-export-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    },
+  });
+}

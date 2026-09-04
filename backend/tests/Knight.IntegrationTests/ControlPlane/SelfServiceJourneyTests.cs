@@ -178,6 +178,14 @@ public sealed class SelfServiceJourneyTests
             Assert.NotNull(installation);
             Assert.Equal(FeatureDelivery.Domain.InstallationState.Installed, installation!.State);
         });
+
+        // --- 9. Data portability: the customer exports KNIGHT's record of them.
+        var export = await owner.GetFromJsonAsync<ExportBody>("/api/v1/me/export");
+        Assert.NotNull(export);
+        Assert.Equal(session.User.CustomerId, export!.CustomerId);
+        Assert.NotNull(export.Subscription);
+        Assert.Contains(export.Stores, s => s.Id == storeId);
+        Assert.Contains(export.Entitlements, e => e.FeatureId == featureId);
     }
 
     /// <summary>
@@ -323,4 +331,10 @@ public sealed class SelfServiceJourneyTests
     private sealed record PublicPlanBody(Guid Id, string Key, string Name, decimal BasePrice);
 
     private sealed record CheckoutBody(Guid CheckoutSessionId, Guid SubscriptionId, string CheckoutUrl, decimal Amount, string Currency);
+
+    private sealed record ExportBody(Guid CustomerId, object? Subscription, IReadOnlyList<ExportStore> Stores, IReadOnlyList<ExportEntitlement> Entitlements);
+
+    private sealed record ExportStore(Guid Id, string Name);
+
+    private sealed record ExportEntitlement(Guid FeatureId, string Source);
 }

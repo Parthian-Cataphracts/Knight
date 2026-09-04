@@ -83,6 +83,23 @@ public static class ControlPlaneMeEndpoints
             return Results.NoContent();
         });
 
+        // Data portability: the customer takes away KNIGHT's whole record of them,
+        // self-serve, as a JSON download (hardening backlog P3).
+        group.MapGet("/export", async (
+            IControlPlanePrincipal principal,
+            Knight.Application.Abstractions.ControlPlane.ITenantExportReader export,
+            CancellationToken cancellationToken) =>
+        {
+            if (principal.CustomerId is not { } customerId)
+            {
+                return Forbidden();
+            }
+
+            var document = await export.ExportAsync(customerId, cancellationToken);
+
+            return Results.Json(document, contentType: "application/json", statusCode: StatusCodes.Status200OK);
+        });
+
         group.MapGet("/stores", async (
             IControlPlanePrincipal principal,
             IStoreManagementService stores,
