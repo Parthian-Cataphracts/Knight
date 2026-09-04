@@ -69,6 +69,10 @@ public static class ControlPlaneComposition
         // Provisioning waits on facts that arrive from five other modules and
         // notify nobody, so something has to re-ask on a timer.
         services.AddHostedService<ProvisioningCoordinator>();
+
+        // Produces the facts a self-service run waits on when infrastructure is
+        // simulated; stands down entirely otherwise (docs/self-service-saas-plan.md §11).
+        services.AddHostedService<SimulatedInfrastructureWorker>();
         services.AddHostedService<RolloutCoordinator>();
         services.AddHostedService<BillingRunner>();
 

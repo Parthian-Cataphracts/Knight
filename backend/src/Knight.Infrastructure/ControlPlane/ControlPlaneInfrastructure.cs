@@ -126,6 +126,21 @@ public static class ControlPlaneInfrastructure
         services.AddScoped<IStoreDataPurger, StoreDataPurger>();
         services.AddScoped<IRetentionPolicyReader, RetentionPolicyReader>();
 
+        // The infrastructure adapter. The manual one produces nothing (an operator,
+        // or a real provider adapter, produces the facts); the simulated one
+        // produces them all so the self-service journey runs locally. The flag is
+        // deliberately off by default — a real deployment must not fabricate
+        // infrastructure it does not have (docs/self-service-saas-plan.md §11).
+        var simulateInfrastructure = configuration.GetValue<bool>("Provisioning:SimulateInfrastructure");
+        if (simulateInfrastructure)
+        {
+            services.AddScoped<IInfrastructureAdapter, Adapters.SimulatedInfrastructureAdapter>();
+        }
+        else
+        {
+            services.AddScoped<IInfrastructureAdapter, Adapters.ManualInfrastructureAdapter>();
+        }
+
         // Both of these are joins between the registry and delivery, which are
         // not allowed to know about each other, so they live here.
         services.AddScoped<IStoreDeliveryReader, StoreDeliveryReader>();

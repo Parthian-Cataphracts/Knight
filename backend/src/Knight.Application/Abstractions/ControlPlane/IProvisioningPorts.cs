@@ -119,6 +119,54 @@ public interface IBaseImageCatalog
     Task<BaseImageDescriptor?> FindUsableAsync(string version, CancellationToken cancellationToken);
 }
 
+/// <summary>What producing a store's infrastructure achieved on one pass.</summary>
+public sealed record InfrastructureProgress(
+    bool ServerReady,
+    bool AgentReady,
+    bool CredentialReady,
+    bool DomainReady,
+    bool Connected,
+    int DeliveryJobsApplied,
+    string Detail)
+{
+    public static InfrastructureProgress None { get; } = new(false, false, false, false, false, 0, "No automated infrastructure.");
+}
+
+/// <summary>
+/// Produces the facts an <b>automated</b> provisioning run waits on — the ones a
+/// person otherwise records: a machine with an enrolled agent, a store
+/// credential, a verified domain, a completed handshake — and applies any pending
+/// feature-delivery jobs, so a self-service store comes up with no operator step
+/// (docs/self-service-saas-plan.md §5, §7).
+///
+/// The provisioning engine stays fact-based and untouched: it still only ever
+/// <i>observes</i> these facts. This adapter is what <i>creates</i> them, invoked
+/// out of band by a worker exactly as the real infrastructure and the real agent
+/// would produce them.
+///
+/// The default implementation does nothing and reports it: on a real deployment
+/// an operator (or, once chosen, a real provider adapter) produces these facts.
+/// The simulated implementation performs them all, which is what lets the whole
+/// journey — and its acceptance test — run locally against no real cloud
+/// (docs/self-service-saas-plan.md §11).
+/// </summary>
+public interface IInfrastructureAdapter
+{
+    /// <summary>
+    /// True when this adapter actually provisions infrastructure. False for the
+    /// default no-op, so the worker that drives it can stand down entirely rather
+    /// than sweep for work it will never do.
+    /// </summary>
+    bool IsAutomated { get; }
+
+    /// <summary>
+    /// Brings a store's infrastructure into being, as far as it can in one pass,
+    /// and applies its pending delivery jobs. Idempotent: it creates only what is
+    /// missing, so calling it repeatedly as a run advances is safe and expected.
+    /// </summary>
+    Task<InfrastructureProgress> EnsureAsync(Guid storeId, CancellationToken cancellationToken);
+}
+
 /// <summary>Where a machine sits, and who it belongs to if anybody.</summary>
 public sealed record ServerPlacement(Guid ServerId, string HostingModel, string Environment, Guid? DedicatedCustomerId, bool IsDecommissioned);
 

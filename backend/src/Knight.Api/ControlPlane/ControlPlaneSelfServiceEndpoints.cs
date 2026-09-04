@@ -20,7 +20,10 @@ public static class ControlPlaneSelfServiceEndpoints
     public static void MapControlPlaneSelfServiceEndpoints(this IEndpointRouteBuilder endpoints)
     {
         // --- Public catalogue ------------------------------------------------
-        endpoints.MapGet("/api/v1/plans", async (
+        // Under /catalog rather than /plans: the latter is the operator's
+        // authenticated plan administration, and a public projection is a
+        // different resource with a different audience.
+        endpoints.MapGet("/api/v1/catalog/plans", async (
             IPublicPlanCatalog catalog,
             CancellationToken cancellationToken) =>
         {

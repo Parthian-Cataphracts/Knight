@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-09-04** (revision 39 — self-service SaaS phase C built: public catalogue, checkout, payment-provider abstraction + simulated provider, and the activation webhook; phase D's payment→provisioning wire built; see Phase 30 and the plan)
+Last updated: **2026-09-04** (revision 40 — self-service SaaS phases C, D and E built: public catalogue, checkout, the activation webhook, the payment→provisioning wire, the simulated infrastructure adapter + worker, and the green end-to-end acceptance test; F portal and G ops remain; see Phase 30 and the plan)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -51,13 +51,22 @@ Most of the back end is reused; the work is the front doors, a separate
   carried through the exception middleware. 11 unit tests. *(Transitive
   dependency resolution across selected features is deferred to the delivery
   engine at install time, which already resolves and installs dependencies.)*
-- [~] **D — provisioning automation.** The webhook→job wire is **done**:
-  `ProvisioningActivationListener` creates the store and starts the provisioning
-  job on a confirmed payment, idempotently. Still to build: the
-  `IInfrastructureAdapter` (+ simulated adapter) that flips `server`/`instance`/
-  `domain-tls` to automatic and, for a fully local journey, produces the
-  credential/agent/handshake/health facts the fact-based pipeline observes; the
-  orchestrator retry/backoff/dead-letter tuning; the end-to-end acceptance test.
+- [x] **D — provisioning automation.** The webhook→job wire creates the store
+  and starts provisioning on a confirmed payment (idempotently, and it activates
+  the Prospect customer). An `IInfrastructureAdapter` produces the facts the
+  fact-based provisioning engine waits on — a machine with an enrolled agent, a
+  credential, a verified domain, a completed handshake, a healthy report — with a
+  `SimulatedInfrastructureAdapter` standing in for the unchosen cloud and a
+  `SimulatedInfrastructureWorker` driving it out of band (off unless
+  `Provisioning:SimulateInfrastructure=true`). The provisioning engine itself is
+  **unchanged**: it still only observes facts; the adapter creates them.
+- [x] **E — feature delivery integration.** Desired state resolves from
+  entitlements through the **existing** `BaseFeatureInstaller` and delivery
+  engine — no second installer. Proven end to end by the acceptance test: the
+  purchased feature is installed by the simulated agent and the store reaches
+  Active. The **acceptance test** (docs/self-service-saas-plan.md §13) is green:
+  register → verify → checkout(CUSTOM) → webhook → activate → entitlements →
+  store → simulated infra → feature install → **READY**, with no operator step.
 - [ ] **E — feature delivery integration.** desired state from entitlements →
   existing delivery engine; dependencies; verify + report. No second installer.
 - [ ] **F — customer portal.** signup → verify → plan → CUSTOM selector →
@@ -109,7 +118,7 @@ Phase 26   Operating it                     ██████░░░░  60%
 Phase 27   Deployment                       █████░░░░░  50%
 Phase 28   Migrating the catalogue          ████░░░░░░  40%
 Phase 29   The production gate              ██░░░░░░░░  20%
-Phase 30   Self-service SaaS                ████░░░░░░  45%  (A, B, C done; D wire done)
+Phase 30   Self-service SaaS                ███████░░░  70%  (A–E done; F portal, G ops left)
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in

@@ -34,6 +34,16 @@ public sealed class ProvisioningOptions
     /// </summary>
     [Range(typeof(TimeSpan), "1.00:00:00", "3650.00:00:00")]
     public TimeSpan DefaultRetention { get; init; } = TimeSpan.FromDays(30);
+
+    /// <summary>
+    /// When true, an automated infrastructure adapter produces the machine, agent,
+    /// credential, domain and handshake facts a provisioning run waits on — so a
+    /// self-service store comes up with no operator and no real cloud. This is the
+    /// simulated adapter the self-service plan calls for until a real hosting
+    /// provider is chosen (docs/self-service-saas-plan.md §11). Off by default: a
+    /// real deployment must not fabricate infrastructure it does not have.
+    /// </summary>
+    public bool SimulateInfrastructure { get; init; }
 }
 
 public static class ProvisioningModule

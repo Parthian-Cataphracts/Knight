@@ -1,3 +1,5 @@
+using Customers;
+using Knight.Domain.Exceptions;
 using Microsoft.Extensions.Logging;
 using Plans.Domain;
 using PlatformBilling;
@@ -25,22 +27,38 @@ internal sealed class ProvisioningActivationListener : ISubscriptionActivatedLis
     private readonly IStoreManagementService _stores;
     private readonly IProvisioningService _provisioning;
     private readonly IPlanRepository _plans;
+    private readonly ICustomerManagementService _customers;
     private readonly ILogger<ProvisioningActivationListener> _logger;
 
     public ProvisioningActivationListener(
         IStoreManagementService stores,
         IProvisioningService provisioning,
         IPlanRepository plans,
+        ICustomerManagementService customers,
         ILogger<ProvisioningActivationListener> logger)
     {
         _stores = stores;
         _provisioning = provisioning;
         _plans = plans;
+        _customers = customers;
         _logger = logger;
     }
 
     public async Task OnActivatedAsync(SubscriptionActivatedContext context, CancellationToken cancellationToken)
     {
+        // Paying is what makes a self-service customer operable: they registered
+        // as a Prospect and stay one until now (docs/self-service-saas-plan.md §4).
+        // Idempotent — an already-active customer is left as it is.
+        try
+        {
+            await _customers.ActivateAsync(context.CustomerId, cancellationToken);
+        }
+        catch (DomainException)
+        {
+            // Already active (a redelivered webhook): activation is not a valid
+            // transition from Active, and that is exactly the no-op we want.
+        }
+
         // Idempotent: a redelivered webhook must not create a second store. A
         // self-service customer gets exactly one store, so an existing one is the
         // store this subscription provisions.
