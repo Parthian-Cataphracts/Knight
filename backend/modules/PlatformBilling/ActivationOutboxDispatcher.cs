@@ -12,6 +12,13 @@ namespace PlatformBilling;
 ///
 /// At-least-once by construction, which is safe because the provisioning listener
 /// is idempotent: a redispatched entry reuses the store it already created.
+///
+/// It assumes a single sweeper — KNIGHT deploys as one instance — so it does not
+/// claim rows. Running it on several replicas at once would let two sweeps grab
+/// the same entry and both start one store's provisioning, which the store's
+/// idempotency key turns into a duplicate-insert rather than a second store;
+/// making that safe (a <c>FOR UPDATE SKIP LOCKED</c> claim) is the change to make
+/// before scaling the control plane horizontally.
 /// </summary>
 public interface IActivationOutboxDispatcher
 {

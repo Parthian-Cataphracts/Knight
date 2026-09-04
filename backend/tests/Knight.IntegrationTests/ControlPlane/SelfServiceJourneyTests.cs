@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Onboarding;
 using Plans.Domain;
 using Provisioning;
@@ -52,6 +53,13 @@ public sealed class SimulatedJourneyFixture : PostgresApiFixture
         {
             services.RemoveAll<IVerificationEmailSender>();
             services.AddSingleton<IVerificationEmailSender>(Verification);
+
+            // The test drives the outbox, the infrastructure adapter and the
+            // provisioning engine itself, inline and in order, precisely so the
+            // journey is deterministic. The background workers that also do those
+            // things would only race it — two dispatchers starting one store's
+            // provisioning is a duplicate-key crash — so they are removed here.
+            services.RemoveAll<IHostedService>();
         });
     }
 

@@ -581,10 +581,10 @@ public sealed class ObservabilityTests
             DeliveryFailure(StoreFailureKinds.DeadLettered, "order.paid"),
         ]);
 
-        var result = await EvaluateRulesAsync();
+        await EvaluateRulesAsync();
 
-        Assert.Equal(1, result.DeadLetters);
-
+        // Store-scoped: exactly one dead-letter alert for THIS store, whatever else
+        // the shared database holds. The two reports are one fact, one alert.
         var alerts = await ListAlertsAsync(store.StoreId);
 
         var raised = Assert.Single(
@@ -658,14 +658,21 @@ public sealed class ObservabilityTests
 
         await IngestAsync(storeClient, [DeliveryFailure(StoreFailureKinds.DeadLettered, "order.placed")]);
 
-        var first = await EvaluateRulesAsync();
-        var second = await EvaluateRulesAsync();
+        await EvaluateRulesAsync();
+        await EvaluateRulesAsync();
 
-        // Every rule in this evaluator is written so that running it twice
-        // changes nothing the second time; a sweep on a timer would otherwise
-        // page somebody every pass for as long as the window holds the report.
-        Assert.Equal(1, first.DeadLetters);
-        Assert.Equal(0, second.DeadLetters);
+        // Every rule in this evaluator is written so that running it twice changes
+        // nothing the second time; a sweep on a timer would otherwise page somebody
+        // every pass for as long as the window holds the report. Asserted
+        // store-scoped: this store has exactly one dead-letter alert after two
+        // passes — the second raised no duplicate — regardless of other tests'
+        // rows in the shared database.
+        var alerts = await ListAlertsAsync(store.StoreId);
+
+        Assert.Single(
+            alerts,
+            alert => alert.GetProperty("ruleKey").GetString() == ObservabilityRules.DeliveryDeadLettered
+                && alert.GetProperty("sourceId").GetGuid() == store.StoreId);
     }
 
     // --- Helpers -------------------------------------------------------------
