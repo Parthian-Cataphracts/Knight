@@ -19,6 +19,51 @@ services:
       timeout: 5s
       retries: 10
 
+  # A connection pool in front of PostgreSQL (hardening backlog P1). Every store
+  # has its own database and its own connections; at a thousand stores those
+  # independent connections, not query load, become the ceiling PostgreSQL hits
+  # first. PgBouncer multiplexes them — many client connections onto a small pool
+  # of server ones — in transaction mode, which is the mode that actually pools.
+  #
+  # Point the control plane at this (port 6432) instead of PostgreSQL directly to
+  # use it; connecting straight to 5432 still works and is what development does.
+  # EF Core and Npgsql do not use server-side prepared statements by default, which
+  # is exactly what transaction pooling requires, so no application change is
+  # needed — see infrastructure/database/README.md.
+  pgbouncer:
+    image: edoburu/pgbouncer:v1.23.1-p3
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${POSTGRES_USER:-platform}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-platform}
+      # A wildcard so a database created per store is reachable without adding an
+      # entry here for each one.
+      DB_NAME: "*"
+      LISTEN_PORT: "6432"
+      # plain client auth against a userlist the image derives from
+      # DB_USER/DB_PASSWORD — PgBouncer keeps the plaintext so it can still speak
+      # PostgreSQL's own scram on the server side. PgBouncer connects to PostgreSQL with the
+      # password, so PostgreSQL's own scram is unaffected. A production pooler
+      # would use scram end to end with an auth_query.
+      AUTH_TYPE: plain
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: "1000"
+      DEFAULT_POOL_SIZE: "25"
+      # PgBouncer's own admin/stats console, reachable as the `pgbouncer` database.
+      ADMIN_USERS: ${POSTGRES_USER:-platform}
+    ports:
+      - "${PGBOUNCER_PORT:-6432}:6432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 6432 -U ${POSTGRES_USER:-platform} || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   redis:
     image: redis:7-alpine
     restart: unless-stopped
