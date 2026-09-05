@@ -152,7 +152,7 @@ Phase 29   The production gate              ████░░░░░░  40% 
 Phase 30   Self-service SaaS                ██████████ 100%  (A–G built; real provider + host are product-owner calls)
 Phase 31   Production hardening             ████████░░  80%  (P0/P1/P2 + tenant export + secret rotation done or authored; real payment/hosting adapters & push-telemetry are infra-gated)
 Phase 32   Access tiers & entitlement-gated UI ██████████ 100%  (A: operator tiers made visible — route guard + single permission map + tier screen; B: entitlement-gated customer UI — VisibleUiMounts / visible_ui_mounts, tested both sides)
-Phase 33   The Automatic Admin Feature       ██░░░░░░░░  20%  (foundation + adr/0037/0038 + auto-admin catalogue seeded; generation/publishing engine, portal page and drill next)
+Phase 33   The Automatic Admin Feature       ██████░░░░  60%  (foundation + catalogue + full engine back-end: seams, simulated adapters, orchestrator, persistence, API, drill; portal page + real channel OAuth remain)
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -378,20 +378,21 @@ Under the `auto-admin` parent (placeholder monthly prices, editable via the API)
       parts, with placeholder prices, and the parts listed on the à-la-carte plan
       as toggleable; `ParentFeatureId` exposed on the catalogue contract; the
       seeder groups a part under its parent before publishing.
-- [~] **The generation/publishing engine.** Core built in the `AutoAdmin` module:
+- [x] **The generation/publishing engine (back-end).** The `AutoAdmin` module:
       `IContentGenerator`/`IChannelPublisher` seams + per-channel registry +
       simulated adapters, the orchestrator (entitlement-gated generate → draft or
       publish → report), the per-customer autonomy setting (default
-      approval-first), and 9 unit tests. **Still to do:** persistence (EF configs +
-      migration + repository implementations in Infrastructure), the API
-      endpoints, and DI wiring into the composition root.
+      approval-first), EF persistence + the `AutoAdminEngine` migration + repos,
+      DI wiring into the composition root, and the customer API under
+      `/api/v1/me/auto-admin`. 9 unit tests + a 3-test delivery drill.
 - [ ] **A dedicated portal page** to choose parts, see the running price, set the
       autonomy mode, and manage connected channels — gated per Phase 32B so only
       bought parts appear. *(Separate lane — left for the other session per the
-      owner's split; the engine back-end above is this session's lane.)*
+      owner's split; it calls the `/api/v1/me/auto-admin` API above.)*
 - [ ] **Channel credentials and OAuth** for real channels, reusing the per-store
       secret delivery from phases 24 and 31 (Telegram first).
-- [ ] **Tests and a delivery drill**, the same bar every catalogue Feature clears.
+- [x] **Tests and a delivery drill**, the same bar every catalogue Feature clears:
+      the engine runs end-to-end against a real database and the full DI graph.
 
 > Real AI provider/model and real channel integrations remain owner-supplied and
 > arrive as drop-in adapters behind the seams; the green tier above is built and

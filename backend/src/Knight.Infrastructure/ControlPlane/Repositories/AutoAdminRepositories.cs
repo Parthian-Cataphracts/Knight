@@ -1,5 +1,6 @@
 using AutoAdmin.Domain;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace Knight.Infrastructure.ControlPlane.Repositories;
 
@@ -54,6 +55,30 @@ internal sealed class ContentJobRepository : IContentJobRepository
             .OrderByDescending(job => job.CreatedAt)
             .ToArrayAsync(cancellationToken);
 
-    public Task SaveChangesAsync(CancellationToken cancellationToken) =>
-        _context.SaveChangesAsync(cancellationToken);
+    public Task SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        // A publication (or a draft) is immutable once recorded. When approval
+        // adds one to a job that was loaded rather than created here, EF reads its
+        // client-assigned key as an existing row and marks it Modified, so the
+        // update finds nothing to change. It is a new row: make it an insert.
+        foreach (var entry in _context.ChangeTracker.Entries<Publication>())
+        {
+            PromoteToInsert(entry);
+        }
+
+        foreach (var entry in _context.ChangeTracker.Entries<ContentDraft>())
+        {
+            PromoteToInsert(entry);
+        }
+
+        return _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private static void PromoteToInsert(EntityEntry entry)
+    {
+        if (entry.State is EntityState.Modified)
+        {
+            entry.State = EntityState.Added;
+        }
+    }
 }

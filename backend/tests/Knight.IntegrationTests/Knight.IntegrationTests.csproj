@@ -26,6 +26,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Knight.Api\Knight.Api.csproj" />
     <ProjectReference Include="..\..\src\Knight.Infrastructure\Knight.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\modules\AutoAdmin\AutoAdmin.csproj" />
     <ProjectReference Include="..\..\modules\FeatureRegistry\FeatureRegistry.csproj" />
     <ProjectReference Include="..\..\modules\Plans\Plans.csproj" />
     <ProjectReference Include="..\..\modules\Subscriptions\Subscriptions.csproj" />
