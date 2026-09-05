@@ -1704,9 +1704,7 @@ Carried out of phase 18:
 
 - [~] **Automate the phase-18 run** and **roll back across two genuinely
       different schemas** — both are phase 19, above
-- [ ] **The health poller does not capture the runtime block**, only the
-      heartbeat does. A store KNIGHT polls but which never heartbeats stays
-      uncertifiable for delivery
+- [x] **The health poller captures the runtime block** — **fixed 2026-09-05.** The store answers `/health` with `dependencies` and `runtime` as siblings; the probe now merges the runtime block into the stored dependency document under a `runtime` key, the same shape a heartbeat leaves, so the runtime resolver reads it and a store KNIGHT only polls is certifiable. 3 unit tests
 - [ ] **Domain verification was never exercised**, and nothing in the delivery
       path gates on it: a store can be installed into while still `Pending`
 
@@ -2204,8 +2202,7 @@ one is to run `knight_deliver --dead-letters` and know to.
       `adr/0013` names it as the mitigation for a grouping heuristic that will
       sometimes be wrong
 - [x] **Log search, filtering and export** — **delivered 2026-09-05** (see phase-29 §"Log search"): server-side `minSeverity`/`search`/`from`/`to` on `GET /api/v1/logs`, a `logs.export` CSV endpoint, and the dashboard wired to all of it. Browser-verified against the live API
-- [ ] **The health poller captures the runtime block**, carried from phase 17. A
-      store KNIGHT polls but which never heartbeats is still uncertifiable
+- [x] **The health poller captures the runtime block** — **fixed 2026-09-05** (the probe merges the store's `runtime` block into the stored dependency document, matching the heartbeat's shape). Carried from phase 17
 - [ ] **Concurrency proven rather than argued.** Recorded three times — phases
       14, 15 and 17 — and it is the kind of thing that is fine until it is an
       incident. The locks and the constraints are the right ones; nothing has

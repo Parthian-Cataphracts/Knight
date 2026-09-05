@@ -196,7 +196,7 @@ internal sealed class StoreHealthProbe : IStoreHealthProbe
                 latencyMs,
                 ReadString(root, "version"),
                 ReadString(root, "environment"),
-                ReadRaw(root, "dependencies"),
+                CombineHealthDocument(root),
                 ReadRaw(root, "features"),
                 ReadString(root, "detail"));
         }
@@ -229,6 +229,43 @@ internal sealed class StoreHealthProbe : IStoreHealthProbe
         root.TryGetProperty(property, out var element) && element.ValueKind is JsonValueKind.Object or JsonValueKind.Array
             ? element.GetRawText()
             : null;
+
+    /// <summary>
+    /// The dependency document to store, in the same shape a heartbeat leaves it:
+    /// the store's dependency checks with its <c>runtime</c> block merged in under
+    /// a <c>runtime</c> key.
+    ///
+    /// The store answers <c>/health</c> with <c>dependencies</c> and <c>runtime</c>
+    /// as siblings; capturing only the former is what left a store KNIGHT polls
+    /// but which never heartbeats uncertifiable for delivery, because the runtime
+    /// resolver reads the runtime out of exactly this stored document. Merging
+    /// here rather than teaching the resolver a second shape keeps poll and
+    /// heartbeat producing one thing to read.
+    /// </summary>
+    internal static string? CombineHealthDocument(JsonElement root)
+    {
+        var hasDependencies = root.TryGetProperty("dependencies", out var dependencies)
+            && dependencies.ValueKind is JsonValueKind.Object;
+        var hasRuntime = root.TryGetProperty("runtime", out var runtime)
+            && runtime.ValueKind is JsonValueKind.Object;
+
+        if (!hasDependencies && !hasRuntime)
+        {
+            return null;
+        }
+
+        var document = hasDependencies
+            ? System.Text.Json.Nodes.JsonNode.Parse(dependencies.GetRawText()) as System.Text.Json.Nodes.JsonObject
+              ?? new System.Text.Json.Nodes.JsonObject()
+            : new System.Text.Json.Nodes.JsonObject();
+
+        if (hasRuntime)
+        {
+            document["runtime"] = System.Text.Json.Nodes.JsonNode.Parse(runtime.GetRawText());
+        }
+
+        return document.ToJsonString();
+    }
 
     /// <summary>
     /// One line, no inner-exception chain and no URL. Probe failures are stored
