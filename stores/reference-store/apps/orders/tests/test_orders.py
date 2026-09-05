@@ -9,6 +9,7 @@ instead of creating a second.
 """
 
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -89,21 +90,62 @@ class LifecycleTests(TestCase):
 
             self.assertEqual(order.status, OrderStatus.CANCELLED)
 
-    def test_terminal_states_are_terminal(self):
-        completed = place()
-
+    def _complete(self) -> Order:
+        order = place()
         for target in (
             OrderStatus.CONFIRMED,
             OrderStatus.PREPARING,
             OrderStatus.READY,
             OrderStatus.COMPLETED,
         ):
-            completed.transition_to(target)
+            order.transition_to(target)
+        return order
 
-        self.assertEqual(ALLOWED_TRANSITIONS[OrderStatus.COMPLETED], set())
+    def test_terminal_states_are_terminal(self):
+        # Cancelled and refunded are the ends of the road; completed is not, since
+        # a paid order can still be refunded.
+        self.assertEqual(ALLOWED_TRANSITIONS[OrderStatus.CANCELLED], set())
+        self.assertEqual(ALLOWED_TRANSITIONS[OrderStatus.REFUNDED], set())
 
+        completed = self._complete()
+
+        # A completed order cannot be cancelled — it was paid; the way back is a
+        # refund, not a cancellation.
         with self.assertRaises(ValidationError):
             completed.transition_to(OrderStatus.CANCELLED)
+
+    def test_a_completed_order_can_be_refunded_and_then_is_terminal(self):
+        order = self._complete()
+
+        order.refund(actor="counter", reason="Shopper returned the item.")
+
+        self.assertEqual(order.status, OrderStatus.REFUNDED)
+        self.assertIsNotNone(order.refunded_at)
+        self.assertEqual(order.refund_reason, "Shopper returned the item.")
+        self.assertTrue(order.is_terminal)
+
+        # Nothing follows a refund.
+        with self.assertRaises(ValidationError):
+            order.refund()
+
+    def test_only_a_completed_order_can_be_refunded(self):
+        # A refund is what happens to an order that was paid; a live order is
+        # cancelled, not refunded.
+        order = place()
+        order.transition_to(OrderStatus.CONFIRMED)
+
+        with self.assertRaises(ValidationError):
+            order.refund(reason="Too early.")
+
+    def test_a_refund_announces_order_refunded(self):
+        # The event the Features that subscribed to a refund actually receive.
+        order = self._complete()
+
+        with patch("knight_integration.features.announce") as announce:
+            order.refund(reason="Returned.")
+
+        events = [call.args[0] for call in announce.call_args_list]
+        self.assertIn("order.refunded", events)
 
     def test_every_transition_is_recorded_with_its_actor(self):
         # The history is what answers "who cancelled this and when" during the

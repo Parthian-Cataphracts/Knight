@@ -41,6 +41,7 @@ class OrderStatus(models.TextChoices):
     READY = "Ready", "Ready"
     COMPLETED = "Completed", "Completed"
     CANCELLED = "Cancelled", "Cancelled"
+    REFUNDED = "Refunded", "Refunded"
 
 
 class FulfillmentMethod(models.TextChoices):
@@ -56,8 +57,11 @@ ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     OrderStatus.CONFIRMED: {OrderStatus.PREPARING, OrderStatus.CANCELLED},
     OrderStatus.PREPARING: {OrderStatus.READY, OrderStatus.CANCELLED},
     OrderStatus.READY: {OrderStatus.COMPLETED, OrderStatus.CANCELLED},
-    OrderStatus.COMPLETED: set(),
+    # A completed order has been paid (that is what raises order.paid), so the
+    # one thing left that can happen to it is a refund. Refunded is terminal.
+    OrderStatus.COMPLETED: {OrderStatus.REFUNDED},
     OrderStatus.CANCELLED: set(),
+    OrderStatus.REFUNDED: set(),
 }
 
 
@@ -126,6 +130,8 @@ class Order(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
     cancellation_reason = models.CharField(max_length=500, blank=True, default="")
+    refunded_at = models.DateTimeField(null=True, blank=True)
+    refund_reason = models.CharField(max_length=500, blank=True, default="")
 
     # Incremented on every transition. A caller that read an order, decided
     # something and wrote back can check that nothing moved underneath it.
@@ -169,7 +175,7 @@ class Order(models.Model):
 
     @property
     def is_terminal(self) -> bool:
-        return self.status in {OrderStatus.COMPLETED, OrderStatus.CANCELLED}
+        return self.status in {OrderStatus.CANCELLED, OrderStatus.REFUNDED}
 
     def transition_to(
         self,
@@ -190,8 +196,8 @@ class Order(models.Model):
                 f"An order that is {self.status} cannot become {target}."
             )
 
-        if target == OrderStatus.CANCELLED and len(reason) > 500:
-            raise ValidationError("The cancellation reason is too long.")
+        if target in {OrderStatus.CANCELLED, OrderStatus.REFUNDED} and len(reason) > 500:
+            raise ValidationError("The reason is too long.")
 
         previous = self.status
         self.status = target
@@ -206,6 +212,9 @@ class Order(models.Model):
         elif target == OrderStatus.CANCELLED:
             self.cancelled_at = now
             self.cancellation_reason = reason.strip()
+        elif target == OrderStatus.REFUNDED:
+            self.refunded_at = now
+            self.refund_reason = reason.strip()
 
         self.save(
             update_fields=[
@@ -214,6 +223,8 @@ class Order(models.Model):
                 "completed_at",
                 "cancelled_at",
                 "cancellation_reason",
+                "refunded_at",
+                "refund_reason",
                 "updated_at",
             ]
         )
@@ -230,8 +241,24 @@ class Order(models.Model):
             _announce("order.paid", self)
         elif target == OrderStatus.CANCELLED:
             _announce("order.cancelled", self, reason=reason.strip())
+        elif target == OrderStatus.REFUNDED:
+            _announce("order.refunded", self, reason=reason.strip())
 
         return history
+
+    def refund(self, *, actor: str = "", reason: str = "") -> "OrderStatusHistory":
+        """
+        Refunds a completed order.
+
+        A refund is what happens to an order that was paid — `order.paid` is
+        raised on completion — so only a completed order can be refunded, and
+        once refunded it is terminal. Recording it here, symmetrically with
+        cancellation, is what publishes `order.refunded` to the Features that
+        subscribed and leaves the trace that answers "who refunded this and when".
+        The money side is a separate transaction with its own record; this is the
+        order-level fact the event is about.
+        """
+        return self.transition_to(OrderStatus.REFUNDED, actor=actor, reason=reason)
 
     #: A reference to something outside this store that caused this order.
     #:

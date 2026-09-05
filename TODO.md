@@ -2030,8 +2030,14 @@ not one byte had crossed between a store and a service.
       outage is phase 24
 - [ ] **The service is not deployed anywhere.** It runs in `docker compose` and
       in CI; putting it on a host is phase 27
-- [ ] **`order.refunded` has a receiver and no publisher** — the base store has
-      no refund flow yet. Declared and wired, not exercised
+- [x] **`order.refunded` has a publisher** — **built 2026-09-05.** The base store
+      grew a refund flow: a completed order (completion is what raises
+      `order.paid`) can be refunded, which is terminal, recorded with its actor
+      and reason symmetrically with cancellation, and raises `order.refunded` to
+      the Features that subscribed. `Order.refund()`, an `OrderStatus.REFUNDED`
+      state, `refunded_at`/`refund_reason`, migration `0003`, 4 tests. The money
+      side stays a separate transaction; this is the order-level fact the event
+      is about
 - [x] **The billing loop is closed** — `knight_generate_subscription_orders`
       asks the Feature what is owed an order, places them and reports the
       numbers back, and does it the same way whether `subscriptions` is a
