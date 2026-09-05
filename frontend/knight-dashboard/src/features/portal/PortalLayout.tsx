@@ -1,9 +1,8 @@
 import { Outlet, Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Store, LogOut, Languages } from "lucide-react";
+import { Store, LogOut } from "lucide-react";
 import { apiRequest } from "@/lib/api/client";
 import { useAuthStore } from "@/store/auth";
-import { useUiStore } from "@/store/ui";
 
 /**
  * The customer portal shell — deliberately its own layout, not the operations
@@ -15,8 +14,6 @@ export function PortalLayout() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const signOut = useAuthStore((state) => state.signOut);
-  const locale = useUiStore((state) => state.locale);
-  const setLocale = useUiStore((state) => state.setLocale);
 
   const onSignOut = async () => {
     try {
@@ -41,14 +38,6 @@ export function PortalLayout() {
           </Link>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setLocale(locale === "fa" ? "en" : "fa")}
-              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-body-sm text-on-surface-variant hover:bg-surface-high hover:text-on-surface"
-            >
-              <Languages className="size-4" aria-hidden />
-              {locale === "fa" ? "EN" : "فا"}
-            </button>
             {user ? (
               <span className="hidden text-body-sm text-on-surface-variant sm:inline">{user.email}</span>
             ) : null}

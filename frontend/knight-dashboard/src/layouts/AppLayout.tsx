@@ -1,16 +1,16 @@
 import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Menu, X, Moon, Sun, Search, PanelLeftClose, PanelLeftOpen, Globe } from "lucide-react";
+import { Menu, X, Moon, Sun, Search, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { useUiStore } from "@/store/ui";
 import { NotificationCentre } from "@/features/shared/NotificationCentre";
 import { cn } from "@/lib/utils/cn";
 
 export function AppLayout() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const location = useLocation();
-  const { theme, locale, sidebarCollapsed, mobileNavOpen, toggleTheme, setLocale, toggleSidebar, setMobileNavOpen } =
+  const { theme, sidebarCollapsed, mobileNavOpen, toggleTheme, toggleSidebar, setMobileNavOpen } =
     useUiStore();
 
   useEffect(() => {
@@ -90,18 +90,6 @@ export function AppLayout() {
           </div>
 
           <div className="ms-auto flex items-center gap-1">
-            <button
-              type="button"
-              className="grid size-10 place-items-center rounded-md text-on-surface-variant hover:bg-surface-high"
-              aria-label={t("common.language")}
-              onClick={() => {
-                const next = locale === "fa" ? "en" : "fa";
-                setLocale(next);
-                void i18n.changeLanguage(next);
-              }}
-            >
-              <Globe className="size-5" />
-            </button>
             <button
               type="button"
               className="grid size-10 place-items-center rounded-md text-on-surface-variant hover:bg-surface-high"

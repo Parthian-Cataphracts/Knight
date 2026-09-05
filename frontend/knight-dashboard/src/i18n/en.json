@@ -576,7 +576,8 @@
     "mockMode": "Fixture mode",
     "mockOn": "On",
     "mockOff": "Off",
-    "mockNote": "Data comes from local fixtures, not a real API."
+    "mockNote": "Data comes from local fixtures, not a real API.",
+    "languageEnglish": "English"
   },
   "alerts": {
     "subtitle": "Active alerts across infrastructure, stores and feature delivery.",

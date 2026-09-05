@@ -1,4 +1,6 @@
-const localeTag = (locale: string) => (locale === "fa" ? "fa-IR" : "en-US");
+// The UI is English-only (docs/risks.md §3.6), so numbers and dates are
+// formatted in en-US regardless of what the document's lang attribute says.
+const localeTag = (_locale: string) => "en-US";
 
 export function formatNumber(value: number, locale = document.documentElement.lang): string {
   return new Intl.NumberFormat(localeTag(locale)).format(value);
@@ -58,7 +60,7 @@ export function formatRelative(
  * Keeps only the digits in `value`, accepting Persian (۰-۹) and Arabic-Indic
  * (٠-٩) digits as well as ASCII ones and returning ASCII throughout.
  *
- * The dashboard defaults to Persian, so an operator on a Persian keyboard types
+ * The UI is English, but an operator on a Persian or Arabic keyboard still types
  * U+06F0-U+06F9. Those are not matched by `\d`, which is ASCII-only: filtering
  * with `/\D/g` alone discards every keystroke and the field cannot be filled at
  * all. The API wants ASCII, so this normalises rather than merely permitting.

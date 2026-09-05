@@ -64,8 +64,13 @@ Status: **living document**. Update whenever a risk is resolved or discovered.
    was about.)
 5. ~~**Agent hosting**~~ **Resolved 2026-09-05: both.** Support all hosting
    modes — company-managed and customer-managed servers.
-6. ~~**Locale**~~ **Resolved 2026-09-05: English.** The UI is English. (This
-   overrides the earlier "both, Persian default" assumption in the docs.)
+6. ~~**Locale**~~ **Resolved 2026-09-05: English, and built.** The UI is
+   English. (This overrides the earlier "both, Persian default" assumption.) The
+   dashboard is now English-only: the Persian resource bundle and every language
+   switcher (dashboard header, portal header, settings) are removed, `<html>` is
+   `lang="en" dir="ltr"`, numbers and dates format in en-US, and the locale
+   scaffolding is kept as a one-entry list so a second language can return later
+   without touching every call site.
 7. ~~**Store provisioning**~~ **Resolved 2026-09-05: per the proposal.** Store
    record, credentials, agent and base Feature installation automated; VM/DB/TLS
    creation manual at first (`store-provisioning.md` §2).

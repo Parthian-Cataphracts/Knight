@@ -1,7 +1,9 @@
 import { create } from "zustand";
 
 type Theme = "dark" | "light";
-type Locale = "fa" | "en";
+// English-only UI (docs/risks.md §3.6). Kept as a type rather than inlined so a
+// second locale can return here without hunting down every reference.
+type Locale = "en";
 
 interface UiState {
   theme: Theme;
@@ -33,7 +35,9 @@ const stored = readStored();
 
 export const useUiStore = create<UiState>((set, get) => ({
   theme: stored.theme ?? "dark",
-  locale: stored.locale ?? ((import.meta.env.VITE_DEFAULT_LOCALE as Locale | undefined) ?? "fa"),
+  // Always English. A "fa" left in a returning visitor's storage from before the
+  // UI became English-only is ignored rather than honoured.
+  locale: "en",
   sidebarCollapsed: stored.sidebarCollapsed ?? false,
   mobileNavOpen: false,
   setTheme: (theme) => {
