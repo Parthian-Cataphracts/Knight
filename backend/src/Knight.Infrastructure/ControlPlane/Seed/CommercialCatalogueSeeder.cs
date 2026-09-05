@@ -74,11 +74,48 @@ internal sealed class CommercialCatalogueSeeder : ICommercialCatalogueSeeder
         var now = _clock.UtcNow;
         var featureIds = await SeedFeaturesAsync(catalogue, now, cancellationToken);
         await SeedPlansAsync(catalogue, featureIds, now, cancellationToken);
+        await RetireOrphanIdentitiesAsync(catalogue, now, cancellationToken);
 
         _logger.LogInformation(
             "Seeded the commercial catalogue: {FeatureCount} features, {PlanCount} plans.",
             catalogue.Features.Count,
             catalogue.Plans.Count);
+    }
+
+    /// <summary>
+    /// Withdraws the orphan identities an earlier catalogue seeded and later
+    /// superseded — <c>analytics</c> by <c>analytics-core</c>/<c>analytics-reports</c>,
+    /// and so on (docs/phase-28-verification.md §6). They are named in the
+    /// catalogue data, so the retirement is explicit and auditable rather than a
+    /// list buried in code. A withdrawal is a status change, never a delete, so a
+    /// customer who somehow still held one keeps their record; and it is a no-op
+    /// on a deployment that never seeded them, which is why it belongs in the
+    /// additive seeder rather than in an operator's memory.
+    /// </summary>
+    private async Task RetireOrphanIdentitiesAsync(
+        CatalogueDocument catalogue,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var retired = 0;
+
+        foreach (var slug in catalogue.Retired)
+        {
+            var feature = await _features.GetBySlugAsync(FeatureSlug.Normalize(slug), cancellationToken);
+            if (feature is null || feature.Status is FeatureStatus.Withdrawn)
+            {
+                continue;
+            }
+
+            feature.Withdraw(now);
+            retired++;
+        }
+
+        if (retired > 0)
+        {
+            await _features.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Retired {Count} orphan feature identities.", retired);
+        }
     }
 
     private async Task<Dictionary<string, Guid>> SeedFeaturesAsync(
@@ -273,6 +310,9 @@ internal sealed class CommercialCatalogueSeeder : ICommercialCatalogueSeeder
         public IReadOnlyCollection<FeatureDefinition> Features { get; init; } = [];
 
         public IReadOnlyCollection<PlanDefinition> Plans { get; init; } = [];
+
+        /// <summary>Slugs of orphan identities to withdraw where a past deployment seeded them.</summary>
+        public IReadOnlyCollection<string> Retired { get; init; } = [];
     }
 
     private sealed record FeatureDefinition

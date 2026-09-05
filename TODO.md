@@ -147,7 +147,7 @@ Phase 24   Secrets and rotation             ██████████ 100%
 Phase 25   The two real stores              ███████░░░  70%
 Phase 26   Operating it                     ██████░░░░  60%
 Phase 27   Deployment                       ███████░░░  70%  (live on a real VM + update/rollback exercised; provisioning automation & docker images remain)
-Phase 28   Migrating the catalogue          ████░░░░░░  40%
+Phase 28   Migrating the catalogue          █████░░░░░  45%  (decision table + config validation + orphan-identity retirement done; delivering 3 as services + a wired vendor remain, each phase-22-sized/account-gated)
 Phase 29   The production gate              ████░░░░░░  40%  (DNS-TXT + restore-drill-on-real-data done; security review, 11 answers, in-process call remain — owner's)
 Phase 30   Self-service SaaS                ██████████ 100%  (A–G built; real provider + host are product-owner calls)
 Phase 31   Production hardening             ████████░░  80%  (P0/P1/P2 + tenant export + secret rotation done or authored; real payment/hosting adapters & push-telemetry are infra-gated)
@@ -2376,8 +2376,11 @@ apologised for: it is the only way to be inside the store's transaction.
       version the store actually has; a manifest that cannot be read judges
       nothing, because refusing an operator's change over a fault that is not
       theirs is worse than the typo. Carried from phase 3.5
-- [ ] **The orphan identities withdrawn** — `analytics`, `loyalty`,
-      `order-management` and the rest, carried from phase 12
+- [x] **The orphan identities withdrawn** — `analytics`, `loyalty`,
+      `order-management`, `ai-recommendations`, carried from phase 12. Named in the
+      catalogue data (`retired`) and withdrawn by the seeder where a past
+      deployment seeded them: a status change, never a delete, and a no-op on a
+      fresh install. An integration test stands one up and reseeds to prove it.
 - [x] **Feature and version management from the dashboard** — **already built**: the operator withdraws (yanks) a bad version and manages a feature's lifecycle from the Features screen. Creating/signing a version stays a command-line act by design. Entry was stale
 - [ ] **Per-feature plan composition and time-boxed prices**, carried from
       phase 6

@@ -108,8 +108,12 @@ PUT /api/v1/installations/configuration
   none has ever called anybody.
 - **`cart.abandoned`** needs a cart in the base store — see above.
 - **The orphan identities** (`analytics`, `loyalty`, `order-management`,
-  `ai-recommendations`) are withdrawn by an API call on a deployment that was
-  seeded from the old file. Seeding is additive and never deletes, so this is an
-  action against a running system rather than an edit to this repository.
+  `ai-recommendations`) are now retired by the seeder itself: they are named in
+  the catalogue data under `retired`, and each is withdrawn where a past
+  deployment seeded it. A withdrawal is a status change, never a delete — a
+  customer who somehow still held one keeps their record — and it is a no-op on a
+  deployment that never had them, which is why it belongs in the additive seeder
+  rather than in an operator's memory. An integration test stands an orphan up
+  and reseeds to prove it is withdrawn.
 - **Feature and version creation from the dashboard**, and **per-feature plan
   composition with time-boxed prices**, both carried from phase 6.

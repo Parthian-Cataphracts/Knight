@@ -22,6 +22,15 @@
     "An operator may point at a different file with Catalogue:SeedPath."
   ],
   "currency": "EUR",
+  "$retiredComment": [
+    "Orphan identities an earlier catalogue seeded and later superseded:",
+    "`analytics` and `ai-recommendations` by analytics-core/analytics-reports/",
+    "ai-reports, `loyalty` by loyalty-rewards, `order-management` by the base",
+    "store's orders. The seeder withdraws these where a past deployment seeded",
+    "them (docs/phase-28-verification.md §6); a withdrawal is a status change,",
+    "never a delete, and a no-op on a deployment that never had them."
+  ],
+  "retired": ["analytics", "loyalty", "order-management", "ai-recommendations"],
   "features": [
     {
       "$comment": [
