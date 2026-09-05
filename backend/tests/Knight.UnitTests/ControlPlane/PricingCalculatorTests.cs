@@ -108,6 +108,36 @@ public sealed class PricingCalculatorTests
     }
 
     [Fact]
+    public async Task TheCompositeFeaturePriceIsTheSumOfItsChosenParts()
+    {
+        // The Automatic Admin is sold as parts; the price a customer pays is the
+        // sum of the parts they ticked, computed here with no special path
+        // (docs/adr/0037-composed-pricing-and-sub-features.md).
+        var plan = CreatePlan();
+        var image = Guid.NewGuid();
+        var caption = Guid.NewGuid();
+        var telegram = Guid.NewGuid();
+        foreach (var part in new[] { image, caption, telegram })
+        {
+            plan.SetFeature(part, isIncluded: false, isCustomerToggleable: true, null, Now);
+        }
+
+        _prices.GetApplicableAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<Guid>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns([
+                FeaturePrice.Create(Guid.NewGuid(), image, null, Money.Of(12m, "EUR"), BillingPeriod.Monthly, Now),
+                FeaturePrice.Create(Guid.NewGuid(), caption, null, Money.Of(9m, "EUR"), BillingPeriod.Monthly, Now),
+                FeaturePrice.Create(Guid.NewGuid(), telegram, null, Money.Of(6m, "EUR"), BillingPeriod.Monthly, Now),
+            ]);
+
+        var quote = await _calculator.QuoteAsync(
+            new QuoteRequest(plan, [image, caption, telegram], Now), CancellationToken.None);
+
+        // 49 base + 12 + 9 + 6.
+        Assert.Equal(76m, quote.Subtotal.Amount);
+        Assert.Equal(4, quote.Lines.Count);
+    }
+
+    [Fact]
     public async Task TheSameFeatureRequestedTwiceIsChargedOnce()
     {
         var plan = CreatePlan();

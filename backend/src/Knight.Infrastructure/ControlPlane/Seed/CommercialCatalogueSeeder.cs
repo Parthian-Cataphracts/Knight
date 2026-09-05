@@ -87,6 +87,7 @@ internal sealed class CommercialCatalogueSeeder : ICommercialCatalogueSeeder
         CancellationToken cancellationToken)
     {
         var ids = new Dictionary<string, Guid>(StringComparer.Ordinal);
+        var created = new Dictionary<string, Feature>(StringComparer.Ordinal);
 
         foreach (var definition in catalogue.Features)
         {
@@ -106,22 +107,54 @@ internal sealed class CommercialCatalogueSeeder : ICommercialCatalogueSeeder
 
                 feature.UpdateMetadata(definition.Name, definition.Description, definition.Category, now);
 
-                if (definition.Publish)
-                {
-                    feature.Publish(now);
-                }
-
+                // Grouping under a parent and publishing are deferred to the
+                // passes below: a part's parent is frozen at publication, and the
+                // parent may be defined after the part in the file.
                 await _features.AddAsync(feature, cancellationToken);
+                created[slug] = feature;
             }
             else if (feature.Status is not FeatureStatus.Withdrawn)
             {
                 // Metadata is safe to refresh; whether the capability needs
-                // dedicated infrastructure is not, and the aggregate refuses to
-                // change it after publication for exactly that reason.
+                // dedicated infrastructure or which parent it belongs to is not,
+                // and the aggregate refuses to change those after publication for
+                // exactly that reason.
                 feature.UpdateMetadata(definition.Name, definition.Description, definition.Category, now);
             }
 
             ids[slug] = feature.Id;
+        }
+
+        // Group a newly-created part under its parent before it is published. A
+        // part that already existed keeps the parent it was published with
+        // (docs/adr/0037-composed-pricing-and-sub-features.md).
+        foreach (var definition in catalogue.Features.Where(d => !string.IsNullOrWhiteSpace(d.Parent)))
+        {
+            var slug = FeatureSlug.Normalize(definition.Slug);
+            if (!created.TryGetValue(slug, out var child))
+            {
+                continue;
+            }
+
+            var parentSlug = FeatureSlug.Normalize(definition.Parent!);
+            if (!ids.TryGetValue(parentSlug, out var parentId))
+            {
+                _logger.LogWarning(
+                    "Feature '{Slug}' names an unknown parent '{Parent}'; leaving it top-level.", slug, parentSlug);
+                continue;
+            }
+
+            child.GroupUnder(parentId, now);
+        }
+
+        // Publish newly-created features last, once their parent is set.
+        foreach (var definition in catalogue.Features.Where(d => d.Publish))
+        {
+            var slug = FeatureSlug.Normalize(definition.Slug);
+            if (created.TryGetValue(slug, out var child))
+            {
+                child.Publish(now);
+            }
         }
 
         await _features.SaveChangesAsync(cancellationToken);
@@ -251,6 +284,9 @@ internal sealed class CommercialCatalogueSeeder : ICommercialCatalogueSeeder
         public string? Description { get; init; }
 
         public string Category { get; init; } = "General";
+
+        /// <summary>The larger Feature this one is a part of, by slug, or null for a top-level Feature.</summary>
+        public string? Parent { get; init; }
 
         public bool IsOptional { get; init; } = true;
 

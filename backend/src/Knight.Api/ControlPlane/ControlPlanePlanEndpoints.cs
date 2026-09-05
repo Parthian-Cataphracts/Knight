@@ -330,6 +330,7 @@ public static class ControlPlanePlanEndpoints
         Category = feature.Category,
         IsOptional = feature.IsOptional,
         RequiresDedicatedInfrastructure = feature.RequiresDedicatedInfrastructure,
+        ParentFeatureId = feature.ParentFeatureId,
         Status = feature.Status.ToString(),
         CreatedAt = feature.CreatedAt,
         UpdatedAt = feature.UpdatedAt,

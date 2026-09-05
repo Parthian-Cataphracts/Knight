@@ -304,6 +304,148 @@
       "prices": [
         { "amount": 99.00, "billingPeriod": "Monthly" }
       ]
+    },
+
+    {
+      "$comment": [
+        "The Automatic Admin (ادمین خودکار): a composed Feature",
+        "(docs/adr/0037-composed-pricing-and-sub-features.md). This parent is an",
+        "unpriced umbrella that names the product and gives the portal page its",
+        "title; each part below is a Feature of its own, priced and entitled",
+        "independently, and the price a customer pays is the sum of the parts they",
+        "tick. The parent is in no plan and has no price, so it can never be",
+        "entitled or quoted on its own. Prices are placeholders, editable through",
+        "the API. Generation runs against an external model provider behind a seam",
+        "(docs/adr/0038, docs/adr/0030), so no part needs dedicated infrastructure."
+      ],
+      "slug": "auto-admin",
+      "name": "Automatic Admin",
+      "description": "A virtual store admin that generates content, publishes it to the channels you connect, replies to your customers and works your visibility up — reporting for approval like a real employee.",
+      "category": "Automation",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true
+    },
+    {
+      "slug": "auto-admin-image",
+      "name": "Automatic Admin — Image generation",
+      "description": "Generates and enhances product images from a photo and a topic: background removal, a studio look and the store's watermark.",
+      "category": "Automation",
+      "parent": "auto-admin",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true,
+      "prices": [ { "amount": 12.00, "billingPeriod": "Monthly" } ]
+    },
+    {
+      "slug": "auto-admin-caption",
+      "name": "Automatic Admin — Caption writing",
+      "description": "Writes captions, product descriptions and hashtags in the store's voice, with a call to action.",
+      "category": "Automation",
+      "parent": "auto-admin",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true,
+      "prices": [ { "amount": 9.00, "billingPeriod": "Monthly" } ]
+    },
+    {
+      "slug": "auto-admin-story",
+      "name": "Automatic Admin — Stories",
+      "description": "Builds stories from the catalogue and a topic, ready to publish to the connected channels.",
+      "category": "Automation",
+      "parent": "auto-admin",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true,
+      "prices": [ { "amount": 7.00, "billingPeriod": "Monthly" } ]
+    },
+    {
+      "slug": "auto-admin-video",
+      "name": "Automatic Admin — Short video",
+      "description": "Generates a short promotional video from the catalogue and a topic.",
+      "category": "Automation",
+      "parent": "auto-admin",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true,
+      "prices": [ { "amount": 24.00, "billingPeriod": "Monthly" } ]
+    },
+    {
+      "slug": "auto-admin-telegram",
+      "name": "Automatic Admin — Telegram publishing",
+      "description": "Publishes the admin's content to the store's Telegram channel.",
+      "category": "Automation",
+      "parent": "auto-admin",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true,
+      "prices": [ { "amount": 6.00, "billingPeriod": "Monthly" } ]
+    },
+    {
+      "slug": "auto-admin-instagram",
+      "name": "Automatic Admin — Instagram publishing",
+      "description": "Publishes the admin's content to the store's Instagram business account.",
+      "category": "Automation",
+      "parent": "auto-admin",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true,
+      "prices": [ { "amount": 9.00, "billingPeriod": "Monthly" } ]
+    },
+    {
+      "slug": "auto-admin-divar",
+      "name": "Automatic Admin — Divar publishing",
+      "description": "Posts the admin's listings to Divar (دیوار).",
+      "category": "Automation",
+      "parent": "auto-admin",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true,
+      "prices": [ { "amount": 9.00, "billingPeriod": "Monthly" } ]
+    },
+    {
+      "slug": "auto-admin-basalam",
+      "name": "Automatic Admin — Basalam publishing",
+      "description": "Posts the admin's listings to Basalam (باسلام).",
+      "category": "Automation",
+      "parent": "auto-admin",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true,
+      "prices": [ { "amount": 8.00, "billingPeriod": "Monthly" } ]
+    },
+    {
+      "slug": "auto-admin-autoreply",
+      "name": "Automatic Admin — Auto-reply",
+      "description": "Replies to comments and direct messages with product information, drafted for approval by default.",
+      "category": "Automation",
+      "parent": "auto-admin",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true,
+      "prices": [ { "amount": 11.00, "billingPeriod": "Monthly" } ]
+    },
+    {
+      "slug": "auto-admin-boost",
+      "name": "Automatic Admin — Visibility",
+      "description": "Works listings up the safe way: reposting at the best time, title/photo/hashtag optimisation and paid-promotion (نردبان) management. No automated following or engagement.",
+      "category": "Automation",
+      "parent": "auto-admin",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true,
+      "prices": [ { "amount": 15.00, "billingPeriod": "Monthly" } ]
+    },
+    {
+      "slug": "auto-admin-autopilot",
+      "name": "Automatic Admin — Autopilot",
+      "description": "The brain: give it a topic and it generates, suggests, and either drafts for approval or publishes on your behalf, then reports.",
+      "category": "Automation",
+      "parent": "auto-admin",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
+      "publish": true,
+      "prices": [ { "amount": 19.00, "billingPeriod": "Monthly" } ]
     }
   ],
   "plans": [
@@ -368,7 +510,25 @@
         { "slug": "restaurant-operations", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "multi-location", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "subscriptions", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "external-marketplaces", "isIncluded": false, "isCustomerToggleable": true }
+        { "slug": "external-marketplaces", "isIncluded": false, "isCustomerToggleable": true },
+
+        { "$comment": [
+            "The Automatic Admin's parts, each toggleable on its own. The parent",
+            "'auto-admin' is deliberately absent: it is an unpriced umbrella, not a",
+            "thing to entitle, and listing it would put a toggle on a product that",
+            "has no price of its own (docs/adr/0037)."
+          ],
+          "slug": "auto-admin-image", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "auto-admin-caption", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "auto-admin-story", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "auto-admin-video", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "auto-admin-telegram", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "auto-admin-instagram", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "auto-admin-divar", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "auto-admin-basalam", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "auto-admin-autoreply", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "auto-admin-boost", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "auto-admin-autopilot", "isIncluded": false, "isCustomerToggleable": true }
       ]
     },
     {

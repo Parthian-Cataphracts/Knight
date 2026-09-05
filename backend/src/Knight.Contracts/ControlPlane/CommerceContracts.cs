@@ -43,6 +43,14 @@ public sealed record FeatureResponse
 
     public required bool RequiresDedicatedInfrastructure { get; init; }
 
+    /// <summary>
+    /// The larger Feature this one is a part of, or null for a top-level Feature.
+    /// A composed Feature groups its parts under one parent so the portal can
+    /// present them on one page and sum their prices
+    /// (docs/adr/0037-composed-pricing-and-sub-features.md).
+    /// </summary>
+    public Guid? ParentFeatureId { get; init; }
+
     /// <summary>Draft, Published, Deprecated or Withdrawn.</summary>
     public required string Status { get; init; }
 

@@ -152,7 +152,7 @@ Phase 29   The production gate              ████░░░░░░  40% 
 Phase 30   Self-service SaaS                ██████████ 100%  (A–G built; real provider + host are product-owner calls)
 Phase 31   Production hardening             ████████░░  80%  (P0/P1/P2 + tenant export + secret rotation done or authored; real payment/hosting adapters & push-telemetry are infra-gated)
 Phase 32   Access tiers & entitlement-gated UI ██████████ 100%  (A: operator tiers made visible — route guard + single permission map + tier screen; B: entitlement-gated customer UI — VisibleUiMounts / visible_ui_mounts, tested both sides)
-Phase 33   The Automatic Admin Feature       █░░░░░░░░░  10%  (composed-pricing foundation built — adr/0037, sub-feature grouping on Feature; catalogue list, prices, AI provider and channel integrations are owner-supplied)
+Phase 33   The Automatic Admin Feature       ██░░░░░░░░  20%  (foundation + adr/0037/0038 + auto-admin catalogue seeded; generation/publishing engine, portal page and drill next)
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -308,48 +308,90 @@ item, page and route exist for them.
 
 ## Phase 33 — The Automatic Admin Feature
 
-**Not started. Planned.** A large sellable Feature — "Automatic Admin" (ادمین
-خودکار) — that generates and publishes marketing content across channels on the
-store's behalf. It is itself composed of **sub-features**, each independently
-sellable, and the price is the sum of the sub-features the customer ticks. It
-needs its own dedicated page in the customer portal and admin.
+**In progress.** A large sellable Feature — "Automatic Admin" (ادمین خودکار) — a
+virtual store admin that, on the store's behalf, generates content (image,
+caption, story, video), publishes it to the channels the customer connected,
+replies to their customers, and works their visibility up — reporting for
+approval like a real employee, automatically. It is composed of **sub-features**,
+each independently sellable, and the price is the sum of the parts the customer
+ticks. It has its own dedicated page in the customer portal and admin.
 
 This is the first Feature whose **entitlement is composed of sub-entitlements**,
-so it exercises Phase 32B directly: the customer sees only the sub-features they
-bought, and the page prices the selection live.
+so it exercises Phase 32B directly: the customer sees only the parts they bought,
+and the page prices the selection live.
 
-### Scope (to be refined into ADRs before building)
+### Decisions pinned (owner)
 
-- [ ] **Sub-feature catalogue.** Each is a channel or a generation capability,
-      priced on its own. Initial set from the owner: Instagram post, Divar
-      (دیوار) post, Basalam (باسلام) post, image generation, caption generation,
-      story. **The full list and the per-item prices are the owner's to supply.**
-- [~] **Composed pricing.** The Feature's price for a customer is the sum of the
-      chosen sub-features (with any bundle rules the owner defines). **Foundation
-      built 2026-09-05:** [`adr/0037`](docs/adr/0037-composed-pricing-and-sub-features.md)
-      decides a sub-feature *is* a Feature grouped under a parent by
-      `Feature.ParentFeatureId` — so pricing (sum of selected features),
-      entitlement (per-feature), Phase-32B gating and delivery all compose with
-      no new stack; only the parent grouping is new. `GroupUnder`/`Ungroup`
-      (draft-only), a migration and 5 tests. **Owner still supplies:** the
-      sub-feature list, per-item prices, and any bundle rules
-- [ ] **A dedicated page** in the portal to choose sub-features, see the running
-      price, and manage what is connected — gated per Phase 32B so only bought
-      sub-features appear.
-- [ ] **The generation/publishing engine.** Where content is generated (an AI
-      provider — model and key are the owner's decision, behind the existing
-      `IPlatformPaymentProvider`-style seam pattern) and how each channel is
-      posted to (each of Instagram, Divar, Basalam has its own API, credentials
-      and review/authorisation flow — several are **owner-supplied integrations**).
-- [ ] **Channel credentials and OAuth.** Each channel the customer connects needs
-      its own authorisation; this reuses the per-store secret delivery built in
-      phases 24 and 31.
+- **Target customer:** the small Instagram/marketplace store — no staff, no design
+  skill, content is their daily oxygen. Some sell mostly on Divar (بنگاه-style),
+  some on Instagram, some on Telegram, so the customer picks **all channels or
+  only the ones they need**.
+- **The differentiator is *connected* content, not generation.** The admin works
+  from this store and posts to its channels; generation alone is a commodity.
+- **Composite Feature, sub-priced parts** — each part is a real Feature; the
+  parent is an unpriced umbrella; the price is the sum of ticked parts, which the
+  existing pricing calculator already computes.
+  → [`adr/0037`](docs/adr/0037-composed-pricing-and-sub-features.md).
+- **Generation & publishing behind seams** — `IContentGenerator` and
+  `IChannelPublisher` (per-channel registry) with **simulated adapters**, plus an
+  orchestrator (topic → generate → approve/publish → report). Real AI key and real
+  channels drop in later, one at a time.
+  → [`adr/0038`](docs/adr/0038-the-automatic-admin-generates-and-publishes-behind-seams.md).
+- **Autonomy — per-customer setting, defaults to draft-then-approve.** Full-auto
+  is an opt-in; a wrong post or reply is the merchant's liability.
+- **Visibility — the ToS-safe version only:** scheduled reposting at good times,
+  title/photo/hashtag optimisation, and paid-promotion (نردبان) management. **No
+  auto-follow/engagement** — it breaks platform terms and gets accounts banned.
+- **Channel sequencing for real integrations:** Telegram first (reachable, simple
+  Bot API), then Divar/Basalam, **Meta last** (Instagram/WhatsApp Graph API is
+  sanction/IP-blocked from Iran and needs app review).
+- **Pricing shape:** flat monthly per part, in the catalogue currency; a per-plan
+  generation cap is a later pricing detail. Usage-based metering is deferred.
+
+### v1 sub-feature catalogue
+
+Under the `auto-admin` parent (placeholder monthly prices, editable via the API):
+
+| slug | part | kind |
+|---|---|---|
+| `auto-admin-image` | image generation / enhancement | generation |
+| `auto-admin-caption` | caption + description + hashtags | generation |
+| `auto-admin-story` | story | generation |
+| `auto-admin-video` | short video *(heaviest; may slip to v1.5)* | generation |
+| `auto-admin-telegram` | Telegram publishing *(first real channel)* | channel |
+| `auto-admin-instagram` | Instagram publishing | channel |
+| `auto-admin-divar` | Divar (دیوار) publishing | channel |
+| `auto-admin-basalam` | Basalam (باسلام) publishing | channel |
+| `auto-admin-autoreply` | auto-reply to comments/DMs | engagement |
+| `auto-admin-boost` | visibility (safe: scheduling + listing SEO + نردبان) | growth |
+| `auto-admin-autopilot` | topic → generate, suggest, publish/approve, report | orchestration |
+
+### Build checklist
+
+- [x] **Composed-pricing foundation.** [`adr/0037`](docs/adr/0037-composed-pricing-and-sub-features.md):
+      a sub-feature *is* a Feature grouped under a parent by `Feature.ParentFeatureId`
+      (`GroupUnder`/`Ungroup`, draft-only), so pricing, entitlement, Phase-32B
+      gating and delivery all compose with no new stack.
+- [x] **ADR 0038** — generation/publishing seams, approval-first autonomy default,
+      and the safe-growth (no auto-follow) decision.
+- [x] **Sub-feature catalogue seeded.** The `auto-admin` parent and its eleven
+      parts, with placeholder prices, and the parts listed on the à-la-carte plan
+      as toggleable; `ParentFeatureId` exposed on the catalogue contract; the
+      seeder groups a part under its parent before publishing.
+- [ ] **The generation/publishing engine.** `IContentGenerator` +
+      `SimulatedContentGenerator`; `IChannelPublisher` + per-channel registry +
+      `SimulatedChannelPublisher`; the orchestrator; the per-customer autonomy
+      setting; content-job/draft/report state and persistence; endpoints.
+- [ ] **A dedicated portal page** to choose parts, see the running price, set the
+      autonomy mode, and manage connected channels — gated per Phase 32B so only
+      bought parts appear.
+- [ ] **Channel credentials and OAuth** for real channels, reusing the per-store
+      secret delivery from phases 24 and 31 (Telegram first).
 - [ ] **Tests and a delivery drill**, the same bar every catalogue Feature clears.
 
-> Both phases 32 and 33 are recorded here at the owner's request as upcoming
-> work. Neither is started; scope above is the brief, not a spec — each needs its
-> decisions pinned (tiers, sub-feature list and prices, AI provider, channel
-> integrations) before it is built.
+> Real AI provider/model and real channel integrations remain owner-supplied and
+> arrive as drop-in adapters behind the seams; the green tier above is built and
+> tested with simulated adapters, no key or account required.
 
 ---
 
