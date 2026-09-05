@@ -2257,8 +2257,13 @@ one is to run `knight_deliver --dead-letters` and know to.
       one, and reading a loyalty balance are all API-only today
 - [x] **A reusable job-progress component** — **delivered 2026-09-05** (`StepTimeline`, shared by provisioning and installations). The events are broadcast and the
       screens refetch; nothing renders per-step progress. Carried from phase 6
-- [ ] **Alerting rules, and a runbook per alert.** An alert without a runbook is
-      a page at three in the morning that begins with reading source code
+- [x] **A runbook for every raised alert.** An audit of the raised rules against
+      [`docs/runbooks.md`](docs/runbooks.md) found two with none — `server.offline`
+      and `backup.failed` — both now written. (`server.degraded`,
+      `server.disk.critical`, `agent.offline` and `store.unreachable` are declared
+      constants that nothing currently *raises* — `ApplyThresholds` sets a Degraded
+      status without an alert — so wiring those is a behaviour change for later,
+      not a doc gap.)
 - [ ] **`server_metrics` partitioning**, carried from phase 4: retention works
       and the table is one table
 - [ ] **Manual merge and split of error groups**, carried from phase 5, where

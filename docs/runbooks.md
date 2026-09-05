@@ -202,3 +202,46 @@ answers.
 
 **Safe to ignore when.** The resolution was optimistic and the group is known to
 recur — in which case ignore the *group*, not this alert.
+
+---
+
+## `server.offline` — critical
+
+**What it means.** A machine in the fleet stopped reporting: no heartbeat from
+its agent for the configured number of missed intervals, so the sweep has marked
+the server offline. Every store on that machine is affected — delivery to them
+stalls until an agent reports again — whether or not their own probes have
+noticed yet.
+
+**Look at first.** Whether the host itself is down or only its agent — try
+reaching the machine. The monitoring screen names the server and when it was last
+seen; the stores hosted on it are the blast radius.
+
+**What to do.** If the host is down, bring it back. If the host is up and only the
+agent stopped, restart the agent on it (`knightctl restart` on the machine).
+Nothing on that server takes delivery until an agent reports, so a job queued for
+one of its stores waits rather than fails.
+
+**Safe to ignore when.** A planned reboot or maintenance window on that host. The
+alert closes on its own once the agent reports and the next sweep sees the server
+healthy again.
+
+---
+
+## `backup.failed` — critical
+
+**What it means.** A store's backup job ran and failed. This is the loud twin of
+`backup.overdue`: overdue is a backup that quietly stopped running, and this is
+one that tried and did not produce a usable dump. The store's recoverable point
+is still the last *successful* backup, not this attempt.
+
+**Look at first.** The store's own report for why it failed — a full disk, a
+locked table, a credential — and the timestamp of the last successful backup,
+which is how far back the store can currently be restored.
+
+**What to do.** Fix the cause and run a backup by hand; a success resolves this
+alert on its own (and the overdue one with it). Until one succeeds, treat any
+risky operation on that store as unrecoverable past the last good dump.
+
+**Safe to ignore when.** A single transient that the next scheduled run recovers
+from — but confirm the next run actually succeeded rather than assuming it did.
