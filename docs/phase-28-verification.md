@@ -115,5 +115,9 @@ PUT /api/v1/installations/configuration
   deployment that never had them, which is why it belongs in the additive seeder
   rather than in an operator's memory. An integration test stands an orphan up
   and reseeds to prove it is withdrawn.
-- **Feature and version creation from the dashboard**, and **per-feature plan
-  composition with time-boxed prices**, both carried from phase 6.
+- **Per-feature plan composition with time-boxed prices** is done: the backend
+  already composed plans and time-boxed prices (a price change closes the one it
+  replaces at the same instant the new one opens, per plan); the operator UI now
+  sets each feature's membership on a plan and its price — general or plan-scoped
+  — and shows the price history. **Feature and version creation from the
+  dashboard** remains (carried from phase 6).

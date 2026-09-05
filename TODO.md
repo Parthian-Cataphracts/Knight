@@ -147,7 +147,7 @@ Phase 24   Secrets and rotation             ██████████ 100%
 Phase 25   The two real stores              ███████░░░  70%
 Phase 26   Operating it                     ██████░░░░  60%
 Phase 27   Deployment                       ███████░░░  70%  (live on a real VM + update/rollback exercised; provisioning automation & docker images remain)
-Phase 28   Migrating the catalogue          █████░░░░░  45%  (decision table + config validation + orphan-identity retirement done; delivering 3 as services + a wired vendor remain, each phase-22-sized/account-gated)
+Phase 28   Migrating the catalogue          ██████░░░░  60%  (decision table + config validation + orphan retirement + per-plan composition/time-boxed pricing done; only delivering 3 as services + a wired vendor + a base-store cart remain — each phase-22-sized/account-gated)
 Phase 29   The production gate              ████░░░░░░  40%  (DNS-TXT + restore-drill-on-real-data done; security review, 11 answers, in-process call remain — owner's)
 Phase 30   Self-service SaaS                ██████████ 100%  (A–G built; real provider + host are product-owner calls)
 Phase 31   Production hardening             ████████░░  80%  (P0/P1/P2 + tenant export + secret rotation done or authored; real payment/hosting adapters & push-telemetry are infra-gated)
@@ -2382,8 +2382,13 @@ apologised for: it is the only way to be inside the store's transaction.
       deployment seeded them: a status change, never a delete, and a no-op on a
       fresh install. An integration test stands one up and reseeds to prove it.
 - [x] **Feature and version management from the dashboard** — **already built**: the operator withdraws (yanks) a bad version and manages a feature's lifecycle from the Features screen. Creating/signing a version stays a command-line act by design. Entry was stale
-- [ ] **Per-feature plan composition and time-boxed prices**, carried from
-      phase 6
+- [x] **Per-feature plan composition and time-boxed prices**, carried from
+      phase 6. The backend already composed plans (`PUT`/`DELETE` plan features)
+      and time-boxed prices (`SetPriceAsync` closes the in-force price and opens a
+      new one, per plan); the gap was the operator UI. A plan composer on the
+      Plans screen now sets each feature's membership (Not in plan / Optional /
+      Included) and its price — general or scoped to the plan — and shows the
+      time-boxed price history. Typechecks, builds, and a screens test covers it.
 
 **Gate: half met.** The decision table exists for all sixteen. The three marked
 "service" are not delivered as services and not in the drill — each is a

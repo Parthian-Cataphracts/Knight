@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Check, X, Plus } from "lucide-react";
 import { useCollection } from "@/lib/api/hooks";
 import { ChangeSubscriptionDialog } from "./ChangeSubscriptionDialog";
+import { PlanFeaturesDialog } from "./PlanFeaturesDialog";
 import { EditDrawer } from "@/features/shared/EditDrawer";
 import { useAction } from "@/lib/api/hooks";
 import type { EntitlementMatrixRow, Plan, Subscription } from "@/lib/api/domain";
@@ -38,6 +39,11 @@ export function PlansPage() {
   const [changing, setChanging] = useState<Subscription | null>(null);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [creatingPlan, setCreatingPlan] = useState(false);
+  const [managingPlanId, setManagingPlanId] = useState<string | null>(null);
+
+  // Derived from the list so a composition or price change refetches and the
+  // open dialog re-reads the plan rather than showing what it opened with.
+  const managingPlan = (plans.data ?? []).find((plan) => plan.id === managingPlanId) ?? null;
 
   // Activation is what decides whether a plan can be sold. Kept apart from
   // editing its price, because changing what a plan costs and deciding whether
@@ -139,6 +145,12 @@ export function PlansPage() {
         }}
       />
 
+      <PlanFeaturesDialog
+        plan={managingPlan}
+        onClose={() => setManagingPlanId(null)}
+        onChanged={() => void plans.refetch()}
+      />
+
       <PageHeader
         title={t("nav.plans")}
         subtitle={t("plans.subtitle")}
@@ -194,6 +206,10 @@ export function PlansPage() {
               <div className="mt-5 flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" onClick={() => setEditingPlan(plan)}>
                   {t("plans.edit")}
+                </Button>
+
+                <Button variant="outline" size="sm" onClick={() => setManagingPlanId(plan.id)}>
+                  {t("plans.manageFeatures", "Features & pricing")}
                 </Button>
 
                 <Button
