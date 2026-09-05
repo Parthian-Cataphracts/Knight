@@ -843,7 +843,7 @@ Then sign in at http://localhost:5173 and walk:
 - [x] Error boundaries per route — **already built** (`app/RouteErrorBoundary.tsx`, wrapping every route in `app/routes.tsx` with a per-screen fallback). Entry was stale
 - [x] SignalR client and notification centre — `lib/realtime/connection.ts` and the bell in `AppLayout`, both exercised against the live hub during the phase 10 browser run
 - [x] A reusable **job progress** component — **delivered 2026-09-05.** `components/data/StepTimeline.tsx` renders a run's per-step timeline (icon, name, status, detail), normalising every step vocabulary (provisioning `Succeeded`/`Waiting`, installation `Running`, portal lowercase) onto one set. ProvisioningPage and InstallationsPage now share it instead of each maintaining its own icon map and markup
-- [ ] Logical-property ESLint rule
+- [x] Logical-property ESLint rule — **delivered 2026-09-05, and ESLint set up at last.** The `lint` script referenced a linter that was never installed; there is now a flat `eslint.config.js` (typescript-eslint + rules-of-hooks + react-refresh) and the house rule: physical CSS utilities (`ml-`/`mr-`, `pl-`/`pr-`, `left-`/`right-`, `text-left`/`text-right`) are refused in favour of logical ones. The codebase passed clean (it already lays out logically); the only fixes were a ref-during-render in `useRealtime`. `npm run lint` is green
 - [x] Vitest + Testing Library harness — 9 screen tests run in CI (upgraded to vitest 3 in phase 10)
 - [ ] Playwright — still none; the browser walk is driven by hand each phase
 

@@ -12,7 +12,14 @@ import { onRealtime, type RealtimeEvent } from "./connection";
  */
 export function useRealtime<T>(event: RealtimeEvent, handler: (payload: T) => void): void {
   const latest = useRef(handler);
-  latest.current = handler;
+
+  // Kept current in an effect rather than during render: a ref written while
+  // rendering is read before commit and is what the rules-of-hooks refs check
+  // exists to catch. The subscription still reads `latest.current`, so it always
+  // calls the newest handler without re-subscribing.
+  useEffect(() => {
+    latest.current = handler;
+  });
 
   useEffect(() => onRealtime<T>(event, (payload) => latest.current(payload)), [event]);
 }
