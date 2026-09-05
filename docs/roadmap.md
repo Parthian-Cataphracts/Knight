@@ -395,18 +395,18 @@ a lint rule, and Playwright.
 
 ## 7. What I need from you
 
-The service lives in this repository. Of the five below, three are answered
-(2026-09-05); two remain.
+The service lives in this repository. Of the five below, four are answered
+(2026-09-05); only **backup custody** remains.
 
 1. **Engage the security reviewer** — **answered: engage, do not defer.**
    Security must be fully resolved; R16 must be closed rather than left open.
    Still the longest lead time, so it starts first.
-2. **The hosting platform.** *Still open.* This is the infrastructure customer
-   stores are built and run on — a public cloud (AWS / DigitalOcean / Hetzner,
-   provisioned through its API) or company-owned servers. Until it is chosen the
-   simulated adapter stands in and the full journey runs locally, but no real
-   store can be provisioned. Unblocks phase 27's image half and the provisioning
-   automation carried from phase 9.
+2. **The hosting platform** — **answered 2026-09-05: KNIGHT's own servers.**
+   Customer stores are built and run on company-owned infrastructure, not a
+   public cloud. The real `IInfrastructureAdapter` therefore provisions
+   `server`/`instance`/`domain-tls` against KNIGHT-operated machines; the
+   simulated adapter keeps standing in until that adapter exists. Unblocks phase
+   27's image half and the provisioning automation carried from phase 9.
 3. **Phonix access** — **answered: dropped for now.** Phonix is out of scope;
    the first project is BojanStore, which is already connected end to end.
 4. **Backup custody** — where the offsite copy goes. *Still open — the product
