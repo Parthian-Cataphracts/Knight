@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, CheckCircle2, CircleDot, RotateCcw, XCircle, Clock } from "lucide-react";
+import { AlertTriangle, RotateCcw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAction, useCollection, useResource } from "@/lib/api/hooks";
 import { apiRequest } from "@/lib/api/client";
@@ -12,6 +12,7 @@ import { PageShell, PageHeader, Toolbar, FilterTabs, KeyValue, Mono } from "@/co
 import { CollectionCard } from "@/components/data/CollectionCard";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { Drawer } from "@/components/data/Drawer";
+import { StepTimeline } from "@/components/data/StepTimeline";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { Button } from "@/components/ui/Button";
 import { useAuthStore } from "@/store/auth";
@@ -20,20 +21,6 @@ import { installationTone, jobTone } from "./installationTone";
 import { InstallPreviewDialog } from "./InstallPreviewDialog";
 
 type Tab = "installations" | "jobs";
-
-const stepIcon = {
-  Succeeded: CheckCircle2,
-  Running: CircleDot,
-  Failed: XCircle,
-  Skipped: Clock,
-} as const;
-
-const stepColor = {
-  Succeeded: "text-success",
-  Running: "text-info",
-  Failed: "text-error",
-  Skipped: "text-on-surface-variant/40",
-} as const;
 
 /**
  * A job's steps.
@@ -60,34 +47,26 @@ function JobProgress({ job }: { job: Job }) {
   }
 
   return (
-    <ol className="flex flex-col gap-2.5">
-      {steps.map((step: JobStep) => {
-        const Icon = stepIcon[step.status];
-        return (
-          <li key={step.sequence} className="flex items-start gap-3">
-            <Icon className={`mt-0.5 size-4 shrink-0 ${stepColor[step.status]}`} aria-hidden />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-baseline justify-between gap-2">
-                <span dir="ltr" className="font-mono text-label text-on-surface">
-                  {step.sequence}. {step.name}
-                </span>
-                <span className="text-body-sm text-on-surface-variant">
-                  {t(`stepStatus.${step.status}`)}
-                </span>
-              </div>
-              {step.output ? (
-                <p
-                  dir="ltr"
-                  className="mt-1 overflow-x-auto rounded bg-surface-lowest px-2 py-1.5 font-mono text-label text-on-surface-variant"
-                >
-                  {step.output}
-                </p>
-              ) : null}
-            </div>
-          </li>
-        );
-      })}
-    </ol>
+    <StepTimeline
+      steps={steps.map((step: JobStep) => ({
+        id: step.sequence,
+        label: (
+          <span dir="ltr" className="font-mono text-label text-on-surface">
+            {step.sequence}. {step.name}
+          </span>
+        ),
+        status: step.status,
+        detail: step.output ? (
+          <span
+            dir="ltr"
+            className="block overflow-x-auto rounded bg-surface-lowest px-2 py-1.5 font-mono text-label text-on-surface-variant"
+          >
+            {step.output}
+          </span>
+        ) : undefined,
+      }))}
+      statusLabel={(status) => t(`stepStatus.${status}`)}
+    />
   );
 }
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, CircleDot, Clock, XCircle, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
+import { StepTimeline } from "@/components/data/StepTimeline";
 import { useAction, useCollection } from "@/lib/api/hooks";
 import { PageShell, PageHeader, Toolbar, FilterTabs, KeyValue, Mono } from "@/components/data/PageShell";
 import { CollectionCard } from "@/components/data/CollectionCard";
@@ -49,23 +50,6 @@ const stateTone: Record<string, Tone> = {
   Cancelled: "neutral",
 };
 
-const stepIcon: Record<string, typeof CheckCircle2> = {
-  Succeeded: CheckCircle2,
-  Waiting: CircleDot,
-  Running: CircleDot,
-  Failed: XCircle,
-  Skipped: Clock,
-  Pending: Clock,
-};
-
-const stepColor: Record<string, string> = {
-  Succeeded: "text-success",
-  Waiting: "text-info",
-  Running: "text-info",
-  Failed: "text-error",
-  Skipped: "text-on-surface-variant/40",
-  Pending: "text-on-surface-variant/40",
-};
 
 /**
  * The operator's view of provisioning runs — self-service and operator-started
@@ -243,29 +227,15 @@ export function ProvisioningPage() {
 
             <section>
               <h3 className="label-caps mb-3 text-on-surface-variant/80">{t("provisioning.step")}</h3>
-              <ol className="flex flex-col gap-2.5">
-                {selected.steps.map((step) => {
-                  const Icon = stepIcon[step.status] ?? CircleDot;
-                  return (
-                    <li key={step.sequence} className="flex items-start gap-3">
-                      <Icon className={`mt-0.5 size-4 shrink-0 ${stepColor[step.status] ?? ""}`} aria-hidden />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <span className="text-body-sm text-on-surface">
-                            {t(`provisioningStep.${step.name}`, step.name)}
-                          </span>
-                          <span className="text-body-sm text-on-surface-variant">
-                            {t(`provisioningStepStatus.${step.status}`, step.status)}
-                          </span>
-                        </div>
-                        {step.detail ? (
-                          <p className="mt-1 text-body-sm text-on-surface-variant">{step.detail}</p>
-                        ) : null}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
+              <StepTimeline
+                steps={selected.steps.map((step) => ({
+                  id: step.sequence,
+                  label: t(`provisioningStep.${step.name}`, step.name),
+                  status: step.status,
+                  detail: step.detail ?? undefined,
+                }))}
+                statusLabel={(status) => t(`provisioningStepStatus.${status}`, status)}
+              />
             </section>
           </div>
         ) : null}
