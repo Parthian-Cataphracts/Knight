@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
-import { Store, Sparkles, ArrowRight, CheckCircle2, Loader2, Download } from "lucide-react";
+import { Store, Sparkles, ArrowRight, CheckCircle2, Loader2, Download, Bot } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -58,6 +58,7 @@ export function PortalHomePage() {
         <>
           <SubscriptionCard subscription={subscription.data} />
           {store ? <StoreCard store={store} /> : <PendingStore />}
+          <AutoAdminCard />
         </>
       )}
     </div>
@@ -162,6 +163,31 @@ function StoreCard({ store }: { store: MeStore }) {
         ) : (
           <LoadingBlock rows={2} />
         )}
+      </CardBody>
+    </Card>
+  );
+}
+
+function AutoAdminCard() {
+  const { t } = useTranslation();
+  return (
+    <Card>
+      <CardBody className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 place-items-center rounded-lg bg-primary/15 text-primary">
+            <Bot className="size-5" aria-hidden />
+          </span>
+          <div>
+            <p className="font-medium text-on-surface">{t("portal.autoAdmin.title", "Automatic Admin")}</p>
+            <p className="text-body-sm text-on-surface-variant">
+              {t("portal.autoAdmin.cardBody", "Generate and publish content across your channels, on autopilot.")}
+            </p>
+          </div>
+        </div>
+        <ButtonLink variant="outline" to="/portal/auto-admin">
+          {t("portal.autoAdmin.open", "Open")}
+          <ArrowRight className="size-4 rtl:-scale-x-100" aria-hidden />
+        </ButtonLink>
       </CardBody>
     </Card>
   );
