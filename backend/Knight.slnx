@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/modules/">
     <Project Path="modules/AccessControl/AccessControl.csproj" />
+    <Project Path="modules/AutoAdmin/AutoAdmin.csproj" />
     <Project Path="modules/Billing/Billing.csproj" />
     <Project Path="modules/Customers/Customers.csproj" />
     <Project Path="modules/Ingestion/Ingestion.csproj" />

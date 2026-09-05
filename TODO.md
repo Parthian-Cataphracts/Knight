@@ -378,13 +378,17 @@ Under the `auto-admin` parent (placeholder monthly prices, editable via the API)
       parts, with placeholder prices, and the parts listed on the à-la-carte plan
       as toggleable; `ParentFeatureId` exposed on the catalogue contract; the
       seeder groups a part under its parent before publishing.
-- [ ] **The generation/publishing engine.** `IContentGenerator` +
-      `SimulatedContentGenerator`; `IChannelPublisher` + per-channel registry +
-      `SimulatedChannelPublisher`; the orchestrator; the per-customer autonomy
-      setting; content-job/draft/report state and persistence; endpoints.
+- [~] **The generation/publishing engine.** Core built in the `AutoAdmin` module:
+      `IContentGenerator`/`IChannelPublisher` seams + per-channel registry +
+      simulated adapters, the orchestrator (entitlement-gated generate → draft or
+      publish → report), the per-customer autonomy setting (default
+      approval-first), and 9 unit tests. **Still to do:** persistence (EF configs +
+      migration + repository implementations in Infrastructure), the API
+      endpoints, and DI wiring into the composition root.
 - [ ] **A dedicated portal page** to choose parts, see the running price, set the
       autonomy mode, and manage connected channels — gated per Phase 32B so only
-      bought parts appear.
+      bought parts appear. *(Separate lane — left for the other session per the
+      owner's split; the engine back-end above is this session's lane.)*
 - [ ] **Channel credentials and OAuth** for real channels, reusing the per-store
       secret delivery from phases 24 and 31 (Telegram first).
 - [ ] **Tests and a delivery drill**, the same bar every catalogue Feature clears.

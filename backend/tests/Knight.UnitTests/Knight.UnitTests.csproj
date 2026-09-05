@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\src\Knight.Domain\Knight.Domain.csproj" />
     <ProjectReference Include="..\..\src\Knight.Application\Knight.Application.csproj" />
     <ProjectReference Include="..\..\modules\AccessControl\AccessControl.csproj" />
+    <ProjectReference Include="..\..\modules\AutoAdmin\AutoAdmin.csproj" />
     <ProjectReference Include="..\..\modules\FeatureRegistry\FeatureRegistry.csproj" />
     <ProjectReference Include="..\..\modules\FeatureDelivery\FeatureDelivery.csproj" />
     <ProjectReference Include="..\..\modules\Servers\Servers.csproj" />
