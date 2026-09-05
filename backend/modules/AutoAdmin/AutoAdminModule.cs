@@ -1,5 +1,6 @@
 using AutoAdmin.Adapters;
 using AutoAdmin.Domain;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AutoAdmin;
@@ -16,7 +17,7 @@ namespace AutoAdmin;
 /// </summary>
 public static class AutoAdminModule
 {
-    public static IServiceCollection AddAutoAdminModule(this IServiceCollection services)
+    public static IServiceCollection AddAutoAdminModule(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<IAutoAdminService, AutoAdminService>();
 
@@ -29,6 +30,17 @@ public static class AutoAdminModule
         foreach (var channelKey in AutoAdminParts.Channels.Values.Distinct(StringComparer.Ordinal))
         {
             services.AddSingleton<IChannelPublisher>(new SimulatedChannelPublisher(channelKey));
+        }
+
+        // Telegram is the first real channel (reachable from Iran, simple Bot API).
+        // It joins only when a bot token is configured — then it wins for "telegram"
+        // by being registered after the simulated one, exactly as Stripe joins
+        // payments (PlatformBillingModule). Until then the simulated one stands in.
+        services.AddOptions<TelegramOptions>().Bind(configuration.GetSection(TelegramOptions.SectionName));
+        if (!string.IsNullOrWhiteSpace(configuration[$"{TelegramOptions.SectionName}:BotToken"]))
+        {
+            services.AddHttpClient<TelegramChannelPublisher>();
+            services.AddSingleton<IChannelPublisher>(sp => sp.GetRequiredService<TelegramChannelPublisher>());
         }
 
         services.AddSingleton<IChannelPublisherRegistry, ChannelPublisherRegistry>();

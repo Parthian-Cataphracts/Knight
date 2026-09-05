@@ -41,7 +41,7 @@ public static class ControlPlaneComposition
         services.AddBillingModule(configuration);
         services.AddOnboardingModule(configuration);
         services.AddPlatformBillingModule(configuration);
-        services.AddAutoAdminModule();
+        services.AddAutoAdminModule(configuration);
         services.AddIngestionModule(configuration);
         services.AddObservabilityModule(configuration);
 

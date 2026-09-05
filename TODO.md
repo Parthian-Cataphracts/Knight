@@ -152,7 +152,7 @@ Phase 29   The production gate              ████░░░░░░  40% 
 Phase 30   Self-service SaaS                ██████████ 100%  (A–G built; real provider + host are product-owner calls)
 Phase 31   Production hardening             ████████░░  80%  (P0/P1/P2 + tenant export + secret rotation done or authored; real payment/hosting adapters & push-telemetry are infra-gated)
 Phase 32   Access tiers & entitlement-gated UI ██████████ 100%  (A: operator tiers made visible — route guard + single permission map + tier screen; B: entitlement-gated customer UI — VisibleUiMounts / visible_ui_mounts, tested both sides)
-Phase 33   The Automatic Admin Feature       ██████░░░░  60%  (foundation + catalogue + full engine back-end: seams, simulated adapters, orchestrator, persistence, API, drill; portal page + real channel OAuth remain)
+Phase 33   The Automatic Admin Feature       █████████░  90%  (foundation + catalogue + full engine + portal page + real Telegram adapter, all tested/CI-green; only the owner-supplied AI key & channel tokens remain to go live)
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -385,18 +385,27 @@ Under the `auto-admin` parent (placeholder monthly prices, editable via the API)
       approval-first), EF persistence + the `AutoAdminEngine` migration + repos,
       DI wiring into the composition root, and the customer API under
       `/api/v1/me/auto-admin`. 9 unit tests + a 3-test delivery drill.
-- [ ] **A dedicated portal page** to choose parts, see the running price, set the
-      autonomy mode, and manage connected channels — gated per Phase 32B so only
-      bought parts appear. *(Separate lane — left for the other session per the
-      owner's split; it calls the `/api/v1/me/auto-admin` API above.)*
-- [ ] **Channel credentials and OAuth** for real channels, reusing the per-store
-      secret delivery from phases 24 and 31 (Telegram first).
+- [x] **A dedicated portal page** at `/portal/auto-admin`: set the autonomy mode,
+      give the admin a topic, and read the run it produces (generated content +
+      where it published) with one-tap approval for drafts; gated per Phase 32B so
+      the engine appears only once a part is owned, with the parts and a live total
+      shown otherwise. Typechecks, builds, and two screens tests render it against
+      contract-shaped payloads.
+- [~] **Real channel adapters (drop-in, owner-activated).** The first real channel,
+      **Telegram**, is built behind the `IChannelPublisher` seam: it posts through
+      the Bot API and joins only when a bot token is configured
+      (`AutoAdmin:Telegram:BotToken`/`ChatId`) — exactly as Stripe joins payments —
+      so until then the simulated one stands in. Its request-building is unit-tested;
+      the live post needs the owner's token. **Still owner-supplied:** the AI
+      provider + key (a real `IContentGenerator`), the per-store secret wiring for
+      channel credentials (phases 24/31), and Divar/Basalam/Instagram (Meta last).
 - [x] **Tests and a delivery drill**, the same bar every catalogue Feature clears:
       the engine runs end-to-end against a real database and the full DI graph.
 
-> Real AI provider/model and real channel integrations remain owner-supplied and
-> arrive as drop-in adapters behind the seams; the green tier above is built and
-> tested with simulated adapters, no key or account required.
+> What remains is the owner-supplied last mile — an AI key and channel tokens —
+> which drop in behind the seams (the Telegram adapter shows the pattern). The
+> whole feature is built, tested and demoable end-to-end today with simulated
+> adapters; no key or account is needed to run it.
 
 ---
 
