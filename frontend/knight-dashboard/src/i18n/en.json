@@ -475,7 +475,16 @@
     "service": "Service",
     "message": "Message",
     "traceId": "Trace",
-    "none": "No log entries. Log shipping is a paid capability and may not be enabled for any store yet."
+    "none": "No log entries. Log shipping is a paid capability and may not be enabled for any store yet.",
+    "severityAll": "All levels",
+    "warningsAndAbove": "Warnings & up",
+    "errorsAndAbove": "Errors & up",
+    "from": "From",
+    "to": "To",
+    "export": "Export CSV",
+    "exporting": "Exporting…",
+    "clearRange": "Clear",
+    "exportFailed": "Could not export the logs. Try again."
   },
   "logLevel": {
     "Debug": "Debug",

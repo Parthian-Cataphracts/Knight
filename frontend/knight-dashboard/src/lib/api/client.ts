@@ -65,6 +65,45 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 }
 
 /**
+ * Fetches a file the server generates — a CSV export, say — as a Blob, carrying
+ * the bearer token like every other call and recovering from one expired token.
+ *
+ * Its own function rather than {@link apiRequest} because the body is not JSON:
+ * parsing a CSV as JSON would throw on the first comma. The caller turns the Blob
+ * into a download; the server does not need to know it became one.
+ */
+export async function apiDownload(path: string, mayRetry = true): Promise<Blob> {
+  const headers: Record<string, string> = {
+    "X-Correlation-Id": correlationId(),
+  };
+  if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: "GET",
+    headers,
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 && mayRetry && refreshSession) {
+      try {
+        await refreshSession();
+      } catch {
+        onUnauthorized?.();
+        throw new ApiError(response.status, { status: 401 } as ProblemDetails);
+      }
+
+      return apiDownload(path, false);
+    }
+
+    if (response.status === 401) onUnauthorized?.();
+    throw new ApiError(response.status, { status: response.status } as ProblemDetails);
+  }
+
+  return response.blob();
+}
+
+/**
  * Uploads an already-signed package and answers what KNIGHT hashed it to.
  *
  * Its own function rather than a body on {@link apiRequest}, because a multipart
