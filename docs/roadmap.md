@@ -395,17 +395,23 @@ a lint rule, and Playwright.
 
 ## 7. What I need from you
 
-One is answered: the service lives in this repository. Five left, in the order
-their lead time makes sensible.
+The service lives in this repository. Of the five below, three are answered
+(2026-09-05); two remain.
 
-1. **Engage the security reviewer**, or say it is deferred and accept that R16
-   stays open. **Longest lead time of anything on this list**, which is why it
-   is first — the work of phases 24 to 28 can run while it is in progress.
-2. **The hosting platform.** It unblocks phase 27's image half and the
-   provisioning automation carried from phase 9.
-3. **Phonix access**, or apply the patch on your desktop yourself. Phase 25.
-4. **Backup custody** — where the offsite copy goes. Phase 27.
+1. **Engage the security reviewer** — **answered: engage, do not defer.**
+   Security must be fully resolved; R16 must be closed rather than left open.
+   Still the longest lead time, so it starts first.
+2. **The hosting platform.** *Still open.* This is the infrastructure customer
+   stores are built and run on — a public cloud (AWS / DigitalOcean / Hetzner,
+   provisioned through its API) or company-owned servers. Until it is chosen the
+   simulated adapter stands in and the full journey runs locally, but no real
+   store can be provisioned. Unblocks phase 27's image half and the provisioning
+   automation carried from phase 9.
+3. **Phonix access** — **answered: dropped for now.** Phonix is out of scope;
+   the first project is BojanStore, which is already connected end to end.
+4. **Backup custody** — where the offsite copy goes. *Still open — the product
+   owner will provide this later.* Phase 27.
 5. **Four vendor accounts**, for the Features that refuse honestly without one.
-   Phase 28, and the only one of the five that can wait.
+   Phase 28, and the only one that can wait.
 
 Everything else on this list, I can do.

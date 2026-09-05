@@ -46,17 +46,22 @@ Status: **living document**. Update whenever a risk is resolved or discovered.
 ## 3. Decisions still needed from the product owner
 
 1. ~~**R1** — is there any real customer data in the current schema?~~ **Resolved:** no. See R1.
-2. **Billing** — does KNIGHT need to take payments, or only issue invoices?
-3. **Currency and tax** — IRR/Toman only, or multi-currency? Tax rules?
-4. **Log shipping** — is centralised log ingestion in scope for the first
-   release, or is error aggregation enough?
-5. **Agent hosting** — will customer-managed servers be supported in the first
-   release, or only company-managed ones?
-6. **Locale** — Persian-only UI, or Persian + English from the start? (docs
-   assume both, with Persian default)
-7. **Store provisioning** — how much is automated in the first release?
-   (`store-provisioning.md` §2 proposes: store record, credentials, agent, and
-   base Feature installation automated; VM/DB/TLS creation manual at first)
+2. ~~**Billing**~~ **Resolved 2026-09-05: take payments.** KNIGHT builds a
+   real payment gateway integration, collects money, and records an invoice for
+   each charge. Not invoice-only. (Provider choice is still the separate
+   external dependency in the self-service plan §11.)
+3. ~~**Currency and tax**~~ **Resolved 2026-09-05: multi-currency.** Tax is
+   configurable manually per currency, not a single fixed rule.
+4. ~~**Log shipping**~~ **Resolved 2026-09-05: centralised.** KNIGHT reads all
+   logs from a project centrally, separates errors, warnings and alerts out of
+   the stream, and reports them. Error aggregation alone is not enough.
+5. ~~**Agent hosting**~~ **Resolved 2026-09-05: both.** Support all hosting
+   modes — company-managed and customer-managed servers.
+6. ~~**Locale**~~ **Resolved 2026-09-05: English.** The UI is English. (This
+   overrides the earlier "both, Persian default" assumption in the docs.)
+7. ~~**Store provisioning**~~ **Resolved 2026-09-05: per the proposal.** Store
+   record, credentials, agent and base Feature installation automated; VM/DB/TLS
+   creation manual at first (`store-provisioning.md` §2).
 8. ~~**Package registry**~~ **Resolved:** object storage with KNIGHT as the
    index. KNIGHT already owns the version records, digests and signatures, so a
    separate index service would be a second source of truth to keep in step.
@@ -69,8 +74,9 @@ Status: **living document**. Update whenever a risk is resolved or discovered.
     features rather than one because dependency resolution is the part of the
     phase most likely to be wrong, and a single feature never exercises it
     against a real package.
-11. **Uninstall data policy** — default retention window after uninstall, and
-    whether customers may request immediate purge.
+11. ~~**Uninstall data policy**~~ **Resolved 2026-09-05: immediate purge
+    allowed.** Customers may request immediate purge of their data after
+    uninstall (in addition to any default retention window).
 12. ~~**Email delivery**~~ **Resolved 2026-08-20:** the email channel stays as
     it is — it refuses honestly rather than reporting a message delivered that
     went nowhere — and SMTP is wired in phase 9, where the mail host and its
