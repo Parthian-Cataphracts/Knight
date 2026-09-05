@@ -27,6 +27,20 @@ public sealed class TelemetryOptions
     /// <summary>The OTLP endpoint. Anything a collector, Jaeger or a vendor accepts; nothing custom is invented.</summary>
     public string? OtlpEndpoint { get; init; }
 
+    /// <summary>
+    /// Whether the in-process Prometheus scrape endpoint is exposed. This is the
+    /// pull half of metrics, independent of the OTLP push above: a deployment can
+    /// run either, both, or neither. Off by default because exposing metrics is a
+    /// deployment decision — the endpoint carries no secrets, but it does describe
+    /// the platform's shape, so it belongs on an internal network or behind the
+    /// reverse proxy's own allow-list, never open to the world
+    /// (docs/observability.md §4).
+    /// </summary>
+    public bool PrometheusEnabled { get; init; }
+
+    /// <summary>The path the scrape endpoint answers on. The de-facto standard, and what a scraper assumes.</summary>
+    public string PrometheusPath { get; init; } = "/metrics";
+
     [Required]
     public string ServiceName { get; init; } = "knight-control-plane";
 
@@ -92,14 +106,23 @@ public static class TelemetryComposition
         services.AddHostedService<RetentionWorker>();
         services.AddHostedService<GaugeRegistration>();
 
-        if (!options.Enabled)
+        // The pipeline is built when either export path is on. Prometheus pull
+        // and OTLP push are independent choices; neither one implies the other,
+        // and a deployment that scrapes with Prometheus should not have to invent
+        // an OTLP endpoint it does not use.
+        if (!options.Enabled && !options.PrometheusEnabled)
         {
             return services;
         }
 
-        services.AddOpenTelemetry()
-            .ConfigureResource(resource => resource.AddService(options.ServiceName))
-            .WithTracing(tracing =>
+        var builder = services.AddOpenTelemetry()
+            .ConfigureResource(resource => resource.AddService(options.ServiceName));
+
+        // Tracing is OTLP-only: there is no scrape model for spans, so it is set
+        // up only when the OTLP pipeline is enabled. Prometheus-only stays metrics.
+        if (options.Enabled)
+        {
+            builder.WithTracing(tracing =>
             {
                 tracing
                     .SetSampler(new TraceIdRatioBasedSampler(options.SampleRatio))
@@ -129,23 +152,33 @@ public static class TelemetryComposition
                 {
                     tracing.AddOtlpExporter(exporter => exporter.Endpoint = new Uri(options.OtlpEndpoint));
                 }
-            })
-            .WithMetrics(metrics =>
-            {
-                metrics
-                    .AddAspNetCoreInstrumentation()
-                    .AddHttpClientInstrumentation()
-
-                    // The instruments KNIGHT publishes about itself. Without
-                    // this line every custom measurement is recorded and then
-                    // dropped, which is indistinguishable from a healthy system.
-                    .AddMeter(KnightMetrics.MeterName);
-
-                if (!string.IsNullOrWhiteSpace(options.OtlpEndpoint))
-                {
-                    metrics.AddOtlpExporter(exporter => exporter.Endpoint = new Uri(options.OtlpEndpoint));
-                }
             });
+        }
+
+        builder.WithMetrics(metrics =>
+        {
+            metrics
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+
+                // The instruments KNIGHT publishes about itself. Without this
+                // line every custom measurement is recorded and then dropped,
+                // which is indistinguishable from a healthy system.
+                .AddMeter(KnightMetrics.MeterName);
+
+            if (!string.IsNullOrWhiteSpace(options.OtlpEndpoint))
+            {
+                metrics.AddOtlpExporter(exporter => exporter.Endpoint = new Uri(options.OtlpEndpoint));
+            }
+
+            // The pull half. The reader it registers is what the mapped
+            // /metrics endpoint scrapes; adding it here rather than at the
+            // endpoint keeps the exporter and the meter in one pipeline.
+            if (options.PrometheusEnabled)
+            {
+                metrics.AddPrometheusExporter();
+            }
+        });
 
         return services;
     }

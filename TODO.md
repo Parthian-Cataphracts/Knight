@@ -980,9 +980,7 @@ database. See §"How to repeat the verification".
 - [ ] Redis instrumentation — the cache is optional and behind an abstraction, so
       its spans arrive with the phase 9 deployment work that decides whether Redis
       is mandatory
-- [ ] A metrics scrape endpoint — the meter is published and any collector can
-      subscribe; exposing `/metrics` in-process is a deployment decision that
-      belongs with the same work
+- [x] A metrics scrape endpoint — **delivered 2026-09-05.** `Telemetry:PrometheusEnabled` (off by default) adds a Prometheus exporter to the existing meter and maps `GET /metrics` (path configurable), the pull half alongside the OTLP push — either, both or neither. It serves KNIGHT's own instruments (`knight_incidents_open`, …), not just the framework's, and stays off the public domain by deployment (nginx allow-list). 2 integration tests
 
 ### How to repeat the verification
 
@@ -2193,8 +2191,7 @@ one is to run `knight_deliver --dead-letters` and know to.
 - [ ] **Delivery metrics as counters**: attempted, delivered, retried,
       dead-lettered, by feature and by store. The alerting path and the reports
       under it exist; a metrics view does not
-- [ ] **A metrics scrape endpoint.** The meter is published and any collector
-      could read it; there is nothing to read it from. Carried from phase 7
+- [x] **A metrics scrape endpoint** — **delivered 2026-09-05** (`Telemetry:PrometheusEnabled` → `GET /metrics`, Prometheus pull beside the OTLP push, serving KNIGHT's own instruments). Carried from phase 7
 - [ ] **Redis instrumentation**, carried from phase 7
 - [ ] **Dashboard screens** for deliveries and the dead-letter queue, and for
       the two ledgers phase 14 left unreachable — issuing a gift card, voiding

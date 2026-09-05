@@ -6,6 +6,7 @@ using Knight.Api.Authorization;
 using Knight.Api.BackgroundServices;
 using Knight.Api.Composition;
 using Knight.Api.ControlPlane;
+using OpenTelemetry.Metrics;
 using Knight.Api.Endpoints;
 using Knight.Api.Ingest;
 using Knight.Api.Middleware;
@@ -310,6 +311,15 @@ app.MapControlPlaneAccessEndpoints();
 app.MapHub<ControlPlaneHub>(ControlPlaneHub.Path).RequireCors("Default");
 
 app.MapPlatformHealthEndpoints();
+
+// The Prometheus scrape endpoint, only when the deployment asked for it. It is a
+// pull surface a scraper reads on its own schedule; the reverse proxy keeps it
+// off the public domain (see the deployment's nginx allow-list).
+var telemetryOptions = app.Services.GetRequiredService<IOptions<TelemetryOptions>>().Value;
+if (telemetryOptions.PrometheusEnabled)
+{
+    app.MapPrometheusScrapingEndpoint(telemetryOptions.PrometheusPath);
+}
 
 app.Run();
 
