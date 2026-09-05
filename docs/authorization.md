@@ -74,6 +74,14 @@ The persistence filter is the safety net: a forgotten `where customerId = ...`
 in a handler must not become a data leak. Platform-scoped principals bypass the
 filter only through an explicit, audited escape hatch.
 
+The dashboard mirrors these permissions but never substitutes for them. A single
+map (`frontend/knight-dashboard/src/app/permissions.ts`) declares the permission
+each screen needs; the sidebar reads it to hide a link the role cannot use (and
+to drop a section once all its links are hidden), and the router reads the *same*
+map to guard the route — so a screen absent from the menu cannot be reached by
+typing its URL either. It renders a plain "not authorized" panel instead, and the
+API still returns 403 on the endpoints behind it regardless of what the UI drew.
+
 ## 4. Isolation invariant
 
 ```

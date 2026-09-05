@@ -153,7 +153,7 @@ Phase 28   Migrating the catalogue          ████░░░░░░  40%
 Phase 29   The production gate              ████░░░░░░  40%  (DNS-TXT + restore-drill-on-real-data done; security review, 11 answers, in-process call remain — owner's)
 Phase 30   Self-service SaaS                ██████████ 100%  (A–G built; real provider + host are product-owner calls)
 Phase 31   Production hardening             ████████░░  80%  (P0/P1/P2 + tenant export + secret rotation done or authored; real payment/hosting adapters & push-telemetry are infra-gated)
-Phase 32   Access tiers & entitlement-gated UI ░░░░░░░░░░   0%  (not started — planned; see the phase for scope)
+Phase 32   Access tiers & entitlement-gated UI █████░░░░░  50%  (A: operator tiers made visible — route guard + single permission map + tier screen — done; B: entitlement-gated customer UI remains)
 Phase 33   The Automatic Admin Feature       ░░░░░░░░░░   0%  (not started — planned; a large multi-channel Feature with per-channel pricing)
 ```
 
@@ -258,24 +258,29 @@ a customer's own storefront/admin never shows a control belonging to a Feature
 they have not bought — the entitlement, not the styling, decides whether the menu
 item, page and route exist for them.
 
-### A — Operator access tiers (control-plane RBAC, made visible)
+### A — Operator access tiers (control-plane RBAC, made visible) — **done**
 
-- [ ] **Define the tiers.** Today control-plane roles exist (`Admin`,
-      `CustomerOwner`, …) and permissions gate the API. What is missing is a
-      *product owner's* definition of tiers below full admin: which sections
-      (customers, stores, catalogue, billing, provisioning, observability,
-      settings) each tier may see and act on. **This is a decision the owner
-      supplies; the enforcement then follows it.**
-- [ ] **Hide, not just disable.** The dashboard already checks a permission
-      before rendering some actions; make that the rule everywhere — navigation
-      items, routes and whole screens absent when the tier lacks the permission,
-      so the sidebar of a limited operator is genuinely shorter. Server-side
-      authorization stays the source of truth; the UI mirrors it and never
-      substitutes for it.
-- [ ] **A tier-management screen** for assigning tiers to operators, itself
-      behind the highest tier.
-- [ ] **Tests:** an operator of each tier sees exactly their sections in the
-      navigation payload, and a hidden route returns 403 as well as being unlinked.
+- [x] **The tiers already exist as roles.** `SystemRoles` seeds SuperAdmin,
+      Admin, Developer and Support (plus CustomerOwner/CustomerStaff), each a
+      distinct permission set from the `ControlPlanePermissions` catalogue, and
+      operators may define their own roles alongside them. No new tier model was
+      needed — the gap was the surface, not the model.
+- [x] **Hide, not just disable.** A screen's required permission now lives once
+      in `frontend/.../app/permissions.ts`; the sidebar reads it to drop the link
+      (and whole sections when empty) and the router reads the *same* map to guard
+      the route, so a screen hidden from the menu can no longer be reached by
+      typing its URL — a direct link to a screen the role lacks renders a calm
+      "you don't have access" block, and the lazy chunk is never even fetched. The
+      API stays the source of truth; the UI only mirrors it.
+- [x] **A tier-management screen** already exists (`AccessPage`): create accounts
+      with roles, replace an account's roles, and create/edit custom roles by
+      ticking permissions from the server's own catalogue; system roles are shown
+      read-only. It is behind `user.view` / `user.manage` / `role.manage`.
+- [x] **Tests:** the guard renders a screen with the permission and refuses it
+      without (not merely unlinks it), and the sidebar shows only the destinations
+      a tier's permissions grant — `app/__tests__/routeGuard.test.tsx`. Full
+      dashboard suite green; the API already returns 403 on the endpoints behind
+      each guarded screen (covered by the control-plane authorization tests).
 
 ### B — Entitlement-gated customer UI
 

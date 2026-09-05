@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Shield, LogOut } from "lucide-react";
 import { NAVIGATION } from "./navigation";
+import { permissionForPath } from "@/app/permissions";
 import { useAuthStore } from "@/store/auth";
 import { useUiStore } from "@/store/ui";
 import { cn } from "@/lib/utils/cn";
@@ -41,9 +42,10 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
 
       <nav className="flex-1 overflow-y-auto px-2 py-4" aria-label={t("common.menu")}>
         {NAVIGATION.map((section) => {
-          const items = section.items.filter(
-            (item) => item.permission === undefined || can(item.permission),
-          );
+          const items = section.items.filter((item) => {
+            const permission = permissionForPath(item.to);
+            return permission === undefined || can(permission);
+          });
           if (items.length === 0) return null;
 
           return (

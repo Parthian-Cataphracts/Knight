@@ -538,7 +538,9 @@
     "systemRoleNote": "A seeded role. What it grants is fixed, and is shown here so it can be read rather than guessed.",
     "user": "User",
     "userCount": "Users",
-    "users": "Users"
+    "users": "Users",
+    "notAuthorizedTitle": "You don't have access to this",
+    "notAuthorizedBody": "This section isn't part of your role. If you need it, ask an administrator to grant the permission."
   },
   "userStatus": {
     "Active": "Active",

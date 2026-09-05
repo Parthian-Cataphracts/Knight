@@ -2,6 +2,8 @@ import { lazy, Suspense, type ComponentType } from "react";
 import { Route } from "react-router-dom";
 import { LoadingBlock } from "@/components/ui/StateBlock";
 import { RouteErrorBoundary } from "./RouteErrorBoundary";
+import { RequirePermission } from "./RequirePermission";
+import { ROUTE_PERMISSIONS } from "./permissions";
 
 /** Every feature area is a lazily loaded route chunk. */
 const pages: [path: string, loader: () => Promise<{ default: ComponentType }>][] = [
@@ -33,6 +35,17 @@ const pages: [path: string, loader: () => Promise<{ default: ComponentType }>][]
 export function featureRoutes() {
   return pages.map(([path, loader]) => {
     const Page = lazy(loader);
+    const permission = ROUTE_PERMISSIONS[path];
+
+    // The permission guard sits outside the Suspense boundary so a screen the
+    // operator may not reach is never even fetched. A path with no permission is
+    // reachable by anyone signed in (the dashboard home, personal settings).
+    const screen = (
+      <Suspense fallback={<LoadingBlock rows={6} />}>
+        <Page />
+      </Suspense>
+    );
+
     return (
       <Route
         key={path}
@@ -42,9 +55,7 @@ export function featureRoutes() {
           // Each screen is wrapped on its own so one failing page cannot blank
           // the whole application.
           <RouteErrorBoundary resetKey={path}>
-            <Suspense fallback={<LoadingBlock rows={6} />}>
-              <Page />
-            </Suspense>
+            {permission ? <RequirePermission permission={permission}>{screen}</RequirePermission> : screen}
           </RouteErrorBoundary>
         }
       />
