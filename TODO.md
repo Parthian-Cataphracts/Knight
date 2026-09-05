@@ -840,7 +840,7 @@ Then sign in at http://localhost:5173 and walk:
 - [ ] shadcn/ui adoption for the heavier primitives (dialog, dropdown, combobox)
 - [ ] Type generation from OpenAPI — **no longer blocked**: the API and its OpenAPI document exist. Worth doing precisely because phase 10 found a hand-written contract mismatch that had silently discarded every validation message
 - [x] Route-level code splitting for every feature
-- [ ] Error boundaries per route
+- [x] Error boundaries per route — **already built** (`app/RouteErrorBoundary.tsx`, wrapping every route in `app/routes.tsx` with a per-screen fallback). Entry was stale
 - [x] SignalR client and notification centre — `lib/realtime/connection.ts` and the bell in `AppLayout`, both exercised against the live hub during the phase 10 browser run
 - [ ] A reusable **job progress** component — the events are broadcast and the screens refetch; nothing renders per-step progress yet
 - [ ] Logical-property ESLint rule
