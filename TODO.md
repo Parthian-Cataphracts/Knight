@@ -152,7 +152,7 @@ Phase 29   The production gate              ████░░░░░░  40% 
 Phase 30   Self-service SaaS                ██████████ 100%  (A–G built; real provider + host are product-owner calls)
 Phase 31   Production hardening             ████████░░  80%  (P0/P1/P2 + tenant export + secret rotation done or authored; real payment/hosting adapters & push-telemetry are infra-gated)
 Phase 32   Access tiers & entitlement-gated UI ██████████ 100%  (A: operator tiers made visible — route guard + single permission map + tier screen; B: entitlement-gated customer UI — VisibleUiMounts / visible_ui_mounts, tested both sides)
-Phase 33   The Automatic Admin Feature       ░░░░░░░░░░   0%  (not started — planned; a large multi-channel Feature with per-channel pricing)
+Phase 33   The Automatic Admin Feature       █░░░░░░░░░  10%  (composed-pricing foundation built — adr/0037, sub-feature grouping on Feature; catalogue list, prices, AI provider and channel integrations are owner-supplied)
 ```
 
 **Catalogue status** — 7 base capabilities plus transactional notifications in
@@ -324,10 +324,15 @@ bought, and the page prices the selection live.
       priced on its own. Initial set from the owner: Instagram post, Divar
       (دیوار) post, Basalam (باسلام) post, image generation, caption generation,
       story. **The full list and the per-item prices are the owner's to supply.**
-- [ ] **Composed pricing.** The Feature's price for a customer is the sum of the
-      chosen sub-features (with any bundle rules the owner defines). This extends
-      the catalogue's pricing model, which today prices a Feature as one line —
-      **an ADR is needed on how a Feature carries sub-priced parts.**
+- [~] **Composed pricing.** The Feature's price for a customer is the sum of the
+      chosen sub-features (with any bundle rules the owner defines). **Foundation
+      built 2026-09-05:** [`adr/0037`](docs/adr/0037-composed-pricing-and-sub-features.md)
+      decides a sub-feature *is* a Feature grouped under a parent by
+      `Feature.ParentFeatureId` — so pricing (sum of selected features),
+      entitlement (per-feature), Phase-32B gating and delivery all compose with
+      no new stack; only the parent grouping is new. `GroupUnder`/`Ungroup`
+      (draft-only), a migration and 5 tests. **Owner still supplies:** the
+      sub-feature list, per-item prices, and any bundle rules
 - [ ] **A dedicated page** in the portal to choose sub-features, see the running
       price, and manage what is connected — gated per Phase 32B so only bought
       sub-features appear.

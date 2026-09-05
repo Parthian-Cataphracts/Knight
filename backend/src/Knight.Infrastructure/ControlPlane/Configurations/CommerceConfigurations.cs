@@ -29,9 +29,16 @@ internal sealed class FeatureConfiguration : IEntityTypeConfiguration<Feature>
         builder.Property(f => f.Category).HasMaxLength(50).IsRequired();
         builder.Property(f => f.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
 
+        // Null for a top-level Feature; set for a sub-feature of a composed
+        // parent (adr/0037). No FK: a Feature is never hard-deleted (it is
+        // withdrawn), so the referential rule that matters is enforced in the
+        // service, and a self-referencing FK complicates seeding order.
+        builder.Property(f => f.ParentFeatureId);
+
         // The slug is the package name, so it is unique platform-wide.
         builder.HasIndex(f => f.Slug).IsUnique();
         builder.HasIndex(f => f.Status);
+        builder.HasIndex(f => f.ParentFeatureId);
     }
 }
 

@@ -45,6 +45,23 @@ public sealed class Feature : AuditableEntity
 
     public FeatureStatus Status { get; private set; }
 
+    /// <summary>
+    /// The parent this Feature is a sub-feature of, or null when it is a
+    /// top-level Feature.
+    ///
+    /// A composed Feature — "Automatic Admin" is the first — is a parent whose
+    /// price for a customer is the sum of the sub-features they chose. Each
+    /// sub-feature is itself a Feature with its own price, entitlement and UI
+    /// mount, so the whole of pricing, entitlement and Phase-32B gating applies
+    /// to it unchanged; the only new fact is that it belongs to a parent, which
+    /// is what lets the catalogue and the portal present and total the group
+    /// (docs/adr/0037-composed-pricing-and-sub-features.md).
+    /// </summary>
+    public Guid? ParentFeatureId { get; private set; }
+
+    /// <summary>True when this Feature is a priced part of a composed parent.</summary>
+    public bool IsSubFeature => ParentFeatureId is not null;
+
     private Feature()
     {
         Slug = string.Empty;
@@ -122,6 +139,49 @@ public sealed class Feature : AuditableEntity
         }
 
         IsOptional = isOptional;
+        MarkUpdated(now);
+    }
+
+    /// <summary>
+    /// Makes this Feature a sub-feature of <paramref name="parentFeatureId"/>.
+    ///
+    /// Draft-only, like the other structural properties: once a Feature has been
+    /// sold, moving it into or out of a composed group would change what a
+    /// customer's selection totals to and what their entitlement composes from,
+    /// silently. A Feature cannot be its own parent; that the parent exists and
+    /// is not itself a sub-feature (composition is one level deep, deliberately)
+    /// is checked by the service, which can read the other row.
+    /// </summary>
+    public void GroupUnder(Guid parentFeatureId, DateTimeOffset now)
+    {
+        if (Status is not FeatureStatus.Draft)
+        {
+            throw DomainException.Conflict("A feature can only be grouped under a parent while it is a draft.");
+        }
+
+        if (parentFeatureId == Guid.Empty)
+        {
+            throw DomainException.Validation("A parent feature is required.");
+        }
+
+        if (parentFeatureId == Id)
+        {
+            throw DomainException.Conflict("A feature cannot be a sub-feature of itself.");
+        }
+
+        ParentFeatureId = parentFeatureId;
+        MarkUpdated(now);
+    }
+
+    /// <summary>Detaches this Feature from its parent, making it top-level again. Draft-only, for the same reason.</summary>
+    public void Ungroup(DateTimeOffset now)
+    {
+        if (Status is not FeatureStatus.Draft)
+        {
+            throw DomainException.Conflict("A feature can only be ungrouped while it is a draft.");
+        }
+
+        ParentFeatureId = null;
         MarkUpdated(now);
     }
 

@@ -202,4 +202,58 @@ public sealed class PlanAndFeatureTests
             Now,
             Now.AddDays(-1)));
     }
+
+    // --- Sub-features (composed pricing, adr/0037) ---------------------------
+
+    [Fact]
+    public void AFeatureIsTopLevelUntilItIsGroupedUnderAParent()
+    {
+        var feature = CreateFeature();
+
+        Assert.False(feature.IsSubFeature);
+        Assert.Null(feature.ParentFeatureId);
+    }
+
+    [Fact]
+    public void GroupingAFeatureMakesItASubFeatureOfItsParent()
+    {
+        var parent = CreateFeature();
+        var sub = CreateFeature();
+
+        sub.GroupUnder(parent.Id, Now);
+
+        Assert.True(sub.IsSubFeature);
+        Assert.Equal(parent.Id, sub.ParentFeatureId);
+    }
+
+    [Fact]
+    public void AFeatureCannotBeASubFeatureOfItself()
+    {
+        var feature = CreateFeature();
+
+        Assert.Throws<DomainException>(() => feature.GroupUnder(feature.Id, Now));
+    }
+
+    [Fact]
+    public void GroupingIsRefusedOnceTheFeatureIsPublished()
+    {
+        // Moving a sold Feature into a group would change what a customer's
+        // selection totals to; only a draft may be grouped.
+        var sub = CreateFeature();
+        sub.Publish(Now);
+
+        Assert.Throws<DomainException>(() => sub.GroupUnder(Guid.NewGuid(), Now));
+    }
+
+    [Fact]
+    public void ASubFeatureCanBeDetachedWhileItIsStillADraft()
+    {
+        var sub = CreateFeature();
+        sub.GroupUnder(Guid.NewGuid(), Now);
+
+        sub.Ungroup(Now);
+
+        Assert.False(sub.IsSubFeature);
+        Assert.Null(sub.ParentFeatureId);
+    }
 }
