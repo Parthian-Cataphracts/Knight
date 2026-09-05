@@ -67,8 +67,6 @@ Most of the back end is reused; the work is the front doors, a separate
   Active. The **acceptance test** (docs/self-service-saas-plan.md §13) is green:
   register → verify → checkout(CUSTOM) → webhook → activate → entitlements →
   store → simulated infra → feature install → **READY**, with no operator step.
-- [ ] **E — feature delivery integration.** desired state from entitlements →
-  existing delivery engine; dependencies; verify + report. No second installer.
 - [x] **F — customer portal.** A separate, role-gated route tree from the
   operations dashboard (`features/portal`, `RoleLayout`): public sign-up and
   email verification, a plan catalogue with a CUSTOM add-on selector and a
@@ -1918,9 +1916,7 @@ store rather than an integration written per project, which is the answer to
       fifteen verbs, report. Nineteen tests, most of them refusals
 - [x] **BojanStore wired**, building and green on its own 944 tests
 - [x] **Phonix wired**, building
-- [ ] **Phonix merged** — the branch exists and there is no write access to
-      that repository from here; the patch is on the desktop and the change is
-      three files plus a vendored directory
+- [~] **Phonix merged** — **dropped for the first release** (product-owner decision 2026-09-05, `roadmap.md` §7): BojanStore is the first and only reference store for now. Reopen if Phonix returns to scope
 - [ ] **Neither store has been driven end to end against a running KNIGHT.**
       Both compile with the agent in and the agent's own suite covers the whole
       pipeline, but no artifact has been delivered to either. Nothing is
@@ -2155,8 +2151,7 @@ anybody doing anything.
       have: a delivered Feature that was recorded and never served, a shared
       secret that arrived and was thrown away, and a forwarded request that was
       correctly signed and did not say which store it came from
-- [ ] **Phonix the same** — no write access to that repository from here, and
-      the patch on the desktop is the product owner's to apply. Carried
+- [~] **Phonix the same** — **dropped for the first release** (decision 2026-09-05): out of scope until Phonix returns. Carried
 - [ ] **A `dotnet` Feature**, to prove the in-process path on that runtime.
       BojanStore took delivery of a Feature that is a *service*, which needs no
       runtime at all, so this is still the one runtime whose in-process delivery
@@ -2213,8 +2208,7 @@ one is to run `knight_deliver --dead-letters` and know to.
 - [ ] **Manual merge and split of error groups**, carried from phase 5, where
       `adr/0013` names it as the mitigation for a grouping heuristic that will
       sometimes be wrong
-- [ ] **Log search, filtering and export**, carried from phase 3 and still open
-      after phase 7 passed without it
+- [x] **Log search, filtering and export** — **delivered 2026-09-05** (see phase-29 §"Log search"): server-side `minSeverity`/`search`/`from`/`to` on `GET /api/v1/logs`, a `logs.export` CSV endpoint, and the dashboard wired to all of it. Browser-verified against the live API
 - [ ] **The health poller captures the runtime block**, carried from phase 17. A
       store KNIGHT polls but which never heartbeats is still uncertifiable
 - [ ] **Concurrency proven rather than argued.** Recorded three times — phases
