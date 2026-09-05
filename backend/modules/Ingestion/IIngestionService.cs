@@ -97,9 +97,18 @@ public interface IIngestionService
         CancellationToken cancellationToken);
 
     Task<(IReadOnlyCollection<StoreLogEntry> Items, long TotalCount)> ListLogsAsync(
-        Guid? storeId,
-        string? level,
+        LogFilter filter,
         int page,
         int pageSize,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The matching log lines for an export, newest first, capped at
+    /// <paramref name="max"/> so a broad filter cannot pull the whole store's
+    /// history into memory at once. The same filter the stream reads with.
+    /// </summary>
+    Task<IReadOnlyCollection<StoreLogEntry>> ExportLogsAsync(
+        LogFilter filter,
+        int max,
         CancellationToken cancellationToken);
 }

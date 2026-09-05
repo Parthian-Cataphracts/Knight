@@ -52,9 +52,16 @@ Status: **living document**. Update whenever a risk is resolved or discovered.
    external dependency in the self-service plan §11.)
 3. ~~**Currency and tax**~~ **Resolved 2026-09-05: multi-currency.** Tax is
    configurable manually per currency, not a single fixed rule.
-4. ~~**Log shipping**~~ **Resolved 2026-09-05: centralised.** KNIGHT reads all
-   logs from a project centrally, separates errors, warnings and alerts out of
-   the stream, and reports them. Error aggregation alone is not enough.
+4. ~~**Log shipping**~~ **Resolved 2026-09-05: centralised, and the read side is
+   built.** KNIGHT reads all logs from a project centrally, separates errors,
+   warnings and alerts out of the stream, and reports them. Error aggregation
+   alone is not enough. Built: `GET /api/v1/logs` narrows the central stream by
+   `minSeverity` (at or above a severity — the problem levels pulled from the
+   noise), full-text `search`, and a `from`/`to` time range; `GET
+   /api/v1/logs/export` returns the same filter as CSV behind its own
+   `logs.export` permission. (The store-side shipping transport itself is wired
+   with SMTP/observability in deployment; this is the central read the decision
+   was about.)
 5. ~~**Agent hosting**~~ **Resolved 2026-09-05: both.** Support all hosting
    modes — company-managed and customer-managed servers.
 6. ~~**Locale**~~ **Resolved 2026-09-05: English.** The UI is English. (This

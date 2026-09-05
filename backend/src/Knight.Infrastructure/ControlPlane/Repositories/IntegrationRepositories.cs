@@ -161,33 +161,77 @@ internal sealed class IngestionRepository : IIngestionRepository
     }
 
     public async Task<(IReadOnlyCollection<StoreLogEntry> Items, long TotalCount)> ListLogsAsync(
-        Guid? storeId,
-        string? level,
+        LogFilter filter,
         int page,
         int pageSize,
         CancellationToken cancellationToken)
     {
-        var query = _context.StoreLogEntries.AsQueryable();
-
-        if (storeId is { } id)
-        {
-            query = query.Where(entry => entry.StoreId == id);
-        }
-
-        if (!string.IsNullOrWhiteSpace(level))
-        {
-            // Compared against the stored form, which is upper-cased on the way
-            // in; normalisation into the dashboard's vocabulary happens on read.
-            var normalised = level.Trim().ToUpperInvariant();
-            query = query.Where(entry => entry.Level == normalised);
-        }
-
-        var ordered = query.OrderByDescending(entry => entry.Timestamp).ThenBy(entry => entry.Id);
+        var ordered = FilteredLogs(filter);
         var total = await ordered.LongCountAsync(cancellationToken);
         var items = await ordered.Skip((page - 1) * pageSize).Take(pageSize).ToArrayAsync(cancellationToken);
 
         return (items, total);
     }
+
+    public async Task<IReadOnlyCollection<StoreLogEntry>> ExportLogsAsync(
+        LogFilter filter,
+        int max,
+        CancellationToken cancellationToken) =>
+        await FilteredLogs(filter).Take(max).ToArrayAsync(cancellationToken);
+
+    /// <summary>
+    /// The log stream narrowed by a filter, newest first. One place so the export
+    /// and the paged read can never disagree about what a filter means.
+    /// </summary>
+    private IOrderedQueryable<StoreLogEntry> FilteredLogs(LogFilter filter)
+    {
+        var query = _context.StoreLogEntries.AsQueryable();
+
+        if (filter.StoreId is { } id)
+        {
+            query = query.Where(entry => entry.StoreId == id);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Level))
+        {
+            // An exact level, compared against the stored form, which is
+            // upper-cased on the way in; normalisation into the dashboard's
+            // vocabulary happens on read. The more specific request wins over a
+            // minimum severity, so it is applied first and alone.
+            var normalised = filter.Level.Trim().ToUpperInvariant();
+            query = query.Where(entry => entry.Level == normalised);
+        }
+        else if (LogSeverity.TokensAtOrAbove(filter.MinSeverity) is { } tokens)
+        {
+            // Everything at or above a severity — the errors, warnings and alerts
+            // pulled out of the noise. A store's raw tokens vary, so the filter is
+            // the set of tokens in the wanted buckets rather than a comparison.
+            query = query.Where(entry => tokens.Contains(entry.Level));
+        }
+
+        if (filter.From is { } from)
+        {
+            query = query.Where(entry => entry.Timestamp >= from);
+        }
+
+        if (filter.To is { } to)
+        {
+            query = query.Where(entry => entry.Timestamp <= to);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            // Case-insensitive substring on the message. The term's LIKE
+            // metacharacters are escaped so a search for "50%" is not a wildcard.
+            var term = $"%{Escape(filter.Search.Trim())}%";
+            query = query.Where(entry => EF.Functions.ILike(entry.Message, term, "\\"));
+        }
+
+        return query.OrderByDescending(entry => entry.Timestamp).ThenBy(entry => entry.Id);
+    }
+
+    private static string Escape(string term) =>
+        term.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) => _context.SaveChangesAsync(cancellationToken);
 }

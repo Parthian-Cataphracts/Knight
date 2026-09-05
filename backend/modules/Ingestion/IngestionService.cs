@@ -316,12 +316,20 @@ internal sealed class IngestionService : IIngestionService
         _repository.ListEventsAsync(storeId, Page(page), Size(pageSize), cancellationToken);
 
     public Task<(IReadOnlyCollection<StoreLogEntry> Items, long TotalCount)> ListLogsAsync(
-        Guid? storeId,
-        string? level,
+        LogFilter filter,
         int page,
         int pageSize,
         CancellationToken cancellationToken) =>
-        _repository.ListLogsAsync(storeId, level, Page(page), Size(pageSize), cancellationToken);
+        _repository.ListLogsAsync(filter, Page(page), Size(pageSize), cancellationToken);
+
+    /// <summary>The rows an export may pull at once. Broad enough to be useful, bounded so a filter cannot pull a store's whole history into memory.</summary>
+    public const int MaxExportRows = 10_000;
+
+    public Task<IReadOnlyCollection<StoreLogEntry>> ExportLogsAsync(
+        LogFilter filter,
+        int max,
+        CancellationToken cancellationToken) =>
+        _repository.ExportLogsAsync(filter, max is < 1 or > MaxExportRows ? MaxExportRows : max, cancellationToken);
 
     /// <summary>
     /// The environment in the payload and the one the token was minted for must
