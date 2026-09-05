@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "snapshot:api": "curl -s http://localhost:5008/openapi/v1.json -o src/lib/api/openapi.json",
+    "gen:api-types": "openapi-typescript src/lib/api/openapi.json -o src/lib/api/schema.ts"
   },
   "dependencies": {
     "@fontsource-variable/vazirmatn": "^5.2.5",
@@ -35,6 +37,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/ui": "^3.2.7",
     "jsdom": "^25.0.1",
+    "openapi-typescript": "^7.13.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.2",
     "vite": "^7.3.6",

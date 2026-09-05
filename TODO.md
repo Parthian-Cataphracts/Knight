@@ -838,7 +838,7 @@ Then sign in at http://localhost:5173 and walk:
 - [x] UI primitives: Card, Button, TextField, StatusChip, Meter, loading/error/empty blocks
 - [x] Data primitives: responsive DataTable (cards below `md`), Drawer (side sheet / bottom sheet), page scaffolding, filter tabs, collection card
 - [ ] shadcn/ui adoption for the heavier primitives (dialog, dropdown, combobox)
-- [ ] Type generation from OpenAPI — **no longer blocked**: the API and its OpenAPI document exist. Worth doing precisely because phase 10 found a hand-written contract mismatch that had silently discarded every validation message
+- [~] Type generation from OpenAPI — **pipeline delivered 2026-09-05.** `npm run snapshot:api` saves the live OpenAPI document to `src/lib/api/openapi.json`; `npm run gen:api-types` generates `src/lib/api/schema.ts` (184 paths, 75 schemas); `openapi.ts` re-exports it (`ApiPaths`, `ApiSchemas`, `Query<Path>`) for incremental adoption over the hand-written `domain.ts`. A vitest drift-guard asserts the endpoints screens call still exist, and a `tsc`-level check ties the log filters to the contract. **Still ahead (backend):** the minimal-API endpoints return `Results.Ok(...)` with no typed `Produces<T>`, so the document carries query params and request bodies but not response *shapes* — typing responses from the spec needs each endpoint annotated first
 - [x] Route-level code splitting for every feature
 - [x] Error boundaries per route — **already built** (`app/RouteErrorBoundary.tsx`, wrapping every route in `app/routes.tsx` with a per-screen fallback). Entry was stale
 - [x] SignalR client and notification centre — `lib/realtime/connection.ts` and the bell in `AppLayout`, both exercised against the live hub during the phase 10 browser run
