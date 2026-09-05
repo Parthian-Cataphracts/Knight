@@ -2038,9 +2038,7 @@ not one byte had crossed between a store and a service.
       package or a service. Ten tests. The **drill** still places an order
       directly, because step 12 exists to prove the event path; walking bill →
       generate → report is a natural fifteenth step and is not written
-- [ ] **Nothing rotates the nonce table.** `forget_old_nonces` exists and is
-      tested and nothing runs it on a timer. One cron entry, and it belongs with
-      phase 26
+- [x] **The nonce table is rotated on a timer** — **already built** (verified 2026-09-05, entry was stale). The `knight_maintain` management command forgets used nonces (`forget_old_nonces()`) and blanks long-dead secrets in one pass, `--loop --every` for a container with no cron; the `subscriptions-maintenance` sidecar in `docker-compose.yml` runs it every hour
 
 ---
 
