@@ -7,7 +7,7 @@ namespace Billing;
 /// <summary>
 /// Bound from configuration (section "Billing").
 /// </summary>
-public sealed class BillingOptions
+public sealed class BillingOptions : IValidatableObject
 {
     public const string SectionName = "Billing";
 
@@ -37,6 +37,30 @@ public sealed class BillingOptions
     /// <summary>How many subscriptions one pass will bill. Keeps a backlog from becoming one enormous transaction.</summary>
     [Range(1, 1000)]
     public int RunBatchSize { get; init; } = 100;
+
+    /// <summary>
+    /// Tax rate per currency, as a fraction of the subtotal (0.09 = 9%). KNIGHT
+    /// does not compute tax from a jurisdiction — that is a legal question, not a
+    /// rounding one — so the rate for each currency it bills in is set here by
+    /// hand and applied to a draft when it is prepared. A currency with no entry,
+    /// or a rate of zero, is billed tax-free, which is the previous behaviour.
+    /// Keyed by ISO 4217 code; lookup is case-insensitive.
+    /// </summary>
+    public IDictionary<string, decimal> TaxRates { get; init; } =
+        new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        foreach (var (currency, rate) in TaxRates)
+        {
+            if (rate is < 0m or > 1m)
+            {
+                yield return new ValidationResult(
+                    $"The tax rate for '{currency}' must be a fraction between 0 and 1 (0.09 = 9%), not {rate}.",
+                    [nameof(TaxRates)]);
+            }
+        }
+    }
 }
 
 public static class BillingModule

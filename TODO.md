@@ -465,7 +465,7 @@ end by `ControlPlaneCommerceTests`.
 - [x] Tests: pricing matrix, entitlement resolution and reconciliation, unauthorised enablement, plan changes, invoice lifecycle, isolation
 - [x] Billing scope decided: **invoicing only** — KNIGHT records invoices and observed payments and moves no money (`risks.md` R14)
 - [x] A billing run that decides *when* to invoice and rolls the period forward — delivered in phase 10 as `IBillingService.RunAsync` and the `BillingRunner` sweep. Prepares drafts and does **not** issue them unless `Billing:IssueAutomatically` is set: issuing consumes a gapless number and is not something a default should start doing on its own
-- [ ] Tax computation: the figure is settable on a draft, but KNIGHT does not calculate it (jurisdiction-specific, and wrong is a legal matter)
+- [x] Tax computation: **per-currency manual rate**, per the product-owner decision (multi-currency, tax configurable by hand for each currency — `risks.md` §3.3). `Billing:TaxRates` maps an ISO currency to a fraction (`"USD": 0.20`); `PrepareInvoiceAsync` multiplies it onto the subtotal when it builds the draft, and a currency with no entry stays tax-free as before. KNIGHT still does not *derive* a rate from a jurisdiction — that stays a legal question. The manual per-invoice `SetTax` path is unchanged. 2 unit tests
 
 ---
 

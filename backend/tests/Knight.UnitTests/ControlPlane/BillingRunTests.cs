@@ -162,6 +162,54 @@ public sealed class BillingRunTests
     }
 
     [Fact]
+    public async Task ThePreparedDraftCarriesTheConfiguredTaxForItsCurrency()
+    {
+        // Tax is not derived from a jurisdiction; the rate for each currency is
+        // set by hand and multiplied onto the subtotal when the draft is built.
+        var subscription = Due();
+        _subscriptions.GetAsync(subscription.SubscriptionId, Arg.Any<CancellationToken>()).Returns(subscription);
+
+        var options = new BillingOptions
+        {
+            TaxRates = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase) { ["USD"] = 0.20m },
+        };
+        var service = Service(options);
+
+        // After Service(), whose default quote would otherwise win.
+        _pricing.QuoteAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns(new QuotedPrice("USD", 100m, [new QuotedLine("Plan", null, 1, 100m, 100m)]));
+
+        var invoice = await service.PrepareInvoiceAsync(subscription.SubscriptionId, CancellationToken.None);
+
+        Assert.Equal(100m, invoice.Subtotal);
+        Assert.Equal(20m, invoice.Tax);
+        Assert.Equal(120m, invoice.Total);
+    }
+
+    [Fact]
+    public async Task ACurrencyWithNoConfiguredRateStaysTaxFree()
+    {
+        var subscription = Due();
+        _subscriptions.GetAsync(subscription.SubscriptionId, Arg.Any<CancellationToken>()).Returns(subscription);
+
+        // Only USD is configured; EUR is billed as it was before this existed.
+        var options = new BillingOptions
+        {
+            TaxRates = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase) { ["USD"] = 0.20m },
+        };
+        var service = Service(options);
+
+        _pricing.QuoteAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns(new QuotedPrice("EUR", 100m, [new QuotedLine("Plan", null, 1, 100m, 100m)]));
+
+        var invoice = await service.PrepareInvoiceAsync(subscription.SubscriptionId, CancellationToken.None);
+
+        Assert.Equal(100m, invoice.Subtotal);
+        Assert.Equal(0m, invoice.Tax);
+        Assert.Equal(100m, invoice.Total);
+    }
+
+    [Fact]
     public async Task TheBatchSizeCapsOnePass()
     {
         // A backlog must not become one enormous transaction.

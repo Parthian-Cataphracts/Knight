@@ -150,6 +150,8 @@ internal sealed class BillingService : IBillingService
             _invoices.RegisterNewLine(added);
         }
 
+        ApplyConfiguredTax(invoice, now);
+
         await _invoices.SaveChangesAsync(cancellationToken);
 
         await AuditInvoiceAsync("billing.invoice_prepared", invoice, cancellationToken);
@@ -199,6 +201,23 @@ internal sealed class BillingService : IBillingService
 
         await AuditInvoiceAsync("billing.invoice_voided", invoice, cancellationToken, before);
         return invoice;
+    }
+
+    /// <summary>
+    /// Applies the tax rate configured for the invoice's currency, if any, to a
+    /// freshly-rebuilt draft. The rate is set per currency by hand
+    /// (<see cref="BillingOptions.TaxRates"/>) because KNIGHT does not derive tax
+    /// from a jurisdiction; here it only multiplies the subtotal by that rate.
+    /// A currency with no configured rate is left tax-free, as before.
+    /// </summary>
+    private void ApplyConfiguredTax(Invoice invoice, DateTimeOffset now)
+    {
+        if (!_options.TaxRates.TryGetValue(invoice.Currency, out var rate) || rate <= 0m)
+        {
+            return;
+        }
+
+        invoice.SetTax(Money.Of(invoice.Subtotal * rate, invoice.Currency), now);
     }
 
     private async Task<Invoice> RequireAsync(Guid id, CancellationToken cancellationToken) =>
