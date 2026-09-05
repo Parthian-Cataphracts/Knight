@@ -304,6 +304,7 @@ app.MapControlPlaneSubscriptionEndpoints();
 app.MapControlPlaneBillingEndpoints();
 app.MapControlPlaneSelfServiceEndpoints();
 app.MapControlPlaneMeEndpoints();
+app.MapControlPlaneAutoAdminEndpoints();
 app.MapControlPlaneAccessEndpoints();
 
 // The connection is placed into its groups from its own claims on connect; there
