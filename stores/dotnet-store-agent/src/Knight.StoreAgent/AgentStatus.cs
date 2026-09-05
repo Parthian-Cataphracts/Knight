@@ -57,6 +57,18 @@ public sealed record KnightConnectionStatus
 
     /// <summary>The Features this store has taken delivery of.</summary>
     public IReadOnlyList<KnightInstalledFeatureStatus> Features { get; init; } = [];
+
+    /// <summary>
+    /// The UI mounts a store should actually render in its menu: the mounts of
+    /// Features that are installed <b>and enabled</b>, and nothing else. Because a
+    /// lapsed entitlement disables a Feature, a mount for one the customer no
+    /// longer pays for is absent from this list — so a menu built from it cannot
+    /// show a control the store is not entitled to, without the nav code having to
+    /// know the first thing about entitlement (docs/authorization.md §5, phase 32B).
+    /// The per-Feature <see cref="KnightInstalledFeatureStatus.UiMounts"/> stay the
+    /// full picture for a management screen; this is the safe list for the shop.
+    /// </summary>
+    public IReadOnlyList<KnightUiMountStatus> VisibleUiMounts { get; init; } = [];
 }
 
 /// <summary>One Feature, as a connection screen needs it.</summary>
@@ -84,6 +96,9 @@ public sealed record KnightInstalledFeatureStatus
 
 public sealed record KnightUiMountStatus
 {
+    /// <summary>Which Feature this mount belongs to. Empty on the per-Feature list, set on the flat visible list.</summary>
+    public string Slug { get; init; } = string.Empty;
+
     public string Slot { get; init; } = string.Empty;
 
     public string Label { get; init; } = string.Empty;
@@ -254,7 +269,23 @@ public sealed class KnightStatusReader(
             })
             .ToList();
 
-        return snapshot with { Features = features };
+        // The menu a shop should draw: mounts of enabled Features only. Enabled
+        // reflects entitlement, so a Feature the customer stopped paying for
+        // contributes nothing here — the nav is safe to render straight from this.
+        var visibleUiMounts = installed.Values
+            .Where(feature => feature.Enabled && feature.Contract is not null)
+            .OrderBy(feature => feature.Slug, StringComparer.Ordinal)
+            .SelectMany(feature => feature.Contract!.UiMounts.Select(mount => new KnightUiMountStatus
+            {
+                Slug = feature.Slug,
+                Slot = mount.Slot,
+                Label = mount.Label,
+                Path = mount.Path,
+                Kind = mount.Kind,
+            }))
+            .ToList();
+
+        return snapshot with { Features = features, VisibleUiMounts = visibleUiMounts };
     }
 
     /// <summary>

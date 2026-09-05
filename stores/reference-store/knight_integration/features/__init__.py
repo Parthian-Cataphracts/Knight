@@ -59,6 +59,38 @@ def is_available(slug: str) -> bool:
     return is_enabled(slug) and is_installed(slug)
 
 
+def visible_ui_mounts(feature_root: str | None = None) -> list[dict]:
+    """
+    The UI mounts a store should render in its menu right now.
+
+    A mount is shown only for a Feature that is installed, enabled, *and* still
+    entitled — so a customer sees a control for exactly the Features they are
+    paying for, and a lapsed entitlement takes the menu item with it on the next
+    refresh rather than only refusing the API behind it (phase 32B,
+    docs/authorization.md §5). Each mount carries its ``slug`` so the nav can key
+    on it.
+
+    Reading the entitlement here is fail-closed by design: when KNIGHT cannot be
+    reached and the cache has fallen back to the minimum safe set, a paid
+    Feature's menu item is absent rather than shown-but-broken.
+    """
+    from . import entitlements
+    from ..external.contract import external_features
+
+    mounts: list[dict] = []
+
+    # enabled_only filters to installed-and-enabled; the entitlement check is the
+    # belt-and-braces that does not wait for KNIGHT's disable job to have landed.
+    for contract in external_features(feature_root, enabled_only=True):
+        if not entitlements.is_enabled(contract.slug):
+            continue
+
+        for mount in contract.ui_mounts:
+            mounts.append({**mount, "slug": contract.slug})
+
+    return mounts
+
+
 def announce(event: str, payload: dict) -> int:
     """
     Tells any Feature that subscribed that something happened in this store.
@@ -164,4 +196,5 @@ __all__ = [
     "is_installed",
     "refresh",
     "require",
+    "visible_ui_mounts",
 ]

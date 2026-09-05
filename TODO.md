@@ -1,6 +1,6 @@
 # KNIGHT — Project TODO & Status
 
-Last updated: **2026-09-05** (revision 51 — **live on a real Hetzner VM** at `knight.abolfazltafakori.com`: installer + TLS proven sharing the box with two unrelated projects untouched, `knightctl update` exercised end to end and now **rolls back a failed update** to the previous revision + pre-update database, and the **restore drill ran against the real database** (54 tables / 324 rows / 18 migrations verified). Ticked the real-VM items in phases 11/27/29. Prior (rev 50): added **Phase 32** (access tiers + entitlement-gated UI) and **Phase 33** (the Automatic Admin Feature) as planned work; corrected the stale Phase-3 DNS-TXT entry (delivered in c075b9c). Prior: Phase 31 P2 **end-to-end secret rotation** done, cross-repo — rotate-on-handshake, on KNIGHT and every store adopter: the .NET store agent (+ BojanStore's vendored copy), the Python reference-store and the node-reference-store; shared schema updated, tests on all sides. Earlier P0–P3: KMS signer, ADR 0036, PgBouncer, IaC, billing outbox, agent hardening, tenant export. The remaining Phase-31 items are infra-decision-gated (real payment/hosting adapters, push-telemetry). See Phase 31 and docs/hardening-backlog.md)
+Last updated: **2026-09-05** (revision 52 — **Phase 32 complete**: (A) the dashboard now guards routes by permission from a single map the sidebar and router share, so a screen hidden from the menu is refused by its URL too — the tier model and the tier-management screen already existed; (B) entitlement-gated customer UI — the .NET agent exposes `VisibleUiMounts` (enabled Features only) and the Django store `visible_ui_mounts()` (installed + enabled + entitled), tested both sides, vendored copy synced. Prior (rev 51) — **live on a real Hetzner VM** at `knight.abolfazltafakori.com`: installer + TLS proven sharing the box with two unrelated projects untouched, `knightctl update` exercised end to end and now **rolls back a failed update** to the previous revision + pre-update database, and the **restore drill ran against the real database** (54 tables / 324 rows / 18 migrations verified). Ticked the real-VM items in phases 11/27/29. Prior (rev 50): added **Phase 32** (access tiers + entitlement-gated UI) and **Phase 33** (the Automatic Admin Feature) as planned work; corrected the stale Phase-3 DNS-TXT entry (delivered in c075b9c). Prior: Phase 31 P2 **end-to-end secret rotation** done, cross-repo — rotate-on-handshake, on KNIGHT and every store adopter: the .NET store agent (+ BojanStore's vendored copy), the Python reference-store and the node-reference-store; shared schema updated, tests on all sides. Earlier P0–P3: KMS signer, ADR 0036, PgBouncer, IaC, billing outbox, agent hardening, tenant export. The remaining Phase-31 items are infra-decision-gated (real payment/hosting adapters, push-telemetry). See Phase 31 and docs/hardening-backlog.md)
 Authoritative docs: [`docs/README.md`](docs/README.md)
 
 Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked / needs a decision
@@ -153,7 +153,7 @@ Phase 28   Migrating the catalogue          ████░░░░░░  40%
 Phase 29   The production gate              ████░░░░░░  40%  (DNS-TXT + restore-drill-on-real-data done; security review, 11 answers, in-process call remain — owner's)
 Phase 30   Self-service SaaS                ██████████ 100%  (A–G built; real provider + host are product-owner calls)
 Phase 31   Production hardening             ████████░░  80%  (P0/P1/P2 + tenant export + secret rotation done or authored; real payment/hosting adapters & push-telemetry are infra-gated)
-Phase 32   Access tiers & entitlement-gated UI █████░░░░░  50%  (A: operator tiers made visible — route guard + single permission map + tier screen — done; B: entitlement-gated customer UI remains)
+Phase 32   Access tiers & entitlement-gated UI ██████████ 100%  (A: operator tiers made visible — route guard + single permission map + tier screen; B: entitlement-gated customer UI — VisibleUiMounts / visible_ui_mounts, tested both sides)
 Phase 33   The Automatic Admin Feature       ░░░░░░░░░░   0%  (not started — planned; a large multi-channel Feature with per-channel pricing)
 ```
 
@@ -246,11 +246,11 @@ tests and ADRs.
 
 ## Phase 32 — Access tiers and entitlement-gated UI
 
-**Not started. Planned.** Two related visibility problems, both about a screen
-showing a control the viewer must not merely be *unable* to use but must not
-*see at all*. The system already enforces both facts server-side; this phase is
-about the surface honestly reflecting them, so an option a viewer has no right to
-is absent rather than present-and-refused.
+**Done.** Two related visibility problems, both about a screen showing a control
+the viewer must not merely be *unable* to use but must not *see at all*. The
+system already enforced both facts server-side; this phase made the surface
+reflect them, so an option a viewer has no right to is absent rather than
+present-and-refused.
 
 **Exit criteria:** (a) an operator sees only the sections and actions their
 access tier grants — everything else is not rendered, not just disabled; and (b)
@@ -282,18 +282,29 @@ item, page and route exist for them.
       dashboard suite green; the API already returns 403 on the endpoints behind
       each guarded screen (covered by the control-plane authorization tests).
 
-### B — Entitlement-gated customer UI
+### B — Entitlement-gated customer UI — **done**
 
-- [ ] **The entitlement set already tells a store what it may run.** Extend the
-      contract so a Feature also declares its **UI surface** (menu items, pages,
-      route prefixes) — `subscriptions` already carries `uiMounts`; generalise
-      it — and the store renders a Feature's UI only when it is entitled, so an
-      unbought Feature has no menu entry, no page and no route in that store.
-- [ ] **The store agents mount conditionally.** The .NET agent and the reference
-      stores read the entitlement set; a withdrawn entitlement removes the mount
-      on the next refresh, not only refuses the API behind it.
-- [ ] **Tests:** a store entitled to a Feature shows its UI mount; the same store
-      after withdrawal shows nothing for it, on both the API and the rendered nav.
+- [x] **A Feature already declares its UI surface** in its manifest (`ui_mounts`:
+      slot, label, path), delivered with the install job and recorded in each
+      store's registry — general across Features, not just `subscriptions`. No new
+      contract was needed; the surface was already there.
+- [x] **The stores render a Feature's UI only when entitled.** The backbone
+      already existed: a lapsed entitlement makes KNIGHT disable the Feature, and
+      the proxy, the event bus and the menu all filter on the registry's `enabled`
+      flag, which reflects entitlement. What was missing was a safe-by-default menu
+      list, now added: the .NET agent's status exposes `VisibleUiMounts` — the
+      mounts of enabled Features only, so a nav built straight from it can never
+      show an unentitled control — and the Django store gained
+      `visible_ui_mounts()`, which returns mounts for Features that are installed,
+      enabled **and** currently entitled (`is_enabled`), fail-closed when KNIGHT is
+      unreachable. A withdrawal removes the menu item on the next refresh, not only
+      after the disable job lands.
+- [x] **Tests, both sides:** `EntitlementUiTests` (.NET) — an entitled Feature's
+      mount appears and a disabled one's does not, while the report still shows it
+      as installed-but-disabled; `test_entitlement_ui.py` (Django) — entitled +
+      enabled shows the mount, a lapsed entitlement removes it, and a disabled
+      Feature is not shown even while still entitled. The vendored agent in
+      BojanStore carries the same `VisibleUiMounts`.
 
 ---
 
