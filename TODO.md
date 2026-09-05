@@ -904,9 +904,7 @@ Then sign in at http://localhost:5173 and walk:
       (`PUT /plans/{id}/features`, `PUT /plans/prices`) — the endpoints exist and
       the catalogue is still edited as seed data, which stays deliberate until
       pricing changes often enough to be worth a screen
-- [ ] Feature and version creation from the dashboard — publishing is done by
-      `knight_package.py`, which signs the artifact; a browser form that could
-      create a version without one would be the wrong shape
+- [x] Feature and version *management* from the dashboard — **already built** (verified 2026-09-05): the Features screen publishes a Draft version, **yanks a Published one**, and deprecates/withdraws a feature, gated on `feature.publish`/`feature.yank`. Only *creating* a version stays a `knight_package.py` act, by design: it signs the artifact with the offline key, and a browser form that made one without a signature would be the wrong shape. Entry was stale for the operational half
 - [x] Live job progress over SignalR — the delivery engine broadcasts each step
       and outcome, and the screen follows them. Broadcasts happen after the save,
       a failing channel never costs an agent its step report, and the screen says
@@ -2315,9 +2313,7 @@ apologised for: it is the only way to be inside the store's transaction.
       theirs is worse than the typo. Carried from phase 3.5
 - [ ] **The orphan identities withdrawn** — `analytics`, `loyalty`,
       `order-management` and the rest, carried from phase 12
-- [ ] **Feature and version creation from the dashboard**, carried from phase 6:
-      publishing is a command-line act and an operator should not need a
-      terminal to withdraw a bad version
+- [x] **Feature and version management from the dashboard** — **already built**: the operator withdraws (yanks) a bad version and manages a feature's lifecycle from the Features screen. Creating/signing a version stays a command-line act by design. Entry was stale
 - [ ] **Per-feature plan composition and time-boxed prices**, carried from
       phase 6
 
