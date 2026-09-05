@@ -4,6 +4,7 @@
     <ProjectReference Include="..\Knight.Domain\Knight.Domain.csproj" />
     <ProjectReference Include="..\Knight.Application\Knight.Application.csproj" />
     <ProjectReference Include="..\..\modules\AccessControl\AccessControl.csproj" />
+    <ProjectReference Include="..\..\modules\AutoAdmin\AutoAdmin.csproj" />
     <ProjectReference Include="..\..\modules\Customers\Customers.csproj" />
     <ProjectReference Include="..\..\modules\Stores\Stores.csproj" />
     <ProjectReference Include="..\..\modules\Ingestion\Ingestion.csproj" />

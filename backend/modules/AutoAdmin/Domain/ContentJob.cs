@@ -90,7 +90,7 @@ public sealed class Publication : Entity
 /// customer's entitled kinds, and — once approved or run automatically — where it
 /// went. This is the "report" the admin gives back (docs/adr/0038).
 /// </summary>
-public sealed class ContentJob : AuditableEntity
+public sealed class ContentJob : AuditableEntity, ICustomerOwned
 {
     private readonly List<ContentDraft> _drafts = [];
     private readonly List<Publication> _publications = [];

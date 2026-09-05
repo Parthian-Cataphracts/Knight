@@ -8,7 +8,7 @@ namespace AutoAdmin.Domain;
 /// post or a wrong reply is the merchant's liability, and full-auto is an opt-in
 /// the customer takes deliberately (docs/adr/0038).
 /// </summary>
-public sealed class AutoAdminSettings : AuditableEntity
+public sealed class AutoAdminSettings : AuditableEntity, ICustomerOwned
 {
     public Guid CustomerId { get; private set; }
 

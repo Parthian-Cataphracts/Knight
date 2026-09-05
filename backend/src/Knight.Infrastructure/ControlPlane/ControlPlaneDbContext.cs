@@ -143,6 +143,10 @@ public sealed class ControlPlaneDbContext : DbContext
     public DbSet<PlatformBilling.Domain.ActivationOutboxEntry> ActivationOutbox =>
         Set<PlatformBilling.Domain.ActivationOutboxEntry>();
 
+    public DbSet<AutoAdmin.Domain.AutoAdminSettings> AutoAdminSettings => Set<AutoAdmin.Domain.AutoAdminSettings>();
+
+    public DbSet<AutoAdmin.Domain.ContentJob> ContentJobs => Set<AutoAdmin.Domain.ContentJob>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(SchemaName);
@@ -207,6 +211,11 @@ public sealed class ControlPlaneDbContext : DbContext
         modelBuilder.ApplyConfiguration(new NotificationChannelConfiguration());
         modelBuilder.ApplyConfiguration(new NotificationDeliveryConfiguration());
         modelBuilder.ApplyConfiguration(new IncidentReferenceSequenceConfiguration());
+
+        modelBuilder.ApplyConfiguration(new AutoAdminSettingsConfiguration());
+        modelBuilder.ApplyConfiguration(new ContentJobConfiguration());
+        modelBuilder.ApplyConfiguration(new ContentDraftConfiguration());
+        modelBuilder.ApplyConfiguration(new PublicationConfiguration());
 
         ApplyCustomerIsolation(modelBuilder);
     }

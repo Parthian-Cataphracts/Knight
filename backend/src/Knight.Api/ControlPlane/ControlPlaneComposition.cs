@@ -1,4 +1,5 @@
 using AccessControl;
+using AutoAdmin;
 using Billing;
 using Customers;
 using FeatureDelivery;
@@ -40,6 +41,7 @@ public static class ControlPlaneComposition
         services.AddBillingModule(configuration);
         services.AddOnboardingModule(configuration);
         services.AddPlatformBillingModule(configuration);
+        services.AddAutoAdminModule();
         services.AddIngestionModule(configuration);
         services.AddObservabilityModule(configuration);
 
