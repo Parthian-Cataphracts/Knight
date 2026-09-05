@@ -668,7 +668,7 @@ def journey(knight: Knight, arguments, work: Path, run: str, stoppable: list) ->
     plan = _plan_named(knight, "Professional")
     dedicated = {
         item["slug"]
-        for item in knight.call("GET", "/features?pageSize=200")["items"]
+        for item in knight.call("GET", "/features?pageSize=100")["items"]
         if item.get("requiresDedicatedInfrastructure")
     }
     toggleable = [
@@ -1507,7 +1507,7 @@ def ensure_feature(knight: Knight, slug: str, name: str, description: str) -> di
     """
     existing = [
         item
-        for item in knight.call("GET", "/features?pageSize=200")["items"]
+        for item in knight.call("GET", "/features?pageSize=100")["items"]
         if item["slug"] == slug
     ]
 
