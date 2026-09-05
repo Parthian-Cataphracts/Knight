@@ -75,8 +75,14 @@ Status: **living document**. Update whenever a risk is resolved or discovered.
     phase most likely to be wrong, and a single feature never exercises it
     against a real package.
 11. ~~**Uninstall data policy**~~ **Resolved 2026-09-05: immediate purge
-    allowed.** Customers may request immediate purge of their data after
-    uninstall (in addition to any default retention window).
+    allowed, and built.** Customers may request immediate purge of their data
+    after uninstall (in addition to any default retention window). Implemented on
+    the deprovisioning path: `POST /api/v1/provisioning/{jobId}/purge-now` waives
+    the retention window (`ProvisioningJob.WaiveRetention`) so the run stops
+    waiting on `retain` and proceeds to `export` then `purge`. The export still
+    runs first, so the customer keeps their copy; only the wait is removed. It
+    needs `store.deprovision` — the same platform-only permission as starting the
+    run — since it ends in deleted data.
 12. ~~**Email delivery**~~ **Resolved 2026-08-20:** the email channel stays as
     it is — it refuses honestly rather than reporting a message delivered that
     went nowhere — and SMTP is wired in phase 9, where the mail host and its

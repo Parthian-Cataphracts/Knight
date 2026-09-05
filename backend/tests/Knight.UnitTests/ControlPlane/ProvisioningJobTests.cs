@@ -198,4 +198,38 @@ public sealed class ProvisioningJobTests
 
         Assert.Equal(Now.AddDays(30), deprovision.RetainUntil);
     }
+
+    [Fact]
+    public void WaivingRetention_BringsTheWindowForwardToNow()
+    {
+        // The customer asked to be purged immediately rather than after the
+        // contractual window; the retain step must stop waiting.
+        var job = Job(ProvisioningKind.Deprovision);
+        job.RetainDataUntil(Now.AddDays(30), Now);
+
+        job.WaiveRetention(Now);
+
+        Assert.Equal(Now, job.RetainUntil);
+    }
+
+    [Fact]
+    public void WaivingRetention_OnAProvisioningRun_IsRefused()
+    {
+        // Only the deletion path has a window to waive.
+        Assert.Throws<DomainException>(() => Job().WaiveRetention(Now));
+    }
+
+    [Fact]
+    public void WaivingAWindowThatHasAlreadyClosed_LeavesItAlone()
+    {
+        var job = Job(ProvisioningKind.Deprovision);
+        var closed = Now.AddDays(-1);
+        job.RetainDataUntil(closed, Now);
+
+        job.WaiveRetention(Now);
+
+        // Not pushed forward to now — that would be moving a window backwards in
+        // time relative to when it closed. It is already due; nothing to do.
+        Assert.Equal(closed, job.RetainUntil);
+    }
 }

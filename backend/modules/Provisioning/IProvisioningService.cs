@@ -62,6 +62,15 @@ public interface IProvisioningService
 
     Task<ProvisioningJob> CancelAsync(Guid jobId, string reason, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Waives the retention window on a deprovisioning job, honouring a customer's
+    /// request to have their data purged immediately rather than after the
+    /// contractual window (docs/risks.md §3.11). The export still runs before the
+    /// purge, so the customer keeps their copy; only the wait is removed. Then it
+    /// advances the job, which will proceed to export and purge.
+    /// </summary>
+    Task<ProvisioningJob> WaiveRetentionAsync(Guid jobId, CancellationToken cancellationToken);
+
     Task<ProvisioningJob?> GetAsync(Guid jobId, CancellationToken cancellationToken);
 
     Task<ProvisioningJobPage> ListAsync(ProvisioningJobQuery query, CancellationToken cancellationToken);

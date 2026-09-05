@@ -232,6 +232,57 @@ public sealed class ProvisioningTests
     }
 
     [Fact]
+    public async Task PurgingNow_WaivesTheRetentionWindowAndLetsTheRunProceed()
+    {
+        if (!_fixture.IsAvailable) return;
+
+        var client = await ClientAsync();
+        var customerId = await _fixture.SeedCustomerAsync();
+        var storeId = await _fixture.SeedStoreAsync(customerId);
+
+        await client.PostAsync($"/api/v1/stores/{storeId}/credentials", null);
+
+        var started = await (await client.PostAsJsonAsync($"/api/v1/provisioning/stores/{storeId}/deprovision", new { }))
+            .Content.ReadFromJsonAsync<JobBody>();
+
+        // It is sitting on retain, waiting out the contractual window.
+        Assert.Equal("retain", started!.CurrentStep);
+
+        // The customer asks to be purged immediately; an operator honours it.
+        var response = await client.PostAsync($"/api/v1/provisioning/{started.Id}/purge-now", null);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var job = await response.Content.ReadFromJsonAsync<JobBody>();
+
+        // The wait is gone: retain has passed and the run moved on to the export
+        // and purge rather than parking on the window.
+        Assert.Equal("Succeeded", job!.Steps.Single(step => step.Name == "retain").Status);
+        Assert.NotEqual("retain", job.CurrentStep);
+        Assert.True(job.RetainUntil <= DateTimeOffset.UtcNow);
+    }
+
+    [Fact]
+    public async Task PurgingNow_NeedsTheDeprovisionPermission()
+    {
+        if (!_fixture.IsAvailable) return;
+
+        var platform = await ClientAsync();
+        var customerId = await _fixture.SeedCustomerAsync();
+        var storeId = await _fixture.SeedStoreAsync(customerId);
+
+        var job = await (await platform.PostAsJsonAsync($"/api/v1/provisioning/stores/{storeId}/deprovision", new { }))
+            .Content.ReadFromJsonAsync<JobBody>();
+
+        // An Admin may run the platform but not the path that ends in deleted
+        // data — waiving the window is on that path, so it is refused too.
+        var admin = await ClientAsync(SystemRoles.Admin);
+
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await admin.PostAsync($"/api/v1/provisioning/{job!.Id}/purge-now", null)).StatusCode);
+    }
+
+    [Fact]
     public async Task ACustomerRetentionOverride_DecidesHowLongTheirDataIsKept()
     {
         if (!_fixture.IsAvailable) return;

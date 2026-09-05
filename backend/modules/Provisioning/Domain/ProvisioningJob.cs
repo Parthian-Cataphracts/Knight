@@ -160,6 +160,37 @@ public sealed class ProvisioningJob : AuditableEntity, ICustomerOwned
     }
 
     /// <summary>
+    /// Brings the retention window forward to now, so the deprovisioning run stops
+    /// waiting on the <c>retain</c> step and proceeds to the export and the purge.
+    ///
+    /// This is the customer's right to have their data deleted immediately rather
+    /// than after the contractual window (docs/risks.md §3.11). Nothing is
+    /// destroyed sooner than it was going to be: the pipeline still runs the
+    /// <c>export</c> step first, so the customer's copy is written before the
+    /// purge, and the purge deletes exactly what it would have deleted anyway —
+    /// only without the wait. A window that has already closed is left alone.
+    /// </summary>
+    public void WaiveRetention(DateTimeOffset now)
+    {
+        if (Kind is not ProvisioningKind.Deprovision)
+        {
+            throw DomainException.Conflict("Only a deprovisioning job has a retention window to waive.");
+        }
+
+        EnsureUnfinished();
+
+        // Already at or before now: the window is closed and there is nothing to
+        // bring forward. Waiving it again is a harmless no-op.
+        if (RetainUntil is null || RetainUntil <= now)
+        {
+            return;
+        }
+
+        RetainUntil = now;
+        MarkUpdated(now);
+    }
+
+    /// <summary>
     /// The step the job is on, or null when every step has finished. This is
     /// what makes the job resumable: a run that was interrupted asks what
     /// remains rather than starting at the top and re-issuing credentials.

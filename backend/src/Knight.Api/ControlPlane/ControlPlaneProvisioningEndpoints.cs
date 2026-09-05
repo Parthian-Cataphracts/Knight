@@ -117,6 +117,17 @@ public static class ControlPlaneProvisioningEndpoints
             Results.Ok((await service.RetryAsync(jobId, cancellationToken)).ToResponse()))
             .RequirePermission(ControlPlanePermissions.StoreProvision);
 
+        // Honours a customer's request to have their data purged immediately
+        // rather than after the contractual retention window. It ends in deleted
+        // data, so it needs store.deprovision — the same platform-only permission
+        // that started the run — not the weaker provision permission.
+        group.MapPost("/{jobId:guid}/purge-now", async (
+            Guid jobId,
+            IProvisioningService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok((await service.WaiveRetentionAsync(jobId, cancellationToken)).ToResponse()))
+            .RequirePermission(ControlPlanePermissions.StoreDeprovision);
+
         group.MapPost("/{jobId:guid}/cancel", async (
             Guid jobId,
             CancelProvisioningRequest request,

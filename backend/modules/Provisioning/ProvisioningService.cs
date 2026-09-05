@@ -231,6 +231,27 @@ internal sealed class ProvisioningService : IProvisioningService
         return job;
     }
 
+    public async Task<ProvisioningJob> WaiveRetentionAsync(Guid jobId, CancellationToken cancellationToken)
+    {
+        var job = await RequireAsync(jobId, cancellationToken);
+        var before = job.RetainUntil;
+
+        job.WaiveRetention(_clock.UtcNow);
+        await _jobs.SaveChangesAsync(cancellationToken);
+
+        await _audit.RecordAsync(
+            "store.deprovisioning.retention_waived",
+            nameof(ProvisioningJob),
+            job.Id.ToString(),
+            job.CustomerId,
+            cancellationToken,
+            previousValue: new { RetainUntil = before },
+            newValue: new { job.StoreId, job.RetainUntil });
+
+        // Proceed straight to the export and the purge now the wait is gone.
+        return await AdvanceAsync(job, cancellationToken);
+    }
+
     public Task<ProvisioningJob?> GetAsync(Guid jobId, CancellationToken cancellationToken) =>
         _jobs.GetByIdAsync(jobId, cancellationToken);
 
