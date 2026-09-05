@@ -14,7 +14,6 @@
     "gen:api-types": "openapi-typescript src/lib/api/openapi.json -o src/lib/api/schema.ts"
   },
   "dependencies": {
-    "@fontsource-variable/vazirmatn": "^5.2.5",
     "@fontsource/jetbrains-mono": "^5.2.5",
     "@microsoft/signalr": "^10.0.11",
     "@tanstack/react-query": "^5.62.7",

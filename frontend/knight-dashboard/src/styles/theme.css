@@ -8,7 +8,9 @@
 */
 
 @theme {
-  --font-sans: "Vazirmatn Variable", "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  /* English-only UI (docs/risks.md §3.6): the system sans stack, so no font is
+     downloaded and every OS renders in its own native UI face. */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
   --text-display: 3rem;
