@@ -977,9 +977,7 @@ database. See §"How to repeat the verification".
 - [x] Retention per table, in bounded batches so a first sweep cannot take a
       table-wide lock. Audit entries and incidents are never deleted; error
       groups outlive their events
-- [ ] Redis instrumentation — the cache is optional and behind an abstraction, so
-      its spans arrive with the phase 9 deployment work that decides whether Redis
-      is mandatory
+- [x] Redis instrumentation — **delivered 2026-09-05.** `AddRedisInstrumentation()` on the tracing pipeline, added only when a Redis connection string is set (in-process cache has no multiplexer to instrument), so cache commands appear as spans and a request that spent its time in Redis says so
 - [x] A metrics scrape endpoint — **delivered 2026-09-05.** `Telemetry:PrometheusEnabled` (off by default) adds a Prometheus exporter to the existing meter and maps `GET /metrics` (path configurable), the pull half alongside the OTLP push — either, both or neither. It serves KNIGHT's own instruments (`knight_incidents_open`, …), not just the framework's, and stays off the public domain by deployment (nginx allow-list). 2 integration tests
 
 ### How to repeat the verification
@@ -2192,7 +2190,7 @@ one is to run `knight_deliver --dead-letters` and know to.
       dead-lettered, by feature and by store. The alerting path and the reports
       under it exist; a metrics view does not
 - [x] **A metrics scrape endpoint** — **delivered 2026-09-05** (`Telemetry:PrometheusEnabled` → `GET /metrics`, Prometheus pull beside the OTLP push, serving KNIGHT's own instruments). Carried from phase 7
-- [ ] **Redis instrumentation**, carried from phase 7
+- [x] **Redis instrumentation** — **delivered 2026-09-05** (`AddRedisInstrumentation()` on the tracing pipeline when Redis is configured). Carried from phase 7
 - [ ] **Dashboard screens** for deliveries and the dead-letter queue, and for
       the two ledgers phase 14 left unreachable — issuing a gift card, voiding
       one, and reading a loyalty balance are all API-only today

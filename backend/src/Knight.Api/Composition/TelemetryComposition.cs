@@ -91,6 +91,11 @@ public static class TelemetryComposition
         var options = configuration.GetSection(TelemetryOptions.SectionName).Get<TelemetryOptions>()
             ?? new TelemetryOptions();
 
+        // Redis is only in the graph when a connection string is set; without it
+        // the cache is in-process and there is no multiplexer to instrument, so
+        // adding the instrumentation would fail to resolve one at startup.
+        var redisConfigured = !string.IsNullOrWhiteSpace(configuration.GetConnectionString("Redis"));
+
         // The meter is registered whether or not anything exports it. Recording
         // into a meter nobody listens to is nearly free, and making the
         // instruments conditional would mean the code that records measurements
@@ -139,6 +144,15 @@ public static class TelemetryComposition
                     // traceparent to them, so a store's own trace joins KNIGHT's
                     // rather than starting a disconnected one.
                     .AddHttpClientInstrumentation();
+
+                // Cache commands as spans, so a slow request that spent its time
+                // in Redis says so rather than looking like an unexplained gap.
+                // Resolves the multiplexer registered by the cache, so it is only
+                // added when Redis is actually the cache.
+                if (redisConfigured)
+                {
+                    tracing.AddRedisInstrumentation();
+                }
 
                 if (options.TraceDatabase)
                 {
