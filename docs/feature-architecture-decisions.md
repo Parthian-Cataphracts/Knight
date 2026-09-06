@@ -91,3 +91,16 @@ scratch:
   must reach a .NET store today has to be written twice, or be a service. That
   is a commercial reason, not a technical one, and it is the reason most likely
   to override the table above.
+
+## Decision: the in-process path is kept indefinitely (2026-09-05)
+
+The phase-29 gate asked for a call on the in-process path — deprecate it with a
+date, or keep it. **Kept, with no sunset.** Eight of the sixteen features stay
+in-process on the transaction argument above: a Feature that must commit
+atomically with the store's own write cannot become a service without a
+distributed transaction, and that is a worse trade than sharing the store's
+process. The `external_service` path (adr/0033) exists for the features that
+genuinely belong out of process; it does not replace the in-process one. The
+"arguable" rows may still move if `analytics-core` becomes a service or a
+transaction protocol appears — those triggers are recorded above — but the
+in-process path itself is a permanent option, not a deprecated one.

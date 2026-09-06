@@ -2438,9 +2438,14 @@ are true. This is the release decision, and it is the product owner's.
       `RequireDomainVerification` exists on the handshake and is off by default;
       turning it on stops every store with an unverified domain from handshaking,
       which is a release decision rather than a switch to flip quietly
-- [ ] **A decision on the in-process path**: deprecated with a date, or kept
-      indefinitely as the transactional option. Phase 28's decision table is the
-      input; this is the call
+- [x] **A decision on the in-process path** — **decided 2026-09-05: kept
+      indefinitely** as the transactional option. Eight of the sixteen features
+      stay in-process on the transaction argument (phase 28's decision table): a
+      Feature that must commit atomically with the store's own write cannot be a
+      service without a distributed transaction, which is a worse trade than a
+      shared process. The `external_service` path exists for the ones that
+      genuinely belong out of process; the in-process path is not deprecated and
+      has no sunset. Recorded in [`feature-architecture-decisions.md`](docs/feature-architecture-decisions.md)
 
 **Gate: yours.** The code items are done and the eleven answers are recorded.
 What remains are four **product-owner** calls, none of them code we can write for
