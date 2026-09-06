@@ -2413,8 +2413,14 @@ are true. This is the release decision, and it is the product owner's.
       [`security/external-review-scope.md`](docs/security/external-review-scope.md).
       **Longest lead time of anything on this list** — R16 stays open until the
       report exists
-- [ ] **The architecture-validation questions from phase 0**, answered. Eleven
-      of them, in [`risks.md`](docs/risks.md) §3
+- [x] **The architecture-validation questions from phase 0**, answered
+      (2026-09-05, by the product owner). All eleven are resolved and recorded in
+      [`risks.md`](docs/risks.md) §3: take payments + invoices; multi-currency
+      with per-currency manual tax; centralised log ingestion; both agent-hosting
+      modes; English UI; provisioning per the proposal; immediate uninstall purge;
+      package registry (object storage) and signing-key custody (R21) already
+      resolved; `analytics-core`/`analytics-reports` as the first features. Hosting
+      is KNIGHT's own servers
 - [x] **The restore drill against production-shaped data** — **run** against the
       live Hetzner deployment's own database: 54 tables, 324 rows, 18 migrations
       (latest `ActivationOutbox`), 486 constraints and 165 indexes all restored
@@ -2436,10 +2442,14 @@ are true. This is the release decision, and it is the product owner's.
       indefinitely as the transactional option. Phase 28's decision table is the
       input; this is the call
 
-**Gate: yours.** One item on this list was code and is done; the other four are
-the security review, eleven answers, a production database and the call on the
-in-process path. [`docs/phase-29-verification.md`](docs/phase-29-verification.md)
-says what each is waiting for.
+**Gate: yours.** The code items are done and the eleven answers are recorded.
+What remains are four **product-owner** calls, none of them code we can write for
+you: the **security review** (engage a reviewer — the longest lead time), the
+**domain-verification gate** (turn `RequireDomainVerification` on for
+production — a policy switch), the **in-process path** decision (deprecate with a
+date, or keep), and a **production database** + the release call.
+[`docs/phase-29-verification.md`](docs/phase-29-verification.md) says what each is
+waiting for.
 
 ---
 
