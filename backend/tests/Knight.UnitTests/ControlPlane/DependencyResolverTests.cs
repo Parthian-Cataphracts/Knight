@@ -128,6 +128,7 @@ public sealed class DependencyResolverTests
         string? database = "postgresql",
         string? runtime = "django",
         string? runtimeVersion = null,
+        bool domainOutstanding = false,
         params (string Slug, string Version)[] installed) =>
         new(
             storeVersion,
@@ -137,9 +138,36 @@ public sealed class DependencyResolverTests
             installed.ToDictionary(entry => entry.Slug, entry => SemanticVersion.Parse(entry.Version), StringComparer.Ordinal),
             database,
             runtime,
-            runtimeVersion);
+            runtimeVersion,
+            domainOutstanding);
 
     // --- The straightforward cases ----------------------------------------
+
+    [Fact]
+    public void AStoreWhoseDomainIsNotVerified_CannotBeDeliveredInto()
+    {
+        // The store-wide production gate (phase 29): when the deployment requires
+        // domain verification and the store has not proven it, nothing is planned.
+        var resolver = new DependencyResolver([Simple("analytics", "1.0.0")]);
+
+        var result = resolver.Resolve("analytics", VersionRange.Any, Store(domainOutstanding: true));
+
+        Assert.False(result.IsSuccessful);
+        var failure = Assert.Single(result.Failures);
+        Assert.Equal(ResolutionFailureCode.DomainNotVerified, failure.Code);
+        Assert.Equal("analytics", failure.Slug);
+    }
+
+    [Fact]
+    public void AVerifiedDomainDoesNotBlockDelivery()
+    {
+        var resolver = new DependencyResolver([Simple("analytics", "1.0.0")]);
+
+        // The default: the requirement is satisfied (or off), so nothing is gated.
+        var result = resolver.Resolve("analytics", VersionRange.Any, Store(domainOutstanding: false));
+
+        Assert.True(result.IsSuccessful, string.Join("; ", result.Failures));
+    }
 
     [Fact]
     public void ASingleFeature_ResolvesToItsHighestPublishedVersion()

@@ -105,7 +105,8 @@ internal sealed class FeaturePlanResolver : IFeaturePlanResolver
                 installed,
                 context.Database,
                 context.Runtime,
-                context.RuntimeVersion),
+                context.RuntimeVersion,
+                context.DomainVerificationOutstanding),
             moveForward);
 
         return new FeaturePlan(

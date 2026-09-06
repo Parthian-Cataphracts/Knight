@@ -68,12 +68,21 @@ public static class ControlPlaneFixtureExtensions
         return id;
     }
 
-    /// <summary>Creates an active store for a customer, in Production on shared hosting unless told otherwise.</summary>
+    /// <summary>
+    /// Creates an active store for a customer, in Production on shared hosting
+    /// unless told otherwise.
+    ///
+    /// Its domain is verified by default: a store ready to be delivered into has
+    /// proven it owns the domain KNIGHT polls, which is what production requires
+    /// (phase 29). A test of the domain gate itself passes <paramref name="verifyDomain"/>
+    /// false to model a store that has not yet done so.
+    /// </summary>
     public static async Task<Guid> SeedStoreAsync(
         this PostgresApiFixture fixture,
         Guid customerId,
         StoreEnvironment environment = StoreEnvironment.Production,
-        HostingModel hostingModel = HostingModel.SharedManaged)
+        HostingModel hostingModel = HostingModel.SharedManaged,
+        bool verifyDomain = true)
     {
         var id = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
@@ -92,6 +101,13 @@ public static class ControlPlaneFixtureExtensions
                 hostingModel);
 
             store.Activate(now);
+
+            if (verifyDomain)
+            {
+                store.IssueDomainVerification($"verified-in-test-{suffix}", now);
+                store.MarkDomainVerified(DomainVerificationMethod.HttpToken, now);
+            }
+
             await context.Stores.AddAsync(store);
             await context.SaveChangesAsync();
         });

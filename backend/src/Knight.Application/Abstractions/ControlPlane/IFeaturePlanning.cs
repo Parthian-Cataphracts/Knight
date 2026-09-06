@@ -103,7 +103,17 @@ public sealed record FeaturePlanContext(
     string? Runtime = null,
 
     /// <summary>The version of whatever runtime the store named. See StoreCompatibilityContext.</summary>
-    string? RuntimeVersion = null);
+    string? RuntimeVersion = null,
+
+    /// <summary>
+    /// True when the store owes a domain verification that the deployment
+    /// requires before code is delivered into it — its domain is still
+    /// unverified and <c>Stores:RequireDomainVerification</c> is on. Delivery
+    /// refuses such a store, so a package never reaches a domain whose ownership
+    /// KNIGHT has not proven (docs/risks.md §3, phase 29). Off wherever the
+    /// requirement is off, which is how a private-network dev store still plans.
+    /// </summary>
+    bool DomainVerificationOutstanding = false);
 
 /// <summary>
 /// Resolves what would have to happen for a store to end up running a Feature.

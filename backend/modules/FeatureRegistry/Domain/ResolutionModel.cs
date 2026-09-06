@@ -71,7 +71,15 @@ public sealed record StoreCompatibilityContext(
     /// <see cref="DjangoVersion"/>, because it genuinely has two versions a
     /// Feature can care about independently.
     /// </summary>
-    string? RuntimeVersion = null)
+    string? RuntimeVersion = null,
+
+    /// <summary>
+    /// True when the store's domain ownership is unverified and the deployment
+    /// requires it before delivery. A Feature cannot be planned into such a store
+    /// — KNIGHT would be pushing code to a domain it has not proven the store
+    /// owns (phase 29). Off wherever the requirement is off.
+    /// </summary>
+    bool DomainVerificationOutstanding = false)
 {
     public static StoreCompatibilityContext Empty { get; } =
         new(null, null, null, false, new Dictionary<string, SemanticVersion>(StringComparer.Ordinal));
@@ -174,6 +182,13 @@ public enum ResolutionFailureCode
     /// a different Feature rather than to upgrade something.
     /// </summary>
     RuntimeMismatch = 8,
+
+    /// <summary>
+    /// The store's domain ownership is unverified and the deployment requires it
+    /// before delivery. Not a version anybody can change: the store must prove it
+    /// owns the domain KNIGHT polls before code is pushed to it (phase 29).
+    /// </summary>
+    DomainNotVerified = 9,
 }
 
 public sealed record ResolutionFailure(ResolutionFailureCode Code, string Slug, string Message)

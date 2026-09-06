@@ -67,6 +67,13 @@ public sealed class BlockedInstallTests
     {
         var customerId = await _fixture.SeedCustomerAsync();
         var storeId = await _fixture.SeedStoreAsync(customerId);
+        var slug = await PublishTestFeatureAsync();
+        return (storeId, slug);
+    }
+
+    /// <summary>Creates and publishes a Django Feature whose compatibility a heartbeated store satisfies, and returns its slug.</summary>
+    private async Task<string> PublishTestFeatureAsync()
+    {
         var slug = $"blocked-{Guid.NewGuid():n}"[..20];
 
         using var scope = _fixture.Factory.Services.CreateScope();
@@ -98,7 +105,7 @@ public sealed class BlockedInstallTests
 
         await context.SaveChangesAsync();
 
-        return (storeId, slug);
+        return slug;
     }
 
     private async Task<T> ActAsync<T>(Func<IFeatureDeliveryService, Task<T>> act)
@@ -140,6 +147,45 @@ public sealed class BlockedInstallTests
         // returning all along while `install` threw it away.
         Assert.All(result.Plan.Failures, failure => Assert.Equal("IncompatibleStore", failure.Code));
         Assert.Contains(result.Plan.Failures, failure => failure.Message.Contains("has not reported"));
+    }
+
+    [Fact]
+    public async Task AStoreWhoseDomainIsUnverified_IsRefusedDelivery()
+    {
+        if (!_fixture.IsAvailable) return;
+
+        // A store that reports a compatible runtime — so nothing else blocks it —
+        // but has not proven it owns its domain. Production requires that proof
+        // before code is delivered (phase 29).
+        var customerId = await _fixture.SeedCustomerAsync();
+        var storeId = await _fixture.SeedStoreAsync(customerId, verifyDomain: false);
+        await _fixture.SeedHeartbeatAsync(storeId);
+        var slug = await PublishTestFeatureAsync();
+
+        var result = await ActAsync(service =>
+            service.InstallAsync(new InstallFeatureInput(storeId, slug, null, null), CancellationToken.None));
+
+        Assert.False(result.Plan.IsSuccessful);
+        Assert.Empty(result.QueuedJobs);
+        Assert.Contains(result.Plan.Failures, failure => failure.Code == "DomainNotVerified");
+    }
+
+    [Fact]
+    public async Task AVerifiedDomainDoesNotBlockAnOtherwiseInstallableFeature()
+    {
+        if (!_fixture.IsAvailable) return;
+
+        // The same store, domain verified (the fixture default): the domain gate
+        // does not fire, and a compatible feature installs.
+        var customerId = await _fixture.SeedCustomerAsync();
+        var storeId = await _fixture.SeedStoreAsync(customerId);
+        await _fixture.SeedHeartbeatAsync(storeId);
+        var slug = await PublishTestFeatureAsync();
+
+        var result = await ActAsync(service =>
+            service.InstallAsync(new InstallFeatureInput(storeId, slug, null, null), CancellationToken.None));
+
+        Assert.DoesNotContain(result.Plan.Failures, failure => failure.Code == "DomainNotVerified");
     }
 
     [Fact]

@@ -14,10 +14,14 @@ namespace Knight.Infrastructure.ControlPlane.Adapters;
 internal sealed class StoreDeliveryReader : IStoreDeliveryReader
 {
     private readonly ControlPlaneDbContext _context;
+    private readonly Stores.StoreOptions _storeOptions;
 
-    public StoreDeliveryReader(ControlPlaneDbContext context)
+    public StoreDeliveryReader(
+        ControlPlaneDbContext context,
+        Microsoft.Extensions.Options.IOptions<Stores.StoreOptions> storeOptions)
     {
         _context = context;
+        _storeOptions = storeOptions.Value;
     }
 
     /// <summary>
@@ -110,7 +114,11 @@ internal sealed class StoreDeliveryReader : IStoreDeliveryReader
                 StringComparer.Ordinal),
             runtime.Database,
             runtime.Name,
-            runtime.Version);
+            runtime.Version,
+            // The same switch the handshake reads: when domain verification is
+            // required and this store has not proven it owns its domain, delivery
+            // is refused, not merely left Pending (phase 29).
+            _storeOptions.RequireDomainVerification && store.DomainVerifiedAt is null);
     }
 
     public async Task<Guid?> GetOwningCustomerAsync(Guid storeId, CancellationToken cancellationToken)

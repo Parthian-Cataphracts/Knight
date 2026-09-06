@@ -83,6 +83,20 @@ public sealed class DependencyResolver
         var rootSlugs = new HashSet<string>(StringComparer.Ordinal);
         var failures = new List<ResolutionFailure>();
 
+        // A store-wide gate, checked once rather than per feature: if its domain
+        // ownership is unverified and the deployment requires it, nothing may be
+        // delivered into it. Named against the requested feature, which is what
+        // the operator asked to install (phase 29).
+        if (store.DomainVerificationOutstanding)
+        {
+            failures.Add(new ResolutionFailure(
+                ResolutionFailureCode.DomainNotVerified,
+                FeatureSlug.Normalize(roots[0].Slug),
+                "This store's domain ownership is not verified, and delivery requires it. Verify the domain before installing."));
+
+            return ResolutionResult.Failed(failures);
+        }
+
         foreach (var root in roots)
         {
             var slug = FeatureSlug.Normalize(root.Slug);

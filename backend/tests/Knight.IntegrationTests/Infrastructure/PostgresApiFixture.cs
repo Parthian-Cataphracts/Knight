@@ -109,6 +109,11 @@ public class PostgresApiFixture : IAsyncLifetime
             // must not inherit that.
             builder.UseSetting("ControlPlaneAccess:MfaEnforced", "true");
 
+            // The same for domain verification: production requires it (phase 29)
+            // and the suite must exercise that, not the local relaxation that lets
+            // a reference store on 127.0.0.1 be delivered into unverified.
+            builder.UseSetting("Stores:RequireDomainVerification", "true");
+
             // Every test in this collection shares one WebApplicationFactory and
             // therefore one apparent client IP (TestServer has no real network
             // identity), so the per-IP auth rate limits would otherwise collapse

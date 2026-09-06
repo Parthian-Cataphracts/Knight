@@ -497,7 +497,7 @@ public sealed class StoreIngestionTests
     {
         if (!_fixture.IsAvailable) return;
 
-        var store = await SeedRegisteredStoreAsync();
+        var store = await SeedRegisteredStoreAsync(verifyDomain: false);
 
         var (_, body) = await HandshakeAsync(store.ClientId, store.ClientSecret, "Production");
 
@@ -551,7 +551,7 @@ public sealed class StoreIngestionTests
     {
         if (!_fixture.IsAvailable) return;
 
-        var store = await SeedRegisteredStoreAsync();
+        var store = await SeedRegisteredStoreAsync(verifyDomain: false);
         var client = await PlatformClientAsync();
 
         var response = await client.PostAsync($"/api/v1/stores/{store.StoreId}/domain-verification/verify", null);
@@ -663,11 +663,15 @@ public sealed class StoreIngestionTests
         return _fixture.CreateClient(await _fixture.SignInAsync(email, Password));
     }
 
-    /// <summary>An active customer with an active Production store and one usable credential.</summary>
-    private async Task<RegisteredStore> SeedRegisteredStoreAsync()
+    /// <summary>
+    /// An active customer with an active Production store and one usable
+    /// credential. Its domain is verified by default; the tests of the
+    /// verification flow itself ask for a store that has not verified.
+    /// </summary>
+    private async Task<RegisteredStore> SeedRegisteredStoreAsync(bool verifyDomain = true)
     {
         var customerId = await _fixture.SeedCustomerAsync();
-        var storeId = await _fixture.SeedStoreAsync(customerId, StoreEnvironment.Production);
+        var storeId = await _fixture.SeedStoreAsync(customerId, StoreEnvironment.Production, verifyDomain: verifyDomain);
 
         var client = await PlatformClientAsync();
         var issued = await client.PostAsync($"/api/v1/stores/{storeId}/credentials", null);

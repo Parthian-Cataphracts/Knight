@@ -2433,11 +2433,15 @@ are true. This is the release decision, and it is the product owner's.
       that has no server yet. The answer is compared and never fetched, a record
       that merely contains the token does not verify, and a self-referential
       compression pointer cannot hang the parser. Thirteen tests
-- [ ] **Nothing in the delivery path gates on it.** A store can still be
-      installed into while its domain is `Pending`.
-      `RequireDomainVerification` exists on the handshake and is off by default;
-      turning it on stops every store with an unverified domain from handshaking,
-      which is a release decision rather than a switch to flip quietly
+- [x] **The delivery path gates on domain verification** — **decided and built
+      2026-09-05: turned on.** `RequireDomainVerification` is now explicit `true`
+      in production (`appsettings.json`) and `false` only for local dev, where the
+      reference store on 127.0.0.1 cannot serve a real ownership proof. The gap it
+      names is closed: the resolver refuses a store whose domain is unverified
+      with a `DomainNotVerified` failure (`DependencyResolver`), so a package
+      never reaches a domain KNIGHT has not proven the store owns — not merely
+      left `Pending`. The integration suite pins the requirement on, the way
+      production has it. 2 unit + 2 integration tests
 - [x] **A decision on the in-process path** — **decided 2026-09-05: kept
       indefinitely** as the transactional option. Eight of the sixteen features
       stay in-process on the transaction argument (phase 28's decision table): a
@@ -2447,12 +2451,10 @@ are true. This is the release decision, and it is the product owner's.
       genuinely belong out of process; the in-process path is not deprecated and
       has no sunset. Recorded in [`feature-architecture-decisions.md`](docs/feature-architecture-decisions.md)
 
-**Gate: yours.** The code items are done and the eleven answers are recorded.
-What remains are four **product-owner** calls, none of them code we can write for
-you: the **security review** (engage a reviewer — the longest lead time), the
-**domain-verification gate** (turn `RequireDomainVerification` on for
-production — a policy switch), the **in-process path** decision (deprecate with a
-date, or keep), and a **production database** + the release call.
+**Gate: yours.** The code items are done, the eleven answers are recorded, the
+domain-verification gate is on, and the in-process path is kept. What remains is
+external: the **security review** (engage a reviewer — the longest lead time) and
+a **production database** + the release call.
 [`docs/phase-29-verification.md`](docs/phase-29-verification.md) says what each is
 waiting for.
 
