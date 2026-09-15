@@ -1,0 +1,102 @@
+# Analytics, delivered as a service instead of as a package.
+#
+# The same capability as `knight-feature-analytics-core` 1.x — it records a
+# store's events and rolls them into counters — but where the code runs has
+# changed. In 1.x it was a Django app installed into each store, with that
+# store's database handle and its own migrations; here it runs once, as a
+# service the author operates, and each store is handed a configuration telling
+# it which events to forward and which routes to proxy
+# (docs/adr/0033-api-driven-features.md). This is what lets a .NET store use it:
+# the store forwards HTTP and never loads the code, so the runtime it is written
+# in stops mattering.
+#
+# The version is a major bump on purpose: a store on the 1.x Django package has
+# this Feature's tables in its own database, and 2.0.0 is a different deployment
+# of the same product rather than an in-place upgrade of it.
+apiVersion: knight.dev/v1
+slug: analytics-core
+version: 2.0.0
+name: Analytics Core
+description: >-
+  Records a store's events and rolls them into daily counters, run as a service
+  rather than installed into the store. The store forwards its lifecycle events
+  and proxies the merchant's analytics screen through to it, so a store of any
+  runtime can use it.
+
+# The discriminator. No runtime, migrations or install block: the store loads
+# none of this and its database never hears about it.
+architecture: external_service
+
+service:
+  # Where the Feature runs. One deployment serves every store on it; each store
+  # reaches it over HTTPS and proves who it is with the shared secret below.
+  base_url: https://analytics.bojanstore.com
+
+  # HMAC over method, path, timestamp, nonce and a digest of the body — the
+  # exact string the store's ServiceProxy builds. The timestamp and nonce are
+  # covered so a captured delivery stops working and cannot be replayed.
+  auth: hmac-sha256
+
+  health: /healthz
+
+  # The NAME of the shared secret, never the secret. This document is public and
+  # signed; the value is delivered to the store as an encrypted feature secret
+  # and set on the service out of band.
+  secret: ANALYTICS_SERVICE_SECRET
+
+# Every event this store publishes. Recording is idempotent, so at-least-once is
+# safe: a duplicate delivery is dropped by event id rather than double-counted.
+webhooks:
+  - event: order.placed
+    path: /hooks/order-placed
+    delivery: at-least-once
+  - event: order.paid
+    path: /hooks/order-paid
+    delivery: at-least-once
+  - event: order.cancelled
+    path: /hooks/order-cancelled
+    delivery: at-least-once
+  - event: order.refunded
+    path: /hooks/order-refunded
+    delivery: at-least-once
+  - event: order.fulfilled
+    path: /hooks/order-fulfilled
+    delivery: at-least-once
+  - event: cart.abandoned
+    path: /hooks/cart-abandoned
+    delivery: at-least-once
+  - event: customer.registered
+    path: /hooks/customer-registered
+    delivery: at-least-once
+  - event: customer.updated
+    path: /hooks/customer-updated
+    delivery: at-least-once
+  - event: product.created
+    path: /hooks/product-created
+    delivery: at-least-once
+  - event: product.updated
+    path: /hooks/product-updated
+    delivery: at-least-once
+  - event: product.stock_changed
+    path: /hooks/product-stock-changed
+    delivery: at-least-once
+
+# The merchant's analytics screen, forwarded rather than mounted. The store
+# refuses the request itself when the caller is not staff and asserts who is
+# asking in a signed header; the service never sees a session.
+api_proxies:
+  - prefix: admin/analytics/
+    upstream: /api/v1/admin/
+    methods: [GET]
+    identity: staff
+
+# Where the merchant finds it: a slot and a URL, not markup.
+ui_mounts:
+  - slot: admin.sidebar
+    label: Analytics
+    path: /admin/analytics
+    kind: iframe
+
+configuration:
+  defaults:
+    retention_days: 90

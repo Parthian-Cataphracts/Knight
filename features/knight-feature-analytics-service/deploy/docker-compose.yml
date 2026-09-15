@@ -1,0 +1,23 @@
+# Runs the analytics service on the host that operates it. It listens only on
+# loopback; the host's nginx terminates TLS for analytics.<domain> and proxies
+# to it, which is what gives the store the https base_url its ServiceProxy
+# requires outside development.
+name: analytics
+
+services:
+  analytics:
+    build: ../service
+    container_name: bojan-analytics
+    restart: unless-stopped
+    environment:
+      # The shared secret the store signs its deliveries with. Same value the
+      # store holds; set it in this directory's .env, never in git.
+      ANALYTICS_SERVICE_SECRET: ${ANALYTICS_SERVICE_SECRET}
+      ANALYTICS_DB_PATH: /data/analytics.db
+    volumes:
+      - analytics-data:/data
+    ports:
+      - "127.0.0.1:8090:8090"
+
+volumes:
+  analytics-data:
