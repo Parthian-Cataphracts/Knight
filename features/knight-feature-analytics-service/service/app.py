@@ -6,16 +6,19 @@ loads this code: it forwards its lifecycle events here over HTTP and proxies the
 merchant's analytics screen through, so the runtime the store is written in — a
 Django shop, a .NET shop — stops mattering (docs/adr/0033-api-driven-features.md).
 
-Every request except the health probe is signed by the store's ServiceProxy with
-the shared secret, HMAC-SHA256 over
+Two secrets, two callers, one signing scheme (HMAC-SHA256 over
+`METHOD \n path \n timestamp \n nonce \n sha256hex(body)`, carried as
+`X-Knight-Signature: sha256=<hex>` with `X-Knight-Timestamp`/`X-Knight-Nonce`):
 
-    METHOD \n path \n timestamp \n nonce \n sha256hex(body)
+* KNIGHT signs its control calls — /knight/stores/register|rotate|revoke — with a
+  per-Feature **control secret** shared out of band (adr/0034). Those calls hand
+  us each store's own signing secret.
+* Each store signs its webhooks and proxied requests with the **store secret** we
+  were handed for it. Data is partitioned by the `X-Knight-Store` header, so one
+  store never sees another's numbers.
 
-and the signature arrives as `X-Knight-Signature: sha256=<hex>`. We rebuild that
-string from what we received and reject anything that does not match, is outside
-the clock-skew window, or is signed with another key. Data is partitioned by the
-`X-Knight-Store` header: this service holds many stores and one never sees
-another's numbers.
+Anything outside the skew window, replayed, or signed with the wrong key is
+refused. `/healthz` is the one unauthenticated route.
 """
 
 from __future__ import annotations
@@ -34,10 +37,11 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
 VERSION = "2.0.0"
 DB_PATH = os.environ.get("ANALYTICS_DB_PATH", "/data/analytics.db")
-SECRET = os.environ.get("ANALYTICS_SERVICE_SECRET", "")
+# Shared with KNIGHT's ServiceControlPlane:Secrets:analytics-core. Set on both
+# sides out of band; never in the manifest, which is public.
+CONTROL_SECRET = os.environ.get("ANALYTICS_CONTROL_SECRET", "")
 SKEW_DEFAULT = 300
 
-# The webhook path a store posts to -> the canonical event name we record it as.
 EVENT_BY_PATH = {
     "/hooks/order-placed": "order.placed",
     "/hooks/order-paid": "order.paid",
@@ -77,77 +81,175 @@ def _init_db() -> None:
             )
             """
         )
-        # Idempotency for at-least-once delivery: a (store, event id) is recorded
-        # at most once. Events without an id (older publishers) fall through and
-        # are always recorded, which is the safe side for a counter.
         connection.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS ux_events_store_eventid "
             "ON events(store_id, event_id) WHERE event_id IS NOT NULL"
         )
         connection.execute("CREATE INDEX IF NOT EXISTS ix_events_store_day ON events(store_id, day)")
+        # A store's signing secret, handed to us by KNIGHT's control calls. The
+        # previous one keeps verifying until its overlap expires, so a rotation
+        # does not drop deliveries already in flight (adr/0034).
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS store_secrets (
+                store_id       TEXT PRIMARY KEY,
+                secret         TEXT NOT NULL,
+                prev_secret    TEXT,
+                prev_expires   INTEGER,
+                enabled        INTEGER NOT NULL DEFAULT 1,
+                updated_at     TEXT NOT NULL
+            )
+            """
+        )
         connection.commit()
 
 
 _init_db()
 
 
-def _verify(request: Request, body: bytes) -> str | None:
-    """Return an error string, or None when the signature is good."""
-    if not SECRET:
-        return "the service has no shared secret configured"
+def _sign(secret: str, method: str, path: str, timestamp: str, nonce: str, body: bytes) -> str:
+    digest = hashlib.sha256(body).hexdigest()
+    message = "\n".join([method.upper(), path, timestamp, nonce, digest])
+    return hmac.new(secret.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).hexdigest()
 
+
+def _check_signature(request: Request, body: bytes, candidates: list[str]) -> str | None:
+    """None when a candidate secret verifies; otherwise an error string."""
     header = request.headers.get("x-knight-signature", "")
     timestamp = request.headers.get("x-knight-timestamp", "")
     nonce = request.headers.get("x-knight-nonce", "")
     if not header.startswith("sha256=") or not timestamp or not nonce:
         return "missing or malformed signature headers"
-
     try:
         skew = int(request.headers.get("x-knight-skew-seconds", SKEW_DEFAULT))
         sent_at = int(timestamp)
     except ValueError:
         return "unparseable timestamp or skew"
-
     if abs(int(time.time()) - sent_at) > max(skew, 0):
         return "the request is outside the clock-skew window"
 
-    digest = hashlib.sha256(body).hexdigest()
-    message = "\n".join([request.method.upper(), request.url.path, timestamp, nonce, digest])
-    expected = hmac.new(SECRET.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).hexdigest()
-
-    if not hmac.compare_digest(expected, header[len("sha256="):]):
-        return "the signature does not match"
-
-    return None
+    presented = header[len("sha256="):]
+    for secret in candidates:
+        if secret and hmac.compare_digest(
+            _sign(secret, request.method, request.url.path, timestamp, nonce, body), presented
+        ):
+            return None
+    return "the signature does not match"
 
 
 def _store_id(request: Request) -> str:
     return request.headers.get("x-knight-store", "").strip()
 
 
+def _store_secret_candidates(store_id: str) -> list[str]:
+    with closing(_connect()) as connection:
+        row = connection.execute(
+            "SELECT secret, prev_secret, prev_expires, enabled FROM store_secrets WHERE store_id = ?",
+            (store_id,),
+        ).fetchone()
+    if row is None or not row["enabled"]:
+        return []
+    candidates = [row["secret"]]
+    if row["prev_secret"] and row["prev_expires"] and int(row["prev_expires"]) > int(time.time()):
+        candidates.append(row["prev_secret"])
+    return candidates
+
+
+# ---------------------------------------------------------------- control plane
+
+@app.post("/knight/stores/register")
+async def control_register(request: Request) -> JSONResponse:
+    body = await request.body()
+    error = _check_signature(request, body, [CONTROL_SECRET])
+    if error is not None:
+        return JSONResponse({"error": error}, status_code=401)
+    data = json.loads(body or b"{}")
+    store_id = str(data.get("storeId") or "").strip()
+    secret = str(data.get("secret") or "")
+    if not store_id or not secret:
+        return JSONResponse({"error": "storeId and secret are required"}, status_code=400)
+    enabled = 1 if data.get("enabled", True) else 0
+    with closing(_connect()) as connection:
+        connection.execute(
+            "INSERT INTO store_secrets(store_id, secret, prev_secret, prev_expires, enabled, updated_at) "
+            "VALUES (?,?,NULL,NULL,?,?) "
+            "ON CONFLICT(store_id) DO UPDATE SET secret=excluded.secret, enabled=excluded.enabled, "
+            "updated_at=excluded.updated_at",
+            (store_id, secret, enabled, datetime.now(timezone.utc).isoformat()),
+        )
+        connection.commit()
+    return JSONResponse({"registered": True, "storeId": store_id})
+
+
+@app.post("/knight/stores/rotate")
+async def control_rotate(request: Request) -> JSONResponse:
+    body = await request.body()
+    error = _check_signature(request, body, [CONTROL_SECRET])
+    if error is not None:
+        return JSONResponse({"error": error}, status_code=401)
+    data = json.loads(body or b"{}")
+    store_id = str(data.get("storeId") or "").strip()
+    secret = str(data.get("secret") or "")
+    overlap = int(data.get("overlapSeconds") or 0)
+    if not store_id or not secret:
+        return JSONResponse({"error": "storeId and secret are required"}, status_code=400)
+    with closing(_connect()) as connection:
+        current = connection.execute(
+            "SELECT secret FROM store_secrets WHERE store_id = ?", (store_id,)
+        ).fetchone()
+        prev = current["secret"] if current else None
+        connection.execute(
+            "INSERT INTO store_secrets(store_id, secret, prev_secret, prev_expires, enabled, updated_at) "
+            "VALUES (?,?,?,?,1,?) "
+            "ON CONFLICT(store_id) DO UPDATE SET prev_secret=?, prev_expires=?, secret=excluded.secret, "
+            "enabled=1, updated_at=excluded.updated_at",
+            (
+                store_id,
+                secret,
+                prev,
+                int(time.time()) + overlap if prev else None,
+                datetime.now(timezone.utc).isoformat(),
+                prev,
+                int(time.time()) + overlap if prev else None,
+            ),
+        )
+        connection.commit()
+    return JSONResponse({"rotated": True, "storeId": store_id, "overlapSeconds": overlap})
+
+
+@app.post("/knight/stores/revoke")
+async def control_revoke(request: Request) -> JSONResponse:
+    body = await request.body()
+    error = _check_signature(request, body, [CONTROL_SECRET])
+    if error is not None:
+        return JSONResponse({"error": error}, status_code=401)
+    data = json.loads(body or b"{}")
+    store_id = str(data.get("storeId") or "").strip()
+    with closing(_connect()) as connection:
+        connection.execute("DELETE FROM store_secrets WHERE store_id = ?", (store_id,))
+        connection.commit()
+    return JSONResponse({"revoked": True, "storeId": store_id})
+
+
+# ------------------------------------------------------------------- the store
+
 @app.get("/healthz")
 def healthz() -> JSONResponse:
-    # Unauthenticated and touches nothing: it says the process is up, and the
-    # store's agent is the only thing that calls it.
     return JSONResponse(
-        {
-            "status": "healthy",
-            "version": VERSION,
-            "checkedAt": datetime.now(timezone.utc).isoformat(),
-        }
+        {"status": "healthy", "version": VERSION, "checkedAt": datetime.now(timezone.utc).isoformat()}
     )
 
 
 @app.post("/hooks/{_rest:path}")
 async def hook(request: Request) -> JSONResponse:
     body = await request.body()
-    error = _verify(request, body)
-    if error is not None:
-        return JSONResponse({"error": error}, status_code=401)
-
     store_id = _store_id(request)
     if not store_id:
         return JSONResponse({"error": "no store id"}, status_code=400)
+
+    error = _check_signature(request, body, _store_secret_candidates(store_id))
+    if error is not None:
+        return JSONResponse({"error": error}, status_code=401)
 
     event_type = EVENT_BY_PATH.get(request.url.path)
     if event_type is None:
@@ -185,8 +287,6 @@ async def hook(request: Request) -> JSONResponse:
             connection.commit()
             recorded = True
         except sqlite3.IntegrityError:
-            # A duplicate of an event we already have. At-least-once means this is
-            # expected, not an error.
             recorded = False
 
     return JSONResponse({"recorded": recorded, "type": event_type})
@@ -214,20 +314,22 @@ def _summary(store_id: str) -> dict:
 
 @app.get("/api/v1/admin/summary")
 async def admin_summary(request: Request) -> JSONResponse:
-    error = _verify(request, b"")
+    store_id = _store_id(request)
+    error = _check_signature(request, b"", _store_secret_candidates(store_id))
     if error is not None:
         return JSONResponse({"error": error}, status_code=401)
-    return JSONResponse(_summary(_store_id(request)))
+    return JSONResponse(_summary(store_id))
 
 
 @app.get("/api/v1/admin/{_rest:path}")
 @app.get("/api/v1/admin/")
 async def admin_dashboard(request: Request) -> HTMLResponse:
-    error = _verify(request, b"")
+    store_id = _store_id(request)
+    error = _check_signature(request, b"", _store_secret_candidates(store_id))
     if error is not None:
         return HTMLResponse(f"<p>Unauthorized: {error}</p>", status_code=401)
 
-    data = _summary(_store_id(request))
+    data = _summary(store_id)
     rows = "".join(
         f"<tr><td>{item['type']}</td><td style='text-align:left'>{item['count']}</td></tr>"
         for item in data["byType"]

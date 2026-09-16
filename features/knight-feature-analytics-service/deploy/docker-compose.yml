@@ -10,9 +10,12 @@ services:
     container_name: bojan-analytics
     restart: unless-stopped
     environment:
-      # The shared secret the store signs its deliveries with. Same value the
-      # store holds; set it in this directory's .env, never in git.
-      ANALYTICS_SERVICE_SECRET: ${ANALYTICS_SERVICE_SECRET}
+      # The per-Feature control secret KNIGHT signs its /knight/stores/* calls
+      # with. It is shared with the control plane's
+      # ServiceControlPlane:Secrets:analytics-core and set on both sides out of
+      # band — the store's own signing secrets arrive over those control calls,
+      # never from this file. Keep it in this directory's .env, never in git.
+      ANALYTICS_CONTROL_SECRET: ${ANALYTICS_CONTROL_SECRET}
       ANALYTICS_DB_PATH: /data/analytics.db
     volumes:
       - analytics-data:/data

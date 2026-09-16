@@ -19,31 +19,40 @@ run once, connect from anywhere.
   merchant's dashboard.
 - `deploy/` — a compose file for running it on the operator's host behind nginx.
 
-## The signature it verifies
+## The two secrets it verifies
 
-Every request except `/healthz` is signed by the store's ServiceProxy with the
-shared secret, HMAC-SHA256 over
+One signing scheme, HMAC-SHA256 over
 
 ```
 METHOD \n path \n timestamp \n nonce \n sha256hex(body)
 ```
 
-arriving as `X-Knight-Signature: sha256=<hex>`, with `X-Knight-Timestamp`,
-`X-Knight-Nonce`, `X-Knight-Store` and the identity headers. A request outside
-the skew window, replayed, or signed with another key is refused.
+carried as `X-Knight-Signature: sha256=<hex>` with `X-Knight-Timestamp` and
+`X-Knight-Nonce`. Two callers, two keys:
+
+- **KNIGHT → the control routes** (`/knight/stores/register|rotate|revoke`) are
+  signed with the per-Feature **control secret**, shared with the control plane's
+  `ServiceControlPlane:Secrets:analytics-core` and set on both sides out of band.
+  These calls hand the service each store's own signing secret (adr/0034).
+- **A store → its webhooks and proxied requests** are signed with the **store
+  secret** delivered over those control calls, looked up by `X-Knight-Store`.
+
+Anything outside the skew window, replayed, or signed with the wrong key is
+refused. `/healthz` is the one unauthenticated route.
 
 ## Deploying
 
 ```bash
 # on the host that operates the service
 cd deploy
-echo "ANALYTICS_SERVICE_SECRET=<the shared secret>" > .env
+echo "ANALYTICS_CONTROL_SECRET=<the control secret>" > .env
 docker compose up -d --build
 ```
 
 Then point `https://analytics.<domain>` at it in nginx (TLS via certbot) so the
-published `base_url` resolves, and set the same `ANALYTICS_SERVICE_SECRET` as the
-store's delivered feature secret.
+published `base_url` resolves, and set the same value as the control plane's
+`ServiceControlPlane__Secrets__analytics-core`. Store secrets are not configured
+here — KNIGHT issues them and registers them over the control routes.
 
 ## Publishing and installing
 
