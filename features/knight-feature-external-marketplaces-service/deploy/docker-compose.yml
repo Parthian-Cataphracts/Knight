@@ -1,0 +1,16 @@
+# Generated. Runs External Marketplaces behind the host's nginx (TLS for external-marketplaces.bojanstore.com).
+name: bojan-external-marketplaces
+services:
+  service:
+    build: ../service
+    container_name: bojan-external-marketplaces
+    restart: unless-stopped
+    environment:
+      EXTERNAL_MARKETPLACES_CONTROL_SECRET: ${EXTERNAL_MARKETPLACES_CONTROL_SECRET}
+      EXTERNAL_MARKETPLACES_DB_PATH: /data/service.db
+    volumes:
+      - service-data:/data
+    ports:
+      - "127.0.0.1:8104:8104"
+volumes:
+  service-data:
