@@ -511,10 +511,24 @@ panel screen and/or portal), on the existing delivery plumbing:
   (Still worth deepening, but it is not a shell.)
 
 **Catalogue identities with no deliverable version and no real implementation —
-need everything (deliverable package/service + logic + UI):**
-- [ ] `ai-recommendations`, [ ] `ai-reports`, [ ] `external-marketplaces`,
-  [ ] `multi-location`, [ ] `restaurant-operations`, [ ] `subscriptions`
-  (a `subscriptions-service` exists in the repo — publish/verify it here).
+need everything (deliverable package/service + logic + UI).** Entitlements for
+these were granted to the Bojan customer (a store on 91.107.159.162, ports
+8100+); each is a first-time deploy via `deliver_service.sh` (container + nginx +
+cert + install + service-secret):
+- [x] `subscriptions` — **real**: plans, a subscription state machine
+  (Active/Paused/Cancelled), billing periods opened before charged, an
+  append-only attempt ledger, and a background billing clock (plus an admin
+  run-billing for deterministic tests). Pause stops the clock; resume pushes the
+  period end forward by the pause length. Verified end-to-end (2.1.0 Installed,
+  port 8100): public plans (anon 200 via store proxy), subscribe (403 anon),
+  pause→409-on-repeat→resume→cancel, ownership enforced (cancel by another
+  customer 404), MRR/charge totals, admin proxy 403 anon.
+- [ ] `multi-location` — store branches (address, hours, pickup), plus a screen.
+- [ ] `restaurant-operations` — tables + kitchen queue over order events, screen.
+- [ ] `ai-reports` — computed insight statements over the stream, plus a screen.
+- [ ] `ai-recommendations` — popularity/co-purchase recommender (grant returned
+  409 — check whether it is a composed feature needing a parent), plus a screen.
+- [ ] `external-marketplaces` — channel/listing manager with a sync queue, screen.
 - [ ] Reconcile the duplicate/legacy catalogue identities `analytics` (vs
   `analytics-core`) and `loyalty` (vs `loyalty-rewards`) — one sellable slug each.
 
