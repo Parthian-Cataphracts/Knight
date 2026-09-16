@@ -450,7 +450,12 @@ panel screen and/or portal), on the existing delivery plumbing:
 - [ ] `advanced-promotions` — buy-X-get-Y/bundles/stacking, plus its screen.
 - [ ] `customer-segmentation` — segments over the event stream, plus a screen.
 - [ ] `marketing-automation` — triggered campaigns, plus a screen.
-- [ ] `reviews-ratings` — review capture/moderation/reply, plus a screen.
+- [x] `reviews-ratings` — **real**: a signed-in shopper submits one review per
+  product (resubmitting re-queues it for moderation), the merchant approves or
+  rejects and can reply, and the storefront reads back only approved reviews with
+  the product average. Customer/staff/anonymous each have their own proxy prefix
+  and identity. Verified end-to-end (submit → pending → approve → public), anon
+  submit refused, over-one-per-product replaced not duplicated.
 - [ ] `analytics-reports` — reporting surface over the stream, plus a screen.
 - [x] `analytics-core` — real: records real store events and shows a dashboard.
   (Still worth deepening, but it is not a shell.)
