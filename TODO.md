@@ -537,7 +537,13 @@ cert + install + service-secret):
   open walk-in tickets by hand. Kitchen queue + floor screens. Verified
   end-to-end (2.0.0 Installed, port 8102): ticket from order.paid (dup ignored),
   full advance flow, 409 after served, walk-in ticket, cancel, summary, 403 anon.
-- [ ] `ai-reports` — computed insight statements over the stream, plus a screen.
+- [x] `ai-reports` — **real**: reads the event-stream aggregates and writes
+  plain-language insight statements (revenue vs last week, best day in 30, new-
+  customer trend, refund rate, AOV movement), each with an up/down/neutral
+  sentiment — computed by explicit rules, honest that it is arithmetic not an
+  LLM. Verified end-to-end (2.0.0 Installed, port 8103): with seeded events it
+  produced revenue-up, best-day, new-customers, refund-rate and AOV insights;
+  admin proxy 403 anon.
 - [ ] `ai-recommendations` — popularity/co-purchase recommender (grant returned
   409 — check whether it is a composed feature needing a parent), plus a screen.
 - [ ] `external-marketplaces` — channel/listing manager with a sync queue, screen.
