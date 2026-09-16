@@ -1,0 +1,16 @@
+# Generated. Runs Analytics Reports behind the host's nginx (TLS for subscriptions.bojanstore.com).
+name: bojan-subscriptions
+services:
+  service:
+    build: ../service
+    container_name: bojan-subscriptions
+    restart: unless-stopped
+    environment:
+      SUBSCRIPTIONS_CONTROL_SECRET: ${SUBSCRIPTIONS_CONTROL_SECRET}
+      SUBSCRIPTIONS_DB_PATH: /data/service.db
+    volumes:
+      - service-data:/data
+    ports:
+      - "127.0.0.1:8100:8100"
+volumes:
+  service-data:

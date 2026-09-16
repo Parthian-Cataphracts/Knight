@@ -35,7 +35,7 @@ service:
   # Where the Feature runs. One deployment for every store on it, which is the
   # whole scaling argument: 1.x needed a Django package built, signed, versioned
   # and installed into each store, and this needs a URL.
-  base_url: https://subscriptions.knight.dev
+  base_url: https://subscriptions.bojanstore.com
 
   # HMAC over method, path, timestamp, nonce and a digest of the body. The body
   # is covered because a subscription charge is the kind of request somebody
