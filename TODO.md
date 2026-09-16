@@ -486,8 +486,13 @@ and the store validated the event *names*, but nothing delivered a real
 - [ ] Remaining events: `customer.updated` (profile), `product.created/updated`
   (SaveProduct), `product.stock_changed` (RecordStockMovement), and the
   return-service refund path (ReturnDecisionService also calls MarkRefunded).
-- [ ] Durable outbox: forwarding is fire-and-forget after commit, so a delivery
-  in flight is lost if the process stops. Persist and retry across restarts.
+- [x] Durable outbox: events are persisted to `outbox_events` and delivered by a
+  background dispatcher that retries with backoff until every subscriber accepts —
+  across restarts, since the queue is in the database. Verified: a settle wrote a
+  Pending row, the dispatcher delivered it (loyalty + analytics) and marked it
+  Delivered. Residual: the enqueue is its own transaction just after the domain
+  commit, so a crash in that sub-millisecond window still loses it — a fully
+  transactional outbox (enqueue inside the domain transaction) would close it.
 
 ### 34B — A usage guide for every feature and every KNIGHT area — mandatory
 
