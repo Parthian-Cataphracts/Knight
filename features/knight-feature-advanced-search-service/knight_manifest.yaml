@@ -5,7 +5,7 @@
 # secret KNIGHT issues (adr/0033, adr/0034).
 apiVersion: knight.dev/v1
 slug: advanced-search
-version: 2.0.0
+version: 2.1.0
 name: Advanced Search
 description: >-
   Advanced Search run as a service rather than installed into the store: the store
@@ -59,6 +59,14 @@ webhooks:
     delivery: at-least-once
 
 api_proxies:
+  # The storefront searches the index for anyone — no sign-in needed. Only
+  # published, in-stock products come back here.
+  - prefix: search/
+    upstream: /api/v1/public/
+    methods: [GET]
+    identity: anonymous
+  # The merchant sees index size and runs a test query (which also sees drafts
+  # and out-of-stock rows).
   - prefix: admin/advanced-search/
     upstream: /api/v1/admin/
     methods: [GET]
