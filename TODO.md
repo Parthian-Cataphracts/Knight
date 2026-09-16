@@ -453,7 +453,14 @@ panel screen and/or portal), on the existing delivery plumbing:
   enriched store-side to carry the searchable fields. Verified end-to-end
   through the store proxy (2.1.0 Installed): public search returns hits,
   re-index on edit drops stale terms, admin proxy is staff-only (403 anon).
-- [ ] `advanced-inventory` — stock rules/locations, plus its screen.
+- [x] `advanced-inventory` — **real**: stock as an append-only ledger across
+  many locations. The store's own stock reconciles into the "main" location on
+  every product.stock_changed (one balancing movement, main always equals the
+  store's number); the merchant adds locations, transfers between them, adjusts,
+  and sets reorder points that raise low-stock alerts — all staff-gated, with a
+  dashboard. Verified end-to-end (2.1.0 Installed): sync, transfer, over-transfer
+  refused (409), below-zero adjust refused, a re-sync of store stock leaves
+  distributed stock untouched, alerts fire at the reorder point, proxy 403 anon.
 - [ ] `advanced-promotions` — buy-X-get-Y/bundles/stacking, plus its screen.
 - [ ] `customer-segmentation` — segments over the event stream, plus a screen.
 - [ ] `marketing-automation` — triggered campaigns, plus a screen.
