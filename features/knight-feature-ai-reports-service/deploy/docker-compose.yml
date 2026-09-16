@@ -1,0 +1,16 @@
+# Generated. Runs AI Reports behind the host's nginx (TLS for ai-reports.bojanstore.com).
+name: bojan-ai-reports
+services:
+  service:
+    build: ../service
+    container_name: bojan-ai-reports
+    restart: unless-stopped
+    environment:
+      AI_REPORTS_CONTROL_SECRET: ${AI_REPORTS_CONTROL_SECRET}
+      AI_REPORTS_DB_PATH: /data/service.db
+    volumes:
+      - service-data:/data
+    ports:
+      - "127.0.0.1:8103:8103"
+volumes:
+  service-data:
