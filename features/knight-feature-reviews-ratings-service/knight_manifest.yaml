@@ -5,7 +5,7 @@
 # secret KNIGHT issues (adr/0033, adr/0034).
 apiVersion: knight.dev/v1
 slug: reviews-ratings
-version: 2.0.0
+version: 2.1.0
 name: Reviews and Ratings
 description: >-
   Reviews and Ratings run as a service rather than installed into the store: the store
@@ -59,9 +59,21 @@ webhooks:
     delivery: at-least-once
 
 api_proxies:
+  # A shopper submits and reads their own review. identity: customer means the
+  # store refuses it when nobody is signed in and asserts who is asking.
+  - prefix: reviews/
+    upstream: /api/v1/customer/
+    methods: [GET, POST]
+    identity: customer
+  # The public face: the approved reviews and average a storefront shows anyone.
+  - prefix: reviews-public/
+    upstream: /api/v1/public/
+    methods: [GET]
+    identity: anonymous
+  # The merchant moderates and replies.
   - prefix: admin/reviews-ratings/
     upstream: /api/v1/admin/
-    methods: [GET]
+    methods: [GET, POST]
     identity: staff
 
 ui_mounts:
