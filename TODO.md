@@ -483,9 +483,12 @@ and the store validated the event *names*, but nothing delivered a real
   (cancellation) and `customer.registered` (register) wired at their commit
   points. Fan-out verified: a real settle delivered `order.paid` to both loyalty
   and analytics at once.
-- [ ] Remaining events: `customer.updated` (profile), `product.created/updated`
-  (SaveProduct), `product.stock_changed` (RecordStockMovement), and the
-  return-service refund path (ReturnDecisionService also calls MarkRefunded).
+- [x] `customer.updated` (profile), `product.created`/`product.updated`
+  (SaveProduct, distinguished) and `product.stock_changed` (RecordStockMovement)
+  wired to the outbox. All store events now feed the features except one path.
+- [ ] `order.refunded` from the **return** flow (ReturnDecisionService.MarkRefunded
+  lives in a helper with no commit point of its own) — forward it from the
+  DecideAsync transaction that saves the refund.
 - [x] Durable outbox: events are persisted to `outbox_events` and delivered by a
   background dispatcher that retries with backoff until every subscriber accepts —
   across restarts, since the queue is in the database. Verified: a settle wrote a
