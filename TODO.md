@@ -484,7 +484,15 @@ panel screen and/or portal), on the existing delivery plumbing:
   lists and a dashboard. Verified end-to-end (2.1.0 Installed): counts correct,
   duplicate order.paid ignored, refund drops a VIP out of the segment, custom
   segment counts, proxy 403 anon.
-- [ ] `marketing-automation` — triggered campaigns, plus a screen.
+- [x] `marketing-automation` — **real**: "when this happens, reach out"
+  campaigns. The store's events (cart.abandoned, customer.registered, order.*,
+  …) match active campaigns and schedule a message per customer, after an
+  optional delay and at most once per customer per campaign; a background
+  dispatcher marks due messages sent (the send is simulated — no channel is
+  wired to this store — but the triggering, delay, dedup and queue are real).
+  Merchant screen manages campaigns and shows the queue. Verified end-to-end
+  (2.1.0 Installed): trigger schedules once, repeat suppressed, a non-matching
+  event schedules nothing, the dispatcher moved the queue to sent, proxy 403 anon.
 - [x] `reviews-ratings` — **real**: a signed-in shopper submits one review per
   product (resubmitting re-queues it for moderation), the merchant approves or
   rejects and can reply, and the storefront reads back only approved reviews with
