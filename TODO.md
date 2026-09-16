@@ -467,22 +467,22 @@ need everything (deliverable package/service + logic + UI):**
 
 ### 34C — Store→feature event forwarding — the missing foundation
 
-Discovered 2026-09-16 while making `loyalty-rewards` real: **the store does not
-actually forward its domain events to the feature services.** A manifest declares
-webhooks and the store validates the event *names*, but no code delivers a real
-`order.paid` (or any event) to a subscribed service — the analytics and loyalty
-services only ever received events sent to them by hand for testing. So **every
-event-driven Feature is inert on real store activity** until this exists.
+Discovered 2026-09-16 while making `loyalty-rewards` real: the store did not
+forward its domain events to the feature services — a manifest declared webhooks
+and the store validated the event *names*, but nothing delivered a real
+`order.paid` to a subscribed service. Now built:
 
-- [ ] In the vendored agent, a forwarder: given (event, payload), find the
-  installed features subscribed to that event and POST each one its webhook path,
-  signed with that store's per-feature secret, at-least-once with retry (the same
-  canonical signature the services already verify).
-- [ ] Wire BojanStore's domain events (order.paid/placed/cancelled/refunded,
-  customer.*, product.*) to call the forwarder — e.g. at payment settlement and
-  checkout completion.
-- [ ] Re-run loyalty against a real paid order and confirm points are awarded
-  with nobody sending a synthetic webhook.
+- [x] `IKnightEventForwarder` in the agent: for each installed, enabled,
+  subscribed external-service Feature it POSTs the event to the webhook path,
+  signed with that Feature's store secret, at-least-once with retry.
+- [x] `order.paid` wired at settlement (customer, order, amount), after commit,
+  through the `IStoreEventForwarder` port so the domain keeps no agent dependency.
+- [x] Verified against a real settlement: settling an order awarded loyalty
+  points with no synthetic webhook.
+- [ ] Wire the remaining events (order.placed/cancelled/refunded, customer.*,
+  product.*) at their commit points.
+- [ ] Durable outbox: forwarding is fire-and-forget after commit, so a delivery
+  in flight is lost if the process stops. Persist and retry across restarts.
 
 ### 34B — A usage guide for every feature and every KNIGHT area — mandatory
 
