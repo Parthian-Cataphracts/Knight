@@ -544,8 +544,15 @@ cert + install + service-secret):
   LLM. Verified end-to-end (2.0.0 Installed, port 8103): with seeded events it
   produced revenue-up, best-day, new-customers, refund-rate and AOV insights;
   admin proxy 403 anon.
-- [ ] `ai-recommendations` — popularity/co-purchase recommender (grant returned
-  409 — check whether it is a composed feature needing a parent), plus a screen.
+- [x] `ai-recommendations` — **real**: a co-occurrence recommender learned from
+  paid-order baskets (order.paid was enriched store-side to carry line items).
+  It answers "customers who bought this also bought…" from the co-occurrence
+  matrix, falling back to best-sellers, and shows the merchant what it learned.
+  The 409 on grant was because the catalogue row was `Withdrawn`; set it back to
+  `Published` and granted. Verified end-to-end (2.0.0 Installed, port 8105):
+  also-bought ranking, best-seller fallback, duplicate order.paid ignored,
+  summary counts, public recommend 200 + admin 403 via the store proxy.
+  **All six previously-unbuilt catalogue features are now real.**
 - [x] `external-marketplaces` — **real**: a channel + listing register. The
   merchant defines channels (a marketplace), maps products onto them (one listing
   per product per channel), and runs a sync that pushes the Pending ones and
