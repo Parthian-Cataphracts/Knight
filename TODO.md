@@ -530,7 +530,13 @@ cert + install + service-secret):
   stock ledger (advanced-inventory owns that). Verified end-to-end (2.0.0
   Installed, port 8101): public list shows only active branches, pickup filter,
   update, summary, public 200 + admin 403 via the store proxy.
-- [ ] `restaurant-operations` — tables + kitchen queue over order events, screen.
+- [x] `restaurant-operations` — **real**: tables plus a kitchen ticket queue.
+  Every paid order becomes one ticket (unique on order id, so redelivery does not
+  double it) that walks a fixed line received→preparing→ready→served (never
+  backwards; 409 past the end), a cancelled order pulls its ticket, and staff can
+  open walk-in tickets by hand. Kitchen queue + floor screens. Verified
+  end-to-end (2.0.0 Installed, port 8102): ticket from order.paid (dup ignored),
+  full advance flow, 409 after served, walk-in ticket, cancel, summary, 403 anon.
 - [ ] `ai-reports` — computed insight statements over the stream, plus a screen.
 - [ ] `ai-recommendations` — popularity/co-purchase recommender (grant returned
   409 — check whether it is a composed feature needing a parent), plus a screen.
