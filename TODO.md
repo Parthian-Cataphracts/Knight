@@ -440,7 +440,11 @@ panel screen and/or portal), on the existing delivery plumbing:
   and a merchant dashboard (members, active points, tiers, top members) +
   per-customer lookup. Verified end-to-end with signed events. **Needs 34C** to
   earn on real orders rather than forwarded test events.
-- [ ] `gift-cards` — card + store-credit ledger, issue/redeem; a management screen.
+- [x] `gift-cards` — **real**: ledger-backed gift cards (issue/redeem, balance is
+  the ledger sum, no balance column) and per-customer store credit (grant/spend),
+  with a merchant dashboard and per-card lookup. Verified end-to-end, including
+  over-redeem refused. Lifecycle events accepted and ignored (cards move by
+  explicit action, so a refund is not double-credited against the store wallet).
 - [ ] `advanced-search` — a real index the store pushes to, plus a search UI.
 - [ ] `advanced-inventory` — stock rules/locations, plus its screen.
 - [ ] `advanced-promotions` — buy-X-get-Y/bundles/stacking, plus its screen.
