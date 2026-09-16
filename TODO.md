@@ -499,7 +499,14 @@ panel screen and/or portal), on the existing delivery plumbing:
   the product average. Customer/staff/anonymous each have their own proxy prefix
   and identity. Verified end-to-end (submit → pending → approve → public), anon
   submit refused, over-one-per-product replaced not duplicated.
-- [ ] `analytics-reports` — reporting surface over the stream, plus a screen.
+- [x] `analytics-reports` — **real**: a day-by-day ledger built from the event
+  stream (order.paid idempotent on order id, order.refunded booked on its own
+  day, customer.registered) that the merchant queries over a date range and
+  exports as CSV, distinct from analytics-core's live dashboard. Verified
+  end-to-end (2.1.0 Installed): duplicate order.paid ignored, refund lands on the
+  right day as a negative net, totals/AOV/new-customers correct, gap-filled
+  series, CSV download, proxy 403 anon. **All Phase 34A shell features are now
+  real.**
 - [x] `analytics-core` — real: records real store events and shows a dashboard.
   (Still worth deepening, but it is not a shell.)
 
