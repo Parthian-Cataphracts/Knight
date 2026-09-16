@@ -476,7 +476,14 @@ panel screen and/or portal), on the existing delivery plumbing:
     already there in `EventForwarder`), and a best-effort call in
     `CheckoutService` that defaults to zero on any failure. Deferred so it is not
     rushed into the payment path.
-- [ ] `customer-segmentation` — segments over the event stream, plus a screen.
+- [x] `customer-segmentation` — **real**: one behavioural profile per customer
+  built from the event stream (register, order.paid, order.refunded — order.paid
+  is idempotent on order id, a refund reverses the counted order). Built-in
+  segments (new, one-time, repeat, VIP, at-risk) plus merchant-defined custom
+  segments (min orders/spend, inactive days, registered-within days), with member
+  lists and a dashboard. Verified end-to-end (2.1.0 Installed): counts correct,
+  duplicate order.paid ignored, refund drops a VIP out of the segment, custom
+  segment counts, proxy 403 anon.
 - [ ] `marketing-automation` — triggered campaigns, plus a screen.
 - [x] `reviews-ratings` — **real**: a signed-in shopper submits one review per
   product (resubmitting re-queues it for moderation), the merchant approves or
