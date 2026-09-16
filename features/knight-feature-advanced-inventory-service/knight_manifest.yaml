@@ -5,7 +5,7 @@
 # secret KNIGHT issues (adr/0033, adr/0034).
 apiVersion: knight.dev/v1
 slug: advanced-inventory
-version: 2.0.0
+version: 2.1.0
 name: Advanced Inventory
 description: >-
   Advanced Inventory run as a service rather than installed into the store: the store
@@ -59,9 +59,12 @@ webhooks:
     delivery: at-least-once
 
 api_proxies:
+  # The merchant reads stock across locations and manages it: create locations,
+  # adjust, transfer between locations, and set reorder rules. POST is needed
+  # for all but the read screens, so the merchant can act, not just look.
   - prefix: admin/advanced-inventory/
     upstream: /api/v1/admin/
-    methods: [GET]
+    methods: [GET, POST]
     identity: staff
 
 ui_mounts:
