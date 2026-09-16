@@ -5,7 +5,7 @@
 # secret KNIGHT issues (adr/0033, adr/0034).
 apiVersion: knight.dev/v1
 slug: customer-segmentation
-version: 2.0.0
+version: 2.1.0
 name: Customer Segmentation
 description: >-
   Customer Segmentation run as a service rather than installed into the store: the store
@@ -59,9 +59,10 @@ webhooks:
     delivery: at-least-once
 
 api_proxies:
+  # The merchant reads segment counts and members, and saves custom segments.
   - prefix: admin/customer-segmentation/
     upstream: /api/v1/admin/
-    methods: [GET]
+    methods: [GET, POST]
     identity: staff
 
 ui_mounts:
