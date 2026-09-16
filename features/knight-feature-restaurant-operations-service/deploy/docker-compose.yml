@@ -1,0 +1,16 @@
+# Generated. Runs Restaurant Operations behind the host's nginx (TLS for restaurant-operations.bojanstore.com).
+name: bojan-restaurant-operations
+services:
+  service:
+    build: ../service
+    container_name: bojan-restaurant-operations
+    restart: unless-stopped
+    environment:
+      RESTAURANT_OPERATIONS_CONTROL_SECRET: ${RESTAURANT_OPERATIONS_CONTROL_SECRET}
+      RESTAURANT_OPERATIONS_DB_PATH: /data/service.db
+    volumes:
+      - service-data:/data
+    ports:
+      - "127.0.0.1:8102:8102"
+volumes:
+  service-data:
