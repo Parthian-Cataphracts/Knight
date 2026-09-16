@@ -409,6 +409,79 @@ Under the `auto-admin` parent (placeholder monthly prices, editable via the API)
 
 ---
 
+## Phase 34 — Every feature usable, every screen explained
+
+Owner requirement (2026-09-16): **all 39 catalogue features** — not only the ten
+now installed on BojanStore — must be *actually usable*: delivered to a store of
+any runtime, with real business logic **and** a real user interface a merchant
+can operate. A Feature that only records events behind a counter is a shell, not
+a product. The `auto-admin` family is the reference for "done": a real screen
+(«give it a topic» → generate → draft/approve/publish) backed by a real engine.
+
+### 34A — Feature-by-feature audit (all 39)
+
+**Base store capabilities — part of the store itself; they have store UIs, so the
+gap is only usage docs (34B):** `accounts`, `catalog`, `orders`,
+`order-management`, `payments`, `promotions`, `shipping`, `storefront`,
+`log-shipping`.
+
+**Automatic Admin — real logic + portal UI (the model to copy).** Parent
+`auto-admin` plus the eleven à-la-carte sub-features `auto-admin-autopilot`,
+`-autoreply`, `-basalam`, `-boost`, `-caption`, `-divar`, `-image`, `-instagram`,
+`-story`, `-telegram`, `-video`.
+- [ ] Confirm every sub-feature's generator/publisher is real, not still a
+  simulated adapter, and that each has its own visible control in `/portal/auto-admin`.
+
+**Delivered to BojanStore as `external_service`, but still shells (record events
++ a counter dashboard) — each needs real business logic AND a real UI** (store
+panel screen and/or portal), on the existing delivery plumbing:
+- [ ] `loyalty-rewards` — points in lots, expiry, tiers, spend; a member balance/history screen.
+- [ ] `gift-cards` — card + store-credit ledger, issue/redeem; a management screen.
+- [ ] `advanced-search` — a real index the store pushes to, plus a search UI.
+- [ ] `advanced-inventory` — stock rules/locations, plus its screen.
+- [ ] `advanced-promotions` — buy-X-get-Y/bundles/stacking, plus its screen.
+- [ ] `customer-segmentation` — segments over the event stream, plus a screen.
+- [ ] `marketing-automation` — triggered campaigns, plus a screen.
+- [ ] `reviews-ratings` — review capture/moderation/reply, plus a screen.
+- [ ] `analytics-reports` — reporting surface over the stream, plus a screen.
+- [x] `analytics-core` — real: records real store events and shows a dashboard.
+  (Still worth deepening, but it is not a shell.)
+
+**Catalogue identities with no deliverable version and no real implementation —
+need everything (deliverable package/service + logic + UI):**
+- [ ] `ai-recommendations`, [ ] `ai-reports`, [ ] `external-marketplaces`,
+  [ ] `multi-location`, [ ] `restaurant-operations`, [ ] `subscriptions`
+  (a `subscriptions-service` exists in the repo — publish/verify it here).
+- [ ] Reconcile the duplicate/legacy catalogue identities `analytics` (vs
+  `analytics-core`) and `loyalty` (vs `loyalty-rewards`) — one sellable slug each.
+
+> The delivery plumbing (secure `external_service` packaging, connection, panel
+> mount, per-store secret) is solved and scripted — `features/tools/`
+> (`scaffold_external_service.py`, `deliver_service.sh`, `deliver_all.sh`). What
+> each item above needs is the **feature-specific logic and UI**, which the
+> scaffolder cannot generate; do them one at a time the way `auto-admin` was built.
+
+### 34B — A usage guide for every feature and every KNIGHT area — mandatory
+
+Owner requirement: **nothing in KNIGHT may ship without plain-language usage
+instructions** — so clear a child could follow them — covering *what it does*,
+*what it can do*, and *step by step how to use it*. The failure this prevents:
+someone reinventing, or missing, a capability that already exists because no one
+told them it was there or how to drive it. This is for **both operators and
+merchants, no exceptions**.
+
+- [ ] Every Feature ships a short "how to use" (what it is, what it can do, the
+  exact steps to use it, where its screen is) shown in-product next to the
+  feature, not only in a repo doc.
+- [ ] Every KNIGHT operator-dashboard area (customers, stores, plans, billing,
+  features, rollouts, installations, monitoring, alerts, …) has the same.
+- [ ] Every customer-portal area (signup, plans/checkout, store, auto-admin, …)
+  has the same, in the merchant's language.
+- [ ] A single index that lists every capability so nobody has to discover them
+  by accident.
+
+---
+
 ## Already implemented (inherited, before the pivot)
 
 These exist and work today; see [`docs/current-state-analysis.md`](docs/current-state-analysis.md).
