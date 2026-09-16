@@ -6,25 +6,26 @@ using Microsoft.Extensions.Options;
 namespace Knight.StoreAgent;
 
 /// <summary>
-/// Forwards a store's domain events to the Feature services that subscribed to
+/// Delivers a store's domain events to the Feature services that subscribed to
 /// them.
 ///
 /// A manifest declares which events a Feature wants (`webhooks`); this is the
-/// half that actually delivers them. For each installed, enabled external-service
-/// Feature subscribed to the event, it POSTs the payload to the Feature's webhook
-/// path, signed with that Feature's own store secret — the exact canonical string
-/// the service verifies (<see cref="KnightServiceProxyMiddleware.Sign"/>). Delivery is
-/// at-least-once with a short retry, and every service is idempotent on the
-/// event id, so a duplicate is dropped rather than double-counted.
+/// half that delivers them. For each installed, enabled external-service Feature
+/// subscribed to the event, it POSTs the payload to the Feature's webhook path,
+/// signed with that Feature's own store secret — the canonical string the service
+/// verifies (<see cref="KnightServiceProxyMiddleware.Sign"/>).
 ///
-/// The store calls this <b>after</b> its own transaction commits: a Feature that
-/// is slow or down must never hold up, or roll back, an order the shop already
-/// took. Losing a delivery on a crash is the gap a durable outbox would close;
-/// until then the retry covers the ordinary failures.
+/// One attempt per subscriber; the caller decides what to do on failure. In this
+/// store that caller is a durable outbox that persists the event first and retries
+/// this call until it reports success, so nothing is lost across a restart. The
+/// return value is what lets the outbox know: <c>true</c> only when every
+/// subscriber accepted it (and when there are none to deliver to), <c>false</c>
+/// when any subscriber failed or its secret has not arrived yet.
 /// </summary>
 public interface IKnightEventForwarder
 {
-    Task ForwardAsync(string eventName, object payload, CancellationToken cancellationToken = default);
+    /// <returns><c>true</c> when every subscriber accepted the event.</returns>
+    Task<bool> ForwardAsync(string eventName, object payload, CancellationToken cancellationToken = default);
 }
 
 internal sealed class KnightEventForwarder(
@@ -34,16 +35,14 @@ internal sealed class KnightEventForwarder(
     IOptions<KnightOptions> options,
     ILogger<KnightEventForwarder> logger) : IKnightEventForwarder
 {
-    private const int MaxAttempts = 3;
-
-    public async Task ForwardAsync(string eventName, object payload, CancellationToken cancellationToken = default)
+    public async Task<bool> ForwardAsync(string eventName, object payload, CancellationToken cancellationToken = default)
     {
         var storeId = status.StoreId;
         if (string.IsNullOrEmpty(storeId))
         {
-            // Not connected yet: there is no identity to sign as, and nothing has
-            // been delivered to subscribe. Silently skip rather than fail the shop.
-            return;
+            // Not connected yet: there is no identity to sign as. Report failure
+            // so the outbox holds the event and retries once the store connects.
+            return false;
         }
 
         IReadOnlyDictionary<string, InstalledFeature> features;
@@ -54,10 +53,11 @@ internal sealed class KnightEventForwarder(
         catch (Exception exception)
         {
             logger.LogWarning(exception, "Could not read the feature registry to forward {Event}.", eventName);
-            return;
+            return false;
         }
 
-        byte[]? body = null;
+        var body = JsonSerializer.SerializeToUtf8Bytes(payload);
+        var allDelivered = true;
 
         foreach (var feature in features.Values)
         {
@@ -78,19 +78,21 @@ internal sealed class KnightEventForwarder(
                 if (string.IsNullOrEmpty(secret))
                 {
                     logger.LogWarning(
-                        "No service secret for {Feature} yet; cannot forward {Event} until KNIGHT issues one.",
+                        "No service secret for {Feature} yet; will retry {Event} once KNIGHT issues one.",
                         feature.Slug,
                         eventName);
+                    allDelivered = false;
                     continue;
                 }
 
-                body ??= JsonSerializer.SerializeToUtf8Bytes(payload);
-                await DeliverAsync(feature.Slug, service, subscription.Path, storeId, secret, body, cancellationToken);
+                allDelivered &= await DeliverAsync(feature.Slug, service, subscription.Path, storeId, secret, body, cancellationToken);
             }
         }
+
+        return allDelivered;
     }
 
-    private async Task DeliverAsync(
+    private async Task<bool> DeliverAsync(
         string slug,
         ServiceEndpoint service,
         string path,
@@ -101,49 +103,37 @@ internal sealed class KnightEventForwarder(
     {
         var url = $"{service.BaseUrl.TrimEnd('/')}/{path.TrimStart('/')}";
 
-        for (var attempt = 1; attempt <= MaxAttempts; attempt++)
+        try
         {
-            try
+            using var request = new HttpRequestMessage(HttpMethod.Post, url)
             {
-                using var request = new HttpRequestMessage(HttpMethod.Post, url)
-                {
-                    Content = new ByteArrayContent(body),
-                };
-                request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-                request.Headers.TryAddWithoutValidation("X-Knight-Store", storeId);
-                request.Headers.TryAddWithoutValidation("X-Knight-Feature", slug);
+                Content = new ByteArrayContent(body),
+            };
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            request.Headers.TryAddWithoutValidation("X-Knight-Store", storeId);
+            request.Headers.TryAddWithoutValidation("X-Knight-Feature", slug);
 
-                // The same signature scheme the proxy uses, over the webhook path,
-                // under this Feature's own secret — which is what the service checks.
-                foreach (var (name, value) in KnightServiceProxyMiddleware.Sign(secret, "POST", path, body))
-                {
-                    request.Headers.TryAddWithoutValidation(name, value);
-                }
-
-                using var response = await clients
-                    .CreateClient(KnightServiceProxyMiddleware.HttpClientName)
-                    .SendAsync(request, cancellationToken);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    return;
-                }
-
-                logger.LogWarning(
-                    "Forwarding {Path} to {Feature} returned {Status} (attempt {Attempt}/{Max}).",
-                    path, slug, (int)response.StatusCode, attempt, MaxAttempts);
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
+            foreach (var (name, value) in KnightServiceProxyMiddleware.Sign(secret, "POST", path, body))
             {
-                logger.LogWarning(exception, "Forwarding {Path} to {Feature} failed (attempt {Attempt}/{Max}).", path, slug, attempt, MaxAttempts);
+                request.Headers.TryAddWithoutValidation(name, value);
             }
 
-            if (attempt < MaxAttempts)
+            using var response = await clients
+                .CreateClient(KnightServiceProxyMiddleware.HttpClientName)
+                .SendAsync(request, cancellationToken);
+
+            if (response.IsSuccessStatusCode)
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(200 * attempt), cancellationToken);
+                return true;
             }
+
+            logger.LogWarning("Forwarding {Path} to {Feature} returned {Status}.", path, slug, (int)response.StatusCode);
+            return false;
         }
-
-        logger.LogError("Gave up forwarding {Path} to {Feature} after {Max} attempts.", path, slug, MaxAttempts);
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Forwarding {Path} to {Feature} failed.", path, slug);
+            return false;
+        }
     }
 }
