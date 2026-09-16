@@ -1,0 +1,16 @@
+# Generated. Runs Multi-Location behind the host's nginx (TLS for multi-location.bojanstore.com).
+name: bojan-multi-location
+services:
+  service:
+    build: ../service
+    container_name: bojan-multi-location
+    restart: unless-stopped
+    environment:
+      MULTI_LOCATION_CONTROL_SECRET: ${MULTI_LOCATION_CONTROL_SECRET}
+      MULTI_LOCATION_DB_PATH: /data/service.db
+    volumes:
+      - service-data:/data
+    ports:
+      - "127.0.0.1:8101:8101"
+volumes:
+  service-data:
