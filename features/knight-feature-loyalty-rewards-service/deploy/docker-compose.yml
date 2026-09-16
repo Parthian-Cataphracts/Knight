@@ -1,0 +1,16 @@
+# Generated. Runs Loyalty and Rewards behind the host's nginx (TLS for loyalty.bojanstore.com).
+name: bojan-loyalty-rewards
+services:
+  service:
+    build: ../service
+    container_name: bojan-loyalty-rewards
+    restart: unless-stopped
+    environment:
+      LOYALTY_REWARDS_CONTROL_SECRET: ${LOYALTY_REWARDS_CONTROL_SECRET}
+      LOYALTY_REWARDS_DB_PATH: /data/service.db
+    volumes:
+      - service-data:/data
+    ports:
+      - "127.0.0.1:8091:8091"
+volumes:
+  service-data:
