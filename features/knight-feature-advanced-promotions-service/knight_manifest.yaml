@@ -5,7 +5,7 @@
 # secret KNIGHT issues (adr/0033, adr/0034).
 apiVersion: knight.dev/v1
 slug: advanced-promotions
-version: 2.0.0
+version: 2.1.0
 name: Advanced Promotions
 description: >-
   Advanced Promotions run as a service rather than installed into the store: the store
@@ -59,9 +59,16 @@ webhooks:
     delivery: at-least-once
 
 api_proxies:
+  # The storefront and the checkout price a basket with the same engine: POST a
+  # cart, get the discount and the reason back. No sign-in needed to be quoted.
+  - prefix: promotions/
+    upstream: /api/v1/public/
+    methods: [POST]
+    identity: anonymous
+  # The merchant defines and toggles promotions.
   - prefix: admin/advanced-promotions/
     upstream: /api/v1/admin/
-    methods: [GET]
+    methods: [GET, POST]
     identity: staff
 
 ui_mounts:
