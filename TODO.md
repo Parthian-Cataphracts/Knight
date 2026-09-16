@@ -461,7 +461,21 @@ panel screen and/or portal), on the existing delivery plumbing:
   dashboard. Verified end-to-end (2.1.0 Installed): sync, transfer, over-transfer
   refused (409), below-zero adjust refused, a re-sync of store stock leaves
   distributed stock untouched, alerts fire at the reorder point, proxy 403 anon.
-- [ ] `advanced-promotions` — buy-X-get-Y/bundles/stacking, plus its screen.
+- [x] `advanced-promotions` — **real engine**: percentage/fixed off a basket
+  over a threshold, buy-X-get-Y on a product, and fixed-price bundles, each with
+  a priority, an active window and a stackable flag (a non-stackable one stops
+  the pile-on). One `/api/v1/public/evaluate` prices a basket for both the cart
+  page and the till; the merchant defines/toggles promotions on a staff screen.
+  Verified end-to-end through the store proxy (2.1.0 Installed): a basket got
+  10%-over-300 + buy-2-get-1 stacked to the right discount with a per-line
+  reason, discount clamps to subtotal, admin proxy 403 anon.
+  - [ ] **Remaining (store-side money code, its own unit):** apply the evaluated
+    promotions discount at checkout. Needs an `Order.PromotionsDiscount` field +
+    migration so the invoice can tell it apart from a coupon, a synchronous
+    `IKnightFeatureClient` in the vendored agent (all the signing machinery is
+    already there in `EventForwarder`), and a best-effort call in
+    `CheckoutService` that defaults to zero on any failure. Deferred so it is not
+    rushed into the payment path.
 - [ ] `customer-segmentation` — segments over the event stream, plus a screen.
 - [ ] `marketing-automation` — triggered campaigns, plus a screen.
 - [x] `reviews-ratings` — **real**: a signed-in shopper submits one review per
