@@ -1,0 +1,16 @@
+# Generated. Runs AI Recommendations behind the host's nginx (TLS for ai-recommendations.bojanstore.com).
+name: bojan-ai-recommendations
+services:
+  service:
+    build: ../service
+    container_name: bojan-ai-recommendations
+    restart: unless-stopped
+    environment:
+      AI_RECOMMENDATIONS_CONTROL_SECRET: ${AI_RECOMMENDATIONS_CONTROL_SECRET}
+      AI_RECOMMENDATIONS_DB_PATH: /data/service.db
+    volumes:
+      - service-data:/data
+    ports:
+      - "127.0.0.1:8105:8105"
+volumes:
+  service-data:
