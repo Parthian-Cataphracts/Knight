@@ -479,8 +479,13 @@ and the store validated the event *names*, but nothing delivered a real
   through the `IStoreEventForwarder` port so the domain keeps no agent dependency.
 - [x] Verified against a real settlement: settling an order awarded loyalty
   points with no synthetic webhook.
-- [ ] Wire the remaining events (order.placed/cancelled/refunded, customer.*,
-  product.*) at their commit points.
+- [x] `order.placed` (checkout), `order.cancelled` + `order.refunded`
+  (cancellation) and `customer.registered` (register) wired at their commit
+  points. Fan-out verified: a real settle delivered `order.paid` to both loyalty
+  and analytics at once.
+- [ ] Remaining events: `customer.updated` (profile), `product.created/updated`
+  (SaveProduct), `product.stock_changed` (RecordStockMovement), and the
+  return-service refund path (ReturnDecisionService also calls MarkRefunded).
 - [ ] Durable outbox: forwarding is fire-and-forget after commit, so a delivery
   in flight is lost if the process stops. Persist and retry across restarts.
 
