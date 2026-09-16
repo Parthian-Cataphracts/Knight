@@ -523,7 +523,13 @@ cert + install + service-secret):
   port 8100): public plans (anon 200 via store proxy), subscribe (403 anon),
   pause→409-on-repeat→resume→cancel, ownership enforced (cancel by another
   customer 404), MRR/charge totals, admin proxy 403 anon.
-- [ ] `multi-location` — store branches (address, hours, pickup), plus a screen.
+- [x] `multi-location` — **real**: a register of store branches (name, address,
+  city, phone, geo, opening hours, click-and-collect flag). The storefront reads
+  the public list (optionally pickup-only) for a "find a branch"/pickup picker;
+  the merchant creates/updates/deletes branches on a screen. Deliberately not the
+  stock ledger (advanced-inventory owns that). Verified end-to-end (2.0.0
+  Installed, port 8101): public list shows only active branches, pickup filter,
+  update, summary, public 200 + admin 403 via the store proxy.
 - [ ] `restaurant-operations` — tables + kitchen queue over order events, screen.
 - [ ] `ai-reports` — computed insight statements over the stream, plus a screen.
 - [ ] `ai-recommendations` — popularity/co-purchase recommender (grant returned
