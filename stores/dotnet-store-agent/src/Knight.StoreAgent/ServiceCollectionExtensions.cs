@@ -69,6 +69,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<KnightAgentStatus>();
         services.AddSingleton<KnightConnection>();
         services.AddSingleton<KnightStatusReader>();
+        services.TryAddSingleton<IKnightEventForwarder, KnightEventForwarder>();
 
         // TryAdd, so a store that keeps credentials in its own encrypted
         // settings table, or names its staff roles differently, replaces one
