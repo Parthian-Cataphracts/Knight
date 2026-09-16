@@ -435,7 +435,11 @@ gap is only usage docs (34B):** `accounts`, `catalog`, `orders`,
 **Delivered to BojanStore as `external_service`, but still shells (record events
 + a counter dashboard) — each needs real business logic AND a real UI** (store
 panel screen and/or portal), on the existing delivery plumbing:
-- [ ] `loyalty-rewards` — points in lots, expiry, tiers, spend; a member balance/history screen.
+- [x] `loyalty-rewards` — **real**: points earned per paid order into expiring
+  lots, spent oldest-first, refund claws back, lifetime→tier, staff redemption,
+  and a merchant dashboard (members, active points, tiers, top members) +
+  per-customer lookup. Verified end-to-end with signed events. **Needs 34C** to
+  earn on real orders rather than forwarded test events.
 - [ ] `gift-cards` — card + store-credit ledger, issue/redeem; a management screen.
 - [ ] `advanced-search` — a real index the store pushes to, plus a search UI.
 - [ ] `advanced-inventory` — stock rules/locations, plus its screen.
@@ -460,6 +464,25 @@ need everything (deliverable package/service + logic + UI):**
 > (`scaffold_external_service.py`, `deliver_service.sh`, `deliver_all.sh`). What
 > each item above needs is the **feature-specific logic and UI**, which the
 > scaffolder cannot generate; do them one at a time the way `auto-admin` was built.
+
+### 34C — Store→feature event forwarding — the missing foundation
+
+Discovered 2026-09-16 while making `loyalty-rewards` real: **the store does not
+actually forward its domain events to the feature services.** A manifest declares
+webhooks and the store validates the event *names*, but no code delivers a real
+`order.paid` (or any event) to a subscribed service — the analytics and loyalty
+services only ever received events sent to them by hand for testing. So **every
+event-driven Feature is inert on real store activity** until this exists.
+
+- [ ] In the vendored agent, a forwarder: given (event, payload), find the
+  installed features subscribed to that event and POST each one its webhook path,
+  signed with that store's per-feature secret, at-least-once with retry (the same
+  canonical signature the services already verify).
+- [ ] Wire BojanStore's domain events (order.paid/placed/cancelled/refunded,
+  customer.*, product.*) to call the forwarder — e.g. at payment settlement and
+  checkout completion.
+- [ ] Re-run loyalty against a real paid order and confirm points are awarded
+  with nobody sending a synthetic webhook.
 
 ### 34B — A usage guide for every feature and every KNIGHT area — mandatory
 
