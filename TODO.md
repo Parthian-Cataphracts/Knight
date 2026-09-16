@@ -546,7 +546,14 @@ cert + install + service-secret):
   admin proxy 403 anon.
 - [ ] `ai-recommendations` — popularity/co-purchase recommender (grant returned
   409 — check whether it is a composed feature needing a parent), plus a screen.
-- [ ] `external-marketplaces` — channel/listing manager with a sync queue, screen.
+- [x] `external-marketplaces` — **real**: a channel + listing register. The
+  merchant defines channels (a marketplace), maps products onto them (one listing
+  per product per channel), and runs a sync that pushes the Pending ones and
+  stamps an external reference; a store edit to a product drops its Listed copies
+  back to Pending so drift is visible. The push is simulated (no marketplace
+  credentials on this store) but the model, mapping, drift and sync queue are
+  real. Verified end-to-end (2.0.0 Installed, port 8104): map (Pending), 409 on
+  duplicate, sync→Listed, edit→drift, re-sync, summary, 403 anon.
 - [ ] Reconcile the duplicate/legacy catalogue identities `analytics` (vs
   `analytics-core`) and `loyalty` (vs `loyalty-rewards`) — one sellable slug each.
 
