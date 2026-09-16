@@ -445,7 +445,14 @@ panel screen and/or portal), on the existing delivery plumbing:
   with a merchant dashboard and per-card lookup. Verified end-to-end, including
   over-redeem refused. Lifecycle events accepted and ignored (cards move by
   explicit action, so a refund is not double-credited against the store wallet).
-- [ ] `advanced-search` — a real index the store pushes to, plus a search UI.
+- [x] `advanced-search` — **real**: a full-text index (SQLite FTS5) the store
+  pushes to on every product.created/updated/stock_changed, ranked search
+  (bm25, prefix, by title/description/SKU), the storefront searches anonymously
+  (published and in-stock only) while staff get an index dashboard with a test
+  search that also sees drafts and out-of-stock rows. Product events were
+  enriched store-side to carry the searchable fields. Verified end-to-end
+  through the store proxy (2.1.0 Installed): public search returns hits,
+  re-index on edit drops stale terms, admin proxy is staff-only (403 anon).
 - [ ] `advanced-inventory` — stock rules/locations, plus its screen.
 - [ ] `advanced-promotions` — buy-X-get-Y/bundles/stacking, plus its screen.
 - [ ] `customer-segmentation` — segments over the event stream, plus a screen.
