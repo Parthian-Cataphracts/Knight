@@ -1,0 +1,16 @@
+# Generated. Runs Reviews and Ratings behind the host's nginx (TLS for reviews-ratings.bojanstore.com).
+name: bojan-reviews-ratings
+services:
+  service:
+    build: ../service
+    container_name: bojan-reviews-ratings
+    restart: unless-stopped
+    environment:
+      REVIEWS_RATINGS_CONTROL_SECRET: ${REVIEWS_RATINGS_CONTROL_SECRET}
+      REVIEWS_RATINGS_DB_PATH: /data/service.db
+    volumes:
+      - service-data:/data
+    ports:
+      - "127.0.0.1:8099:8099"
+volumes:
+  service-data:

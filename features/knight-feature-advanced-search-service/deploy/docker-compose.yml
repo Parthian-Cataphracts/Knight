@@ -1,0 +1,16 @@
+# Generated. Runs Advanced Search behind the host's nginx (TLS for advanced-search.bojanstore.com).
+name: bojan-advanced-search
+services:
+  service:
+    build: ../service
+    container_name: bojan-advanced-search
+    restart: unless-stopped
+    environment:
+      ADVANCED_SEARCH_CONTROL_SECRET: ${ADVANCED_SEARCH_CONTROL_SECRET}
+      ADVANCED_SEARCH_DB_PATH: /data/service.db
+    volumes:
+      - service-data:/data
+    ports:
+      - "127.0.0.1:8093:8093"
+volumes:
+  service-data:

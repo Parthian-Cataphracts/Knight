@@ -1,0 +1,16 @@
+# Generated. Runs Marketing Automation behind the host's nginx (TLS for marketing-automation.bojanstore.com).
+name: bojan-marketing-automation
+services:
+  service:
+    build: ../service
+    container_name: bojan-marketing-automation
+    restart: unless-stopped
+    environment:
+      MARKETING_AUTOMATION_CONTROL_SECRET: ${MARKETING_AUTOMATION_CONTROL_SECRET}
+      MARKETING_AUTOMATION_DB_PATH: /data/service.db
+    volumes:
+      - service-data:/data
+    ports:
+      - "127.0.0.1:8098:8098"
+volumes:
+  service-data:

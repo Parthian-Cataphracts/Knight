@@ -1,0 +1,16 @@
+# Generated. Runs Advanced Inventory behind the host's nginx (TLS for advanced-inventory.bojanstore.com).
+name: bojan-advanced-inventory
+services:
+  service:
+    build: ../service
+    container_name: bojan-advanced-inventory
+    restart: unless-stopped
+    environment:
+      ADVANCED_INVENTORY_CONTROL_SECRET: ${ADVANCED_INVENTORY_CONTROL_SECRET}
+      ADVANCED_INVENTORY_DB_PATH: /data/service.db
+    volumes:
+      - service-data:/data
+    ports:
+      - "127.0.0.1:8092:8092"
+volumes:
+  service-data:

@@ -1,0 +1,16 @@
+# Generated. Runs Customer Segmentation behind the host's nginx (TLS for customer-segmentation.bojanstore.com).
+name: bojan-customer-segmentation
+services:
+  service:
+    build: ../service
+    container_name: bojan-customer-segmentation
+    restart: unless-stopped
+    environment:
+      CUSTOMER_SEGMENTATION_CONTROL_SECRET: ${CUSTOMER_SEGMENTATION_CONTROL_SECRET}
+      CUSTOMER_SEGMENTATION_DB_PATH: /data/service.db
+    volumes:
+      - service-data:/data
+    ports:
+      - "127.0.0.1:8096:8096"
+volumes:
+  service-data:

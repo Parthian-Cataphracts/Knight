@@ -1,0 +1,16 @@
+# Generated. Runs Gift Cards and Store Credit behind the host's nginx (TLS for gift-cards.bojanstore.com).
+name: bojan-gift-cards
+services:
+  service:
+    build: ../service
+    container_name: bojan-gift-cards
+    restart: unless-stopped
+    environment:
+      GIFT_CARDS_CONTROL_SECRET: ${GIFT_CARDS_CONTROL_SECRET}
+      GIFT_CARDS_DB_PATH: /data/service.db
+    volumes:
+      - service-data:/data
+    ports:
+      - "127.0.0.1:8097:8097"
+volumes:
+  service-data:

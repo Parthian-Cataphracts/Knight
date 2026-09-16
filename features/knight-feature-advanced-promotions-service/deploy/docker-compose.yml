@@ -1,0 +1,16 @@
+# Generated. Runs Advanced Promotions behind the host's nginx (TLS for advanced-promotions.bojanstore.com).
+name: bojan-advanced-promotions
+services:
+  service:
+    build: ../service
+    container_name: bojan-advanced-promotions
+    restart: unless-stopped
+    environment:
+      ADVANCED_PROMOTIONS_CONTROL_SECRET: ${ADVANCED_PROMOTIONS_CONTROL_SECRET}
+      ADVANCED_PROMOTIONS_DB_PATH: /data/service.db
+    volumes:
+      - service-data:/data
+    ports:
+      - "127.0.0.1:8094:8094"
+volumes:
+  service-data:

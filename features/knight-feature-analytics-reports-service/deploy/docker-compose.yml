@@ -1,0 +1,16 @@
+# Generated. Runs Analytics Reports behind the host's nginx (TLS for analytics-reports.bojanstore.com).
+name: bojan-analytics-reports
+services:
+  service:
+    build: ../service
+    container_name: bojan-analytics-reports
+    restart: unless-stopped
+    environment:
+      ANALYTICS_REPORTS_CONTROL_SECRET: ${ANALYTICS_REPORTS_CONTROL_SECRET}
+      ANALYTICS_REPORTS_DB_PATH: /data/service.db
+    volumes:
+      - service-data:/data
+    ports:
+      - "127.0.0.1:8095:8095"
+volumes:
+  service-data:
