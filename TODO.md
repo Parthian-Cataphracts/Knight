@@ -469,13 +469,16 @@ panel screen and/or portal), on the existing delivery plumbing:
   Verified end-to-end through the store proxy (2.1.0 Installed): a basket got
   10%-over-300 + buy-2-get-1 stacked to the right discount with a per-line
   reason, discount clamps to subtotal, admin proxy 403 anon.
-  - [ ] **Remaining (store-side money code, its own unit):** apply the evaluated
-    promotions discount at checkout. Needs an `Order.PromotionsDiscount` field +
-    migration so the invoice can tell it apart from a coupon, a synchronous
-    `IKnightFeatureClient` in the vendored agent (all the signing machinery is
-    already there in `EventForwarder`), and a best-effort call in
-    `CheckoutService` that defaults to zero on any failure. Deferred so it is not
-    rushed into the payment path.
+  - [x] **Checkout application — done.** `Order.PromotionsDiscount` is its own
+    column (migration `OrderPromotionsDiscount`, default 0) folded into `Total`
+    alongside coupon and loyalty; the vendored agent gained `IKnightFeatureClient`
+    (synchronous signed call, mirrors `EventForwarder`, returns null on any
+    failure); `KnightPromotionsPricer` implements the `IPromotionsPricer` port and
+    `CheckoutService` calls it best-effort, clamped so the three discounts can
+    never exceed the goods. **Verified on the live store**: a real order for a
+    3,450,000 basket with a 10%-off-basket promotion recorded
+    `PromotionsDiscount = 345,000` and a Total of 3,150,000; test order, customer
+    and promotion cleaned up and stock restored afterwards.
 - [x] `customer-segmentation` — **real**: one behavioural profile per customer
   built from the event stream (register, order.paid, order.refunded — order.paid
   is idempotent on order id, a refund reverses the counted order). Built-in
