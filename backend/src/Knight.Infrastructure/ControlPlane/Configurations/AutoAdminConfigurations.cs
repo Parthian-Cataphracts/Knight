@@ -19,6 +19,8 @@ internal sealed class AutoAdminSettingsConfiguration : IEntityTypeConfiguration<
         builder.HasKey(s => s.Id);
 
         builder.Property(s => s.Autonomy).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(s => s.AutoReplyEnabled).HasDefaultValue(false).IsRequired();
+        builder.Property(s => s.BoostEnabled).HasDefaultValue(false).IsRequired();
 
         // One row per customer.
         builder.HasIndex(s => s.CustomerId).IsUnique();

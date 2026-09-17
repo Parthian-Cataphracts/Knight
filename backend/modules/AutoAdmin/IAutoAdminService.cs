@@ -17,6 +17,14 @@ public interface IAutoAdminService
     Task<AutoAdminSettings> SetAutonomyAsync(Guid customerId, AutonomyMode autonomy, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Turns the behaviour toggles (auto-reply, boost) on or off. Each is only
+    /// honoured when the customer holds the matching part; a request to enable a
+    /// part they do not own is silently kept off rather than failing the whole
+    /// save.
+    /// </summary>
+    Task<AutoAdminSettings> SetTogglesAsync(Guid customerId, bool autoReply, bool boost, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Runs the admin on a topic: generates content for the entitled generation
     /// parts, and — if the customer is on full-auto — publishes it to the entitled
     /// channels straight away, otherwise leaves it as a draft to approve. Refused

@@ -16,11 +16,13 @@ import {
   useAutoAdminSettings,
   useAutoAdminRuns,
   useSetAutonomy,
+  useSetToggles,
   useSubmitRun,
   useApproveRun,
   autoAdminRunsKey,
   autoAdminSettingsKey,
   type Autonomy,
+  type AutoAdminSettings,
   type ContentRun,
 } from "../autoAdmin";
 
@@ -90,7 +92,7 @@ export function PortalAutoAdminPage() {
 }
 
 /** The engine, shown once the customer owns at least one part. */
-function Engine({ settings, owned }: { settings: { autonomy: Autonomy }; owned: PublicOptionalFeature[] }) {
+function Engine({ settings, owned }: { settings: AutoAdminSettings; owned: PublicOptionalFeature[] }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const setAutonomy = useSetAutonomy();
@@ -179,8 +181,127 @@ function Engine({ settings, owned }: { settings: { autonomy: Autonomy }; owned: 
         </CardBody>
       </Card>
 
+      <PartsPanel owned={owned} settings={settings} />
+
       <RunHistory runs={runs} />
     </div>
+  );
+}
+
+/** Metadata for each Automatic Admin part: which group it belongs to, its
+ *  Persian label, and whether its downstream is real or simulated today. */
+const PART_META: Record<string, { group: string; label: string; status: "real" | "sim"; note: string }> = {
+  "auto-admin-caption": { group: "تولید محتوا", label: "کپشن", status: "sim", note: "متن نمونه تولید می‌شود؛ برای متن واقعی نیاز به اتصال یک مدل زبانی (LLM) است." },
+  "auto-admin-image": { group: "تولید محتوا", label: "تصویر", status: "sim", note: "برای تولید تصویر واقعی نیاز به سرویس تصویرساز است." },
+  "auto-admin-story": { group: "تولید محتوا", label: "استوری", status: "sim", note: "برای تولید واقعی نیاز به مدل زبانی/تصویرساز است." },
+  "auto-admin-video": { group: "تولید محتوا", label: "ویدیو", status: "sim", note: "برای تولید ویدیو واقعی نیاز به سرویس ویدیوساز است." },
+  "auto-admin-telegram": { group: "کانال‌ها", label: "تلگرام", status: "real", note: "انتشار واقعی از طریق Bot API تلگرام (نیازمند توکن ربات و شناسهٔ کانال)." },
+  "auto-admin-instagram": { group: "کانال‌ها", label: "اینستاگرام", status: "sim", note: "برای انتشار واقعی نیاز به دسترسی API اینستاگرام است." },
+  "auto-admin-divar": { group: "کانال‌ها", label: "دیوار", status: "sim", note: "برای انتشار واقعی نیاز به API دیوار است." },
+  "auto-admin-basalam": { group: "کانال‌ها", label: "باسلام", status: "sim", note: "برای انتشار واقعی نیاز به API باسلام است." },
+  "auto-admin-autopilot": { group: "رفتار", label: "خودکار کامل", status: "real", note: "با «حالت کاملاً خودکار» بالا کنترل می‌شود." },
+  "auto-admin-autoreply": { group: "رفتار", label: "پاسخ خودکار", status: "real", note: "پاسخ خودکار به پیام‌ها/نظرها (کلید زیر)." },
+  "auto-admin-boost": { group: "رفتار", label: "تقویت/بوست", status: "real", note: "تقویت محتوای منتشرشده (کلید زیر)." },
+};
+
+/** The "your parts" panel: every owned sub-feature with a visible control or an
+ *  honest status, so nothing the customer bought is invisible or a dead entry. */
+function PartsPanel({ owned, settings }: { owned: PublicOptionalFeature[]; settings: AutoAdminSettings }) {
+  const queryClient = useQueryClient();
+  const setToggles = useSetToggles();
+  const ownedSlugs = new Set(owned.map((p) => p.slug));
+
+  const applyToggles = (next: { autoReply: boolean; boost: boolean }) => {
+    setToggles.mutate(next, {
+      onSuccess: () => void queryClient.invalidateQueries({ queryKey: autoAdminSettingsKey }),
+    });
+  };
+
+  const groups = ["تولید محتوا", "کانال‌ها", "رفتار"];
+
+  return (
+    <Card>
+      <CardHeader title="بخش‌های شما" />
+      <CardBody className="flex flex-col gap-5">
+        {groups.map((group) => {
+          const items = owned.filter((p) => PART_META[p.slug]?.group === group);
+          if (items.length === 0) return null;
+          return (
+            <div key={group}>
+              <p className="mb-2 text-body-sm font-semibold text-on-surface">{group}</p>
+              <ul className="flex flex-col gap-2">
+                {items.map((p) => {
+                  const meta = PART_META[p.slug];
+                  if (!meta) return null;
+                  const isAutoReply = p.slug === "auto-admin-autoreply";
+                  const isBoost = p.slug === "auto-admin-boost";
+                  const toggleValue = isAutoReply ? settings.autoReply : isBoost ? settings.boost : undefined;
+                  return (
+                    <li
+                      key={p.slug}
+                      className="flex items-start justify-between gap-3 rounded-md border border-outline-variant bg-surface p-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-body-sm font-medium text-on-surface">{meta.label}</span>
+                          <span
+                            className={
+                              "rounded-full px-2 py-0.5 text-[11px] " +
+                              (meta.status === "real"
+                                ? "bg-primary/15 text-primary"
+                                : "bg-on-surface/10 text-on-surface-variant")
+                            }
+                          >
+                            {meta.status === "real" ? "واقعی" : "شبیه‌سازی"}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-body-sm leading-6 text-on-surface-variant">{meta.note}</p>
+                      </div>
+                      {toggleValue !== undefined ? (
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={toggleValue}
+                          disabled={setToggles.isPending}
+                          onClick={() =>
+                            applyToggles({
+                              autoReply: isAutoReply ? !toggleValue : settings.autoReply,
+                              boost: isBoost ? !toggleValue : settings.boost,
+                            })
+                          }
+                          className={
+                            "relative h-6 w-11 shrink-0 rounded-full transition-colors " +
+                            (toggleValue ? "bg-primary" : "bg-on-surface/20")
+                          }
+                          aria-label={meta.label}
+                        >
+                          <span
+                            className={
+                              "absolute top-0.5 size-5 rounded-full bg-white transition-all " +
+                              (toggleValue ? "start-0.5" : "end-0.5")
+                            }
+                          />
+                        </button>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
+        {ownedSlugs.has("auto-admin-instagram") ||
+        ownedSlugs.has("auto-admin-divar") ||
+        ownedSlugs.has("auto-admin-basalam") ||
+        [...ownedSlugs].some((s) => GENERATION_SLUGS.has(s)) ? (
+          <p className="rounded-md bg-on-surface/5 px-3 py-2 text-body-sm leading-6 text-on-surface-variant">
+            بخش‌های «شبیه‌سازی» تا وصل‌شدن سرویس بیرونی‌شان (مدل زبانی/تصویرساز یا
+            API آن پلتفرم) نمونه تولید می‌کنند؛ منطق، صف و تأیید واقعی است و با
+            افزودن اعتبارنامه، همان مسیر واقعی می‌شود. تلگرام هم‌اکنون واقعی است.
+          </p>
+        ) : null}
+      </CardBody>
+    </Card>
   );
 }
 

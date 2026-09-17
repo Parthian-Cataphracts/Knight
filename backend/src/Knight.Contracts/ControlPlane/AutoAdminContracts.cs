@@ -9,12 +9,25 @@ public sealed record AutoAdminSettingsResponse
 {
     /// <summary>"ApprovalRequired" (the default) or "FullyAutomatic".</summary>
     public required string Autonomy { get; init; }
+
+    /// <summary>Whether the admin answers messages on its own (needs the auto-reply part).</summary>
+    public required bool AutoReply { get; init; }
+
+    /// <summary>Whether the admin boosts published content (needs the boost part).</summary>
+    public required bool Boost { get; init; }
 }
 
 public sealed record SetAutonomyRequest
 {
     /// <summary>"ApprovalRequired" or "FullyAutomatic".</summary>
     public required string Autonomy { get; init; }
+}
+
+public sealed record SetTogglesRequest
+{
+    public required bool AutoReply { get; init; }
+
+    public required bool Boost { get; init; }
 }
 
 public sealed record SubmitContentRunRequest

@@ -53,6 +53,21 @@ internal sealed class AutoAdminService : IAutoAdminService
         return settings;
     }
 
+    public async Task<AutoAdminSettings> SetTogglesAsync(
+        Guid customerId, bool autoReply, bool boost, CancellationToken cancellationToken)
+    {
+        // Entitlement is the gate, never the client's word: a toggle only turns on
+        // when the customer actually holds that part.
+        var entitledParts = await ResolveEntitledPartsAsync(customerId, cancellationToken);
+        var settings = await GetOrCreateSettingsAsync(customerId, cancellationToken);
+        settings.SetToggles(
+            autoReply && entitledParts.Contains(AutoAdminParts.AutoReplySlug),
+            boost && entitledParts.Contains(AutoAdminParts.BoostSlug),
+            _clock.UtcNow);
+        await _settings.SaveChangesAsync(cancellationToken);
+        return settings;
+    }
+
     public async Task<ContentJob> SubmitAsync(Guid customerId, string topic, CancellationToken cancellationToken)
     {
         var entitledParts = await ResolveEntitledPartsAsync(customerId, cancellationToken);

@@ -458,8 +458,18 @@ gap is only usage docs (34B):** `accounts`, `catalog`, `orders`,
 `auto-admin` plus the eleven à-la-carte sub-features `auto-admin-autopilot`,
 `-autoreply`, `-basalam`, `-boost`, `-caption`, `-divar`, `-image`, `-instagram`,
 `-story`, `-telegram`, `-video`.
-- [ ] Confirm every sub-feature's generator/publisher is real, not still a
-  simulated adapter, and that each has its own visible control in `/portal/auto-admin`.
+- [x] Every sub-feature now has a visible control/status in `/portal/auto-admin`:
+  a "بخش‌های شما" panel lists each owned part with a real/simulated badge, the
+  autonomy choice drives `autopilot`, and `autoreply`/`boost` are real persisted,
+  entitlement-gated toggles (were dead entitlements before — added
+  `AutoAdminSettings.AutoReplyEnabled/BoostEnabled`, a migration, and
+  `PUT /me/auto-admin/settings/toggles`). Usage doc:
+  [`docs/usage/features.md`](usage/features.md) §17.
+- [ ] **Still simulated (needs external credentials, honestly labelled in the UI):**
+  content generation (an LLM/image/video service) and the Instagram/Divar/Basalam
+  channel publishers (each platform's API). Telegram is the one real channel. The
+  engine, queue, approval and entitlement around them are real; wiring a real
+  provider is a drop-in per `AutoAdminModule` once credentials exist.
 
 **Delivered to BojanStore as `external_service`, but still shells (record events
 + a counter dashboard) — each needs real business logic AND a real UI** (store

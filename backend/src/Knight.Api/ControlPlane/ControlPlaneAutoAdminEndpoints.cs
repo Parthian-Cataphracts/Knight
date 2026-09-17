@@ -58,6 +58,24 @@ public static class ControlPlaneAutoAdminEndpoints
             return Results.Ok(ToSettings(settings));
         });
 
+        // The behaviour toggles (auto-reply, boost). Each is only honoured when the
+        // customer holds the matching part — the service enforces that, so the
+        // client cannot switch on a part it never bought.
+        group.MapPut("/settings/toggles", async (
+            SetTogglesRequest request,
+            IControlPlanePrincipal principal,
+            IAutoAdminService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (principal.CustomerId is not { } customerId)
+            {
+                return Forbidden();
+            }
+
+            var settings = await service.SetTogglesAsync(customerId, request.AutoReply, request.Boost, cancellationToken);
+            return Results.Ok(ToSettings(settings));
+        });
+
         // Runs the admin on a topic. Full-auto publishes straight away; otherwise
         // the run comes back as a draft to approve.
         group.MapPost("/runs", async (
@@ -128,6 +146,8 @@ public static class ControlPlaneAutoAdminEndpoints
     private static AutoAdminSettingsResponse ToSettings(AutoAdminSettings settings) => new()
     {
         Autonomy = settings.Autonomy.ToString(),
+        AutoReply = settings.AutoReplyEnabled,
+        Boost = settings.BoostEnabled,
     };
 
     private static ContentRunResponse ToRun(ContentJob job) => new()

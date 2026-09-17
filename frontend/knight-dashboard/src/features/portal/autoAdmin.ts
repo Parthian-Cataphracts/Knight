@@ -12,6 +12,8 @@ export type Autonomy = "ApprovalRequired" | "FullyAutomatic";
 
 export interface AutoAdminSettings {
   autonomy: Autonomy;
+  autoReply: boolean;
+  boost: boolean;
 }
 
 export interface ContentDraft {
@@ -49,6 +51,13 @@ export function useAutoAdminSettings() {
   return useQuery({
     queryKey: SETTINGS_KEY,
     queryFn: () => apiRequest<AutoAdminSettings>("/me/auto-admin/settings"),
+  });
+}
+
+export function useSetToggles() {
+  return useMutation({
+    mutationFn: (toggles: { autoReply: boolean; boost: boolean }) =>
+      apiRequest<AutoAdminSettings>("/me/auto-admin/settings/toggles", { method: "PUT", body: toggles }),
   });
 }
 

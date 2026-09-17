@@ -49,7 +49,7 @@ describe("PortalAutoAdminPage", () => {
       "/catalog/plans": [customPlan],
       // Owns the image generation part and the Telegram channel.
       "/me/subscription": { id: "s1", planId: customPlan.id, planName: "Custom", status: "active", currentPeriodEnd: new Date().toISOString(), cancelAtPeriodEnd: false, featureIds: ["F-IMG", "F-TG"] },
-      "/me/auto-admin/settings": { autonomy: "ApprovalRequired" },
+      "/me/auto-admin/settings": { autonomy: "ApprovalRequired", autoReply: false, boost: false },
       "/me/auto-admin/runs": [draftRun],
     });
 
@@ -70,7 +70,7 @@ describe("PortalAutoAdminPage", () => {
     mockApi({
       "/catalog/plans": [customPlan],
       "/me/subscription": { id: "s1", planId: customPlan.id, planName: "Custom", status: "active", currentPeriodEnd: new Date().toISOString(), cancelAtPeriodEnd: false, featureIds: [] },
-      "/me/auto-admin/settings": { autonomy: "ApprovalRequired" },
+      "/me/auto-admin/settings": { autonomy: "ApprovalRequired", autoReply: false, boost: false },
       "/me/auto-admin/runs": [],
     });
 
