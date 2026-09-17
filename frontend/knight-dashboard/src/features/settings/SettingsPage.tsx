@@ -10,7 +10,7 @@ import { useAuthStore } from "@/store/auth";
 
 export function SettingsPage() {
   const { t } = useTranslation();
-  const { theme, toggleTheme } = useUiStore();
+  const { theme, toggleTheme, locale, setLocale } = useUiStore();
   const user = useAuthStore((state) => state.user);
 
   return (
@@ -31,12 +31,13 @@ export function SettingsPage() {
               </Button>
             </div>
             <div className="flex items-center justify-between gap-3">
-              <span className="text-body-sm text-on-surface">{t("settings.language")}</span>
-              {/* English-only UI (docs/risks.md §3.6): shown, not chosen. */}
-              <span className="flex items-center gap-1.5 text-body-sm text-on-surface-variant">
+              <span className="flex items-center gap-1.5 text-body-sm text-on-surface">
                 <Globe className="size-4" aria-hidden />
-                {t("settings.languageEnglish")}
+                {t("settings.language")}
               </span>
+              <Button variant="outline" size="sm" onClick={() => setLocale(locale === "fa" ? "en" : "fa")}>
+                {locale === "fa" ? t("settings.languageEnglish") : t("settings.languagePersian")}
+              </Button>
             </div>
           </CardBody>
         </Card>

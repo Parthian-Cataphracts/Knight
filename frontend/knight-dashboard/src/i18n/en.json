@@ -577,7 +577,8 @@
     "mockOn": "On",
     "mockOff": "Off",
     "mockNote": "Data comes from local fixtures, not a real API.",
-    "languageEnglish": "English"
+    "languageEnglish": "English",
+    "languagePersian": "فارسی"
   },
   "alerts": {
     "subtitle": "Active alerts across infrastructure, stores and feature delivery.",

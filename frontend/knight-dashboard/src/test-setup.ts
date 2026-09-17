@@ -1,5 +1,11 @@
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
+import i18n from "@/i18n";
+
+// The UI now defaults to Persian, but the component tests assert English copy.
+// Pin the test language to English so assertions stay language-independent of the
+// app's default; the Persian resource is exercised separately.
+void i18n.changeLanguage("en");
 
 /**
  * Component tests have no hub to connect to.

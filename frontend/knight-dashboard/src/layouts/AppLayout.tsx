@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils/cn";
 export function AppLayout() {
   const { t } = useTranslation();
   const location = useLocation();
-  const { theme, sidebarCollapsed, mobileNavOpen, toggleTheme, toggleSidebar, setMobileNavOpen } =
+  const { theme, locale, sidebarCollapsed, mobileNavOpen, toggleTheme, setLocale, toggleSidebar, setMobileNavOpen } =
     useUiStore();
 
   useEffect(() => {
@@ -98,6 +98,15 @@ export function AppLayout() {
               onClick={toggleTheme}
             >
               {theme === "dark" ? <Sun className="size-5" /> : <Moon className="size-5" />}
+            </button>
+            <button
+              type="button"
+              className="grid h-10 min-w-10 place-items-center rounded-md px-2 text-body-sm font-medium text-on-surface-variant hover:bg-surface-high"
+              aria-label={t("common.language")}
+              title={t("common.language")}
+              onClick={() => setLocale(locale === "fa" ? "en" : "fa")}
+            >
+              {locale === "fa" ? "EN" : "فا"}
             </button>
             <HelpButton />
             <NotificationCentre />
