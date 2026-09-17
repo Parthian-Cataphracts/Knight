@@ -24,13 +24,16 @@
   "currency": "EUR",
   "$retiredComment": [
     "Orphan identities an earlier catalogue seeded and later superseded:",
-    "`analytics` and `ai-recommendations` by analytics-core/analytics-reports/",
-    "ai-reports, `loyalty` by loyalty-rewards, `order-management` by the base",
-    "store's orders. The seeder withdraws these where a past deployment seeded",
-    "them (docs/phase-28-verification.md §6); a withdrawal is a status change,",
-    "never a delete, and a no-op on a deployment that never had them."
+    "`analytics` by analytics-core/analytics-reports, `loyalty` by",
+    "loyalty-rewards, `order-management` by the base store's orders. The seeder",
+    "withdraws these where a past deployment seeded them",
+    "(docs/phase-28-verification.md §6); a withdrawal is a status change, never a",
+    "delete, and a no-op on a deployment that never had them.",
+    "`ai-recommendations` was on this list but is now a real, distinct feature",
+    "(a co-occurrence 'customers also bought' recommender), so it moved into the",
+    "features array below."
   ],
-  "retired": ["analytics", "loyalty", "order-management", "ai-recommendations"],
+  "retired": ["analytics", "loyalty", "order-management"],
   "features": [
     {
       "$comment": [
@@ -249,6 +252,18 @@
       "category": "Insight",
       "isOptional": true,
       "requiresDedicatedInfrastructure": true,
+      "publish": true,
+      "prices": [
+        { "amount": 149.00, "billingPeriod": "Monthly" }
+      ]
+    },
+    {
+      "slug": "ai-recommendations",
+      "name": "AI Recommendations",
+      "description": "\"Customers who bought this also bought…\" — a recommender learned from paid-order baskets, with a best-seller fallback.",
+      "category": "Growth",
+      "isOptional": true,
+      "requiresDedicatedInfrastructure": false,
       "publish": true,
       "prices": [
         { "amount": 149.00, "billingPeriod": "Monthly" }
@@ -507,6 +522,7 @@
 
         { "slug": "analytics-core", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "analytics-reports", "isIncluded": false, "isCustomerToggleable": true },
+        { "slug": "ai-recommendations", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "log-shipping", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "advanced-promotions", "isIncluded": false, "isCustomerToggleable": true },
         { "slug": "reviews-ratings", "isIncluded": false, "isCustomerToggleable": true },
@@ -565,6 +581,7 @@
 
         { "slug": "analytics-core", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "analytics-reports", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "ai-recommendations", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "log-shipping", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "advanced-promotions", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "reviews-ratings", "isIncluded": true, "isCustomerToggleable": false },
@@ -646,6 +663,7 @@
 
         { "slug": "analytics-core", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "analytics-reports", "isIncluded": true, "isCustomerToggleable": false },
+        { "slug": "ai-recommendations", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "advanced-promotions", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "reviews-ratings", "isIncluded": true, "isCustomerToggleable": false },
         { "slug": "advanced-search", "isIncluded": true, "isCustomerToggleable": false },
