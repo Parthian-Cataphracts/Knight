@@ -30,6 +30,7 @@ const pages: [path: string, loader: () => Promise<{ default: ComponentType }>][]
   ["/access", () => import("@/features/access/AccessPage").then((m) => ({ default: m.AccessPage }))],
   ["/audit", () => import("@/features/audit/AuditPage").then((m) => ({ default: m.AuditPage }))],
   ["/settings", () => import("@/features/settings/SettingsPage").then((m) => ({ default: m.SettingsPage }))],
+  ["/help", () => import("@/features/help/HelpPage").then((m) => ({ default: m.HelpPage }))],
 ];
 
 export function featureRoutes() {

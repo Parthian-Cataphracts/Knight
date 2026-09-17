@@ -5,6 +5,7 @@ import { Menu, X, Moon, Sun, Search, PanelLeftClose, PanelLeftOpen } from "lucid
 import { Sidebar } from "./Sidebar";
 import { useUiStore } from "@/store/ui";
 import { NotificationCentre } from "@/features/shared/NotificationCentre";
+import { HelpButton } from "@/features/help/HelpButton";
 import { cn } from "@/lib/utils/cn";
 
 export function AppLayout() {
@@ -98,6 +99,7 @@ export function AppLayout() {
             >
               {theme === "dark" ? <Sun className="size-5" /> : <Moon className="size-5" />}
             </button>
+            <HelpButton />
             <NotificationCentre />
           </div>
         </header>

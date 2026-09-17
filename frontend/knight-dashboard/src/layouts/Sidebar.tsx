@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Shield, LogOut } from "lucide-react";
+import { Shield, LogOut, HelpCircle } from "lucide-react";
 import { NAVIGATION } from "./navigation";
 import { permissionForPath } from "@/app/permissions";
 import { useAuthStore } from "@/store/auth";
@@ -88,6 +88,26 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
       </nav>
 
       <div className="border-t border-outline-variant p-3">
+        <NavLink
+          to="/help"
+          onClick={() => {
+            setMobileNavOpen(false);
+            onNavigate?.();
+          }}
+          title={collapsed ? "راهنما" : undefined}
+          className={({ isActive }) =>
+            cn(
+              "mb-1 flex items-center gap-3 rounded-md px-3 py-2.5 text-body-sm transition-colors",
+              collapsed && "justify-center px-2",
+              isActive
+                ? "bg-primary/15 font-medium text-primary"
+                : "text-on-surface-variant hover:bg-surface-high hover:text-on-surface",
+            )
+          }
+        >
+          <HelpCircle className="size-5 shrink-0" aria-hidden />
+          {!collapsed && <span className="truncate">راهنما</span>}
+        </NavLink>
         {!collapsed && user ? (
           <p className="truncate px-1 pb-2 text-body-sm text-on-surface-variant">
             {user.displayName}
