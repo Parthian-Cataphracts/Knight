@@ -420,6 +420,35 @@ a product. The `auto-admin` family is the reference for "done": a real screen
 
 ### 34A — Feature-by-feature audit (all 39)
 
+> **STATUS — the feature work is NOT finished.** The catalogue has **39 feature
+> identities**, and they are not all real. Do not read the ticked boxes below as
+> "all 39 done". Honest breakdown:
+>
+> - **~16 deliverable `external_service` features made real and verified**
+>   end-to-end on BojanStore: `loyalty-rewards`, `gift-cards`, `analytics-core`,
+>   `reviews-ratings`, `advanced-search`, `advanced-inventory`,
+>   `advanced-promotions`, `customer-segmentation`, `marketing-automation`,
+>   `analytics-reports`, `subscriptions`, `multi-location`,
+>   `restaurant-operations`, `ai-reports`, `external-marketplaces`,
+>   `ai-recommendations`. (Three of these — marketing "send", subscription
+>   "charge", marketplace "push" — have a **simulated** last mile because no
+>   external channel/credential is wired to this store; the logic around them is
+>   real.)
+> - **9 base identities are the store itself**, not deliverable features
+>   (`accounts`, `catalog`, `orders`, `order-management`, `payments`,
+>   `promotions`, `shipping`, `storefront`, `log-shipping`). They have UIs; their
+>   only gap is usage docs (34B).
+> - **12 `auto-admin*` identities are NOT verified real** in this effort — the
+>   parent plus eleven sub-features still need their generators/publishers
+>   confirmed to be real rather than simulated adapters (see below). **This is the
+>   biggest open feature gap.**
+> - **Duplicate/legacy identities** still to reconcile: `analytics` (vs
+>   `analytics-core`), `loyalty` (vs `loyalty-rewards`).
+>
+> So: real usable features exist and are verified, but a large share of the 39 —
+> above all the whole auto-admin family — remains to be built/verified. The
+> catalogue is **partway done, not complete.**
+
 **Base store capabilities — part of the store itself; they have store UIs, so the
 gap is only usage docs (34B):** `accounts`, `catalog`, `orders`,
 `order-management`, `payments`, `promotions`, `shipping`, `storefront`,
