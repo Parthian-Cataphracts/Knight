@@ -644,15 +644,23 @@ someone reinventing, or missing, a capability that already exists because no one
 told them it was there or how to drive it. This is for **both operators and
 merchants, no exceptions**.
 
-- [ ] Every Feature ships a short "how to use" (what it is, what it can do, the
-  exact steps to use it, where its screen is) shown in-product next to the
-  feature, not only in a repo doc.
-- [ ] Every KNIGHT operator-dashboard area (customers, stores, plans, billing,
-  features, rollouts, installations, monitoring, alerts, …) has the same.
-- [ ] Every customer-portal area (signup, plans/checkout, store, auto-admin, …)
-  has the same, in the merchant's language.
-- [ ] A single index that lists every capability so nobody has to discover them
-  by accident.
+The plain-language guide is written and complete, in Persian (the merchants'
+language), under [`docs/usage/`](usage/):
+- [x] Every real Feature has a "what it is / how the admin uses it, step by step /
+  what the shopper sees" entry — [`docs/usage/features.md`](usage/features.md).
+  (Honest: the three simulated last miles — marketing send, subscription charge,
+  marketplace push — are marked as such; the auto-admin family is flagged as
+  pending its 34A reality check.)
+- [x] Every KNIGHT operator-dashboard area (all 23, in the four sidebar groups)
+  plus the customer portal — [`docs/usage/knight-control-plane.md`](usage/knight-control-plane.md).
+- [x] Every store-panel section (sales, customers, catalogue, marketing, support,
+  reports, settings, system) — [`docs/usage/store-panel.md`](usage/store-panel.md).
+- [x] A single index that points to all of the above and states the golden rules
+  — [`docs/usage/README.md`](usage/README.md).
+- [ ] **Remaining (UI, its own unit):** surface each guide *in-product* next to
+  the screen it describes (a help panel per KNIGHT area / store section / feature
+  screen), so it is not only in the repo. The content to show already exists in
+  `docs/usage/`; this item is only the rendering.
 
 ---
 

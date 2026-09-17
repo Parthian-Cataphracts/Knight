@@ -3,6 +3,10 @@
 > **Read this file first.** It tells you what KNIGHT is, what state the
 > repository is actually in, and which documents are authoritative.
 
+> **Looking for plain-language "how do I use this?" guides** (in Persian, for
+> operators and merchants — every KNIGHT area, every store-panel section, every
+> feature)? See [`usage/`](usage/README.md).
+
 ## What KNIGHT is
 
 > **Direction change (2026-08-31):** KNIGHT is moving from the agency model to a
