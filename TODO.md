@@ -657,10 +657,16 @@ language), under [`docs/usage/`](usage/):
   reports, settings, system) — [`docs/usage/store-panel.md`](usage/store-panel.md).
 - [x] A single index that points to all of the above and states the golden rules
   — [`docs/usage/README.md`](usage/README.md).
-- [ ] **Remaining (UI, its own unit):** surface each guide *in-product* next to
-  the screen it describes (a help panel per KNIGHT area / store section / feature
-  screen), so it is not only in the repo. The content to show already exists in
-  `docs/usage/`; this item is only the rendering.
+- [x] **In-product surfacing — done.** Both panels now carry the guide in
+  Persian, next to the screen it describes:
+  - KNIGHT dashboard: a "?" button in the header opens a side panel with the
+    current area's guide (matched by route), a dedicated `/help` index page lists
+    every area with a "go to this section" link, and the sidebar links to it
+    (`frontend/knight-dashboard/src/features/help/`). Built + deployed.
+  - Store panel: the same — a "?" in the top bar, a `/help` page, and a menu
+    link (`frontend/apps/admin/src/{components/HelpButton.tsx,lib/help-content.ts,app/help/page.tsx}`).
+    Built + deployed; `/help` serves (login-gated).
+  - Each help entry links to its own section, per the owner's request.
 
 ---
 
