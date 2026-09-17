@@ -442,8 +442,9 @@ a product. The `auto-admin` family is the reference for "done": a real screen
 >   parent plus eleven sub-features still need their generators/publishers
 >   confirmed to be real rather than simulated adapters (see below). **This is the
 >   biggest open feature gap.**
-> - **Duplicate/legacy identities** still to reconcile: `analytics` (vs
->   `analytics-core`), `loyalty` (vs `loyalty-rewards`).
+> - **Duplicate/legacy identities: reconciled.** `analytics` and `loyalty` are
+>   retired (Withdrawn, removed from every plan); `ai-recommendations` was
+>   promoted from wrongly-retired to a real sellable feature on three plans.
 >
 > So: real usable features exist and are verified, but a large share of the 39 —
 > above all the whole auto-admin family — remains to be built/verified. The
@@ -603,8 +604,18 @@ cert + install + service-secret):
   credentials on this store) but the model, mapping, drift and sync queue are
   real. Verified end-to-end (2.0.0 Installed, port 8104): map (Pending), 409 on
   duplicate, sync→Listed, edit→drift, re-sync, summary, 403 anon.
-- [ ] Reconcile the duplicate/legacy catalogue identities `analytics` (vs
-  `analytics-core`) and `loyalty` (vs `loyalty-rewards`) — one sellable slug each.
+- [x] **Reconciled the duplicate/legacy catalogue identities.** `analytics` and
+  `loyalty` stay retired (superseded by `analytics-core`/`analytics-reports` and
+  `loyalty-rewards`) — Withdrawn, and their 4 stale `plan_features` rows (which
+  the seeder never pruned) were deleted, so no plan grants a dead slug any more.
+  Separately, `ai-recommendations` was wrongly on the retired list (the seeder
+  re-withdrew it every deploy) although it is a real, distinct co-occurrence
+  recommender: it moved into the catalogue `features` array and onto three plans,
+  and is now Published, entitled and Installed on Bojan. Verified on the live
+  control plane after a `knightctl update`. (Cosmetic leftover:
+  `ai-recommendations.RequiresDedicatedInfrastructure` is still `true` in the DB
+  from the original seed — the aggregate refuses to change it post-publication; it
+  runs fine as an external_service regardless.)
 
 > The delivery plumbing (secure `external_service` packaging, connection, panel
 > mount, per-store secret) is solved and scripted — `features/tools/`
