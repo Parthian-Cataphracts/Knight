@@ -33,7 +33,13 @@
     "(a co-occurrence 'customers also bought' recommender), so it moved into the",
     "features array below."
   ],
-  "retired": ["analytics", "loyalty", "order-management"],
+  "retired": [
+    "analytics",
+    "loyalty",
+    "order-management",
+    "reviews-ratings",
+    "advanced-search"
+  ],
   "features": [
     {
       "$comment": [
@@ -112,7 +118,6 @@
       "requiresDedicatedInfrastructure": false,
       "publish": true
     },
-
     {
       "$comment": [
         "Optional features, in the order docs/feature-catalog.md develops them.",
@@ -127,7 +132,10 @@
       "requiresDedicatedInfrastructure": false,
       "publish": true,
       "prices": [
-        { "amount": 29.00, "billingPeriod": "Monthly" }
+        {
+          "amount": 29.0,
+          "billingPeriod": "Monthly"
+        }
       ]
     },
     {
@@ -139,7 +147,10 @@
       "requiresDedicatedInfrastructure": false,
       "publish": true,
       "prices": [
-        { "amount": 19.00, "billingPeriod": "Monthly" }
+        {
+          "amount": 19.0,
+          "billingPeriod": "Monthly"
+        }
       ]
     },
     {
@@ -151,7 +162,10 @@
       "requiresDedicatedInfrastructure": false,
       "publish": true,
       "prices": [
-        { "amount": 19.00, "billingPeriod": "Monthly" }
+        {
+          "amount": 19.0,
+          "billingPeriod": "Monthly"
+        }
       ]
     },
     {
@@ -163,31 +177,10 @@
       "requiresDedicatedInfrastructure": false,
       "publish": true,
       "prices": [
-        { "amount": 39.00, "billingPeriod": "Monthly" }
-      ]
-    },
-    {
-      "slug": "reviews-ratings",
-      "name": "Reviews and Ratings",
-      "description": "Product reviews, star ratings, verified-purchase badges, merchant replies and moderation.",
-      "category": "Growth",
-      "isOptional": true,
-      "requiresDedicatedInfrastructure": false,
-      "publish": true,
-      "prices": [
-        { "amount": 19.00, "billingPeriod": "Monthly" }
-      ]
-    },
-    {
-      "slug": "advanced-search",
-      "name": "Advanced Search",
-      "description": "Full-text search with typo tolerance, filters, facets, sorting and suggestions over the catalogue.",
-      "category": "Growth",
-      "isOptional": true,
-      "requiresDedicatedInfrastructure": false,
-      "publish": true,
-      "prices": [
-        { "amount": 29.00, "billingPeriod": "Monthly" }
+        {
+          "amount": 39.0,
+          "billingPeriod": "Monthly"
+        }
       ]
     },
     {
@@ -199,7 +192,10 @@
       "requiresDedicatedInfrastructure": false,
       "publish": true,
       "prices": [
-        { "amount": 39.00, "billingPeriod": "Monthly" }
+        {
+          "amount": 39.0,
+          "billingPeriod": "Monthly"
+        }
       ]
     },
     {
@@ -211,7 +207,10 @@
       "requiresDedicatedInfrastructure": false,
       "publish": true,
       "prices": [
-        { "amount": 29.00, "billingPeriod": "Monthly" }
+        {
+          "amount": 29.0,
+          "billingPeriod": "Monthly"
+        }
       ]
     },
     {
@@ -223,7 +222,10 @@
       "requiresDedicatedInfrastructure": false,
       "publish": true,
       "prices": [
-        { "amount": 39.00, "billingPeriod": "Monthly" }
+        {
+          "amount": 39.0,
+          "billingPeriod": "Monthly"
+        }
       ]
     },
     {
@@ -235,7 +237,10 @@
       "requiresDedicatedInfrastructure": false,
       "publish": true,
       "prices": [
-        { "amount": 79.00, "billingPeriod": "Monthly" }
+        {
+          "amount": 79.0,
+          "billingPeriod": "Monthly"
+        }
       ]
     },
     {
@@ -254,7 +259,10 @@
       "requiresDedicatedInfrastructure": true,
       "publish": true,
       "prices": [
-        { "amount": 149.00, "billingPeriod": "Monthly" }
+        {
+          "amount": 149.0,
+          "billingPeriod": "Monthly"
+        }
       ]
     },
     {
@@ -266,7 +274,10 @@
       "requiresDedicatedInfrastructure": false,
       "publish": true,
       "prices": [
-        { "amount": 149.00, "billingPeriod": "Monthly" }
+        {
+          "amount": 149.0,
+          "billingPeriod": "Monthly"
+        }
       ]
     },
     {
@@ -278,7 +289,10 @@
       "requiresDedicatedInfrastructure": false,
       "publish": true,
       "prices": [
-        { "amount": 59.00, "billingPeriod": "Monthly" }
+        {
+          "amount": 59.0,
+          "billingPeriod": "Monthly"
+        }
       ]
     },
     {
@@ -290,7 +304,10 @@
       "requiresDedicatedInfrastructure": false,
       "publish": true,
       "prices": [
-        { "amount": 79.00, "billingPeriod": "Monthly" }
+        {
+          "amount": 79.0,
+          "billingPeriod": "Monthly"
+        }
       ]
     },
     {
@@ -302,7 +319,10 @@
       "requiresDedicatedInfrastructure": false,
       "publish": true,
       "prices": [
-        { "amount": 99.00, "billingPeriod": "Monthly" }
+        {
+          "amount": 99.0,
+          "billingPeriod": "Monthly"
+        }
       ]
     },
     {
@@ -314,7 +334,10 @@
       "requiresDedicatedInfrastructure": false,
       "publish": true,
       "prices": [
-        { "amount": 69.00, "billingPeriod": "Monthly" }
+        {
+          "amount": 69.0,
+          "billingPeriod": "Monthly"
+        }
       ]
     },
     {
@@ -326,10 +349,12 @@
       "requiresDedicatedInfrastructure": false,
       "publish": true,
       "prices": [
-        { "amount": 99.00, "billingPeriod": "Monthly" }
+        {
+          "amount": 99.0,
+          "billingPeriod": "Monthly"
+        }
       ]
     },
-
     {
       "$comment": [
         "The Automatic Admin (ادمین خودکار): a composed Feature",
@@ -359,7 +384,12 @@
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
       "publish": true,
-      "prices": [ { "amount": 12.00, "billingPeriod": "Monthly" } ]
+      "prices": [
+        {
+          "amount": 12.0,
+          "billingPeriod": "Monthly"
+        }
+      ]
     },
     {
       "slug": "auto-admin-caption",
@@ -370,7 +400,12 @@
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
       "publish": true,
-      "prices": [ { "amount": 9.00, "billingPeriod": "Monthly" } ]
+      "prices": [
+        {
+          "amount": 9.0,
+          "billingPeriod": "Monthly"
+        }
+      ]
     },
     {
       "slug": "auto-admin-story",
@@ -381,7 +416,12 @@
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
       "publish": true,
-      "prices": [ { "amount": 7.00, "billingPeriod": "Monthly" } ]
+      "prices": [
+        {
+          "amount": 7.0,
+          "billingPeriod": "Monthly"
+        }
+      ]
     },
     {
       "slug": "auto-admin-video",
@@ -392,7 +432,12 @@
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
       "publish": true,
-      "prices": [ { "amount": 24.00, "billingPeriod": "Monthly" } ]
+      "prices": [
+        {
+          "amount": 24.0,
+          "billingPeriod": "Monthly"
+        }
+      ]
     },
     {
       "slug": "auto-admin-telegram",
@@ -403,7 +448,12 @@
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
       "publish": true,
-      "prices": [ { "amount": 6.00, "billingPeriod": "Monthly" } ]
+      "prices": [
+        {
+          "amount": 6.0,
+          "billingPeriod": "Monthly"
+        }
+      ]
     },
     {
       "slug": "auto-admin-instagram",
@@ -414,7 +464,12 @@
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
       "publish": true,
-      "prices": [ { "amount": 9.00, "billingPeriod": "Monthly" } ]
+      "prices": [
+        {
+          "amount": 9.0,
+          "billingPeriod": "Monthly"
+        }
+      ]
     },
     {
       "slug": "auto-admin-divar",
@@ -425,7 +480,12 @@
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
       "publish": true,
-      "prices": [ { "amount": 9.00, "billingPeriod": "Monthly" } ]
+      "prices": [
+        {
+          "amount": 9.0,
+          "billingPeriod": "Monthly"
+        }
+      ]
     },
     {
       "slug": "auto-admin-basalam",
@@ -436,7 +496,12 @@
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
       "publish": true,
-      "prices": [ { "amount": 8.00, "billingPeriod": "Monthly" } ]
+      "prices": [
+        {
+          "amount": 8.0,
+          "billingPeriod": "Monthly"
+        }
+      ]
     },
     {
       "slug": "auto-admin-autoreply",
@@ -447,7 +512,12 @@
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
       "publish": true,
-      "prices": [ { "amount": 11.00, "billingPeriod": "Monthly" } ]
+      "prices": [
+        {
+          "amount": 11.0,
+          "billingPeriod": "Monthly"
+        }
+      ]
     },
     {
       "slug": "auto-admin-boost",
@@ -458,7 +528,12 @@
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
       "publish": true,
-      "prices": [ { "amount": 15.00, "billingPeriod": "Monthly" } ]
+      "prices": [
+        {
+          "amount": 15.0,
+          "billingPeriod": "Monthly"
+        }
+      ]
     },
     {
       "slug": "auto-admin-autopilot",
@@ -469,7 +544,12 @@
       "isOptional": true,
       "requiresDedicatedInfrastructure": false,
       "publish": true,
-      "prices": [ { "amount": 19.00, "billingPeriod": "Monthly" } ]
+      "prices": [
+        {
+          "amount": 19.0,
+          "billingPeriod": "Monthly"
+        }
+      ]
     }
   ],
   "plans": [
@@ -482,16 +562,44 @@
       "key": "basic",
       "name": "Basic",
       "description": "A working store: catalogue, orders, payments, shipping and coupons, on shared hosting.",
-      "basePrice": 49.00,
+      "basePrice": 49.0,
       "sortOrder": 1,
       "features": [
-        { "slug": "storefront", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "catalog", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "accounts", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "orders", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "payments", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "shipping", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "promotions", "isIncluded": true, "isCustomerToggleable": false }
+        {
+          "slug": "storefront",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "catalog",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "accounts",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "orders",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "payments",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "shipping",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "promotions",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        }
       ]
     },
     {
@@ -509,51 +617,175 @@
       "key": "custom",
       "name": "Custom",
       "description": "Basic plus the optional capabilities the customer chooses, one by one.",
-      "basePrice": 99.00,
+      "basePrice": 99.0,
       "sortOrder": 2,
       "features": [
-        { "slug": "storefront", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "catalog", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "accounts", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "orders", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "payments", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "shipping", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "promotions", "isIncluded": true, "isCustomerToggleable": false },
-
-        { "slug": "analytics-core", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "analytics-reports", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "ai-recommendations", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "log-shipping", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "advanced-promotions", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "reviews-ratings", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "advanced-search", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "customer-segmentation", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "loyalty-rewards", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "gift-cards", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "marketing-automation", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "advanced-inventory", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "restaurant-operations", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "multi-location", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "subscriptions", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "external-marketplaces", "isIncluded": false, "isCustomerToggleable": true },
-
-        { "$comment": [
+        {
+          "slug": "storefront",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "catalog",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "accounts",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "orders",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "payments",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "shipping",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "promotions",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "analytics-core",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "analytics-reports",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "ai-recommendations",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "log-shipping",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "advanced-promotions",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "customer-segmentation",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "loyalty-rewards",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "gift-cards",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "marketing-automation",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "advanced-inventory",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "restaurant-operations",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "multi-location",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "subscriptions",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "external-marketplaces",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "$comment": [
             "The Automatic Admin's parts, each toggleable on its own. The parent",
             "'auto-admin' is deliberately absent: it is an unpriced umbrella, not a",
             "thing to entitle, and listing it would put a toggle on a product that",
             "has no price of its own (docs/adr/0037)."
           ],
-          "slug": "auto-admin-image", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "auto-admin-caption", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "auto-admin-story", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "auto-admin-video", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "auto-admin-telegram", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "auto-admin-instagram", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "auto-admin-divar", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "auto-admin-basalam", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "auto-admin-autoreply", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "auto-admin-boost", "isIncluded": false, "isCustomerToggleable": true },
-        { "slug": "auto-admin-autopilot", "isIncluded": false, "isCustomerToggleable": true }
+          "slug": "auto-admin-image",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "auto-admin-caption",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "auto-admin-story",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "auto-admin-video",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "auto-admin-telegram",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "auto-admin-instagram",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "auto-admin-divar",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "auto-admin-basalam",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "auto-admin-autoreply",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "auto-admin-boost",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "slug": "auto-admin-autopilot",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        }
       ]
     },
     {
@@ -568,31 +800,96 @@
       "key": "professional",
       "name": "Professional",
       "description": "Every capability KNIGHT sells, on dedicated infrastructure.",
-      "basePrice": 299.00,
+      "basePrice": 299.0,
       "sortOrder": 3,
       "features": [
-        { "slug": "storefront", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "catalog", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "accounts", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "orders", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "payments", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "shipping", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "promotions", "isIncluded": true, "isCustomerToggleable": false },
-
-        { "slug": "analytics-core", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "analytics-reports", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "ai-recommendations", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "log-shipping", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "advanced-promotions", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "reviews-ratings", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "advanced-search", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "customer-segmentation", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "loyalty-rewards", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "gift-cards", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "marketing-automation", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "advanced-inventory", "isIncluded": true, "isCustomerToggleable": false },
-
-        { "$comment": [
+        {
+          "slug": "storefront",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "catalog",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "accounts",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "orders",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "payments",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "shipping",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "promotions",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "analytics-core",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "analytics-reports",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "ai-recommendations",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "log-shipping",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "advanced-promotions",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "customer-segmentation",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "loyalty-rewards",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "gift-cards",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "marketing-automation",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "advanced-inventory",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "$comment": [
             "Toggleable rather than included, unlike everything above it, and the",
             "reason is not price. It is the only Feature in the catalogue that",
             "assumes a shape of business: a shop with no kitchen has no use for",
@@ -600,41 +897,56 @@
             "put screens in a dashboard that can never mean anything there.",
             "Every other Professional Feature is something any shop can use."
           ],
-          "slug": "restaurant-operations", "isIncluded": false, "isCustomerToggleable": true },
-
-        { "$comment": [
+          "slug": "restaurant-operations",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "$comment": [
             "Toggleable for the same reason as the line above, and a stronger",
             "one: a merchant with a single shop has nothing for it to do. It",
             "costs them nothing to switch on and it would put a branch picker in",
             "front of somebody who has one branch, which is how a dashboard",
             "starts feeling like somebody else's product."
           ],
-          "slug": "multi-location", "isIncluded": false, "isCustomerToggleable": true },
-
-        { "$comment": [
+          "slug": "multi-location",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "$comment": [
             "Toggleable, and this one for a reason the two above do not share:",
             "it can take money from a merchant's customers. A capability that",
             "bills people should be switched on by somebody who meant to, not",
             "arrive with a plan - and the same argument applies to the",
             "payment credential it needs, which nobody can supply by accident."
           ],
-          "slug": "subscriptions", "isIncluded": false, "isCustomerToggleable": true },
-
-        { "$comment": [
+          "slug": "subscriptions",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "$comment": [
             "Toggleable, and the last Feature in the catalogue. A merchant",
             "switches it on when they have an account somewhere to connect it",
             "to - which is a thing they either have or do not, and not",
             "something a plan can decide for them."
           ],
-          "slug": "external-marketplaces", "isIncluded": false, "isCustomerToggleable": true },
-
-        { "$comment": [
+          "slug": "external-marketplaces",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        },
+        {
+          "$comment": [
             "Toggleable rather than included: it is the one capability with a",
             "real per-use cost behind it, and a customer should switch it on",
             "deliberately. Professional is also the only plan it can appear in,",
             "because it needs dedicated infrastructure."
           ],
-          "slug": "ai-reports", "isIncluded": false, "isCustomerToggleable": true }
+          "slug": "ai-reports",
+          "isIncluded": false,
+          "isCustomerToggleable": true
+        }
       ]
     },
     {
@@ -653,21 +965,66 @@
       "basePrice": 179.0,
       "sortOrder": 4,
       "features": [
-        { "slug": "storefront", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "catalog", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "accounts", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "orders", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "payments", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "shipping", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "promotions", "isIncluded": true, "isCustomerToggleable": false },
-
-        { "slug": "analytics-core", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "analytics-reports", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "ai-recommendations", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "advanced-promotions", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "reviews-ratings", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "advanced-search", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "customer-segmentation", "isIncluded": true, "isCustomerToggleable": false }
+        {
+          "slug": "storefront",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "catalog",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "accounts",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "orders",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "payments",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "shipping",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "promotions",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "analytics-core",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "analytics-reports",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "ai-recommendations",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "advanced-promotions",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "customer-segmentation",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        }
       ]
     },
     {
@@ -686,19 +1043,66 @@
       "basePrice": 199.0,
       "sortOrder": 5,
       "features": [
-        { "slug": "storefront", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "catalog", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "accounts", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "orders", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "payments", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "shipping", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "promotions", "isIncluded": true, "isCustomerToggleable": false },
-
-        { "slug": "analytics-core", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "customer-segmentation", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "loyalty-rewards", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "gift-cards", "isIncluded": true, "isCustomerToggleable": false },
-        { "slug": "marketing-automation", "isIncluded": true, "isCustomerToggleable": false }
+        {
+          "slug": "storefront",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "catalog",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "accounts",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "orders",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "payments",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "shipping",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "promotions",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "analytics-core",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "customer-segmentation",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "loyalty-rewards",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "gift-cards",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        },
+        {
+          "slug": "marketing-automation",
+          "isIncluded": true,
+          "isCustomerToggleable": false
+        }
       ]
     }
   ]

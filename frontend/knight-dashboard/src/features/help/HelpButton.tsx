@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router-dom";
 import { HelpCircle, X, AlertTriangle } from "lucide-react";
 import { helpForPath } from "./helpContent";
@@ -24,7 +25,8 @@ export function HelpButton() {
         <HelpCircle className="size-5" />
       </button>
 
-      {open && (
+      {open &&
+        createPortal(
         <div className="fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-label="راهنما">
           <div className="flex-1 bg-black/40" onClick={() => setOpen(false)} />
           <aside
@@ -81,8 +83,9 @@ export function HelpButton() {
               </Link>
             </div>
           </aside>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </>
   );
 }

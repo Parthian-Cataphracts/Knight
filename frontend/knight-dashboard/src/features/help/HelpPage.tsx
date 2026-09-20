@@ -21,6 +21,34 @@ export function HelpPage() {
         </p>
       </header>
 
+      <section className="mb-8 rounded-lg border border-outline-variant bg-surface-low p-4">
+        <h2 className="mb-3 text-body font-semibold text-on-surface">لینک‌های مهم</h2>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { to: "/customers", label: "مشتریان (صفحهٔ هر مشتری)" },
+            { to: "/customers", label: "فیچرهای هر مشتری (مجوزها)" },
+            { to: "/portal", label: "پورتال مشتری" },
+            { to: "/portal/plans", label: "خرید پلن/فیچر (پورتال)" },
+            { to: "/features", label: "کاتالوگ فیچرها" },
+            { to: "/installations", label: "نصب فیچر روی فروشگاه" },
+            { to: "/plans", label: "پلن‌ها" },
+          ].map((l) => (
+            <Link
+              key={l.label}
+              to={l.to}
+              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1.5 text-body-sm font-medium text-primary hover:bg-primary/20"
+            >
+              {l.label}
+              <ArrowLeft className="size-3.5 rtl:-scale-x-100" />
+            </Link>
+          ))}
+        </div>
+        <p className="mt-3 text-body-sm text-on-surface-variant">
+          «فیچرهای هر مشتری» داخل صفحهٔ همان مشتری، بخش «مجوزهای فیچر» است. فیچرهای
+          نصب‌شده در خودِ فروشگاه هم در پنل فروشگاه → «افزونه‌ها» دیده می‌شوند.
+        </p>
+      </section>
+
       <nav className="mb-8 flex flex-wrap gap-2">
         {HELP_SECTIONS.map((s) => (
           <a
