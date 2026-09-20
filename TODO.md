@@ -623,6 +623,28 @@ cert + install + service-secret):
 > each item above needs is the **feature-specific logic and UI**, which the
 > scaffolder cannot generate; do them one at a time the way `auto-admin` was built.
 
+### 34D — Wire delivered features into the storefront (shopper-facing)
+
+The features have admin screens and public proxies, but the storefront
+(`bojanstore.com`) still uses its own built-ins for reviews/search/similar. This
+stream makes the *bought* features reach shoppers. A shared, best-effort client
+lives at `apps/storefront/src/lib/api/features.ts` (reviews, recommendations,
+search, branches — each returns an empty result if the feature is off).
+
+- [x] `multi-location` → a `/branches` page (+ footer link) reading the public
+  `locations/` proxy. Verified live on `bojanstore.com/branches` with a sample
+  branch (rendered name/city/address/phone/hours/pickup, RTL), then the sample
+  was removed so it shows the empty state until the owner adds real branches.
+- [ ] `advanced-search` on `/search` — needs a product-owner call: **replace**
+  the working built-in DB search, or resolve the feature's ranked ids back to
+  full product cards (no `getProducts({ids})` today) so cards keep images/price.
+- [ ] `reviews-ratings` on the product page — the store already renders built-in
+  reviews; decide whether the feature becomes the source of truth (replace the
+  reviews tab + rating breakdown) or is shown as a separate section.
+- [ ] `ai-recommendations` "customers also bought" rail — additive (distinct from
+  the category-based "similar"), but the service returns only id+title; enrich it
+  to return slug (product events already carry it) and/or resolve ids to cards.
+
 ### 34C — Store→feature event forwarding — the missing foundation
 
 Discovered 2026-09-16 while making `loyalty-rewards` real: the store did not
