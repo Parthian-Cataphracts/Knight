@@ -641,9 +641,12 @@ search, branches — each returns an empty result if the feature is off).
 - [ ] `reviews-ratings` on the product page — the store already renders built-in
   reviews; decide whether the feature becomes the source of truth (replace the
   reviews tab + rating breakdown) or is shown as a separate section.
-- [ ] `ai-recommendations` "customers also bought" rail — additive (distinct from
-  the category-based "similar"), but the service returns only id+title; enrich it
-  to return slug (product events already carry it) and/or resolve ids to cards.
+- [x] `ai-recommendations` "customers also bought" rail on the product page —
+  the service now returns `slug` (added a column + migration), the storefront
+  resolves the ranked ids to full product cards and shows them as a rail, distinct
+  from the category "similar" rail. Verified live: seeded two co-purchased real
+  products, the rail rendered the partner on the other's page, then the seed was
+  cleaned so it learns from real orders (already forwarded via the outbox).
 
 ### 34C — Store→feature event forwarding — the missing foundation
 
