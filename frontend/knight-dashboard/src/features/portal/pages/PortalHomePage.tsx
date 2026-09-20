@@ -10,6 +10,8 @@ import { LoadingBlock, ErrorBlock } from "@/components/ui/StateBlock";
 import { formatDateTime } from "@/lib/utils/format";
 import { ApiError } from "@/lib/api/problem";
 import { ButtonLink } from "../components";
+import { planNameFromDisplay } from "../catalogueLabels";
+import { provisioningStatusText, isPublicDomain } from "../provisioning";
 import { useCancelSubscription, useExportMyData, useMyStores, useMySubscription, useProvisioning, type MeStore } from "../api";
 
 /**
@@ -84,7 +86,7 @@ function SubscriptionCard({ subscription }: { subscription: NonNullable<ReturnTy
       <CardHeader title={t("portal.subscription.title")} />
       <CardBody className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-title font-semibold text-on-surface">{subscription.planName}</p>
+          <p className="text-title font-semibold text-on-surface">{planNameFromDisplay(subscription.planName)}</p>
           <p className="mt-1 text-body-sm text-on-surface-variant">
             {t("portal.subscription.renews", { date: formatDateTime(subscription.currentPeriodEnd) })}
           </p>
@@ -147,18 +149,32 @@ function StoreCard({ store }: { store: MeStore }) {
 
         {store.isReady ? (
           <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap gap-2">
-              <ButtonLink href={`https://admin.${store.primaryDomain}`} target="_blank" rel="noreferrer">
-                {t("portal.store.manage", "مدیریت فروشگاه")}
-                <ArrowRight className="size-4 rtl:-scale-x-100" aria-hidden />
-              </ButtonLink>
-              <ButtonLink variant="outline" href={`https://${store.primaryDomain}`} target="_blank" rel="noreferrer">
-                {t("portal.store.open")}
-              </ButtonLink>
-              <ButtonLink variant="outline" to={`/portal/stores/${store.id}`}>
-                {t("portal.store.details")}
-              </ButtonLink>
-            </div>
+            {isPublicDomain(store.primaryDomain) ? (
+              <div className="flex flex-wrap gap-2">
+                <ButtonLink href={`https://admin.${store.primaryDomain}`} target="_blank" rel="noreferrer">
+                  {t("portal.store.manage", "مدیریت فروشگاه")}
+                  <ArrowRight className="size-4 rtl:-scale-x-100" aria-hidden />
+                </ButtonLink>
+                <ButtonLink variant="outline" href={`https://${store.primaryDomain}`} target="_blank" rel="noreferrer">
+                  {t("portal.store.open")}
+                </ButtonLink>
+                <ButtonLink variant="outline" to={`/portal/stores/${store.id}`}>
+                  {t("portal.store.details")}
+                </ButtonLink>
+              </div>
+            ) : (
+              <>
+                <p className="rounded-md bg-primary/10 px-3 py-2 text-body-sm leading-6 text-on-surface-variant">
+                  {t(
+                    "portal.store.previewNote",
+                    "این فروشگاه در محیط پیش‌نمایش ساخته شده و روی یک دامنهٔ داخلی است؛ برای فعال‌سازی دامنهٔ عمومی و دسترسی به پنل مدیریت، با تیم ما هماهنگ کنید.",
+                  )}
+                </p>
+                <ButtonLink variant="outline" to={`/portal/stores/${store.id}`} className="w-fit">
+                  {t("portal.store.details")}
+                </ButtonLink>
+              </>
+            )}
             <p className="text-body-sm text-on-surface-variant">
               {t(
                 "portal.store.manageHint",
@@ -168,7 +184,7 @@ function StoreCard({ store }: { store: MeStore }) {
           </div>
         ) : progress ? (
           <div className="flex flex-col gap-2">
-            <Meter label={progress.friendlyStatus} value={progress.percentComplete} />
+            <Meter label={provisioningStatusText(progress.state, progress.friendlyStatus)} value={progress.percentComplete} />
             <Link to={`/portal/stores/${store.id}`} className="text-body-sm text-primary hover:underline">
               {t("portal.store.watch")}
             </Link>
@@ -227,14 +243,14 @@ function AutoAdminCard() {
             <Bot className="size-5" aria-hidden />
           </span>
           <div>
-            <p className="font-medium text-on-surface">{t("portal.autoAdmin.title", "Automatic Admin")}</p>
+            <p className="font-medium text-on-surface">{t("portal.autoAdmin.title", "ادمین خودکار")}</p>
             <p className="text-body-sm text-on-surface-variant">
-              {t("portal.autoAdmin.cardBody", "Generate and publish content across your channels, on autopilot.")}
+              {t("portal.autoAdmin.cardBody", "تولید و انتشار خودکار محتوا در کانال‌های فروشگاه‌تان، روی خلبان خودکار.")}
             </p>
           </div>
         </div>
         <ButtonLink variant="outline" to="/portal/auto-admin">
-          {t("portal.autoAdmin.open", "Open")}
+          {t("portal.autoAdmin.open", "باز کردن")}
           <ArrowRight className="size-4 rtl:-scale-x-100" aria-hidden />
         </ButtonLink>
       </CardBody>

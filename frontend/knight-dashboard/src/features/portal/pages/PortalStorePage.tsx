@@ -9,6 +9,8 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { LoadingBlock, ErrorBlock } from "@/components/ui/StateBlock";
 import { ApiError } from "@/lib/api/problem";
 import { ButtonLink } from "../components";
+import { featureName, featureDescription, planName } from "../catalogueLabels";
+import { provisioningStatusText, isPublicDomain } from "../provisioning";
 import {
   useMyStores,
   useMySubscription,
@@ -76,15 +78,26 @@ export function PortalStorePage() {
             <>
               <Card>
                 <CardHeader title={t("portal.store.access", "دسترسی")} />
-                <CardBody className="flex flex-wrap gap-2">
-                  <ButtonLink href={`https://admin.${store.primaryDomain}`} target="_blank" rel="noreferrer">
-                    {t("portal.store.manage", "مدیریت فروشگاه")}
-                    <ExternalLink className="size-4" aria-hidden />
-                  </ButtonLink>
-                  <ButtonLink variant="outline" href={`https://${store.primaryDomain}`} target="_blank" rel="noreferrer">
-                    {t("portal.store.open")}
-                    <ExternalLink className="size-4" aria-hidden />
-                  </ButtonLink>
+                <CardBody className="flex flex-col gap-3">
+                  {isPublicDomain(store.primaryDomain) ? (
+                    <div className="flex flex-wrap gap-2">
+                      <ButtonLink href={`https://admin.${store.primaryDomain}`} target="_blank" rel="noreferrer">
+                        {t("portal.store.manage", "مدیریت فروشگاه")}
+                        <ExternalLink className="size-4" aria-hidden />
+                      </ButtonLink>
+                      <ButtonLink variant="outline" href={`https://${store.primaryDomain}`} target="_blank" rel="noreferrer">
+                        {t("portal.store.open")}
+                        <ExternalLink className="size-4" aria-hidden />
+                      </ButtonLink>
+                    </div>
+                  ) : (
+                    <p className="rounded-md bg-primary/10 px-3 py-2 text-body-sm leading-6 text-on-surface-variant">
+                      {t(
+                        "portal.store.previewNote",
+                        "این فروشگاه در محیط پیش‌نمایش ساخته شده و روی یک دامنهٔ داخلی است؛ برای فعال‌سازی دامنهٔ عمومی و دسترسی به پنل مدیریت، با تیم ما هماهنگ کنید.",
+                      )}
+                    </p>
+                  )}
                 </CardBody>
               </Card>
 
@@ -166,15 +179,15 @@ function FeatureManager({
         {plan.includedFeatures.length > 0 ? (
           <div>
             <p className="mb-2 text-body-sm font-semibold text-on-surface">
-              {t("portal.store.included", "شاملِ پلن {{plan}} (همیشه فعال)", { plan: plan.name })}
+              {t("portal.store.included", "شاملِ پلن {{plan}} (همیشه فعال)", { plan: planName(plan.key, plan.name) })}
             </p>
             <ul className="flex flex-col divide-y divide-outline-variant rounded-lg border border-outline-variant">
               {plan.includedFeatures.map((f) => (
                 <li key={f.featureId} className="flex items-center justify-between gap-3 p-3">
                   <div className="min-w-0">
-                    <p className="text-body-sm font-medium text-on-surface">{f.name}</p>
-                    {f.description ? (
-                      <p className="mt-0.5 text-body-sm leading-6 text-on-surface-variant">{f.description}</p>
+                    <p className="text-body-sm font-medium text-on-surface">{featureName(f.slug, f.name)}</p>
+                    {featureDescription(f.slug, f.description) ? (
+                      <p className="mt-0.5 text-body-sm leading-6 text-on-surface-variant">{featureDescription(f.slug, f.description)}</p>
                     ) : null}
                   </div>
                   <StatusChip tone="success">
@@ -200,9 +213,9 @@ function FeatureManager({
               return (
                 <li key={f.featureId} className="flex items-center justify-between gap-3 p-3">
                   <div className="min-w-0">
-                    <p className="text-body-sm font-medium text-on-surface">{f.name}</p>
-                    {f.description ? (
-                      <p className="mt-0.5 text-body-sm leading-6 text-on-surface-variant">{f.description}</p>
+                    <p className="text-body-sm font-medium text-on-surface">{featureName(f.slug, f.name)}</p>
+                    {featureDescription(f.slug, f.description) ? (
+                      <p className="mt-0.5 text-body-sm leading-6 text-on-surface-variant">{featureDescription(f.slug, f.description)}</p>
                     ) : null}
                   </div>
                   <button
@@ -273,7 +286,7 @@ function ProvisioningProgress({ storeId }: { storeId: string }) {
     <Card>
       <CardHeader title={t("portal.provisioning.title")} />
       <CardBody className="flex flex-col gap-4">
-        <p className="text-body font-medium text-on-surface">{progress.friendlyStatus}</p>
+        <p className="text-body font-medium text-on-surface">{provisioningStatusText(progress.state, progress.friendlyStatus)}</p>
         <Meter label={t("portal.provisioning.progress")} value={progress.percentComplete} />
       </CardBody>
     </Card>

@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/api/problem";
 import { cn } from "@/lib/utils/cn";
 import { ButtonLink } from "../components";
 import { formatMoney } from "../money";
+import { featureName, featureDescription, planName, planDescription } from "../catalogueLabels";
 import { usePublicPlans, useCheckout, type PublicPlan, type CheckoutResponse } from "../api";
 
 type Interval = "monthly" | "yearly";
@@ -124,19 +125,21 @@ export function PortalPlansPage() {
             )}
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-title font-semibold text-on-surface">{p.name}</h3>
+              <h3 className="text-title font-semibold text-on-surface">{planName(p.key, p.name)}</h3>
               {planId === p.id ? <Check className="size-5 text-primary" aria-hidden /> : null}
             </div>
             <p className="text-headline font-semibold text-on-surface">
               {formatMoney(p.basePrice, p.currency)}
               <span className="text-body-sm font-normal text-on-surface-variant"> / {t(`portal.plans.${interval}`)}</span>
             </p>
-            {p.description ? <p className="text-body-sm text-on-surface-variant">{p.description}</p> : null}
+            {planDescription(p.key, p.description) ? (
+              <p className="text-body-sm text-on-surface-variant">{planDescription(p.key, p.description)}</p>
+            ) : null}
             <ul className="mt-1 flex flex-col gap-1.5">
               {p.includedFeatures.map((f) => (
                 <li key={f.featureId} className="flex items-center gap-2 text-body-sm text-on-surface-variant">
                   <Check className="size-4 shrink-0 text-success" aria-hidden />
-                  {f.name}
+                  {featureName(f.slug, f.name)}
                 </li>
               ))}
             </ul>
@@ -162,9 +165,9 @@ export function PortalPlansPage() {
                       onChange={() => toggleFeature(f.featureId)}
                     />
                     <span>
-                      <span className="block text-body-sm font-medium text-on-surface">{f.name}</span>
-                      {f.description ? (
-                        <span className="block text-body-sm text-on-surface-variant">{f.description}</span>
+                      <span className="block text-body-sm font-medium text-on-surface">{featureName(f.slug, f.name)}</span>
+                      {featureDescription(f.slug, f.description) ? (
+                        <span className="block text-body-sm text-on-surface-variant">{featureDescription(f.slug, f.description)}</span>
                       ) : null}
                     </span>
                   </span>
