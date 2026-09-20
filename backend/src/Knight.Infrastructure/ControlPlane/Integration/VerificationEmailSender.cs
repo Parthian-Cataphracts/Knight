@@ -37,6 +37,22 @@ internal sealed class VerificationEmailSender : IVerificationEmailSender
 
     public async Task<bool> SendAsync(string email, string displayName, string verificationToken, CancellationToken cancellationToken)
     {
+        // Fallback when no mail transport is configured: the account is still
+        // created, so rather than leave the registrant with no way to verify,
+        // record the verification link where an operator can retrieve it
+        // (`knightctl logs api`) and pass it on. A real SMTP config replaces this.
+        if (!_email.IsConfigured)
+        {
+            var baseUrl = (_options.DashboardBaseUrl ?? "").TrimEnd('/');
+            var fallbackLink = string.IsNullOrEmpty(baseUrl)
+                ? $"(set PlatformNotifications:DashboardBaseUrl) /verify-email?token={Uri.EscapeDataString(verificationToken)}"
+                : $"{baseUrl}/verify-email?token={Uri.EscapeDataString(verificationToken)}";
+            _logger.LogWarning(
+                "No mail transport is configured; the verification link for {Email} is: {Link}",
+                email, fallbackLink);
+            return false;
+        }
+
         if (!CanSend)
         {
             return false;
