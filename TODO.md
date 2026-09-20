@@ -635,12 +635,10 @@ search, branches — each returns an empty result if the feature is off).
   `locations/` proxy. Verified live on `bojanstore.com/branches` with a sample
   branch (rendered name/city/address/phone/hours/pickup, RTL), then the sample
   was removed so it shows the empty state until the owner adds real branches.
-- [ ] `advanced-search` on `/search` — needs a product-owner call: **replace**
-  the working built-in DB search, or resolve the feature's ranked ids back to
-  full product cards (no `getProducts({ids})` today) so cards keep images/price.
-- [ ] `reviews-ratings` on the product page — the store already renders built-in
-  reviews; decide whether the feature becomes the source of truth (replace the
-  reviews tab + rating breakdown) or is shown as a separate section.
+- [x] `advanced-search` — **retired** (owner's call): the store's built-in search
+  is enough, so the external feature is withdrawn rather than wired in.
+- [x] `reviews-ratings` — **retired** (owner's call): reviews stay internal (the
+  store's built-in), so the external feature is withdrawn.
 - [x] `ai-recommendations` "customers also bought" rail on the product page —
   the service now returns `slug` (added a column + migration), the storefront
   resolves the ranked ids to full product cards and shows them as a rail, distinct
