@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Store, LogOut } from "lucide-react";
 import { apiRequest } from "@/lib/api/client";
 import { useAuthStore } from "@/store/auth";
+import { PortalHelpButton } from "./help/PortalHelpButton";
 
 /**
  * The customer portal shell — deliberately its own layout, not the operations
@@ -41,6 +42,7 @@ export function PortalLayout() {
             {user ? (
               <span className="hidden text-body-sm text-on-surface-variant sm:inline">{user.email}</span>
             ) : null}
+            <PortalHelpButton />
             <button
               type="button"
               onClick={() => void onSignOut()}

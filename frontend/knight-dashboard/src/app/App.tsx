@@ -16,6 +16,7 @@ import { PortalPlansPage } from "@/features/portal/pages/PortalPlansPage";
 import { PortalPayPage } from "@/features/portal/pages/PortalPayPage";
 import { PortalAutoAdminPage } from "@/features/portal/pages/PortalAutoAdminPage";
 import { PortalStorePage } from "@/features/portal/pages/PortalStorePage";
+import { PortalHelpPage } from "@/features/portal/pages/PortalHelpPage";
 import { PortalSignUpPage } from "@/features/portal/pages/PortalSignUpPage";
 import { PortalVerifyPage } from "@/features/portal/pages/PortalVerifyPage";
 import { featureRoutes } from "./routes";
@@ -98,6 +99,7 @@ export function App() {
             <Route path="/portal/pay" element={<PortalPayPage />} />
             <Route path="/portal/auto-admin" element={<PortalAutoAdminPage />} />
             <Route path="/portal/stores/:storeId" element={<PortalStorePage />} />
+            <Route path="/portal/help" element={<PortalHelpPage />} />
 
             {/* Operations dashboard. */}
             {featureRoutes()}
