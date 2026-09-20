@@ -21,7 +21,7 @@
     "",
     "An operator may point at a different file with Catalogue:SeedPath."
   ],
-  "currency": "EUR",
+  "currency": "IRT",
   "$retiredComment": [
     "Orphan identities an earlier catalogue seeded and later superseded:",
     "`analytics` by analytics-core/analytics-reports, `loyalty` by",
@@ -133,7 +133,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 29.0,
+          "amount": 290000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -148,7 +148,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 19.0,
+          "amount": 190000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -163,7 +163,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 19.0,
+          "amount": 190000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -178,7 +178,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 39.0,
+          "amount": 390000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -193,7 +193,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 39.0,
+          "amount": 390000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -208,7 +208,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 29.0,
+          "amount": 290000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -223,7 +223,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 39.0,
+          "amount": 390000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -238,7 +238,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 79.0,
+          "amount": 790000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -260,7 +260,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 149.0,
+          "amount": 1490000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -275,7 +275,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 149.0,
+          "amount": 1490000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -290,7 +290,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 59.0,
+          "amount": 590000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -305,7 +305,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 79.0,
+          "amount": 790000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -320,7 +320,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 99.0,
+          "amount": 990000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -335,7 +335,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 69.0,
+          "amount": 690000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -350,7 +350,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 99.0,
+          "amount": 990000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -386,7 +386,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 12.0,
+          "amount": 120000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -402,7 +402,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 9.0,
+          "amount": 90000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -418,7 +418,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 7.0,
+          "amount": 70000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -434,7 +434,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 24.0,
+          "amount": 240000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -450,7 +450,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 6.0,
+          "amount": 60000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -466,7 +466,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 9.0,
+          "amount": 90000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -482,7 +482,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 9.0,
+          "amount": 90000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -498,7 +498,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 8.0,
+          "amount": 80000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -514,7 +514,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 11.0,
+          "amount": 110000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -530,7 +530,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 15.0,
+          "amount": 150000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -546,7 +546,7 @@
       "publish": true,
       "prices": [
         {
-          "amount": 19.0,
+          "amount": 190000,
           "billingPeriod": "Monthly"
         }
       ]
@@ -562,7 +562,7 @@
       "key": "basic",
       "name": "Basic",
       "description": "A working store: catalogue, orders, payments, shipping and coupons, on shared hosting.",
-      "basePrice": 49.0,
+      "basePrice": 490000,
       "sortOrder": 1,
       "features": [
         {
@@ -617,7 +617,7 @@
       "key": "custom",
       "name": "Custom",
       "description": "Basic plus the optional capabilities the customer chooses, one by one.",
-      "basePrice": 99.0,
+      "basePrice": 990000,
       "sortOrder": 2,
       "features": [
         {
@@ -800,7 +800,7 @@
       "key": "professional",
       "name": "Professional",
       "description": "Every capability KNIGHT sells, on dedicated infrastructure.",
-      "basePrice": 299.0,
+      "basePrice": 2990000,
       "sortOrder": 3,
       "features": [
         {
@@ -962,7 +962,7 @@
       "key": "growth",
       "name": "Growth",
       "description": "The base store plus everything that helps a shop sell more: analytics, advanced merchandising, reviews and segments.",
-      "basePrice": 179.0,
+      "basePrice": 1790000,
       "sortOrder": 4,
       "features": [
         {
@@ -1040,7 +1040,7 @@
       "key": "retention",
       "name": "Retention",
       "description": "The base store plus everything that brings a customer back: loyalty, gift cards, segments and the analytics under them.",
-      "basePrice": 199.0,
+      "basePrice": 1990000,
       "sortOrder": 5,
       "features": [
         {
