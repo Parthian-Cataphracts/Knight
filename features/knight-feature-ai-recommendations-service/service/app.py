@@ -64,8 +64,13 @@ def init_db() -> None:
         )
         c.execute(
             "CREATE TABLE IF NOT EXISTS products (store_id TEXT NOT NULL, product_id TEXT NOT NULL, "
-            "title TEXT NOT NULL DEFAULT '', PRIMARY KEY(store_id, product_id))"
+            "title TEXT NOT NULL DEFAULT '', slug TEXT NOT NULL DEFAULT '', PRIMARY KEY(store_id, product_id))"
         )
+        # Existing service databases predate the slug column; add it once.
+        try:
+            c.execute("ALTER TABLE products ADD COLUMN slug TEXT NOT NULL DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass  # Already there.
         c.commit()
 
 
@@ -199,9 +204,9 @@ async def hook_product(request: Request):
     if pid:
         with closing(connect()) as c:
             c.execute(
-                "INSERT INTO products(store_id,product_id,title) VALUES(?,?,?) "
-                "ON CONFLICT(store_id,product_id) DO UPDATE SET title=excluded.title",
-                (_store(request), pid, str(d.get("title") or "")),
+                "INSERT INTO products(store_id,product_id,title,slug) VALUES(?,?,?,?) "
+                "ON CONFLICT(store_id,product_id) DO UPDATE SET title=excluded.title, slug=excluded.slug",
+                (_store(request), pid, str(d.get("title") or ""), str(d.get("slug") or "")),
             )
             c.commit()
     return JSONResponse({"tracked": True})
@@ -254,9 +259,11 @@ async def hook_other(request: Request):
 
 # --------------------------------------------------------------- recommend
 
-def _title(c: sqlite3.Connection, sid: str, pid: str) -> str:
-    row = c.execute("SELECT title FROM products WHERE store_id=? AND product_id=?", (sid, pid)).fetchone()
-    return row["title"] if row and row["title"] else ""
+def _meta(c: sqlite3.Connection, sid: str, pid: str) -> tuple[str, str]:
+    row = c.execute("SELECT title, slug FROM products WHERE store_id=? AND product_id=?", (sid, pid)).fetchone()
+    if row is None:
+        return "", ""
+    return (row["title"] or ""), (row["slug"] or "")
 
 
 def _popular(c: sqlite3.Connection, sid: str, limit: int, exclude: str | None = None) -> list[dict]:
@@ -268,7 +275,8 @@ def _popular(c: sqlite3.Connection, sid: str, limit: int, exclude: str | None = 
     for r in rows:
         if exclude and r["product_id"] == exclude:
             continue
-        out.append({"productId": r["product_id"], "title": _title(c, sid, r["product_id"]),
+        title, slug = _meta(c, sid, r["product_id"])
+        out.append({"productId": r["product_id"], "title": title, "slug": slug,
                     "score": int(r["purchases"]), "reason": "best-seller"})
         if len(out) >= limit:
             break
@@ -281,8 +289,12 @@ def _also_bought(c: sqlite3.Connection, sid: str, pid: str, limit: int) -> list[
         "WHERE store_id=? AND (a=? OR b=?) ORDER BY count DESC LIMIT ?",
         (pid, sid, pid, pid, limit),
     ).fetchall()
-    return [{"productId": r["other"], "title": _title(c, sid, r["other"]),
-             "score": int(r["count"]), "reason": "bought together"} for r in rows]
+    out = []
+    for r in rows:
+        title, slug = _meta(c, sid, r["other"])
+        out.append({"productId": r["other"], "title": title, "slug": slug,
+                    "score": int(r["count"]), "reason": "bought together"})
+    return out
 
 
 @app.get("/api/v1/public/recommend")
