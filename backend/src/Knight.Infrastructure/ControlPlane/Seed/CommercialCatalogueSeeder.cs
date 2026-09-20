@@ -203,11 +203,22 @@ internal sealed class CommercialCatalogueSeeder : ICommercialCatalogueSeeder
 
             foreach (var price in definition.Prices)
             {
-                // A price already in force is left exactly as it is: rewriting it
-                // would change what past periods are explained by.
-                if (existing.Any(candidate => candidate.PlanId is null && candidate.AppliesAt(now)))
+                var seedPrice = Money.Of(price.Amount, catalogue.Currency);
+                var inForce = existing.FirstOrDefault(candidate => candidate.PlanId is null && candidate.AppliesAt(now));
+
+                // A price already in force at the same amount and currency is left
+                // exactly as it is. If the catalogue has changed it, the old price
+                // is closed as of now and the new one takes over — so the change
+                // propagates on the next seed without rewriting what past periods
+                // were billed at.
+                if (inForce is not null)
                 {
-                    continue;
+                    if (inForce.Price == seedPrice)
+                    {
+                        continue;
+                    }
+
+                    inForce.Close(now);
                 }
 
                 await _prices.AddAsync(
@@ -215,7 +226,7 @@ internal sealed class CommercialCatalogueSeeder : ICommercialCatalogueSeeder
                         Guid.NewGuid(),
                         featureId,
                         planId: null,
-                        Money.Of(price.Amount, catalogue.Currency),
+                        seedPrice,
                         Enum.Parse<BillingPeriod>(price.BillingPeriod, ignoreCase: true),
                         now),
                     cancellationToken);
@@ -249,6 +260,19 @@ internal sealed class CommercialCatalogueSeeder : ICommercialCatalogueSeeder
 
                 plan.UpdateMetadata(definition.Name, definition.Description, definition.SortOrder, now);
                 await _plans.AddAsync(plan, cancellationToken);
+            }
+            else
+            {
+                // Keep an existing plan's base price in step with the catalogue, so
+                // a repriced plan (e.g. the switch to Toman) propagates on the next
+                // seed rather than needing a manual database change.
+                var seedBase = Money.Of(definition.BasePrice, catalogue.Currency);
+                if (plan.BasePrice != seedBase)
+                {
+                    plan.Reprice(seedBase, now);
+                }
+
+                plan.UpdateMetadata(definition.Name, definition.Description, definition.SortOrder, now);
             }
 
             foreach (var entry in definition.Features)
