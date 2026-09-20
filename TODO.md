@@ -778,12 +778,22 @@ sees. What was delivered and what is still missing:
   feature (کاتالوگ محصولات، پرداخت‌ها، ویترین فروشگاه، مدیریت سفارش، …) render Persian.
 - [x] **Stray English strings fixed**: provisioning status is Persian off the state
   (`provisioning.ts`), and the "Automatic Admin" card + button are Persian.
-- [ ] **Prices shown in € (Euro)** — likely should be Toman/Rial for this market
-  (owner decision).
-- [ ] **Plan cards have no explicit "انتخاب این پلن" button** — the whole card is
-  one click target with no call-to-action, and the long feature lists push the
-  "ادامه به پرداخت" bar far below the fold.
-- [ ] **Header says "فروشگاه شما" even before any store exists** (minor).
+- [x] **Prices are now in Toman.** The catalogue is priced in Toman (owner chose
+  ×10,000 from the prior EUR figures): the committed seed carries the Toman values
+  with currency `IRT`, and the live DB was converted in place (the seeder inserts
+  prices but does not update existing ones). `formatMoney` renders `IRT` as
+  «تومان». **Verified live**: پایه ۴۹۰٬۰۰۰ / دلخواه ۹۹۰٬۰۰۰ / حرفه‌ای ۲٬۹۹۰٬۰۰۰
+  تومان/ماه, and a full checkout→pay→Active ran with the Toman currency.
+- [x] **Plan cards have an explicit «انتخاب این پلن» / «انتخاب شد» button**, and the
+  total/checkout bar is sticky at the bottom so it is always reachable past long
+  feature lists.
+- [x] **Header reads «پنل کاربری من»** (was «فروشگاه شما»), correct before a store
+  exists.
+
+> Follow-up worth noting: the catalogue seeder is insert-only for prices, so a
+> price change in the seed does not propagate to an already-seeded database on
+> `knightctl update` — it has to be applied to the DB directly (as done here).
+> Making the seeder reconcile prices in place would remove that manual step.
 
 ---
 
