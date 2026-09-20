@@ -180,12 +180,32 @@ internal sealed class BaseFeatureInstaller : IBaseFeatureInstaller
 
         var pinned = await ResolvePinnedRangesAsync(store.CustomerId, cancellationToken);
 
+        // Base-store Features are shipped in the store image, present on every
+        // store and never delivered (docs/adr/0024-base-store-versus-optional-feature.md);
+        // they carry no published version to install. Only optional Features are
+        // delivered here, so a base Feature in the entitlement set counts as
+        // already provided by the image rather than a failed install.
+        var entitledIds = entitled.Select(item => item.FeatureId).ToList();
+        var optionalIds = (await _context.Features
+                .AsNoTracking()
+                .Where(feature => entitledIds.Contains(feature.Id) && feature.IsOptional)
+                .Select(feature => feature.Id)
+                .ToListAsync(cancellationToken))
+            .ToHashSet();
+
         var completed = 0;
         var failed = 0;
         var details = new List<string>();
 
         foreach (var feature in entitled)
         {
+            // Provided by the base image — nothing to deliver.
+            if (!optionalIds.Contains(feature.FeatureId))
+            {
+                completed++;
+                continue;
+            }
+
             var installation = await _context.FeatureInstallations
                 .AsNoTracking()
                 .FirstOrDefaultAsync(
