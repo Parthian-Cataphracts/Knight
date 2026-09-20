@@ -759,17 +759,25 @@ sees. What was delivered and what is still missing:
   `/api/v1`→`C:/Program Files/Git/...` path into the bundle, so login/session
   failed. Rebuilt with the right API base and redeployed. (See the deploy note in
   the dashboard build memory.)
-- [ ] **Self-service store never provisions — the biggest gap.** After paying, the
-  store sits at "در حال راه‌اندازی ۰٪" with "Your store needs a quick manual step
-  from our team" and a placeholder `store-…​.stores.knight.local` domain. A paying
-  self-service merchant gets no working store. Either wire real automatic
-  provisioning or make the "manual step" honest and visible (and translate it).
-- [ ] **Feature & plan names/descriptions are English** in the Persian UI
-  (Catalogue, Payments, Storefront, AI Recommendations, "A working store: …"). They
-  come from the catalogue seed; needs Persian names/descriptions (or an i18n layer
-  over the catalogue).
-- [ ] **Stray English strings**: the provisioning "manual step" message and the
-  "Automatic Admin" card copy ("Generate and publish content…") are English.
+- [x] **Self-service provisioning now completes end to end.** The base-features
+  step was failing every store at "0 of 7 installed" because base Features
+  (catalogue, orders, payments, storefront, …) have no published version — by
+  design they ship in the store image and are never delivered (ADR 0024). Fixed:
+  `BaseFeatureInstaller` now treats a base (non-optional) Feature as image-provided
+  and only delivers optional ones. With `Provisioning:SimulateInfrastructure=true`
+  on this demo deployment, a fresh signup now runs all 9 steps to **Active/آماده**.
+  **Verified live**: register → verify → pay → store reached Active/Succeeded, and
+  the merchant sees «آماده» in the portal. Honesty kept: a store on a non-public
+  `.local` domain is shown as a preview with a note, not dead admin links. (Real
+  public-domain hosting for arbitrary signups is still the deferred product-owner
+  decision; this makes the pipeline complete and the demo walkable.)
+- [x] **Feature & plan names/descriptions now Persian** in the portal. Localised by
+  slug/key at the display layer (`catalogueLabels.ts`), falling back to the API
+  text, so no backend reseed was needed. Applied on the plans page, the store page
+  and the home. **Verified live**: پایه/دلخواه/حرفه‌ای/رشد/نگه‌داشت and every
+  feature (کاتالوگ محصولات، پرداخت‌ها، ویترین فروشگاه، مدیریت سفارش، …) render Persian.
+- [x] **Stray English strings fixed**: provisioning status is Persian off the state
+  (`provisioning.ts`), and the "Automatic Admin" card + button are Persian.
 - [ ] **Prices shown in € (Euro)** — likely should be Toman/Rial for this market
   (owner decision).
 - [ ] **Plan cards have no explicit "انتخاب این پلن" button** — the whole card is
