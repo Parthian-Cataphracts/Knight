@@ -27,8 +27,6 @@ export function HelpPage() {
           {[
             { to: "/customers", label: "مشتریان (صفحهٔ هر مشتری)" },
             { to: "/customers", label: "فیچرهای هر مشتری (مجوزها)" },
-            { to: "/portal", label: "پورتال مشتری" },
-            { to: "/portal/plans", label: "خرید پلن/فیچر (پورتال)" },
             { to: "/features", label: "کاتالوگ فیچرها" },
             { to: "/installations", label: "نصب فیچر روی فروشگاه" },
             { to: "/plans", label: "پلن‌ها" },
@@ -45,7 +43,13 @@ export function HelpPage() {
         </div>
         <p className="mt-3 text-body-sm text-on-surface-variant">
           «فیچرهای هر مشتری» داخل صفحهٔ همان مشتری، بخش «مجوزهای فیچر» است. فیچرهای
-          نصب‌شده در خودِ فروشگاه هم در پنل فروشگاه → «افزونه‌ها» دیده می‌شوند.
+          نصب‌شده در خودِ فروشگاه هم در پنل فروشگاه ← «افزونه‌ها» دیده می‌شوند.
+        </p>
+        <p className="mt-2 text-body-sm text-on-surface-variant">
+          <b>پورتال مشتری</b> (خانه/اشتراک/خرید فیچر/ادمین‌خودکار) پنلِ جداگانهٔ
+          خودِ صاحب کسب‌وکار است و فقط با <b>حساب مشتری</b> (مثل admin@bojan.com)
+          در همین آدرس <code>/portal</code> باز می‌شود؛ حساب اپراتور به داشبورد
+          هدایت می‌شود. این طراحی است، نه خطا.
         </p>
       </section>
 
