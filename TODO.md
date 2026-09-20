@@ -746,6 +746,37 @@ All fixed and verified:
   seed `retired` list into a real feature on three plans; `reviews-ratings` and
   `advanced-search` retired at catalogue level (reviews/search stay internal).
 
+### 34F — New-merchant journey, walked in a real browser (findings)
+
+Signed up as a brand-new merchant on the live site and went register → verify →
+login → choose plan → pay → subscription active, watching everything a customer
+sees. What was delivered and what is still missing:
+
+- [x] **Portal in-product help** (the owner's explicit ask): a header "?" opens the
+  current page's plain-language guide, `/portal/help` lists them all with a link to
+  each section — mirrors the operator dashboard. Built, deployed, browser-verified.
+- [x] **Deploy bug fixed**: a prod build had baked `localhost:5008` / a Git-Bash
+  `/api/v1`→`C:/Program Files/Git/...` path into the bundle, so login/session
+  failed. Rebuilt with the right API base and redeployed. (See the deploy note in
+  the dashboard build memory.)
+- [ ] **Self-service store never provisions — the biggest gap.** After paying, the
+  store sits at "در حال راه‌اندازی ۰٪" with "Your store needs a quick manual step
+  from our team" and a placeholder `store-…​.stores.knight.local` domain. A paying
+  self-service merchant gets no working store. Either wire real automatic
+  provisioning or make the "manual step" honest and visible (and translate it).
+- [ ] **Feature & plan names/descriptions are English** in the Persian UI
+  (Catalogue, Payments, Storefront, AI Recommendations, "A working store: …"). They
+  come from the catalogue seed; needs Persian names/descriptions (or an i18n layer
+  over the catalogue).
+- [ ] **Stray English strings**: the provisioning "manual step" message and the
+  "Automatic Admin" card copy ("Generate and publish content…") are English.
+- [ ] **Prices shown in € (Euro)** — likely should be Toman/Rial for this market
+  (owner decision).
+- [ ] **Plan cards have no explicit "انتخاب این پلن" button** — the whole card is
+  one click target with no call-to-action, and the long feature lists push the
+  "ادامه به پرداخت" bar far below the fold.
+- [ ] **Header says "فروشگاه شما" even before any store exists** (minor).
+
 ---
 
 ## Already implemented (inherited, before the pivot)
