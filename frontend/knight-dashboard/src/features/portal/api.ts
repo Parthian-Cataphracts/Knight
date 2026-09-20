@@ -133,6 +133,25 @@ export function useCheckout() {
   });
 }
 
+/**
+ * The test payment gateway's "complete payment" action. The simulated provider
+ * (no real card) settles by us posting its webhook; the real provider replaces
+ * this with its own hosted page. `succeed: false` reports a failed payment.
+ */
+export function useSimulatedPay() {
+  return useMutation({
+    mutationFn: (args: { session: string; succeed: boolean }) =>
+      apiRequest<{ status: string }>("/billing/webhooks/simulated", {
+        method: "POST",
+        body: {
+          type: args.succeed ? "payment_succeeded" : "payment_failed",
+          providerSessionId: args.session,
+          providerTransactionId: `sim_tx_${Math.random().toString(36).slice(2, 12)}`,
+        },
+      }),
+  });
+}
+
 export function useCancelSubscription() {
   return useMutation({
     mutationFn: () => apiRequest<void>("/me/subscription/cancel", { method: "POST" }),

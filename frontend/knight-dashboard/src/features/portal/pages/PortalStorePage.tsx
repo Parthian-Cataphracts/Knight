@@ -159,10 +159,36 @@ function FeatureManager({
         <p className="text-body-sm text-on-surface-variant">
           {t(
             "portal.store.featuresHint",
-            "هر فیچر را روشن/خاموش کنید و «اعمال و پرداخت» را بزنید. بعد از پرداخت، فیچر روی فروشگاه شما فعال/غیرفعال می‌شود.",
+            "فیچرهای «شاملِ پلن» همیشه فعال‌اند. فیچرهای «اختیاری» را روشن/خاموش کنید و «اعمال و پرداخت» را بزنید.",
           )}
         </p>
 
+        {plan.includedFeatures.length > 0 ? (
+          <div>
+            <p className="mb-2 text-body-sm font-semibold text-on-surface">
+              {t("portal.store.included", "شاملِ پلن {{plan}} (همیشه فعال)", { plan: plan.name })}
+            </p>
+            <ul className="flex flex-col divide-y divide-outline-variant rounded-lg border border-outline-variant">
+              {plan.includedFeatures.map((f) => (
+                <li key={f.featureId} className="flex items-center justify-between gap-3 p-3">
+                  <div className="min-w-0">
+                    <p className="text-body-sm font-medium text-on-surface">{f.name}</p>
+                    {f.description ? (
+                      <p className="mt-0.5 text-body-sm leading-6 text-on-surface-variant">{f.description}</p>
+                    ) : null}
+                  </div>
+                  <StatusChip tone="success">
+                    <CheckCircle2 className="size-3.5" aria-hidden /> {t("portal.store.on", "فعال")}
+                  </StatusChip>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <p className="text-body-sm font-semibold text-on-surface">
+          {t("portal.store.optional", "فیچرهای اختیاری")}
+        </p>
         {plan.optionalFeatures.length === 0 ? (
           <p className="text-body-sm text-on-surface-variant">
             {t("portal.store.noOptional", "برای این پلن فیچر اختیاری‌ای تعریف نشده.")}

@@ -13,6 +13,7 @@ import { ActivateAccountPage } from "@/features/auth/pages/ActivateAccountPage";
 import { PortalLayout } from "@/features/portal/PortalLayout";
 import { PortalHomePage } from "@/features/portal/pages/PortalHomePage";
 import { PortalPlansPage } from "@/features/portal/pages/PortalPlansPage";
+import { PortalPayPage } from "@/features/portal/pages/PortalPayPage";
 import { PortalAutoAdminPage } from "@/features/portal/pages/PortalAutoAdminPage";
 import { PortalStorePage } from "@/features/portal/pages/PortalStorePage";
 import { PortalSignUpPage } from "@/features/portal/pages/PortalSignUpPage";
@@ -94,6 +95,7 @@ export function App() {
             {/* Customer self-service portal. */}
             <Route path="/portal" element={<PortalHomePage />} />
             <Route path="/portal/plans" element={<PortalPlansPage />} />
+            <Route path="/portal/pay" element={<PortalPayPage />} />
             <Route path="/portal/auto-admin" element={<PortalAutoAdminPage />} />
             <Route path="/portal/stores/:storeId" element={<PortalStorePage />} />
 
