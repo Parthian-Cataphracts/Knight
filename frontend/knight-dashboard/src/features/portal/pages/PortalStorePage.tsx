@@ -11,6 +11,7 @@ import { ApiError } from "@/lib/api/problem";
 import { ButtonLink } from "../components";
 import { featureName, featureDescription, planName } from "../catalogueLabels";
 import { provisioningStatusText, isPublicDomain } from "../provisioning";
+import { formatMoney } from "../money";
 import {
   useMyStores,
   useMySubscription,
@@ -245,7 +246,7 @@ function FeatureManager({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-body-sm text-on-surface-variant">
             {t("portal.store.monthlyEstimate", "برآورد ماهانه")}:{" "}
-            <span className="font-semibold text-on-surface">{monthly.toLocaleString("fa-IR")}</span>
+            <span className="font-semibold text-on-surface">{formatMoney(monthly, plan.currency)}</span>
           </p>
           <Button onClick={apply} loading={checkout.isPending} disabled={!changed}>
             {t("portal.store.applyAndPay", "اعمال و پرداخت")}

@@ -113,38 +113,64 @@ export function PortalPlansPage() {
         ))}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {list.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => choosePlan(p)}
-            className={cn(
-              "card-surface flex flex-col gap-3 p-5 text-start transition-colors",
-              planId === p.id ? "ring-2 ring-primary" : "hover:bg-surface-high",
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="text-title font-semibold text-on-surface">{planName(p.key, p.name)}</h3>
-              {planId === p.id ? <Check className="size-5 text-primary" aria-hidden /> : null}
+      <div className="grid items-start gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {list.map((p) => {
+          const isSelected = planId === p.id;
+          return (
+            <div
+              key={p.id}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isSelected}
+              onClick={() => choosePlan(p)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  choosePlan(p);
+                }
+              }}
+              className={cn(
+                "card-surface flex cursor-pointer flex-col gap-3 p-5 text-start transition-colors",
+                isSelected ? "ring-2 ring-primary" : "hover:bg-surface-high",
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-title font-semibold text-on-surface">{planName(p.key, p.name)}</h3>
+                {isSelected ? <Check className="size-5 text-primary" aria-hidden /> : null}
+              </div>
+              <p className="text-headline font-semibold text-on-surface">
+                {formatMoney(p.basePrice, p.currency)}
+                <span className="text-body-sm font-normal text-on-surface-variant"> / {t(`portal.plans.${interval}`)}</span>
+              </p>
+              {planDescription(p.key, p.description) ? (
+                <p className="text-body-sm text-on-surface-variant">{planDescription(p.key, p.description)}</p>
+              ) : null}
+              <ul className="mt-1 flex flex-col gap-1.5">
+                {p.includedFeatures.map((f) => (
+                  <li key={f.featureId} className="flex items-center gap-2 text-body-sm text-on-surface-variant">
+                    <Check className="size-4 shrink-0 text-success" aria-hidden />
+                    {featureName(f.slug, f.name)}
+                  </li>
+                ))}
+              </ul>
+              <span
+                className={cn(
+                  "mt-2 inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 text-body-sm font-medium transition-colors",
+                  isSelected ? "bg-primary text-on-primary" : "bg-surface-high text-on-surface",
+                )}
+              >
+                {isSelected ? (
+                  <>
+                    <Check className="size-4" aria-hidden />
+                    {t("portal.plans.selected", "انتخاب شد")}
+                  </>
+                ) : (
+                  t("portal.plans.select", "انتخاب این پلن")
+                )}
+              </span>
             </div>
-            <p className="text-headline font-semibold text-on-surface">
-              {formatMoney(p.basePrice, p.currency)}
-              <span className="text-body-sm font-normal text-on-surface-variant"> / {t(`portal.plans.${interval}`)}</span>
-            </p>
-            {planDescription(p.key, p.description) ? (
-              <p className="text-body-sm text-on-surface-variant">{planDescription(p.key, p.description)}</p>
-            ) : null}
-            <ul className="mt-1 flex flex-col gap-1.5">
-              {p.includedFeatures.map((f) => (
-                <li key={f.featureId} className="flex items-center gap-2 text-body-sm text-on-surface-variant">
-                  <Check className="size-4 shrink-0 text-success" aria-hidden />
-                  {featureName(f.slug, f.name)}
-                </li>
-              ))}
-            </ul>
-          </button>
-        ))}
+          );
+        })}
       </div>
 
       {plan && plan.optionalFeatures.length > 0 ? (
@@ -182,9 +208,11 @@ export function PortalPlansPage() {
       ) : null}
 
       {plan ? (
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg bg-surface-low px-5 py-4">
+        <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-outline-variant bg-surface-low px-5 py-4 shadow-lg">
           <div>
-            <p className="text-body-sm text-on-surface-variant">{t("portal.plans.total")}</p>
+            <p className="text-body-sm text-on-surface-variant">
+              {t("portal.plans.total")} — {planName(plan.key, plan.name)}
+            </p>
             <p className="text-headline font-semibold text-on-surface">{formatMoney(previewTotal, plan.currency)}</p>
           </div>
           <Button onClick={onCheckout} loading={checkout.isPending}>
