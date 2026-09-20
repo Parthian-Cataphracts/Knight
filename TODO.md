@@ -712,6 +712,40 @@ language), under [`docs/usage/`](usage/):
     Built + deployed; `/help` serves (login-gated).
   - Each help entry links to its own section, per the owner's request.
 
+### 34E — Self-service made usable end to end (Persian, portal, payment, email)
+
+The owner drove the store panel from a merchant's seat and found it unusable:
+English-only, no way to build/manage a store or add features from the portal, a
+"local error" at payment, and a signup that dead-ended with no mail transport.
+All fixed and verified:
+
+- [x] **Persian is the KNIGHT dashboard's default language again.** A full `fa.json`
+  (~898 keys), `SUPPORTED_LOCALES=["fa","en"]`, RTL wired through `document.dir`,
+  and the store locale defaulting to `fa`. Tests pinned to English so they do not
+  drift. **Verified live**: `knight.abolfazltafakori.com` renders the login,
+  sign-up and portal in Persian/RTL. (Corrects the Phase-0 "English-only UI" note
+  above, which the owner reversed.)
+- [x] **Manage the store from inside the portal.** `/portal/stores/:id` is a real
+  management page — status, a way into the store's own admin panel, and add/remove
+  of the store's optional features (included-in-plan features shown always-on),
+  priced live, straight to checkout. Provisioning progress shows only while a store
+  is still coming up.
+- [x] **Working test payment.** Checkout now sends the merchant to `/portal/pay`
+  (config `PlatformBilling:CheckoutBaseUrl`), which settles by posting the
+  simulated provider's webhook. **Verified end to end**: checkout → pay →
+  subscription active, features applied. (Fixes the "local error" — the old URL
+  pointed at a non-existent `checkout.simulated.local`.)
+- [x] **Signup no longer dead-ends without SMTP.** When no mail transport is
+  configured the verification link is logged for an operator to pass on
+  (`VerificationEmailSender`). **Verified**: register → 200 verify (link from the
+  log) → login succeeds. Real email still needs owner-supplied SMTP creds.
+- [x] **Shopper-account help** (`bojanstore.com/account`): an in-account help card
+  with an inline "how to use your account" guide and links to FAQ / buying guide /
+  support, plus a menu entry. Typecheck-clean, pushed.
+- [x] **Catalogue identities reconciled**: `ai-recommendations` moved out of the
+  seed `retired` list into a real feature on three plans; `reviews-ratings` and
+  `advanced-search` retired at catalogue level (reviews/search stay internal).
+
 ---
 
 ## Already implemented (inherited, before the pivot)
