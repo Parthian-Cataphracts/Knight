@@ -61,6 +61,8 @@ export function PortalHomePage() {
           <AutoAdminCard />
         </>
       )}
+
+      <PortalGuide />
     </div>
   );
 }
@@ -144,14 +146,25 @@ function StoreCard({ store }: { store: MeStore }) {
         </div>
 
         {store.isReady ? (
-          <div className="flex flex-wrap gap-2">
-            <ButtonLink href={`https://${store.primaryDomain}`} target="_blank" rel="noreferrer">
-              {t("portal.store.open")}
-              <ArrowRight className="size-4 rtl:-scale-x-100" aria-hidden />
-            </ButtonLink>
-            <ButtonLink variant="outline" to={`/portal/stores/${store.id}`}>
-              {t("portal.store.details")}
-            </ButtonLink>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap gap-2">
+              <ButtonLink href={`https://admin.${store.primaryDomain}`} target="_blank" rel="noreferrer">
+                {t("portal.store.manage", "مدیریت فروشگاه")}
+                <ArrowRight className="size-4 rtl:-scale-x-100" aria-hidden />
+              </ButtonLink>
+              <ButtonLink variant="outline" href={`https://${store.primaryDomain}`} target="_blank" rel="noreferrer">
+                {t("portal.store.open")}
+              </ButtonLink>
+              <ButtonLink variant="outline" to={`/portal/stores/${store.id}`}>
+                {t("portal.store.details")}
+              </ButtonLink>
+            </div>
+            <p className="text-body-sm text-on-surface-variant">
+              {t(
+                "portal.store.manageHint",
+                "محصولات، سفارش‌ها و فیچرهای خریداری‌شده را در «پنل مدیریت فروشگاه» (بخش «افزونه‌ها») مدیریت می‌کنید.",
+              )}
+            </p>
           </div>
         ) : progress ? (
           <div className="flex flex-col gap-2">
@@ -163,6 +176,42 @@ function StoreCard({ store }: { store: MeStore }) {
         ) : (
           <LoadingBlock rows={2} />
         )}
+      </CardBody>
+    </Card>
+  );
+}
+
+/** A plain-language guide answering the common "where do I…?" questions, right
+ *  on the portal home so a shop owner is never lost. */
+function PortalGuide() {
+  const rows: { q: string; a: string }[] = [
+    {
+      q: "این پورتال چیست؟",
+      a: "پنلِ خودِ شما به‌عنوان صاحب کسب‌وکار: اشتراک، خرید فیچر، ادمین خودکار و دسترسی به فروشگاه‌تان.",
+    },
+    {
+      q: "فروشگاه جدید چطور بسازم؟",
+      a: "هر حساب یک فروشگاه دارد که هنگام ثبت‌نام ساخته می‌شود. برای فروشگاه دیگر، حساب جدید در صفحهٔ ثبت‌نام (/signup) بسازید.",
+    },
+    {
+      q: "چطور فیچر بخرم/اضافه کنم و پرداخت کنم؟",
+      a: "از «پلن‌ها» (/portal/plans) پلن و فیچرهای دلخواه را انتخاب کنید و «ادامه به پرداخت» را بزنید؛ پرداخت همان‌جاست.",
+    },
+    {
+      q: "محصولات/سفارش‌ها/فیچرهای خریداری‌شده را کجا مدیریت کنم؟",
+      a: "در «پنل مدیریت فروشگاه» (دکمهٔ بالا). همهٔ فیچرها آن‌جا در بخش «افزونه‌ها» است — این پورتال فقط ادمین‌خودکار را مستقیم نشان می‌دهد.",
+    },
+  ];
+  return (
+    <Card>
+      <CardHeader title="راهنما — سؤال‌های پرتکرار" />
+      <CardBody className="flex flex-col gap-3">
+        {rows.map((r) => (
+          <div key={r.q}>
+            <p className="text-body-sm font-semibold text-on-surface">{r.q}</p>
+            <p className="mt-0.5 text-body-sm leading-6 text-on-surface-variant">{r.a}</p>
+          </div>
+        ))}
       </CardBody>
     </Card>
   );
