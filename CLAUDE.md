@@ -4,6 +4,18 @@ These rules apply to **every** agent and every session, without being restated
 in each prompt. Read them before doing anything else, together with
 [`docs/README.md`](docs/README.md) and [`TODO.md`](TODO.md).
 
+## 0. Multi-agent / multi-tool coordination — read [`AGENTS.md`](AGENTS.md) first
+
+This repo may be worked on by several AI tools and models at once (Claude Code,
+opencode, Antigravity, Hermes, …). The shared, tool-agnostic contract is
+[`AGENTS.md`](AGENTS.md); the live state is in [`.agent/`](.agent/). Before any work:
+read `.agent/STATE.md` and `.agent/tasks.md`. Two rules make concurrency safe and are
+mandatory here: **(a) never work directly on `main` — each agent takes its own branch
+or worktree and claims its task on the board with a lease; (b) merge to `main` only
+after a review pass** (a strong model / `/code-review` reading the diff), because
+passing tests prove it runs, not that it is good. Update `.agent/` + docs in the same
+commit as any change.
+
 ## 1. Leave no trace of AI authorship — mandatory
 
 Nothing in this repository may indicate that an AI agent worked on it. This
