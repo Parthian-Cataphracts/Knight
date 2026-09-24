@@ -1,0 +1,1 @@
+{"nodes": [{"id": "infrastructure_iac_ansible_roles_knight_handlers_main", "label": "Ansible knight role handlers", "file_type": "code", "source_file": "infrastructure/iac/ansible/roles/knight/handlers/main.yml", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

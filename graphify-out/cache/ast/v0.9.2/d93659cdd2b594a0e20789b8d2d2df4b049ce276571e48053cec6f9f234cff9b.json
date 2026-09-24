@@ -1,0 +1,1 @@
+{"nodes": [{"id": "pkg_knight_agent", "label": "knight-agent", "file_type": "code", "type": "package", "ecosystem": "python", "source_file": "agent/pyproject.toml", "source_location": "L1", "version": "1.0.0"}], "edges": []}
